@@ -24,6 +24,7 @@ state/
 *.csv
 *.xlsx
 *.log
+backend/data/stock_cache.db
 
 # IDEs
 .vscode/

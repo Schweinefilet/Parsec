@@ -1,2 +1,0 @@
-# Ignore large database cache file
-backend/data/stock_cache.db
