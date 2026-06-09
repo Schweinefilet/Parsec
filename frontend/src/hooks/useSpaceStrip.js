@@ -6,7 +6,6 @@ const FALLBACKS = {
     iss_lat:   '51.6°N',
     iss_lon:   '0.0°E',
     neo_week:  '~25',
-    apod:      'Astronomy Pic of the Day',
 };
 
 const INITIAL_CELLS = [
@@ -16,7 +15,6 @@ const INITIAL_CELLS = [
     { key: 'iss_speed',  label: 'ISS SPEED',  value: '7.66',   unit: 'km/s'  },
     { key: 'neo_week',   label: 'NEO/WEEK',   value: FALLBACKS.neo_week, unit: 'objects' },
     { key: 'moon_phase', label: 'MOON',       value: moonPhaseName(moonPhaseDays())       },
-    { key: 'apod',       label: 'APOD',       value: FALLBACKS.apod    },
     { key: 'sol_wind',   label: 'SOL WIND',   value: '~450',   unit: 'km/s'  },
 ];
 
@@ -91,34 +89,11 @@ export function useSpaceStrip() {
         }
     };
 
-    const fetchApod = async () => {
-        const today = todayISO();
-        const cacheKey = `parsec-apod-${today}`;
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-            updateCell('apod', cached);
-            return;
-        }
-        try {
-            const d = await fetchJSON('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
-            console.log('[SpaceStrip] APOD raw title:', d.title);
-            const title = typeof d.title === 'string' ? d.title : null;
-            if (title) {
-                const display = title.length > 32 ? title.slice(0, 30) + '…' : title;
-                updateCell('apod', display);
-                try { localStorage.setItem(cacheKey, display); } catch {} // eslint-disable-line no-empty
-            }
-        } catch (err) {
-            console.warn('[SpaceStrip] APOD fetch failed:', err.message, '— using fallback');
-        }
-    };
-
     const updateMoon = () => updateCell('moon_phase', moonPhaseName(moonPhaseDays()));
 
     useEffect(() => {
         fetchIss();
         fetchNeos();
-        fetchApod();
         updateMoon();
 
         const issInterval  = setInterval(fetchIss,   10_000);

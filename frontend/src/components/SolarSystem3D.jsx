@@ -1,8 +1,7 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { ChevronLeft } from 'lucide-react';
 
 const PLANETS = [
     { id: 'mercury', name: 'Mercury', r: 2,   orbitR: 48,  color: '#b5b5b5' },
@@ -38,6 +37,19 @@ const PLANET_PBR = {
     Uranus:  { roughness: 0.25, metalness: 0.05 },
     Neptune: { roughness: 0.20, metalness: 0.05 },
     Pluto:   { roughness: 0.95, metalness: 0.00 },
+};
+
+// Axial tilt in degrees (angle between rotation axis and ecliptic normal).
+// Saturn is intentionally omitted — its existing tilt + rings look great.
+const AXIAL_TILT_DEG = {
+    Mercury: 0.034,
+    Venus:   177.4,
+    Earth:   23.44,
+    Mars:    25.19,
+    Jupiter: 3.13,
+    Uranus:  97.77,
+    Neptune: 28.32,
+    Pluto:   122.53,
 };
 
 const ORBIT_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
@@ -138,15 +150,22 @@ function buildOrbitTube(points) {
     return new THREE.TubeGeometry(curve, 256, ORBIT_TUBE_RADIUS, 8, true);
 }
 
+// Persists across React Router remounts so the exit animation survives navigation
+let _exitState = { active: false, cameraPos: null, targetPos: null };
+
 const SolarSystem3D = ({ focusedId }) => {
     const mountRef  = useRef(null);
     const navigate  = useNavigate();
     const [hoverLabel, setHoverLabel] = useState(null);
 
     const focusedIdRef = useRef(focusedId);
-    useEffect(() => {
+    useLayoutEffect(() => {
         focusedIdRef.current = focusedId;
     }, [focusedId]);
+
+    // navigateRef keeps navigate stable so the main effect never re-runs on navigation
+    const navigateRef = useRef(navigate);
+    useEffect(() => { navigateRef.current = navigate; }, [navigate]);
 
     useEffect(() => {
         const mount = mountRef.current;
@@ -160,8 +179,8 @@ const SolarSystem3D = ({ focusedId }) => {
         const scene = new THREE.Scene();
 
         // ── Camera ─────────────────────────────────────────────────────────────
-        const camera = new THREE.PerspectiveCamera(45, w / h, 1, 5000);
-        camera.position.set(0, 280, 480);
+        const camera = new THREE.PerspectiveCamera(45, w / h, 1, 10000);
+        camera.position.set(-70, 130, 480);
         camera.lookAt(0, 0, 0);
 
         // ── Renderer ───────────────────────────────────────────────────────────
@@ -185,6 +204,35 @@ const SolarSystem3D = ({ focusedId }) => {
         let isInteracting = false;
         controls.addEventListener('start', () => { isInteracting = true; });
         controls.addEventListener('end', () => { isInteracting = false; });
+
+        // ── Exit-animation state (declared early so restore can pre-set them) ──
+        let prevFocusedId  = null;
+        let exitPhase      = 0; // 0=normal  1=pull-back  2=fly-to-sun
+        let exitFrames     = 0;
+        let hasInitialZoom = false;
+        let targetAutoRotateSpeed = 0.22; // smoothly updated on hover
+
+        // ── Focus zoom-in animation state ──────────────────────────────────────
+        let focusAnimating   = false;
+        let focusProgress    = 0;
+        const focusStartCamPos  = new THREE.Vector3();
+        const focusEndCamPos    = new THREE.Vector3();
+        const focusStartTarget  = new THREE.Vector3();
+        const _focusLookTarget  = new THREE.Vector3();
+        // Camera position captured at click time — guarantees start pos regardless of rAF timing
+        let pendingFocusCamPos = null;
+
+        // If React Router remounted this component while a planet was focused
+        // (path="*" usually prevents this but isn't guaranteed), restore the camera
+        // position so the exit animation plays from the correct starting point.
+        if (!focusedId && _exitState.active) {
+            camera.position.copy(_exitState.cameraPos);
+            controls.target.copy(_exitState.targetPos);
+            exitPhase      = 1;
+            exitFrames     = 0;
+            prevFocusedId  = '__restored__'; // truthy — lets phase detection work correctly
+            _exitState.active = false;
+        }
 
         // ── Lights ─────────────────────────────────────────────────────────────
         const mainLight = new THREE.PointLight(0xffffff, 3.2, 0, 0); // decay=0: no distance falloff
@@ -233,13 +281,31 @@ const SolarSystem3D = ({ focusedId }) => {
         });
         scene.add(new THREE.Mesh(coronaGeo, coronaMat));
 
+        // ── Milky Way skysphere ────────────────────────────────────────────────
+        const skyGeo = new THREE.SphereGeometry(8000, 64, 64);
+        const skyTex = loader.load('/textures/milky_way.jpg');
+        textures.push(skyTex);
+        const skyMat = new THREE.MeshBasicMaterial({
+            map:         skyTex,
+            side:        THREE.BackSide,
+            depthWrite:  false,
+            transparent: true,
+            opacity:     0.5,
+        });
+        const skySphere = new THREE.Mesh(skyGeo, skyMat);
+        scene.add(skySphere);
+
         // ── Resource tracking (for cleanup) ────────────────────────────────────
-        const geos     = [sunGeo, coronaGeo];
-        const mats     = [sunMat, coronaMat];
+        const geos     = [sunGeo, coronaGeo, skyGeo];
+        const mats     = [sunMat, coronaMat, skyMat];
 
         const planetMeshes  = [sunMesh];   // raycaster targets
         const planetGroups  = [];   // for position refresh
         const satelliteGroups = []; // moons and dwarf-planet companions
+
+        // Earth day/night shader references — set once textures load, used in rAF loop
+        let earthMesh      = null;
+        let earthShaderMat = null;
 
         // ── Planets ────────────────────────────────────────────────────────────
         PLANETS.forEach(planet => {
@@ -343,25 +409,80 @@ const SolarSystem3D = ({ focusedId }) => {
             group.add(mesh);
 
             // Texture (async)
-            loader.load(
-                `/textures/${planet.id}.jpg`,
-                (tex) => {
-                    if (!mounted) { tex.dispose(); return; }
-                    textures.push(tex);
-                    const texMat = new THREE.MeshStandardMaterial({
-                        map:       tex,
-                        roughness: pbr.roughness,
-                        metalness: pbr.metalness,
-                        emissive:  new THREE.Color(planet.color),
-                        emissiveIntensity: PLANET_EMISSIVE_INTENSITY,
+            if (planet.name === 'Earth') {
+                // Earth: day/night/clouds shader — load three textures in parallel
+                let dayTex = null, nightTex = null, cloudsTex = null;
+                const tryApplyEarthShader = () => {
+                    if (!dayTex || !nightTex || !cloudsTex || !mounted) return;
+                    textures.push(dayTex, nightTex, cloudsTex);
+                    const shaderMat = new THREE.ShaderMaterial({
+                        uniforms: {
+                            dayMap:       { value: dayTex },
+                            nightMap:     { value: nightTex },
+                            cloudsMap:    { value: cloudsTex },
+                            sunDirection: { value: new THREE.Vector3(1, 0, 0) },
+                        },
+                        vertexShader: `
+                            varying vec2 vUv;
+                            varying vec3 vWorldNormal;
+                            void main() {
+                                vUv = uv;
+                                vWorldNormal = normalize(mat3(modelMatrix) * normal);
+                                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                            }
+                        `,
+                        fragmentShader: `
+                            uniform sampler2D dayMap;
+                            uniform sampler2D nightMap;
+                            uniform sampler2D cloudsMap;
+                            uniform vec3 sunDirection;
+                            varying vec2 vUv;
+                            varying vec3 vWorldNormal;
+                            void main() {
+                                vec3 normal = normalize(vWorldNormal);
+                                float cosAngle = dot(normal, sunDirection);
+                                float dayBlend = smoothstep(-0.12, 0.12, cosAngle);
+                                vec4 day    = texture2D(dayMap,    vUv);
+                                vec4 night  = texture2D(nightMap,  vUv);
+                                vec4 clouds = texture2D(cloudsMap, vUv);
+                                vec3 surface = mix(night.rgb, day.rgb, dayBlend);
+                                float cloudDensity = clouds.r;
+                                vec3 cloudColor = mix(clouds.rgb * 0.05, clouds.rgb, dayBlend);
+                                surface = mix(surface, cloudColor, cloudDensity * 0.85);
+                                gl_FragColor = vec4(surface, 1.0);
+                            }
+                        `,
                     });
-                    mesh.material = texMat;
+                    mesh.material = shaderMat;
                     colorMat.dispose();
-                    mats.push(texMat);
-                },
-                undefined,
-                () => {}, // silently keep color fallback
-            );
+                    mats.push(shaderMat);
+                    earthMesh    = mesh;
+                    earthShaderMat = shaderMat;
+                };
+                loader.load('/textures/earth.jpg',        (t) => { dayTex    = t; tryApplyEarthShader(); }, undefined, () => {});
+                loader.load('/textures/earth_night.jpg',  (t) => { nightTex  = t; tryApplyEarthShader(); }, undefined, () => {});
+                loader.load('/textures/earth_clouds.jpg', (t) => { cloudsTex = t; tryApplyEarthShader(); }, undefined, () => {});
+            } else {
+                loader.load(
+                    `/textures/${planet.id}.jpg`,
+                    (tex) => {
+                        if (!mounted) { tex.dispose(); return; }
+                        textures.push(tex);
+                        const texMat = new THREE.MeshStandardMaterial({
+                            map:       tex,
+                            roughness: pbr.roughness,
+                            metalness: pbr.metalness,
+                            emissive:  new THREE.Color(planet.color),
+                            emissiveIntensity: PLANET_EMISSIVE_INTENSITY,
+                        });
+                        mesh.material = texMat;
+                        colorMat.dispose();
+                        mats.push(texMat);
+                    },
+                    undefined,
+                    () => {}, // silently keep color fallback
+                );
+            }
 
             // Saturn rings — proportions and UV fix match PlanetViewer.jsx
             if (planet.name === 'Saturn') {
@@ -450,14 +571,24 @@ const SolarSystem3D = ({ focusedId }) => {
             });
             const satMesh = new THREE.Mesh(satGeo, satMat);
             satMesh.position.set(satellite.orbitR, 0, 0);
-            satMesh.userData = { id: satellite.id, name: satellite.name, orbitLine };
             satelliteGroup.add(satMesh);
 
+            // Invisible hitbox — 4× visual radius so moons are easy to click/hover
+            const hitboxR = Math.max(satellite.radius * 4, 3);
+            const hitGeo  = new THREE.SphereGeometry(hitboxR, 8, 8);
+            const hitMat  = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+            const parentPlanetId = PLANETS.find(p => p.name === satellite.parent)?.id;
+
+            const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+            hitMesh.position.set(satellite.orbitR, 0, 0);
+            hitMesh.userData = { id: satellite.id, name: satellite.name, orbitLine, parentId: parentPlanetId };
+            satelliteGroup.add(hitMesh);
+
             parentGroup.add(satelliteGroup);
-            planetMeshes.push(satMesh);
-            geos.push(orbitTubeGeo, satGeo);
-            mats.push(orbitMat, satMat);
-            satelliteGroups.push({ group: satelliteGroup, period: satellite.period, phase: satellite.phase });
+            planetMeshes.push(hitMesh); // hitbox handles all raycasting for this moon
+            geos.push(orbitTubeGeo, satGeo, hitGeo);
+            mats.push(orbitMat, satMat, hitMat);
+            satelliteGroups.push({ group: satelliteGroup, period: satellite.period, phase: satellite.phase, parentId: parentPlanetId });
         });
 
         // ── Belt helper ────────────────────────────────────────────────────────
@@ -511,7 +642,11 @@ const SolarSystem3D = ({ focusedId }) => {
             toNDC(e);
             raycaster.setFromCamera(mouse, camera);
             const hits = raycaster.intersectObjects(planetMeshes, false);
-            if (hits.length > 0) navigate(`/object/${hits[0].object.userData.id}`);
+            if (hits.length > 0) {
+                if (mounted) setHoverLabel(null);
+                pendingFocusCamPos = camera.position.clone(); // exact position at click time
+                navigateRef.current(`/object/${hits[0].object.userData.id}`);
+            }
         };
 
         const handleMouseMove = (e) => {
@@ -524,9 +659,9 @@ const SolarSystem3D = ({ focusedId }) => {
 
                 if (orbit !== activeOrbit) {
                     if (activeOrbit) {
-                        activeOrbit.material.opacity = activeOrbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY;
+                        activeOrbit.material.opacity = focusedIdRef.current ? 0 : (activeOrbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY);
                     }
-                    if (orbit) {
+                    if (orbit && !focusedIdRef.current) {
                         orbit.material.opacity = orbit.userData.hoverOpacity ?? ORBIT_HOVER_OPACITY;
                     }
                     activeOrbit = orbit ?? null;
@@ -542,13 +677,16 @@ const SolarSystem3D = ({ focusedId }) => {
                     y: -(proj.y - 1) / 2 * rect.height,
                 });
                 renderer.domElement.style.cursor = 'pointer';
+                // Decelerate auto-rotate only in home view (focused mode already disables it)
+                if (!focusedIdRef.current) targetAutoRotateSpeed = 0;
             } else {
                 if (activeOrbit) {
-                    activeOrbit.material.opacity = activeOrbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY;
+                    activeOrbit.material.opacity = focusedIdRef.current ? 0 : (activeOrbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY);
                     activeOrbit = null;
                 }
                 if (mounted) setHoverLabel(null);
                 renderer.domElement.style.cursor = '';
+                targetAutoRotateSpeed = 0.22;
             }
         };
 
@@ -567,67 +705,202 @@ const SolarSystem3D = ({ focusedId }) => {
 
         // ── Animation loop ─────────────────────────────────────────────────────
         let animId;
+
         const animate = () => {
             animId = requestAnimationFrame(animate);
             const nowDays = (Date.now() - ORBIT_EPOCH_MS) / 86400000;
             const tau = Math.PI * 2;
-            satelliteGroups.forEach(({ group, period, phase }) => {
-                group.rotation.y = phase + (tau * nowDays / period);
+            const currentFocusedId = focusedIdRef.current;
+
+            // ── Detect focus changes ───────────────────────────────────────────
+            if (currentFocusedId !== prevFocusedId) {
+                // Restore previous focused planet's orbit + tilt
+                if (prevFocusedId) {
+                    const prevMesh = planetMeshes.find(m => m.userData.id === prevFocusedId);
+                    if (prevMesh && prevMesh.userData.name !== 'Saturn') {
+                        prevMesh.rotation.z = 0;
+                    }
+                    // Restore ALL orbit rings when exiting any focused state
+                    planetMeshes.forEach(m => {
+                        if (m.userData.orbitLine) {
+                            const base = m.userData.orbitLine.userData.baseOpacity;
+                            m.userData.orbitLine.material.opacity = base ?? ORBIT_BASE_OPACITY;
+                        }
+                    });
+                }
+                // Apply axial tilt + hide ALL orbit rings when focusing
+                if (currentFocusedId) {
+                    const newMesh = planetMeshes.find(m => m.userData.id === currentFocusedId);
+                    // Apply axial tilt (except Saturn — it already looks cool)
+                    if (newMesh && newMesh.userData.name !== 'Saturn') {
+                        const tilt = AXIAL_TILT_DEG[newMesh.userData.name];
+                        if (tilt !== undefined) newMesh.rotation.z = tilt * Math.PI / 180;
+                    }
+                    // Hide ALL orbit rings in the scene when any planet is focused
+                    planetMeshes.forEach(m => {
+                        if (m.userData.orbitLine) {
+                            m.userData.orbitLine.material.opacity = 0;
+                        }
+                    });
+                    // Compute smooth focus animation — starts from current camera,
+                    // ends at 30° elevation above the planet at the correct zoom distance
+                    if (newMesh) {
+                        const planetPos = new THREE.Vector3();
+                        newMesh.getWorldPosition(planetPos);
+                        const radius = newMesh.geometry?.parameters?.radius ?? 3.5;
+                        const dist   = newMesh.userData.id === 'sun' ? 50 : radius * 4.5 + 14;
+                        const TILT   = 30 * Math.PI / 180; // 30° above equatorial = looking 30° down
+                        const startCamPos = pendingFocusCamPos ?? camera.position;
+                        pendingFocusCamPos = null;
+                        const diff   = startCamPos.clone().sub(planetPos);
+                        const az     = Math.atan2(diff.x, diff.z); // maintain user's azimuth
+                        focusStartCamPos.copy(startCamPos);
+                        focusStartTarget.copy(controls.target);
+                        focusEndCamPos.set(
+                            planetPos.x + dist * Math.cos(TILT) * Math.sin(az),
+                            planetPos.y + dist * Math.sin(TILT),
+                            planetPos.z + dist * Math.cos(TILT) * Math.cos(az)
+                        );
+                        focusProgress  = 0;
+                        focusAnimating = true;
+                    }
+                }
+                // Trigger cinematic zoom-out when going focused → home
+                if (prevFocusedId && !currentFocusedId) {
+                    exitPhase  = 1;
+                    exitFrames = 0;
+                }
+                hasInitialZoom = false;
+                prevFocusedId  = currentFocusedId;
+            }
+
+            // ── Satellites: speed up x10000 when parent planet is focused ──────
+            satelliteGroups.forEach(({ group, period, phase, parentId }) => {
+                const speedMult = (currentFocusedId && currentFocusedId === parentId) ? 10000 : 1;
+                group.rotation.y = phase + (tau * nowDays * speedMult / period);
             });
-            sunMesh.rotation.y       += 0.0008;
-            asteroidBelt.rotation.y  += 0.0001;
-            kuiperBelt.rotation.y    += 0.00004;
+
+            // ── Self-rotation ──────────────────────────────────────────────────
+            sunMesh.rotation.y      += 0.0008;
+            asteroidBelt.rotation.y += 0.0001;
+            kuiperBelt.rotation.y   += 0.00004;
+            skySphere.rotation.y    += 0.00002;
             planetMeshes.forEach(m => { m.rotation.y += 0.002; });
 
-            const currentFocusedId = focusedIdRef.current;
-            const targetMesh = currentFocusedId ? planetMeshes.find(m => m.userData.id === currentFocusedId) : null;
+            // ── Earth day/night shader: update sun direction each frame ──────────
+            if (earthMesh && earthShaderMat) {
+                const _earthWorldPos = new THREE.Vector3();
+                earthMesh.getWorldPosition(_earthWorldPos);
+                earthShaderMat.uniforms.sunDirection.value
+                    .copy(_earthWorldPos).negate().normalize();
+            }
+
+            // ── Camera / focus logic ───────────────────────────────────────────
+            const targetMesh = currentFocusedId
+                ? planetMeshes.find(m => m.userData.id === currentFocusedId)
+                : null;
+
+            // Hoisted so the post-controls.update() block can reference it
+            const targetPos = new THREE.Vector3();
 
             if (targetMesh) {
-                const targetPos = new THREE.Vector3();
+                exitPhase = 0;
                 targetMesh.getWorldPosition(targetPos);
 
-                // Smoothly focus camera target on the planet/moon
-                controls.target.lerp(targetPos, 0.08);
-
-                if (!isInteracting) {
-                    let desiredDistance = 55;
-                    if (targetMesh.userData.id === 'sun') {
-                        desiredDistance = 50;
+                if (focusAnimating) {
+                    if (isInteracting) {
+                        // User grabbed control mid-animation — hand off immediately
+                        focusAnimating = false;
+                        hasInitialZoom = true;
+                        controls.target.copy(targetPos);
                     } else {
-                        const radius = targetMesh.geometry?.parameters?.radius ?? 3.5;
-                        desiredDistance = radius * 4.5 + 14;
+                        // Point target at planet immediately so controls.update() calls
+                        // camera.lookAt(planet) — prevents "looking at origin" visual glitch
+                        controls.target.copy(targetPos);
                     }
+                } else {
+                    controls.target.lerp(targetPos, 0.08);
+                }
+                controls.autoRotate = false;
+
+            } else if (exitPhase === 1) {
+                // Phase 1: constant-velocity pull-back from the planet (50 frames ≈ 0.8s)
+                exitFrames++;
+                if (!isInteracting) {
+                    const currentDist = camera.position.distanceTo(controls.target);
+                    const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+                    // Move camera 6 units further from planet every frame — always outward,
+                    // never snaps back regardless of starting distance.
+                    camera.position.copy(controls.target).addScaledVector(dir, currentDist + 6);
+                }
+                if (exitFrames >= 50) exitPhase = 2;
+                controls.autoRotate = false;
+
+            } else if (exitPhase === 2) {
+                // Phase 2: smoothly fly camera back toward the sun
+                const defaultTarget = new THREE.Vector3(0, 0, 0);
+                controls.target.lerp(defaultTarget, 0.04);
+                if (!isInteracting) {
                     const currentDistance = camera.position.distanceTo(controls.target);
-                    const nextDistance = THREE.MathUtils.lerp(currentDistance, desiredDistance, 0.08);
+                    const nextDistance = THREE.MathUtils.lerp(currentDistance, 556, 0.04);
                     const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
                     camera.position.copy(controls.target).addScaledVector(dir, nextDistance);
                 }
                 controls.autoRotate = false;
+                if (controls.target.length() < 8) {
+                    exitPhase = 0;
+                    controls.autoRotate = true;
+                }
+
             } else {
+                // Normal home state — let the user zoom freely; only nudge the slow vertical drift
                 const defaultTarget = new THREE.Vector3(0, 0, 0);
                 controls.target.lerp(defaultTarget, 0.08);
-
                 if (!isInteracting) {
-                    const currentDistance = camera.position.distanceTo(controls.target);
-                    const desiredDistance = 556; // sqrt(280^2 + 480^2)
-                    if (currentDistance < 400) {
-                        const nextDistance = THREE.MathUtils.lerp(currentDistance, desiredDistance, 0.08);
-                        const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
-                        camera.position.copy(controls.target).addScaledVector(dir, nextDistance);
-                    }
-                    // Rotate vertically slowly in one direction
-                    controls.rotateUp(-0.00012);
+                    // Sine wave on the vertical axis → diagonal orbit (bottom-left to top-right feel)
+                    controls.rotateUp(Math.sin(Date.now() / 10000) * 0.00018);
                 }
                 controls.autoRotate = true;
             }
 
+            // Smoothly lerp autoRotateSpeed toward target (hover deceleration / re-acceleration)
+            controls.autoRotateSpeed = THREE.MathUtils.lerp(controls.autoRotateSpeed, targetAutoRotateSpeed, 0.05);
+
             controls.update();
+
+            // Override camera position + lookAt AFTER controls.update()
+            if (focusAnimating && targetMesh && !isInteracting) {
+                focusProgress = Math.min(1, focusProgress + 0.014); // ~72 frames ≈ 1.2s
+                // Cubic ease-in-out: slow start → accelerates → gentle brake
+                const t = focusProgress < 0.5
+                    ? 4 * focusProgress * focusProgress * focusProgress
+                    : 1 - Math.pow(-2 * focusProgress + 2, 3) / 2;
+                camera.position.lerpVectors(focusStartCamPos, focusEndCamPos, t);
+                // Gradually rotate toward the planet instead of snapping the look direction
+                _focusLookTarget.lerpVectors(focusStartTarget, targetPos, t);
+                controls.target.copy(_focusLookTarget);
+                camera.lookAt(_focusLookTarget);
+                if (focusProgress >= 1) {
+                    focusAnimating = false;
+                    hasInitialZoom = true;
+                    controls.target.copy(targetPos);
+                }
+            }
+
             renderer.render(scene, camera);
         };
         animate();
 
         // ── Cleanup ────────────────────────────────────────────────────────────
         return () => {
+            // Snapshot camera for exit animation in case React Router remounts this component
+            if (focusedIdRef.current) {
+                _exitState = {
+                    active:    true,
+                    cameraPos: camera.position.clone(),
+                    targetPos: controls.target.clone(),
+                };
+            }
             mounted = false;
             cancelAnimationFrame(animId);
             clearInterval(posInterval);
@@ -641,36 +914,14 @@ const SolarSystem3D = ({ focusedId }) => {
             textures.forEach(t => t.dispose());
             renderer.dispose();
         };
-    }, [navigate]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
-        <div style={{ position: 'relative', overflow: 'hidden' }}>
-            {/* Title + date — matches Orrery.jsx overlay */}
-            <div style={{ position: 'absolute', top: 14, left: 18, zIndex: 10 }}>
-                {focusedId ? (
-                    <button
-                        onClick={() => navigate('/')}
-                        className="flex items-center gap-1.5 text-xs font-bold transition-all text-white/70 hover:text-white pointer-events-auto bg-black/45 hover:bg-black/60 px-3 py-1.5 rounded-xl border border-white/10 animate-fade-in"
-                    >
-                        <ChevronLeft className="h-4 w-4" />
-                        <span>Back to System</span>
-                    </button>
-                ) : (
-                    <div style={{ pointerEvents: 'none' }}>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                            Solar System
-                        </p>
-                        <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.28)', marginTop: 3 }}>
-                            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            {/* Canvas mount — 3D scene fills this div */}
+        <div style={{ position: 'relative' }}>
+            {/* Canvas mount — fills full viewport height, sits behind transparent header */}
             <div
                 ref={mountRef}
-                style={{ width: '100%', height: '480px', position: 'relative' }}
+                style={{ width: '100%', height: '100vh', position: 'relative' }}
             >
                 {/* Hover label — absolute inside the mount div */}
                 {hoverLabel && (

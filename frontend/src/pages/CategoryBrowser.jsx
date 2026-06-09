@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
+import { useSearchParams, useNavigate, useMatch } from 'react-router-dom';
 import { ChevronDown, ChevronLeft, Globe, Moon, Star, Eye, Zap, CircleDot } from 'lucide-react';
 import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
@@ -326,7 +326,8 @@ class ErrorBoundary extends React.Component {
 }
 
 const CategoryBrowser = () => {
-    const { id } = useParams();
+    const match = useMatch('/object/:id');
+    const id = match?.params?.id;
     const [searchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'planets';
     const [sortBy, setSortBy] = useState('default');
@@ -395,13 +396,30 @@ const CategoryBrowser = () => {
     const isPlanetOrMoon = object && (object.category === 'planets' || object.category === 'dwarf-planets' || object.category === 'stars' || object.id === 'luna');
     const physicalRows   = object?.stats?.find(s => s.section === 'Physical')?.rows ?? [];
 
+    // Scroll-reveal: reset when a new planet is selected, reveal on first scroll
+    const [hasScrolled, setHasScrolled] = useState(false);
+    useEffect(() => { setHasScrolled(false); }, [id]);
+    useEffect(() => {
+        if (!id || !isPlanetOrMoon || hasScrolled) return;
+        const onScroll = () => setHasScrolled(true);
+        window.addEventListener('scroll', onScroll, { once: true, passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+    }, [id, isPlanetOrMoon, hasScrolled]);
+
     return (
         <>
             <StarfieldBg canvasId="starfield-browser" />
-            <div className="relative space-y-6" style={{ zIndex: 1 }}>
-                
-                {/* 3D Visualizer + Annotations Overlay */}
-                <div className="relative">
+
+            <div className="relative" style={{ zIndex: 1 }}>
+
+                {/* 3D Visualizer — full viewport, breaks out to all 4 edges */}
+                <div
+                    className="relative"
+                    style={{
+                        width: '100vw',
+                        marginLeft: 'calc(-50vw + 50%)',
+                    }}
+                >
                     <SolarSystem3D focusedId={id} />
 
                     {/* Annotations overlay (faded in if id is present) */}
@@ -411,7 +429,7 @@ const CategoryBrowser = () => {
                             zIndex: 5,
                             opacity: id && isPlanetOrMoon ? 1 : 0,
                             transform: id && isPlanetOrMoon ? 'scale(1)' : 'scale(0.96)',
-                            pointerEvents: id && isPlanetOrMoon ? 'auto' : 'none',
+                            pointerEvents: 'none',
                         }}
                     >
                         {isPlanetOrMoon && (
@@ -469,21 +487,34 @@ const CategoryBrowser = () => {
                     </div>
                 </div>
 
+                {/* Ticker — in document flow, scrolls into view below the solar system */}
+                <div
+                    className="transition-all duration-500 ease-in-out"
+                    style={{
+                        width: '100vw',
+                        marginLeft: 'calc(-50vw + 50%)',
+                        opacity: id ? 0 : 1,
+                        maxHeight: id ? '0' : '100px',
+                        overflow: 'hidden',
+                        pointerEvents: id ? 'none' : 'auto',
+                    }}
+                >
+                    <SpaceDataStrip />
+                </div>
+
                 {/* ── HOME STATE elements ── */}
                 <div
-                    className="transition-all duration-500 ease-in-out flex flex-col gap-6"
+                    className="transition-all duration-500 ease-in-out flex flex-col gap-6 px-4 md:px-8"
                     style={{
                         opacity: id ? 0 : 1,
                         maxHeight: id ? '0px' : '2000px',
                         overflow: 'hidden',
                         pointerEvents: id ? 'none' : 'auto',
+                        paddingTop: '24px',
                     }}
                 >
-                    {/* Live space data ticker */}
-                    <SpaceDataStrip />
-
                     {/* Category header + sort */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4" style={{ marginTop: '20px' }}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
                         <div>
                             <h2 className="font-bold" style={{ fontSize: '1.25rem', color: '#fff' }}>
                                 {currentCategory.label}
@@ -512,6 +543,28 @@ const CategoryBrowser = () => {
                         )}
                     </div>
                 </div>
+
+                {/* Scroll prompt — shown between 3D view and detail cards for planet/moon focused state */}
+                {id && isPlanetOrMoon && !hasScrolled && (
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '4px',
+                        marginTop: '-12px',
+                        paddingBottom: '4px',
+                        color: 'rgba(255,255,255,0.28)',
+                        fontSize: '0.6rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.12em',
+                        textTransform: 'uppercase',
+                        animation: 'scrollPromptBob 1.8s ease-in-out infinite',
+                        pointerEvents: 'none',
+                    }}>
+                        <span>Scroll</span>
+                        <ChevronDown style={{ width: '14px', height: '14px' }} />
+                    </div>
+                )}
 
                 {/* ── DETAIL STATE elements ── */}
                 <div
@@ -587,13 +640,31 @@ const CategoryBrowser = () => {
                             )}
 
                             {/* Description */}
-                            <div className="glass p-5">
+                            <div
+                                className="glass p-5"
+                                style={{
+                                    opacity: (!isPlanetOrMoon || hasScrolled) ? 1 : 0,
+                                    transform: (!isPlanetOrMoon || hasScrolled) ? 'translateY(0)' : 'translateY(28px)',
+                                    transition: 'opacity 600ms ease, transform 600ms ease',
+                                }}
+                            >
                                 <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem' }}>
                                     {object.description}
                                 </p>
                             </div>
 
-                            {/* Distance Chart */}
+                            {/* Stats panel */}
+                            <div
+                                style={{
+                                    opacity: (!isPlanetOrMoon || hasScrolled) ? 1 : 0,
+                                    transform: (!isPlanetOrMoon || hasScrolled) ? 'translateY(0)' : 'translateY(28px)',
+                                    transition: 'opacity 600ms ease 120ms, transform 600ms ease 120ms',
+                                }}
+                            >
+                                <ObjectStatsPanel object={object} />
+                            </div>
+
+                            {/* Distance Chart — at the bottom */}
                             {showChart && object.orbital && (
                                 <div className="glass p-5">
                                     <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -629,9 +700,6 @@ const CategoryBrowser = () => {
                                     </div>
                                 </div>
                             )}
-
-                            {/* Stats panel */}
-                            <ObjectStatsPanel object={object} />
                         </div>
                     )}
                 </div>

@@ -2,16 +2,22 @@ import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 
 const TEXTURE_URLS = {
-    Sun:     '/textures/sun.jpg',
-    Mercury: '/textures/mercury.jpg',
-    Venus:   '/textures/venus.jpg',
-    Earth:   '/textures/earth.jpg',
-    Mars:    '/textures/mars.jpg',
-    Jupiter: '/textures/jupiter.jpg',
-    Saturn:  '/textures/saturn.jpg',
-    Uranus:  '/textures/uranus.jpg',
-    Neptune: '/textures/neptune.jpg',
-    Luna:    '/textures/moon.jpg',
+    Sun:       '/textures/sun.jpg',
+    Mercury:   '/textures/mercury.jpg',
+    Venus:     '/textures/venus.jpg',
+    Earth:     '/textures/earth.jpg',
+    Mars:      '/textures/mars.jpg',
+    Jupiter:   '/textures/jupiter.jpg',
+    Saturn:    '/textures/saturn.jpg',
+    Uranus:    '/textures/uranus.jpg',
+    Neptune:   '/textures/neptune.jpg',
+    Luna:      '/textures/moon.jpg',
+    Io:        '/textures/io.jpg',
+    Europa:    '/textures/europa.jpg',
+    Ganymede:  '/textures/ganymede.jpg',
+    Titan:     '/textures/titan.jpg',
+    Enceladus: '/textures/enceladus.jpg',
+    Triton:    '/textures/triton.jpg',
 };
 
 const PLANET_COLORS = {
@@ -109,22 +115,84 @@ const PlanetViewer = ({ planetName }) => {
             );
         }
 
-        const resources = { material: colorMaterial, texture: null };
+        const resources = { material: colorMaterial, texture: null, nightTex: null, cloudsTex: null };
 
-        const textureUrl = TEXTURE_URLS[planetName];
-        if (textureUrl) {
-            new THREE.TextureLoader().load(
-                textureUrl,
-                (tex) => {
-                    const texMaterial = new THREE.MeshStandardMaterial({ map: tex });
-                    mesh.material = texMaterial;
-                    colorMaterial.dispose();
-                    resources.material = texMaterial;
-                    resources.texture  = tex;
-                },
-                undefined,
-                (err) => console.error(`[PlanetViewer] Texture failed for ${planetName}:`, err)
-            );
+        if (planetName === 'Earth') {
+            // Earth: three-texture day/night/clouds shader
+            let dayTex = null, nightTex = null, cloudsTex = null;
+            const tl = new THREE.TextureLoader();
+            const tryApply = () => {
+                if (!dayTex || !nightTex || !cloudsTex) return;
+                const shaderMat = new THREE.ShaderMaterial({
+                    uniforms: {
+                        dayMap:       { value: dayTex },
+                        nightMap:     { value: nightTex },
+                        cloudsMap:    { value: cloudsTex },
+                        // Static sun direction: right side lit, gives a clean terminator on the spinning globe
+                        sunDirection: { value: new THREE.Vector3(1, 0, 0) },
+                    },
+                    vertexShader: `
+                        varying vec2 vUv;
+                        varying vec3 vWorldNormal;
+                        void main() {
+                            vUv = uv;
+                            vWorldNormal = normalize(mat3(modelMatrix) * normal);
+                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                        }
+                    `,
+                    fragmentShader: `
+                        uniform sampler2D dayMap;
+                        uniform sampler2D nightMap;
+                        uniform sampler2D cloudsMap;
+                        uniform vec3 sunDirection;
+                        varying vec2 vUv;
+                        varying vec3 vWorldNormal;
+                        void main() {
+                            vec3 normal = normalize(vWorldNormal);
+                            float cosAngle = dot(normal, sunDirection);
+                            float dayBlend = smoothstep(-0.12, 0.12, cosAngle);
+                            vec4 day    = texture2D(dayMap,    vUv);
+                            vec4 night  = texture2D(nightMap,  vUv);
+                            vec4 clouds = texture2D(cloudsMap, vUv);
+                            vec3 surface = mix(night.rgb, day.rgb, dayBlend);
+                            float cloudDensity = clouds.r;
+                            vec3 cloudColor = mix(clouds.rgb * 0.05, clouds.rgb, dayBlend);
+                            surface = mix(surface, cloudColor, cloudDensity * 0.85);
+                            gl_FragColor = vec4(surface, 1.0);
+                        }
+                    `,
+                });
+                mesh.material = shaderMat;
+                colorMaterial.dispose();
+                resources.material  = shaderMat;
+                resources.texture   = dayTex;
+                resources.nightTex  = nightTex;
+                resources.cloudsTex = cloudsTex;
+            };
+            tl.load('/textures/earth.jpg',        (t) => { dayTex    = t; tryApply(); }, undefined, (e) => console.error('[PlanetViewer] earth day failed:', e));
+            tl.load('/textures/earth_night.jpg',  (t) => { nightTex  = t; tryApply(); }, undefined, (e) => console.error('[PlanetViewer] earth night failed:', e));
+            tl.load('/textures/earth_clouds.jpg', (t) => { cloudsTex = t; tryApply(); }, undefined, (e) => console.error('[PlanetViewer] earth clouds failed:', e));
+        } else {
+            const textureUrl = TEXTURE_URLS[planetName];
+            if (textureUrl) {
+                const isMoon = ['Luna','Io','Europa','Ganymede','Titan','Enceladus','Triton'].includes(planetName);
+                new THREE.TextureLoader().load(
+                    textureUrl,
+                    (tex) => {
+                        const texMaterial = new THREE.MeshStandardMaterial({
+                            map:       tex,
+                            roughness: isMoon ? 0.95 : 0.8,
+                            metalness: 0.0,
+                        });
+                        mesh.material = texMaterial;
+                        colorMaterial.dispose();
+                        resources.material = texMaterial;
+                        resources.texture  = tex;
+                    },
+                    undefined,
+                    (err) => console.error(`[PlanetViewer] Texture failed for ${planetName}:`, err)
+                );
+            }
         }
 
         // Resize: keep canvas square and matching container width
@@ -152,7 +220,9 @@ const PlanetViewer = ({ planetName }) => {
             renderer.dispose();
             geometry.dispose();
             resources.material.dispose();
-            if (resources.texture) resources.texture.dispose();
+            if (resources.texture)   resources.texture.dispose();
+            if (resources.nightTex)  resources.nightTex.dispose();
+            if (resources.cloudsTex) resources.cloudsTex.dispose();
             if (ringResources.geo) ringResources.geo.dispose();
             if (ringResources.mat) ringResources.mat.dispose();
             if (ringResources.texture) ringResources.texture.dispose();

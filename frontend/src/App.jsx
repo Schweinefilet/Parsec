@@ -8,8 +8,10 @@ function App() {
     return (
         <Router>
             <Routes>
-                <Route path="/" element={<AppShell><CategoryBrowser /></AppShell>} />
-                <Route path="/object/:id" element={<AppShell><CategoryBrowser /></AppShell>} />
+                {/* Single route so AppShell + CategoryBrowser + SolarSystem3D are never
+                    remounted during navigation — preserves Three.js camera state and
+                    allows smooth exit animations when returning to the solar system. */}
+                <Route path="*" element={<AppShell><CategoryBrowser /></AppShell>} />
             </Routes>
         </Router>
     );

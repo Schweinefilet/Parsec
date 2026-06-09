@@ -12,7 +12,7 @@ const POPULAR = POPULAR_IDS
     .map(id => OBJECTS.find(o => o.id === id))
     .filter(Boolean);
 
-const ObjectSearch = () => {
+const ObjectSearch = ({ onClose, autoFocus }) => {
     const [query, setQuery] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -20,6 +20,13 @@ const ObjectSearch = () => {
     const inputRef   = useRef(null);
     const dropdownRef = useRef(null);
     const navigate   = useNavigate();
+
+    useEffect(() => {
+        if (autoFocus) {
+            const t = setTimeout(() => inputRef.current?.focus(), 60);
+            return () => clearTimeout(t);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!query.trim()) {
@@ -50,6 +57,7 @@ const ObjectSearch = () => {
         navigate(`/object/${id}`);
         setQuery('');
         setShowDropdown(false);
+        onClose?.();
     };
 
     const handleSubmit = e => {
@@ -71,6 +79,7 @@ const ObjectSearch = () => {
             setActiveIndex(i => Math.max(i - 1, -1));
         } else if (e.key === 'Escape') {
             setShowDropdown(false);
+            onClose?.();
         }
     };
 

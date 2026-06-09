@@ -26,7 +26,7 @@ const ObjectStatsPanel = ({ object }) => {
     return (
         <div className="glass flex flex-col overflow-hidden" style={{ borderRadius: 'var(--radius-card)' }}>
             {/* Section tabs */}
-            <div className="flex border-b border-white/10 px-4 pt-3 gap-1">
+            <div className="flex px-4 pt-3 gap-1">
                 {sections.map(s => (
                     <button
                         key={s.section}

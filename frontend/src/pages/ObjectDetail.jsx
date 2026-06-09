@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Globe, Moon, Star, Eye, Zap, CircleDot } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Globe, Moon, Star, Eye, Zap, CircleDot } from 'lucide-react';
 import { getObjectById } from '../data/objectCatalog';
 import ObjectStatsPanel from '../components/ObjectStatsPanel';
 import StarfieldBg from '../components/StarfieldBg';
@@ -27,6 +27,31 @@ const CATEGORY_COLORS = {
     neos:       '#ff8c50',
 };
 
+const ScrollReveal = ({ children, delay = 0, style = {}, canReveal }) => {
+    const ref    = useRef(null);
+    const [inView, setInView] = useState(false);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const obs = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) { setInView(true); obs.unobserve(el); }
+        }, { threshold: 0 });
+        obs.observe(el);
+        return () => obs.disconnect();
+    }, []);
+    const vis = canReveal && inView;
+    return (
+        <div ref={ref} style={{
+            opacity: vis ? 1 : 0,
+            transform: vis ? 'translateY(0)' : 'translateY(28px)',
+            transition: `opacity 600ms ease ${delay}ms, transform 600ms ease ${delay}ms`,
+            ...style,
+        }}>
+            {children}
+        </div>
+    );
+};
+
 const ObjectDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -35,6 +60,13 @@ const ObjectDetail = () => {
     useEffect(() => {
         const tid = setTimeout(() => setVisible(true), 50);
         return () => clearTimeout(tid);
+    }, []);
+
+    const [hasScrolled, setHasScrolled] = useState(false);
+    useEffect(() => {
+        const onScroll = () => setHasScrolled(true);
+        window.addEventListener('scroll', onScroll, { once: true, passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
     }, []);
 
     const object    = getObjectById(id);
@@ -259,6 +291,26 @@ const ObjectDetail = () => {
                 </div>
             )}
 
+            {/* Scroll prompt — only for planet/moon hero view */}
+            {isPlanetOrMoon && (
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    paddingBottom: '8px',
+                    color: 'rgba(255,255,255,0.28)',
+                    fontSize: '0.6rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    animation: 'scrollPromptBob 1.8s ease-in-out infinite',
+                }}>
+                    <span>Scroll</span>
+                    <ChevronDown style={{ width: '14px', height: '14px' }} />
+                </div>
+            )}
+
             {/* ═══ CONTENT ═══ */}
             <div
                 className="px-4 md:px-8 max-w-2xl mx-auto w-full relative z-10"
@@ -268,73 +320,81 @@ const ObjectDetail = () => {
 
                     {/* Hero image — non-planet objects only */}
                     {!isPlanetOrMoon && imageUrl && (
-                        <div
-                            style={{
-                                position: 'relative',
-                                overflow: 'hidden',
-                                borderRadius: 'var(--radius-card)',
-                                height: '220px',
-                                border: '1px solid var(--glass-border)',
-                                boxShadow: 'var(--glass-shadow)',
-                                background: '#000',
-                            }}
-                        >
-                            <img
-                                src={imageUrl}
-                                alt={object.name}
-                                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
-                            />
+                        <ScrollReveal canReveal={true}>
                             <div
-                                className="card-overlay absolute inset-0"
                                 style={{
-                                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.65) 100%)',
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    borderRadius: 'var(--radius-card)',
+                                    height: '220px',
+                                    border: '1px solid var(--glass-border)',
+                                    boxShadow: 'var(--glass-shadow)',
+                                    background: '#000',
                                 }}
-                            />
-                            <div style={{ position: 'absolute', bottom: 16, left: 18, right: 18 }}>
-                                <p className="font-bold text-lg text-white leading-tight">{object.name}</p>
-                                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>{object.type}</p>
+                            >
+                                <img
+                                    src={imageUrl}
+                                    alt={object.name}
+                                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+                                />
+                                <div
+                                    className="card-overlay absolute inset-0"
+                                    style={{
+                                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.65) 100%)',
+                                    }}
+                                />
+                                <div style={{ position: 'absolute', bottom: 16, left: 18, right: 18 }}>
+                                    <p className="font-bold text-lg text-white leading-tight">{object.name}</p>
+                                    <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>{object.type}</p>
+                                </div>
                             </div>
-                        </div>
+                        </ScrollReveal>
                     )}
 
                     {/* Key stats strip — non-planet objects only */}
                     {!isPlanetOrMoon && (
-                        <div className="glass p-4 flex gap-6 flex-wrap">
-                            <div>
-                                <p className="text-2xl font-black" style={{ color: '#fff' }}>
-                                    {object.keyStatValue}
-                                </p>
-                                <p className="text-[10px] uppercase tracking-wider mt-0.5"
-                                    style={{ color: 'var(--text-tertiary)' }}>
-                                    {object.keyStatLabel}
-                                </p>
+                        <ScrollReveal delay={60} canReveal={true}>
+                            <div className="glass p-4 flex gap-6 flex-wrap">
+                                <div>
+                                    <p className="text-2xl font-black" style={{ color: '#fff' }}>
+                                        {object.keyStatValue}
+                                    </p>
+                                    <p className="text-[10px] uppercase tracking-wider mt-0.5"
+                                        style={{ color: 'var(--text-tertiary)' }}>
+                                        {object.keyStatLabel}
+                                    </p>
+                                </div>
+                                {object.secondaryStatValue && (
+                                    <>
+                                        <div className="w-px self-stretch" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                                        <div>
+                                            <p className="text-xl font-bold" style={{ color: 'var(--text-secondary)' }}>
+                                                {object.secondaryStatValue}
+                                            </p>
+                                            <p className="text-[10px] uppercase tracking-wider mt-0.5"
+                                                style={{ color: 'var(--text-tertiary)' }}>
+                                                {object.secondaryStatLabel}
+                                            </p>
+                                        </div>
+                                    </>
+                                )}
                             </div>
-                            {object.secondaryStatValue && (
-                                <>
-                                    <div className="w-px self-stretch" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                                    <div>
-                                        <p className="text-xl font-bold" style={{ color: 'var(--text-secondary)' }}>
-                                            {object.secondaryStatValue}
-                                        </p>
-                                        <p className="text-[10px] uppercase tracking-wider mt-0.5"
-                                            style={{ color: 'var(--text-tertiary)' }}>
-                                            {object.secondaryStatLabel}
-                                        </p>
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                        </ScrollReveal>
                     )}
 
                     {/* Description */}
-                    <div className="glass p-5">
-                        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem' }}>
-                            {object.description}
-                        </p>
-                    </div>
+                    <ScrollReveal delay={0} canReveal={isPlanetOrMoon ? hasScrolled : true}>
+                        <div className="glass p-5">
+                            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem' }}>
+                                {object.description}
+                            </p>
+                        </div>
+                    </ScrollReveal>
 
                     {/* Stats panel */}
-                    <ObjectStatsPanel object={object} />
+                    <ScrollReveal delay={120} canReveal={isPlanetOrMoon ? hasScrolled : true}>
+                        <ObjectStatsPanel object={object} />
+                    </ScrollReveal>
                 </div>
             </div>
 
