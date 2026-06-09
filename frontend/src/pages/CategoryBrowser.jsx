@@ -393,7 +393,7 @@ const CategoryBrowser = () => {
         ? `Astronomical Units (AU) — eccentricity e = ${object.orbital.e.toFixed(3)}`
         : 'Astronomical Units (AU) — circular orbit approximation';
 
-    const isPlanetOrMoon = object && (object.category === 'planets' || object.category === 'dwarf-planets' || object.category === 'stars' || object.id === 'luna');
+    const isPlanetOrMoon = object && (object.category === 'planets' || object.category === 'dwarf-planets' || object.category === 'stars' || object.category === 'moons');
     const physicalRows   = object?.stats?.find(s => s.section === 'Physical')?.rows ?? [];
 
     // Scroll-reveal: reset when a new planet is selected, reveal on first scroll
@@ -485,6 +485,32 @@ const CategoryBrowser = () => {
                             </>
                         )}
                     </div>
+
+                    {/* Scroll-down arrow — clickable, overlaid at bottom of 3D view */}
+                    {id && isPlanetOrMoon && !hasScrolled && (
+                        <button
+                            onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
+                            style={{
+                                position: 'absolute',
+                                bottom: '32px',
+                                left: 0,
+                                right: 0,
+                                zIndex: 6,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '0px',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '8px 0',
+                                animation: 'scrollPromptBob 1.8s ease-in-out infinite',
+                            }}
+                        >
+                            <ChevronDown style={{ width: '22px', height: '22px', color: 'rgba(255,255,255,0.55)', marginBottom: '-10px' }} />
+                            <ChevronDown style={{ width: '22px', height: '22px', color: 'rgba(255,255,255,0.25)' }} />
+                        </button>
+                    )}
                 </div>
 
                 {/* Ticker — in document flow, scrolls into view below the solar system */}
@@ -544,27 +570,6 @@ const CategoryBrowser = () => {
                     </div>
                 </div>
 
-                {/* Scroll prompt — shown between 3D view and detail cards for planet/moon focused state */}
-                {id && isPlanetOrMoon && !hasScrolled && (
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '4px',
-                        marginTop: '-12px',
-                        paddingBottom: '4px',
-                        color: 'rgba(255,255,255,0.28)',
-                        fontSize: '0.6rem',
-                        fontWeight: 700,
-                        letterSpacing: '0.12em',
-                        textTransform: 'uppercase',
-                        animation: 'scrollPromptBob 1.8s ease-in-out infinite',
-                        pointerEvents: 'none',
-                    }}>
-                        <span>Scroll</span>
-                        <ChevronDown style={{ width: '14px', height: '14px' }} />
-                    </div>
-                )}
 
                 {/* ── DETAIL STATE elements ── */}
                 <div
@@ -664,42 +669,12 @@ const CategoryBrowser = () => {
                                 <ObjectStatsPanel object={object} />
                             </div>
 
-                            {/* Distance Chart — at the bottom */}
-                            {showChart && object.orbital && (
+                            {/* Distance Chart — stashed (buggy), restore when fixed */}
+                            {/* {showChart && object.orbital && (
                                 <div className="glass p-5">
-                                    <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                                        <div>
-                                            <h4 className="font-bold text-sm text-white">{chartTitle}</h4>
-                                            <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                                                {chartSubtitle}
-                                            </p>
-                                        </div>
-                                        <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/5">
-                                            {TIME_RANGES.map(r => (
-                                                <button
-                                                    key={r.key}
-                                                    onClick={() => setTimeRange(r.key)}
-                                                    className="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all"
-                                                    style={timeRange === r.key
-                                                        ? { background: 'rgba(255,255,255,0.12)', color: '#fff' }
-                                                        : { color: 'rgba(255,255,255,0.40)' }
-                                                    }
-                                                >
-                                                    {r.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div style={{ height: '160px', width: '100%' }}>
-                                        <ErrorBoundary>
-                                            <DataChart
-                                                data={chartData}
-                                                color={accentColor}
-                                            />
-                                        </ErrorBoundary>
-                                    </div>
+                                    ...
                                 </div>
-                            )}
+                            )} */}
                         </div>
                     )}
                 </div>

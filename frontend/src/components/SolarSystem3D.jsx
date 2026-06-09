@@ -2,29 +2,31 @@ import { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import * as Astronomy from 'astronomy-engine';
 
 const PLANETS = [
-    { id: 'mercury', name: 'Mercury', r: 2,   orbitR: 48,  color: '#b5b5b5' },
-    { id: 'venus',   name: 'Venus',   r: 3.5, orbitR: 72,  color: '#e8cda0' },
-    { id: 'earth',   name: 'Earth',   r: 3.5, orbitR: 96,  color: '#4fa3e0' },
-    { id: 'mars',    name: 'Mars',    r: 3,   orbitR: 128, color: '#c1440e' },
-    { id: 'jupiter', name: 'Jupiter', r: 8,   orbitR: 190, color: '#c88b3a' },
-    { id: 'saturn',  name: 'Saturn',  r: 7,   orbitR: 245, color: '#e4d191' },
-    { id: 'uranus',  name: 'Uranus',  r: 5.5, orbitR: 295, color: '#7de8e8' },
-    { id: 'neptune', name: 'Neptune', r: 5,   orbitR: 340, color: '#5b7fdb' },
-    { id: 'pluto',   name: 'Pluto',   r: 2.1, orbitR: 410, color: '#d9c3a8' },
+    { id: 'mercury', name: 'Mercury', r: 0.68, orbitR: 48,  color: '#b5b5b5' },
+    { id: 'venus',   name: 'Venus',   r: 1.24, orbitR: 72,  color: '#e8cda0' },
+    { id: 'earth',   name: 'Earth',   r: 1.31, orbitR: 96,  color: '#4fa3e0' },
+    { id: 'mars',    name: 'Mars',    r: 0.83, orbitR: 128, color: '#c1440e' },
+    { id: 'jupiter', name: 'Jupiter', r: 4.13, orbitR: 190, color: '#c88b3a' },
+    { id: 'saturn',  name: 'Saturn',  r: 3.56, orbitR: 245, color: '#e4d191' },
+    { id: 'uranus',  name: 'Uranus',  r: 2.25, orbitR: 295, color: '#7de8e8' },
+    { id: 'neptune', name: 'Neptune', r: 2.18, orbitR: 340, color: '#5b7fdb' },
+    { id: 'pluto',   name: 'Pluto',   r: 0.45, orbitR: 410, color: '#d9c3a8' },
 ];
 
-const ORBITAL_ELEMENTS = {
-    Mercury: { e: 0.2056, inc: 7.005, omega: 48.331,  w: 29.124  },
-    Venus:   { e: 0.0068, inc: 3.395, omega: 76.680,  w: 54.884  },
-    Earth:   { e: 0.0167, inc: 0.000, omega: 0.000,   w: 288.064 },
-    Mars:    { e: 0.0934, inc: 1.850, omega: 49.558,  w: 286.502 },
-    Jupiter: { e: 0.0489, inc: 1.304, omega: 100.464, w: 273.867 },
-    Saturn:  { e: 0.0565, inc: 2.485, omega: 113.665, w: 339.391 },
-    Uranus:  { e: 0.0463, inc: 0.773, omega: 74.006,  w: 98.999  },
-    Neptune: { e: 0.0100, inc: 1.769, omega: 131.784, w: 276.340 },
-    Pluto:   { e: 0.2488, inc: 17.16, omega: 110.299, w: 113.834 },
+// Orbital periods in days — used only for sampling the orbit path
+const ORBITAL_PERIODS = {
+    Mercury:  87.97,
+    Venus:   224.70,
+    Earth:   365.25,
+    Mars:    686.97,
+    Jupiter: 4332.6,
+    Saturn:  10759.2,
+    Uranus:  30688.5,
+    Neptune: 60182.0,
+    Pluto:   90560.0,
 };
 
 const PLANET_PBR = {
@@ -53,100 +55,90 @@ const AXIAL_TILT_DEG = {
 };
 
 const ORBIT_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
-const ORBIT_BASE_OPACITY = 0.34;
+const ORBIT_BASE_OPACITY = 0.20;
 const ORBIT_HOVER_OPACITY = 0.86;
-const SATELLITE_ORBIT_BASE_OPACITY = 0.17;
-const SATELLITE_ORBIT_HOVER_OPACITY = 0.43;
-const ORBIT_TUBE_RADIUS = 0.45;
+const ORBIT_TUBE_RADIUS = 0.28;
 const PLANET_EMISSIVE_INTENSITY = 0.08;
-const BELT_BRIGHTNESS = 0.58;
-const BELT_SIZE = 0.85;
 
-const PLANET_ORBIT_STATE = {
-    Mercury: { period: 87.97, phase: 1.5 },
-    Venus:   { period: 224.7, phase: 0.8 },
-    Earth:   { period: 365.25, phase: 0.0 },
-    Mars:    { period: 686.97, phase: 2.2 },
-    Jupiter: { period: 4332.6, phase: 0.3 },
-    Saturn:  { period: 10759.2, phase: 1.2 },
-    Uranus:  { period: 30688.5, phase: 0.5 },
-    Neptune: { period: 60182.0, phase: 2.5 },
-    Pluto:   { period: 90560.0, phase: 1.4 },
+
+const MOON_TEXTURES = {
+    luna:      '/textures/moon.jpg',
+    io:        '/textures/io.jpg',
+    europa:    '/textures/europa.jpg',
+    ganymede:  '/textures/ganymede.jpg',
+    titan:     '/textures/titan.jpg',
+    enceladus: '/textures/enceladus.jpg',
+    triton:    '/textures/triton.jpg',
 };
 
-const SATELLITES = [
-    { id: 'luna',      name: 'Luna',      parent: 'Earth',   orbitR: 14, radius: 1.1,  color: '#c8c8c8', period: 27.32,  phase: 0.5 },
-    { id: 'phobos',    name: 'Phobos',    parent: 'Mars',    orbitR: 8,  radius: 0.55, color: '#9b8e83', period: 0.3189, phase: 0.2 },
-    { id: 'deimos',    name: 'Deimos',    parent: 'Mars',    orbitR: 12, radius: 0.45, color: '#b7ada6', period: 1.2624, phase: 1.1 },
-    { id: 'io',        name: 'Io',        parent: 'Jupiter', orbitR: 10, radius: 0.75, color: '#d8b28b', period: 1.769,  phase: 0.4 },
-    { id: 'europa',    name: 'Europa',    parent: 'Jupiter', orbitR: 13, radius: 0.7,  color: '#d8e0ea', period: 3.551,  phase: 0.6 },
-    { id: 'ganymede',  name: 'Ganymede',  parent: 'Jupiter', orbitR: 17, radius: 0.9,  color: '#b8c3cc', period: 7.155,  phase: 0.2 },
-    { id: 'callisto',  name: 'Callisto',  parent: 'Jupiter', orbitR: 21, radius: 0.85, color: '#9a8f86', period: 16.689, phase: 2.0 },
-    { id: 'titan',     name: 'Titan',     parent: 'Saturn',  orbitR: 16, radius: 0.9,  color: '#d7c18b', period: 15.95,  phase: 1.3 },
-    { id: 'enceladus', name: 'Enceladus', parent: 'Saturn',  orbitR: 9,  radius: 0.5,  color: '#dfe9f2', period: 1.37,   phase: 1.5 },
-    { id: 'triton',    name: 'Triton',    parent: 'Neptune', orbitR: 11, radius: 0.8,  color: '#bcc7d4', period: 5.877,  phase: 2.6 },
+// 23 natural satellites — id matches objectCatalog (null = no detail page)
+const MOON_DATA = [
+    // Earth
+    { id: 'luna',      name: 'Moon',      parent: 'Earth',   orbitR: 14,  radius: 0.41, color: '#c8c8c8', period: 27.321,  phase0: 2.35, inc: 5.1,   retrograde: false },
+    // Mars
+    { id: 'phobos',    name: 'Phobos',    parent: 'Mars',    orbitR: 5,   radius: 0.15, color: '#9b8e83', period: 0.319,   phase0: 1.20, inc: 1.1,   retrograde: false },
+    { id: 'deimos',    name: 'Deimos',    parent: 'Mars',    orbitR: 8,   radius: 0.14, color: '#b7ada6', period: 1.262,   phase0: 3.70, inc: 1.8,   retrograde: false },
+    // Jupiter
+    { id: 'amalthea',  name: 'Amalthea',  parent: 'Jupiter', orbitR: 13,  radius: 0.19, color: '#c0826a', period: 0.498,   phase0: 0.80, inc: 0.4,   retrograde: false },
+    { id: 'io',        name: 'Io',        parent: 'Jupiter', orbitR: 17,  radius: 0.38, color: '#d8b28b', period: 1.769,   phase0: 1.50, inc: 0.05,  retrograde: false },
+    { id: 'europa',    name: 'Europa',    parent: 'Jupiter', orbitR: 21,  radius: 0.34, color: '#d8e0ea', period: 3.551,   phase0: 3.10, inc: 0.47,  retrograde: false },
+    { id: 'ganymede',  name: 'Ganymede',  parent: 'Jupiter', orbitR: 27,  radius: 0.45, color: '#b8c3cc', period: 7.155,   phase0: 0.60, inc: 0.2,   retrograde: false },
+    { id: 'callisto',  name: 'Callisto',  parent: 'Jupiter', orbitR: 34,  radius: 0.41, color: '#9a8f86', period: 16.689,  phase0: 5.20, inc: 0.19,  retrograde: false },
+    // Saturn
+    { id: 'mimas',     name: 'Mimas',     parent: 'Saturn',  orbitR: 13,  radius: 0.17, color: '#d0cdc8', period: 0.942,   phase0: 2.10, inc: 1.5,   retrograde: false },
+    { id: 'enceladus', name: 'Enceladus', parent: 'Saturn',  orbitR: 16,  radius: 0.23, color: '#dfe9f2', period: 1.370,   phase0: 4.80, inc: 0.0,   retrograde: false },
+    { id: 'tethys',    name: 'Tethys',    parent: 'Saturn',  orbitR: 19,  radius: 0.26, color: '#c8c4be', period: 1.888,   phase0: 1.00, inc: 1.1,   retrograde: false },
+    { id: 'dione',     name: 'Dione',     parent: 'Saturn',  orbitR: 22,  radius: 0.26, color: '#c2bdb8', period: 2.737,   phase0: 3.50, inc: 0.0,   retrograde: false },
+    { id: 'rhea',      name: 'Rhea',      parent: 'Saturn',  orbitR: 26,  radius: 0.32, color: '#bfbbb5', period: 4.518,   phase0: 5.60, inc: 0.3,   retrograde: false },
+    { id: 'titan',     name: 'Titan',     parent: 'Saturn',  orbitR: 33,  radius: 0.45, color: '#d7c18b', period: 15.945,  phase0: 1.80, inc: 0.3,   retrograde: false },
+    { id: 'iapetus',   name: 'Iapetus',   parent: 'Saturn',  orbitR: 45,  radius: 0.26, color: '#a09488', period: 79.330,  phase0: 4.20, inc: 15.5,  retrograde: false },
+    // Uranus
+    { id: 'miranda',   name: 'Miranda',   parent: 'Uranus',  orbitR: 10,  radius: 0.14, color: '#c5c5ca', period: 1.413,   phase0: 0.40, inc: 4.2,   retrograde: false },
+    { id: 'ariel',     name: 'Ariel',     parent: 'Uranus',  orbitR: 13,  radius: 0.23, color: '#cccdd4', period: 2.520,   phase0: 2.80, inc: 0.0,   retrograde: false },
+    { id: 'umbriel',   name: 'Umbriel',   parent: 'Uranus',  orbitR: 16,  radius: 0.23, color: '#8a8d94', period: 4.144,   phase0: 5.00, inc: 0.1,   retrograde: false },
+    { id: 'titania',   name: 'Titania',   parent: 'Uranus',  orbitR: 20,  radius: 0.3,  color: '#c0bfc5', period: 8.706,   phase0: 1.60, inc: 0.1,   retrograde: false },
+    { id: 'oberon',    name: 'Oberon',    parent: 'Uranus',  orbitR: 24,  radius: 0.3,  color: '#aaa8ae', period: 13.463,  phase0: 3.90, inc: 0.1,   retrograde: false },
+    // Neptune
+    { id: 'proteus',   name: 'Proteus',   parent: 'Neptune', orbitR: 9,   radius: 0.19, color: '#8a8f96', period: 1.122,   phase0: 2.50, inc: 0.0,   retrograde: false },
+    { id: 'triton',    name: 'Triton',    parent: 'Neptune', orbitR: 13,  radius: 0.34, color: '#bcc7d4', period: 5.877,   phase0: 0.90, inc: 157.0, retrograde: true  },
+    { id: 'nereid',    name: 'Nereid',    parent: 'Neptune', orbitR: 22,  radius: 0.15, color: '#9fa6b0', period: 360.14,  phase0: 5.10, inc: 7.2,   retrograde: false },
 ];
 
-function solveKepler(meanAnomaly, eccentricity) {
-    let eccentricAnomaly = meanAnomaly;
-    for (let i = 0; i < 8; i++) {
-        const f = eccentricAnomaly - eccentricity * Math.sin(eccentricAnomaly) - meanAnomaly;
-        const fp = 1 - eccentricity * Math.cos(eccentricAnomaly);
-        eccentricAnomaly -= f / fp;
-    }
-    return eccentricAnomaly;
-}
-
-function applyOrbitOrientation(localPosition, name) {
-    const oel = ORBITAL_ELEMENTS[name];
-    const inc = oel.inc * Math.PI / 180;
-    const Omega = oel.omega * Math.PI / 180;
-    const wRad = oel.w * Math.PI / 180;
-
-    const qLay = new THREE.Quaternion()
-        .setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
-    const nodeAxis = new THREE.Vector3(Math.cos(Omega), 0, Math.sin(Omega));
-    const qTilt = new THREE.Quaternion()
-        .setFromAxisAngle(nodeAxis, -inc);
-    const qPeri = new THREE.Quaternion()
-        .setFromAxisAngle(new THREE.Vector3(0, 1, 0), -wRad);
-
-    const orientation = new THREE.Quaternion().multiplyQuaternions(
-        qTilt,
-        new THREE.Quaternion().multiplyQuaternions(qLay, qPeri)
-    );
-
-    return localPosition.clone().applyQuaternion(orientation);
-}
-
+// Use astronomy-engine's HelioVector for true planet positions (includes perturbations).
+// Normalize to a unit direction then scale by the visual orbitR so out-of-ecliptic
+// displacement stays geometrically consistent with the compressed radii.
+// Axis mapping: astronomical (x,y,z) → scene (x, z_astro→y, y_astro→z)
 function computePlanetPos(name, orbitR, date = new Date()) {
-    const orbit = PLANET_ORBIT_STATE[name];
-    const oel = ORBITAL_ELEMENTS[name];
-    if (!orbit || !oel) {
+    try {
+        const vec  = Astronomy.HelioVector(name, date);
+        const dist = Math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
+        if (dist === 0) return { x: orbitR, y: 0, z: 0 };
+        return {
+            x:  (vec.x / dist) * orbitR,
+            y:  (vec.z / dist) * orbitR,
+            z:  (vec.y / dist) * orbitR,
+        };
+    } catch {
         return { x: orbitR, y: 0, z: 0 };
     }
+}
 
-    const daysSinceEpoch = (date.getTime() - ORBIT_EPOCH_MS) / 86400000;
-    const tau = Math.PI * 2;
-    const meanAnomaly = orbit.phase + (tau * daysSinceEpoch / orbit.period);
-    const normalizedMeanAnomaly = ((meanAnomaly % tau) + tau) % tau;
-    const eccentricAnomaly = solveKepler(normalizedMeanAnomaly, oel.e);
-    const a = orbitR;
-    const b = a * Math.sqrt(1 - oel.e * oel.e);
-
-    const local = new THREE.Vector3(
-        a * (Math.cos(eccentricAnomaly) - oel.e),
-        b * Math.sin(eccentricAnomaly),
-        0,
-    );
-
-    return applyOrbitOrientation(local, name);
+// Sample the real orbit path via HelioVector over one full period
+function buildOrbitPoints(name, orbitR) {
+    const period = ORBITAL_PERIODS[name];
+    const now = Date.now();
+    const N = 256;
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+        const date = new Date(now + (i / N) * period * 86400000);
+        const p = computePlanetPos(name, orbitR, date);
+        pts.push(new THREE.Vector3(p.x, p.y, p.z));
+    }
+    return pts;
 }
 
 function buildOrbitTube(points) {
-    const curve = new THREE.CatmullRomCurve3(
-        points.map((point) => new THREE.Vector3(point.x, point.y, 0))
-    );
+    const curve = new THREE.CatmullRomCurve3(points, true);
     return new THREE.TubeGeometry(curve, 256, ORBIT_TUBE_RADIUS, 8, true);
 }
 
@@ -156,7 +148,8 @@ let _exitState = { active: false, cameraPos: null, targetPos: null };
 const SolarSystem3D = ({ focusedId }) => {
     const mountRef  = useRef(null);
     const navigate  = useNavigate();
-    const [hoverLabel, setHoverLabel] = useState(null);
+    const [objectLabels, setObjectLabels] = useState([]);
+    const [moonLabelsReady, setMoonLabelsReady] = useState(false);
 
     const focusedIdRef = useRef(focusedId);
     useLayoutEffect(() => {
@@ -197,9 +190,9 @@ const SolarSystem3D = ({ focusedId }) => {
         controls.enableDamping = true;
         controls.enablePan     = false;
         controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.22;
+        controls.autoRotateSpeed = 0.11;
         controls.minDistance   = 30;
-        controls.maxDistance   = 900;
+        controls.maxDistance   = 1200;
 
         let isInteracting = false;
         controls.addEventListener('start', () => { isInteracting = true; });
@@ -210,7 +203,7 @@ const SolarSystem3D = ({ focusedId }) => {
         let exitPhase      = 0; // 0=normal  1=pull-back  2=fly-to-sun
         let exitFrames     = 0;
         let hasInitialZoom = false;
-        let targetAutoRotateSpeed = 0.22; // smoothly updated on hover
+        let targetAutoRotateSpeed = 0.11; // smoothly updated on hover
 
         // ── Focus zoom-in animation state ──────────────────────────────────────
         let focusAnimating   = false;
@@ -251,13 +244,9 @@ const SolarSystem3D = ({ focusedId }) => {
         const textures = [];
 
         // ── Sun ────────────────────────────────────────────────────────────────
-        const sunGeo = new THREE.SphereGeometry(12, 32, 32);
-        const sunMat = new THREE.MeshStandardMaterial({
-            emissive:          '#FDB813',
-            emissiveIntensity: 2.0,
-            roughness:         1.0,
-            metalness:         0.0,
-        });
+        const sunGeo = new THREE.SphereGeometry(12, 64, 64);
+        // MeshBasicMaterial — self-luminous, not affected by scene lights
+        const sunMat = new THREE.MeshBasicMaterial({ color: '#FFF4A0' });
         const sunMesh = new THREE.Mesh(sunGeo, sunMat);
         sunMesh.userData = { id: 'sun', name: 'Sun' };
         scene.add(sunMesh);
@@ -265,21 +254,10 @@ const SolarSystem3D = ({ focusedId }) => {
         loader.load('/textures/sun.jpg', (tex) => {
             if (!mounted) { tex.dispose(); return; }
             textures.push(tex);
-            sunMat.map            = tex;
-            sunMat.emissiveMap    = tex;
-            sunMat.emissiveIntensity = 0.6;
-            sunMat.needsUpdate    = true;
+            sunMat.map   = tex;
+            sunMat.color.set(0xffffff);
+            sunMat.needsUpdate = true;
         });
-
-        const coronaGeo = new THREE.SphereGeometry(18, 32, 32);
-        const coronaMat = new THREE.MeshBasicMaterial({
-            color:       '#FDB813',
-            transparent: true,
-            opacity:     0.22,
-            depthWrite:  false,
-            side:        THREE.FrontSide,
-        });
-        scene.add(new THREE.Mesh(coronaGeo, coronaMat));
 
         // ── Milky Way skysphere ────────────────────────────────────────────────
         const skyGeo = new THREE.SphereGeometry(8000, 64, 64);
@@ -296,12 +274,38 @@ const SolarSystem3D = ({ focusedId }) => {
         scene.add(skySphere);
 
         // ── Resource tracking (for cleanup) ────────────────────────────────────
-        const geos     = [sunGeo, coronaGeo, skyGeo];
-        const mats     = [sunMat, coronaMat, skyMat];
+        const geos     = [sunGeo, skyGeo];
+        const mats     = [sunMat, skyMat];
 
-        const planetMeshes  = [sunMesh];   // raycaster targets
-        const planetGroups  = [];   // for position refresh
-        const satelliteGroups = []; // moons and dwarf-planet companions
+        // Additive glow layers — colors add on top of the scene, building a bright halo
+        const GLOW_LAYERS = [
+            { r: 13.2, op: 0.11, color: '#FFFF90' },
+            { r: 15.5, op: 0.11, color: '#FFEE60' },
+            { r: 20,   op: 0.05, color: '#FFE030' },
+            { r: 30,   op: 0.018,color: '#FFD020' },
+            { r: 48,   op: 0.006,color: '#FFB800' },
+        ];
+        GLOW_LAYERS.forEach(({ r, op, color }) => {
+            const geo = new THREE.SphereGeometry(r, 32, 32);
+            const mat = new THREE.MeshBasicMaterial({
+                color,
+                transparent: true,
+                opacity: op,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+            });
+            scene.add(new THREE.Mesh(geo, mat));
+            geos.push(geo);
+            mats.push(mat);
+        });
+
+        const planetMeshes    = [sunMesh];  // raycaster targets
+        const planetGroups    = [];         // for position refresh
+        const planetMeshRefs  = new Map();  // name → group, for moon positioning
+        const planetHitboxRefs = new Map(); // name → planet hitbox mesh, for focus-scale
+        const moonMeshRefs    = new Map();  // moon.name → visual mesh
+        const moonHitRefs     = new Map();  // moon.name → hitbox mesh (scene-direct, position synced each frame)
+        const moonAngles      = new Map();  // moon.name → current liveAngle (radians)
 
         // Earth day/night shader references — set once textures load, used in rAF loop
         let earthMesh      = null;
@@ -311,44 +315,11 @@ const SolarSystem3D = ({ focusedId }) => {
         PLANETS.forEach(planet => {
             const pbr = PLANET_PBR[planet.name] ?? { roughness: 0.8, metalness: 0.05 };
 
-            // Orbital ellipse — tilted to match real inclination and ascending node
-            const oel   = ORBITAL_ELEMENTS[planet.name];
-            const a     = planet.orbitR;
-            const b     = a * Math.sqrt(1 - oel.e * oel.e);
-            const curve = new THREE.EllipseCurve(-a * oel.e, 0, a, b, 0, 2 * Math.PI, false);
-            const orbitPoints = curve.getPoints(256);
-            const orbitGeo = buildOrbitTube(orbitPoints);
-            const orbitMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: ORBIT_BASE_OPACITY });
+            // Orbit path sampled from HelioVector — same source as planet positions
+            const orbitGeo = buildOrbitTube(buildOrbitPoints(planet.name, planet.orbitR));
+            const orbitMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: ORBIT_BASE_OPACITY, depthWrite: false });
             const orbitLine = new THREE.Mesh(orbitGeo, orbitMat);
-            orbitLine.userData = {
-                baseOpacity: ORBIT_BASE_OPACITY,
-                hoverOpacity: ORBIT_HOVER_OPACITY,
-            };
-
-            const inc   = oel.inc   * Math.PI / 180;
-            const Omega = oel.omega * Math.PI / 180;
-
-            // Lay ring from XY plane into XZ plane (ecliptic plane in scene)
-            // Must use +PI/2, not -PI/2 — negative flips orbit direction
-            const qLay = new THREE.Quaternion()
-                .setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
-
-            // Tilt around the ascending node axis by -inc
-            // Negative sign tilts the ring northward (+Y = ecliptic north)
-            // Node direction in scene XZ plane at angle Omega from +X
-            const nodeAxis = new THREE.Vector3(Math.cos(Omega), 0, Math.sin(Omega));
-            const qTilt = new THREE.Quaternion()
-                .setFromAxisAngle(nodeAxis, -inc);
-
-            const wRad = oel.w * Math.PI / 180;
-            const qPeri = new THREE.Quaternion()
-                .setFromAxisAngle(new THREE.Vector3(0, 1, 0), -wRad);
-
-            // Full orientation: perihelion first, then lay, then tilt
-            orbitLine.quaternion.multiplyQuaternions(
-                qTilt,
-                new THREE.Quaternion().multiplyQuaternions(qLay, qPeri)
-            );
+            orbitLine.userData = { baseOpacity: ORBIT_BASE_OPACITY, hoverOpacity: ORBIT_HOVER_OPACITY };
 
             scene.add(orbitLine);
             geos.push(orbitGeo);
@@ -395,7 +366,7 @@ const SolarSystem3D = ({ focusedId }) => {
                     emissive:          '#c8a040',
                     emissiveIntensity: 0.12,
                     transparent:       true,
-                    opacity:           0.22,
+                    opacity:           0.11,
                     side:              THREE.FrontSide,
                     depthWrite:        false,
                 });
@@ -529,94 +500,156 @@ const SolarSystem3D = ({ focusedId }) => {
             group.position.set(p.x, p.y, p.z);
             scene.add(group);
             planetMeshes.push(mesh);
+
+            // Invisible hitbox — larger than visual sphere so small planets are easy to click
+            const hitboxR  = Math.max(planet.r * 2 + 2.5, 4.5);
+            const pHitGeo  = new THREE.SphereGeometry(hitboxR, 8, 8);
+            const pHitMat  = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+            const pHitMesh = new THREE.Mesh(pHitGeo, pHitMat);
+            pHitMesh.userData = mesh.userData; // shared reference — same id, name, orbitLine
+            group.add(pHitMesh);
+            geos.push(pHitGeo);
+            mats.push(pHitMat);
+            planetMeshes.push(pHitMesh);
+            planetHitboxRefs.set(planet.name, pHitMesh);
+
+            planetMeshRefs.set(planet.name, group);
             planetGroups.push({ group, planet });
         });
 
-        SATELLITES.forEach((satellite) => {
-            const parentGroup = planetGroups.find(({ planet }) => planet.name === satellite.parent)?.group;
-            if (!parentGroup) return;
-
-            const orbitPoints = [];
-            for (let i = 0; i <= 96; i++) {
-                const t = (i / 96) * Math.PI * 2;
-                orbitPoints.push(new THREE.Vector3(
-                    Math.cos(t) * satellite.orbitR,
-                    Math.sin(t) * satellite.orbitR,
-                    0,
-                ));
-            }
-            const orbitTubeGeo = buildOrbitTube(orbitPoints);
-            const orbitMat = new THREE.MeshBasicMaterial({
-                color: 0xffffff,
-                transparent: true,
-                opacity: SATELLITE_ORBIT_BASE_OPACITY,
-            });
-            const orbitLine = new THREE.Mesh(orbitTubeGeo, orbitMat);
-            orbitLine.rotation.x = Math.PI / 2;
-            orbitLine.userData = {
-                baseOpacity: SATELLITE_ORBIT_BASE_OPACITY,
-                hoverOpacity: SATELLITE_ORBIT_HOVER_OPACITY,
+        // ── Belt orientation ───────────────────────────────────────────────────
+        // Derive the ecliptic plane normal from two Mars HelioVector samples
+        // 90 days apart. The cross product of the two unit-direction vectors
+        // gives the exact orbital plane normal in scene-space, so both belts
+        // align with the same plane the planet orbit rings live in.
+        const beltQuat = new THREE.Quaternion();
+        try {
+            const toSceneUnit = (v) => {
+                const d = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+                return new THREE.Vector3(v.x / d, v.z / d, v.y / d); // scene mapping
             };
+            const sm1 = toSceneUnit(Astronomy.HelioVector('Mars', new Date()));
+            const sm2 = toSceneUnit(Astronomy.HelioVector('Mars', new Date(Date.now() + 90 * 86400000)));
+            const eclipticNormal = new THREE.Vector3().crossVectors(sm1, sm2).normalize();
+            if (eclipticNormal.y < 0) eclipticNormal.negate(); // ensure north-facing
+            beltQuat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), eclipticNormal);
+        } catch (_) { /* keep identity quaternion */ }
 
-            const satelliteGroup = new THREE.Group();
-            satelliteGroup.add(orbitLine);
-
-            const satGeo = new THREE.SphereGeometry(satellite.radius, 16, 16);
-            const satMat = new THREE.MeshStandardMaterial({
-                color: satellite.color,
-                roughness: 0.94,
-                metalness: 0.02,
-                emissive: new THREE.Color(satellite.color),
-                emissiveIntensity: 0.04,
-            });
-            const satMesh = new THREE.Mesh(satGeo, satMat);
-            satMesh.position.set(satellite.orbitR, 0, 0);
-            satelliteGroup.add(satMesh);
-
-            // Invisible hitbox — 4× visual radius so moons are easy to click/hover
-            const hitboxR = Math.max(satellite.radius * 4, 3);
-            const hitGeo  = new THREE.SphereGeometry(hitboxR, 8, 8);
-            const hitMat  = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-            const parentPlanetId = PLANETS.find(p => p.name === satellite.parent)?.id;
-
-            const hitMesh = new THREE.Mesh(hitGeo, hitMat);
-            hitMesh.position.set(satellite.orbitR, 0, 0);
-            hitMesh.userData = { id: satellite.id, name: satellite.name, orbitLine, parentId: parentPlanetId };
-            satelliteGroup.add(hitMesh);
-
-            parentGroup.add(satelliteGroup);
-            planetMeshes.push(hitMesh); // hitbox handles all raycasting for this moon
-            geos.push(orbitTubeGeo, satGeo, hitGeo);
-            mats.push(orbitMat, satMat, hitMat);
-            satelliteGroups.push({ group: satelliteGroup, period: satellite.period, phase: satellite.phase, parentId: parentPlanetId });
-        });
-
-        // ── Belt helper ────────────────────────────────────────────────────────
-        function createBelt(innerR, outerR, count, thickness, size, opacity) {
-            const positions = new Float32Array(count * 3);
-            for (let i = 0; i < count; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const r     = innerR + Math.random() * (outerR - innerR);
-                const y     = (Math.random() - 0.5) * thickness;
-                positions[i * 3]     = Math.cos(angle) * r;
-                positions[i * 3 + 1] = y;
-                positions[i * 3 + 2] = Math.sin(angle) * r;
+        // ── Asteroid Belt ─────────────────────────────────────────────────────
+        // Between Mars (128) and Jupiter (190): 2.0–3.2 AU maps to ~136–156 scene units.
+        // Uniform-area distribution: r = sqrt(rand*(R²-r²)+r²) avoids inner-edge clumping.
+        {
+            const AB_COUNT  = 3500;
+            const AB_INNER  = 150;
+            const AB_OUTER  = 162;
+            const AB_HEIGHT = 5;
+            const positions = new Float32Array(AB_COUNT * 3);
+            const _p = new THREE.Vector3();
+            for (let i = 0; i < AB_COUNT; i++) {
+                const r     = Math.sqrt(Math.random() * (AB_OUTER ** 2 - AB_INNER ** 2) + AB_INNER ** 2);
+                const theta = Math.random() * Math.PI * 2;
+                _p.set(r * Math.cos(theta), (Math.random() - 0.5) * 2 * AB_HEIGHT, r * Math.sin(theta));
+                _p.applyQuaternion(beltQuat);
+                positions[i * 3]     = _p.x;
+                positions[i * 3 + 1] = _p.y;
+                positions[i * 3 + 2] = _p.z;
             }
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            const mat = new THREE.PointsMaterial({
-                color: 0xffffff, size, transparent: true, opacity,
-                sizeAttenuation: true, depthWrite: false,
+            const abGeo = new THREE.BufferGeometry();
+            abGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const abMat = new THREE.PointsMaterial({
+                color: '#8a7a6a',
+                size: 0.9,
+                transparent: true,
+                opacity: 0.55,
+                sizeAttenuation: true,
+                depthWrite: false,
             });
-            return new THREE.Points(geo, mat);
+            scene.add(new THREE.Points(abGeo, abMat));
+            geos.push(abGeo);
+            mats.push(abMat);
         }
 
-        const asteroidBelt = createBelt(142, 176, 4000, 6,  BELT_SIZE, BELT_BRIGHTNESS);
-        const kuiperBelt   = createBelt(360, 460, 7000, 18, BELT_SIZE, BELT_BRIGHTNESS);
-        scene.add(asteroidBelt);
-        scene.add(kuiperBelt);
-        geos.push(asteroidBelt.geometry, kuiperBelt.geometry);
-        mats.push(asteroidBelt.material, kuiperBelt.material);
+        // ── Kuiper Belt ────────────────────────────────────────────────────────
+        // Beyond Neptune (340) out to ~50 AU → 490 scene units (extrapolating
+        // Neptune 30AU/340 ↔ Pluto 39.5AU/410 scale: ~7.4 units/AU).
+        // KBOs have higher inclinations → taller height spread.
+        {
+            const KB_COUNT  = 5000;
+            const KB_INNER  = 342;
+            const KB_OUTER  = 490;
+            const KB_HEIGHT = 20;
+            const positions = new Float32Array(KB_COUNT * 3);
+            const _p = new THREE.Vector3();
+            for (let i = 0; i < KB_COUNT; i++) {
+                const r     = Math.sqrt(Math.random() * (KB_OUTER ** 2 - KB_INNER ** 2) + KB_INNER ** 2);
+                const theta = Math.random() * Math.PI * 2;
+                _p.set(r * Math.cos(theta), (Math.random() - 0.5) * 2 * KB_HEIGHT, r * Math.sin(theta));
+                _p.applyQuaternion(beltQuat);
+                positions[i * 3]     = _p.x;
+                positions[i * 3 + 1] = _p.y;
+                positions[i * 3 + 2] = _p.z;
+            }
+            const kbGeo = new THREE.BufferGeometry();
+            kbGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const kbMat = new THREE.PointsMaterial({
+                color: '#7aaec8',
+                size: 1.2,
+                transparent: true,
+                opacity: 0.40,
+                sizeAttenuation: true,
+                depthWrite: false,
+            });
+            scene.add(new THREE.Points(kbGeo, kbMat));
+            geos.push(kbGeo);
+            mats.push(kbMat);
+        }
+
+        // ── Moon meshes (MOON_DATA) ────────────────────────────────────────────
+        MOON_DATA.forEach(moon => {
+            const parentGroup = planetMeshRefs.get(moon.parent);
+            if (!parentGroup) return;
+
+            const moonGeo = new THREE.SphereGeometry(moon.radius, 16, 16);
+            const moonMat = new THREE.MeshStandardMaterial({
+                color: moon.color,
+                roughness: 0.95,
+                metalness: 0.0,
+                emissive: new THREE.Color(moon.color),
+                emissiveIntensity: 0.04,
+            });
+            const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+            moonMesh.userData = { id: moon.id, name: moon.name };
+            scene.add(moonMesh);
+            geos.push(moonGeo);
+            mats.push(moonMat);
+            moonMeshRefs.set(moon.name, moonMesh);
+
+            if (moon.id && MOON_TEXTURES[moon.id]) {
+                loader.load(MOON_TEXTURES[moon.id], (tex) => {
+                    if (!mounted) { tex.dispose(); return; }
+                    textures.push(tex);
+                    moonMat.map = tex;
+                    moonMat.color.set(0xffffff);
+                    moonMat.emissiveIntensity = 0;
+                    moonMat.needsUpdate = true;
+                });
+            }
+
+            // Invisible hitbox — added directly to scene so its matrixWorld is
+            // always independent and up to date. Position is synced to moonMesh
+            // explicitly every rAF frame via moonHitRefs.
+            const hitR    = Math.max(moon.radius * 5, 2.5);
+            const hitGeo  = new THREE.SphereGeometry(hitR, 8, 8);
+            const hitMat  = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+            const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+            hitMesh.userData = { id: moon.id, name: moon.name };
+            scene.add(hitMesh);
+            geos.push(hitGeo);
+            mats.push(hitMat);
+            moonHitRefs.set(moon.name, hitMesh);
+            planetMeshes.push(hitMesh);
+        });
+        MOON_DATA.forEach(moon => moonAngles.set(moon.name, moon.phase0));
 
         // Refresh positions every 60 s
         const posInterval = setInterval(() => {
@@ -643,9 +676,11 @@ const SolarSystem3D = ({ focusedId }) => {
             raycaster.setFromCamera(mouse, camera);
             const hits = raycaster.intersectObjects(planetMeshes, false);
             if (hits.length > 0) {
-                if (mounted) setHoverLabel(null);
-                pendingFocusCamPos = camera.position.clone(); // exact position at click time
-                navigateRef.current(`/object/${hits[0].object.userData.id}`);
+                const id = hits[0].object.userData.id;
+                if (id) {
+                    pendingFocusCamPos = camera.position.clone();
+                    navigateRef.current(`/object/${id}`);
+                }
             }
         };
 
@@ -667,16 +702,7 @@ const SolarSystem3D = ({ focusedId }) => {
                     activeOrbit = orbit ?? null;
                 }
 
-                const worldPos = new THREE.Vector3();
-                hitMesh.getWorldPosition(worldPos);
-                const proj = worldPos.clone().project(camera);
-                const rect = renderer.domElement.getBoundingClientRect();
-                if (mounted) setHoverLabel({
-                    name: hitMesh.userData.name,
-                    x: (proj.x + 1) / 2 * rect.width,
-                    y: -(proj.y - 1) / 2 * rect.height,
-                });
-                renderer.domElement.style.cursor = 'pointer';
+                renderer.domElement.style.cursor = hitMesh.userData.id ? 'pointer' : '';
                 // Decelerate auto-rotate only in home view (focused mode already disables it)
                 if (!focusedIdRef.current) targetAutoRotateSpeed = 0;
             } else {
@@ -684,9 +710,8 @@ const SolarSystem3D = ({ focusedId }) => {
                     activeOrbit.material.opacity = focusedIdRef.current ? 0 : (activeOrbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY);
                     activeOrbit = null;
                 }
-                if (mounted) setHoverLabel(null);
                 renderer.domElement.style.cursor = '';
-                targetAutoRotateSpeed = 0.22;
+                targetAutoRotateSpeed = 0.11;
             }
         };
 
@@ -705,6 +730,8 @@ const SolarSystem3D = ({ focusedId }) => {
 
         // ── Animation loop ─────────────────────────────────────────────────────
         let animId;
+        let prevNowDays = null;
+        let meshRotSpeed = 0.002;
 
         const animate = () => {
             animId = requestAnimationFrame(animate);
@@ -714,7 +741,7 @@ const SolarSystem3D = ({ focusedId }) => {
 
             // ── Detect focus changes ───────────────────────────────────────────
             if (currentFocusedId !== prevFocusedId) {
-                // Restore previous focused planet's orbit + tilt
+                // Restore previous focused planet's orbit + tilt + hitbox scale
                 if (prevFocusedId) {
                     const prevMesh = planetMeshes.find(m => m.userData.id === prevFocusedId);
                     if (prevMesh && prevMesh.userData.name !== 'Saturn') {
@@ -727,6 +754,12 @@ const SolarSystem3D = ({ focusedId }) => {
                             m.userData.orbitLine.material.opacity = base ?? ORBIT_BASE_OPACITY;
                         }
                     });
+                    // Restore hitbox to full 2× size
+                    const prevPlanet = PLANETS.find(p => p.id === prevFocusedId);
+                    if (prevPlanet) {
+                        const hb = planetHitboxRefs.get(prevPlanet.name);
+                        if (hb) hb.scale.setScalar(1.0);
+                    }
                 }
                 // Apply axial tilt + hide ALL orbit rings when focusing
                 if (currentFocusedId) {
@@ -742,6 +775,14 @@ const SolarSystem3D = ({ focusedId }) => {
                             m.userData.orbitLine.material.opacity = 0;
                         }
                     });
+                    // Shrink focused planet's hitbox to 1× visual radius so nearby
+                    // moons are clickable without the planet intercepting the ray
+                    const focusedPlanet = PLANETS.find(p => p.id === currentFocusedId);
+                    if (focusedPlanet) {
+                        const hb   = planetHitboxRefs.get(focusedPlanet.name);
+                        const geomR = hb?.geometry?.parameters?.radius ?? 1;
+                        if (hb) hb.scale.setScalar(focusedPlanet.r / geomR);
+                    }
                     // Compute smooth focus animation — starts from current camera,
                     // ends at 30° elevation above the planet at the correct zoom distance
                     if (newMesh) {
@@ -770,22 +811,42 @@ const SolarSystem3D = ({ focusedId }) => {
                     exitPhase  = 1;
                     exitFrames = 0;
                 }
+                setMoonLabelsReady(false);
                 hasInitialZoom = false;
                 prevFocusedId  = currentFocusedId;
             }
 
-            // ── Satellites: speed up x10000 when parent planet is focused ──────
-            satelliteGroups.forEach(({ group, period, phase, parentId }) => {
-                const speedMult = (currentFocusedId && currentFocusedId === parentId) ? 10000 : 1;
-                group.rotation.y = phase + (tau * nowDays * speedMult / period);
+            // ── Moon positions (MOON_DATA) ─────────────────────────────────────
+            // Delta-time keeps motion continuous (no snapping between frames).
+            // 2000× visual speedup: Phobos ~14s/orbit, Io ~76s, Moon ~20min.
+            const MOON_SPEED = 2000;
+            const deltaDays = prevNowDays != null ? Math.min(nowDays - prevNowDays, 0.005) : 0;
+            prevNowDays = nowDays;
+            MOON_DATA.forEach(moon => {
+                const parentGroup = planetMeshRefs.get(moon.parent);
+                const moonMesh    = moonMeshRefs.get(moon.name);
+                if (!parentGroup || !moonMesh) return;
+                const dir   = moon.retrograde ? -1 : 1;
+                const dAngle = dir * (tau / moon.period) * deltaDays * MOON_SPEED;
+                moonAngles.set(moon.name, (moonAngles.get(moon.name) ?? moon.phase0) + dAngle);
+                const angle  = moonAngles.get(moon.name);
+                const incRad = moon.inc * Math.PI / 180;
+                const mx = parentGroup.position.x + Math.cos(angle) * moon.orbitR;
+                const my = parentGroup.position.y + Math.sin(angle) * moon.orbitR * Math.sin(incRad);
+                const mz = parentGroup.position.z + Math.sin(angle) * moon.orbitR * Math.cos(incRad);
+                moonMesh.position.set(mx, my, mz);
+                const hitMesh = moonHitRefs.get(moon.name);
+                if (hitMesh) hitMesh.position.set(mx, my, mz);
             });
 
             // ── Self-rotation ──────────────────────────────────────────────────
+            const moonFocused = currentFocusedId && MOON_DATA.some(m => m.id === currentFocusedId);
+            const targetRotSpeed = moonFocused ? 0.00008 : 0.002;
+            meshRotSpeed += (targetRotSpeed - meshRotSpeed) * 0.03;
             sunMesh.rotation.y      += 0.0008;
-            asteroidBelt.rotation.y += 0.0001;
-            kuiperBelt.rotation.y   += 0.00004;
             skySphere.rotation.y    += 0.00002;
-            planetMeshes.forEach(m => { m.rotation.y += 0.002; });
+            planetMeshes.forEach(m => { m.rotation.y += meshRotSpeed; });
+            moonMeshRefs.forEach(m => { m.rotation.y += meshRotSpeed; });
 
             // ── Earth day/night shader: update sun direction each frame ──────────
             if (earthMesh && earthShaderMat) {
@@ -807,12 +868,16 @@ const SolarSystem3D = ({ focusedId }) => {
                 exitPhase = 0;
                 targetMesh.getWorldPosition(targetPos);
 
+                const planetRadius = targetMesh.geometry?.parameters?.radius ?? 3.5;
+                controls.minDistance = Math.max(planetRadius * 3, 6);
+
                 if (focusAnimating) {
                     if (isInteracting) {
                         // User grabbed control mid-animation — hand off immediately
                         focusAnimating = false;
                         hasInitialZoom = true;
                         controls.target.copy(targetPos);
+                        setMoonLabelsReady(true);
                     } else {
                         // Point target at planet immediately so controls.update() calls
                         // camera.lookAt(planet) — prevents "looking at origin" visual glitch
@@ -824,6 +889,7 @@ const SolarSystem3D = ({ focusedId }) => {
                 controls.autoRotate = false;
 
             } else if (exitPhase === 1) {
+                controls.minDistance = 30;
                 // Phase 1: constant-velocity pull-back from the planet (50 frames ≈ 0.8s)
                 exitFrames++;
                 if (!isInteracting) {
@@ -884,7 +950,58 @@ const SolarSystem3D = ({ focusedId }) => {
                     focusAnimating = false;
                     hasInitialZoom = true;
                     controls.target.copy(targetPos);
+                    setMoonLabelsReady(true);
                 }
+            }
+
+            // ── Object labels ──────────────────────────────────────────────────
+            if (mounted) {
+                const rect = renderer.domElement.getBoundingClientRect();
+                const project = (mesh) => {
+                    const wp = new THREE.Vector3();
+                    mesh.getWorldPosition(wp);
+                    const pr = wp.clone().project(camera);
+                    if (pr.z > 1) return null;
+                    return {
+                        x: (pr.x + 1) / 2 * rect.width,
+                        y: -(pr.y - 1) / 2 * rect.height,
+                        depth: pr.z,
+                    };
+                };
+                const newLabels = [];
+                if (!currentFocusedId) {
+                    // Home view — label every planet
+                    planetGroups.forEach(({ group, planet }) => {
+                        const pos = project(group);
+                        if (pos) newLabels.push({ name: planet.name, kind: 'planet', ...pos });
+                    });
+                } else {
+                    // Focused on a planet — show its moons only
+                    const focusedPlanet = planetGroups.find(({ planet }) => planet.id === currentFocusedId);
+                    if (focusedPlanet) {
+                        MOON_DATA.forEach(moon => {
+                            if (moon.parent !== focusedPlanet.planet.name) return;
+                            const mesh = moonMeshRefs.get(moon.name);
+                            if (!mesh) return;
+                            const pos = project(mesh);
+                            if (pos) newLabels.push({ name: moon.name, kind: 'moon', ...pos });
+                        });
+                    } else {
+                        // Focused on a moon — label the moon itself
+                        const focusedMoon = MOON_DATA.find(m => m.id === currentFocusedId);
+                        if (focusedMoon) {
+                            const mesh = moonMeshRefs.get(focusedMoon.name);
+                            if (mesh) {
+                                const pos = project(mesh);
+                                if (pos) newLabels.push({ name: focusedMoon.name, kind: 'moon', ...pos });
+                            }
+                        }
+                    }
+                }
+                setObjectLabels(prev => {
+                    if (prev.length === 0 && newLabels.length === 0) return prev;
+                    return newLabels;
+                });
             }
 
             renderer.render(scene, camera);
@@ -923,27 +1040,39 @@ const SolarSystem3D = ({ focusedId }) => {
                 ref={mountRef}
                 style={{ width: '100%', height: '100vh', position: 'relative' }}
             >
-                {/* Hover label — absolute inside the mount div */}
-                {hoverLabel && (
-                    <div style={{
+                {/* Floating object labels */}
+                {objectLabels.map((label, i) => {
+                    // Planet labels: 20–28. Moon labels: 4–8.
+                    // Within each band, closer objects (lower depth) get higher z.
+                    const isMoon = label.kind === 'moon';
+                    const base   = isMoon ? 4 : 20;
+                    const range  = isMoon ? 4 : 8;
+                    const zIndex = base + Math.round((1 - label.depth) * range * 0.5);
+                    return (
+                    <div key={`${label.name}-${i}`} style={{
                         position: 'absolute',
-                        left: hoverLabel.x,
-                        top: hoverLabel.y,
-                        transform: 'translate(-50%, -160%)',
-                        background: 'rgba(0,0,0,0.72)',
-                        color: '#fff',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        letterSpacing: '0.06em',
-                        padding: '3px 8px',
-                        borderRadius: 5,
+                        left: label.x,
+                        top: label.y,
+                        transform: 'translate(12px, -50%)',
                         pointerEvents: 'none',
-                        whiteSpace: 'nowrap',
-                        zIndex: 20,
+                        zIndex,
+                        opacity: isMoon ? (moonLabelsReady ? 1 : 0) : 1,
+                        transition: isMoon ? 'opacity 0.5s ease' : 'none',
                     }}>
-                        {hoverLabel.name}
+                        <div style={{
+                            color: 'rgba(255,255,255,0.85)',
+                            fontSize: 10,
+                            fontWeight: 700,
+                            letterSpacing: '0.07em',
+                            lineHeight: 1.3,
+                            textShadow: '0 1px 4px rgba(0,0,0,0.9)',
+                            whiteSpace: 'nowrap',
+                        }}>
+                            {label.name}
+                        </div>
                     </div>
-                )}
+                    );
+                })}
             </div>
         </div>
     );
