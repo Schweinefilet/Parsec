@@ -1,10 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Globe, Moon, Star, Eye, Zap, CircleDot } from 'lucide-react';
 import { getObjectById } from '../data/objectCatalog';
-import { computeDistanceSeries } from '../utils/astroFormatters';
 import ObjectStatsPanel from '../components/ObjectStatsPanel';
-import DataChart from '../components/DataChart';
 import StarfieldBg from '../components/StarfieldBg';
 import { useNasaImage } from '../hooks/useNasaImage';
 import PlanetViewer from '../components/PlanetViewer';
@@ -29,84 +27,19 @@ const CATEGORY_COLORS = {
     neos:       '#ff8c50',
 };
 
-const TIME_RANGES = [
-    { key: '3m',  label: '3M',  days: 90  },
-    { key: '6m',  label: '6M',  days: 180 },
-    { key: '1y',  label: '1Y',  days: 365 },
-    { key: '2y',  label: '2Y',  days: 730 },
-];
-
-const HAS_ORBIT_CHART = new Set(['planets', 'dwarf-planets', 'moons', 'neos']);
-
-class ErrorBoundary extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = { hasError: false };
-    }
-    static getDerivedStateFromError() { return { hasError: true }; }
-    render() {
-        if (this.state.hasError) {
-            return (
-                <div className="w-full h-full flex items-center justify-center p-8 text-center"
-                    style={{ color: 'var(--text-tertiary)' }}>
-                    Chart could not be rendered.
-                </div>
-            );
-        }
-        return this.props.children;
-    }
-}
-
 const ObjectDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [timeRange, setTimeRange] = useState('1y');
 
     const [visible, setVisible] = useState(false);
     useEffect(() => {
-        const id = setTimeout(() => setVisible(true), 50);
-        return () => clearTimeout(id);
+        const tid = setTimeout(() => setVisible(true), 50);
+        return () => clearTimeout(tid);
     }, []);
 
-    const object   = getObjectById(id);
-    const imageUrl = useNasaImage(object?.name ?? null, object?.imageQuery);
-
-    const chartData = useMemo(() => {
-        if (!object?.orbital) return [];
-        const rangeDef = TIME_RANGES.find(r => r.key === timeRange) ?? TIME_RANGES[2];
-
-        if (object.id === 'earth') {
-            const step = 5;
-            const nowSec = Math.floor(Date.now() / 1000);
-            const points = [];
-            for (let d = -rangeDef.days; d <= 0; d += step) {
-                const M = ((2 * Math.PI * d) / 365.25) + (object.orbital.phase ?? 0);
-                points.push({ time: nowSec + d * 86400, value: 1.0 + 0.0167 * Math.cos(M) });
-            }
-            return points;
-        }
-
-        if (object.id === 'luna') {
-            const step = 1;
-            const nowSec = Math.floor(Date.now() / 1000);
-            const points = [];
-            for (let d = -rangeDef.days; d <= 0; d += step) {
-                const M = ((2 * Math.PI * d) / 27.32) + (object.orbital.phase ?? 0);
-                points.push({ time: nowSec + d * 86400, value: 0.00257 * (1 + 0.0549 * Math.cos(M)) });
-            }
-            return points;
-        }
-
-        return computeDistanceSeries(
-            object.orbital.a,
-            object.orbital.period,
-            rangeDef.days,
-            object.orbital.phase ?? 0,
-        );
-    }, [object, timeRange]);
-
-    const showChart   = object && HAS_ORBIT_CHART.has(object.category) && !!object.orbital;
-    const accentColor = object ? (CATEGORY_COLORS[object.category] ?? '#ffffff') : '#ffffff';
+    const object    = getObjectById(id);
+    const imageUrl  = useNasaImage(object?.name ?? null, object?.imageQuery);
+    const accentColor  = object ? (CATEGORY_COLORS[object.category] ?? '#ffffff') : '#ffffff';
     const CategoryIcon = object ? (CATEGORY_ICONS[object.category] ?? Globe) : Globe;
 
     if (!object) {
@@ -126,17 +59,6 @@ const ObjectDetail = () => {
             </div>
         );
     }
-
-    const chartTitle    = object.id === 'earth' ? 'Distance from Sun'
-                        : object.id === 'luna'  ? 'Distance from Earth'
-                        : 'Distance from Earth';
-    const chartSubtitle = object.id === 'earth'
-        ? 'Astronomical Units (AU) — eccentricity e = 0.0167'
-        : object.id === 'luna'
-        ? 'Astronomical Units (AU) — eccentricity e = 0.0549'
-        : object.orbital?.e != null
-        ? `Astronomical Units (AU) — eccentricity e = ${object.orbital.e.toFixed(3)}`
-        : 'Astronomical Units (AU) — circular orbit approximation';
 
     const isPlanetOrMoon = object.category === 'planets' || object.category === 'dwarf-planets' || object.category === 'stars' || object.id === 'luna';
     const physicalRows   = object.stats?.find(s => s.section === 'Physical')?.rows ?? [];
@@ -180,11 +102,7 @@ const ObjectDetail = () => {
                 </span>
             </div>
 
-            {/* ═══ DIAGRAM — planets & moons ═══
-                3D model is the centrepiece; 4 annotations point inward from the corners.
-                Left side: name+type (primary) and first physical stat (secondary).
-                Right side: key stat and second physical stat.
-            */}
+            {/* ═══ DIAGRAM — planets & moons ═══ */}
             {isPlanetOrMoon && (
                 <div className="relative z-10" style={{ padding: '28px 20px 4px' }}>
                     <div style={{

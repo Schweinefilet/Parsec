@@ -106,7 +106,7 @@ export function useSpaceStrip() {
             if (title) {
                 const display = title.length > 32 ? title.slice(0, 30) + '…' : title;
                 updateCell('apod', display);
-                try { localStorage.setItem(cacheKey, display); } catch {}
+                try { localStorage.setItem(cacheKey, display); } catch {} // eslint-disable-line no-empty
             }
         } catch (err) {
             console.warn('[SpaceStrip] APOD fetch failed:', err.message, '— using fallback');

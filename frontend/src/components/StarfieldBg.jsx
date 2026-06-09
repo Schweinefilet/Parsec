@@ -12,7 +12,7 @@ const StarfieldBg = ({ canvasId = 'starfield-bg' }) => {
             'height:100%',
             'pointer-events:none',
             'z-index:0',
-            'opacity:0.45',
+            'opacity:0.225',
         ].join(';');
         document.body.appendChild(canvas);
 
@@ -39,7 +39,9 @@ const StarfieldBg = ({ canvasId = 'starfield-bg' }) => {
 
         return () => {
             cancelled = true;
-            try { lib?.destroy?.(); } catch (_) {}
+            try { lib?.destroy?.(); } catch {
+                // ignore destruction errors
+            }
             canvas.remove();
         };
     }, [canvasId]);

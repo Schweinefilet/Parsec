@@ -9,7 +9,7 @@ function App() {
         <Router>
             <Routes>
                 <Route path="/" element={<AppShell><CategoryBrowser /></AppShell>} />
-                <Route path="/object/:id" element={<ObjectDetail />} />
+                <Route path="/object/:id" element={<AppShell><CategoryBrowser /></AppShell>} />
             </Routes>
         </Router>
     );

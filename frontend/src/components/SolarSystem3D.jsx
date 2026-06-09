@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { ChevronLeft } from 'lucide-react';
 
 const PLANETS = [
     { id: 'mercury', name: 'Mercury', r: 2,   orbitR: 48,  color: '#b5b5b5' },
@@ -42,6 +43,8 @@ const PLANET_PBR = {
 const ORBIT_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
 const ORBIT_BASE_OPACITY = 0.34;
 const ORBIT_HOVER_OPACITY = 0.86;
+const SATELLITE_ORBIT_BASE_OPACITY = 0.17;
+const SATELLITE_ORBIT_HOVER_OPACITY = 0.43;
 const ORBIT_TUBE_RADIUS = 0.45;
 const PLANET_EMISSIVE_INTENSITY = 0.08;
 const BELT_BRIGHTNESS = 0.58;
@@ -59,15 +62,8 @@ const PLANET_ORBIT_STATE = {
     Pluto:   { period: 90560.0, phase: 1.4 },
 };
 
-const MOON_ORBIT_STATE = {
-    period: 27.32,
-    phase: 0.5,
-    orbitR: 14,
-    radius: 1.1,
-    color: '#c8c8c8',
-};
-
 const SATELLITES = [
+    { id: 'luna',      name: 'Luna',      parent: 'Earth',   orbitR: 14, radius: 1.1,  color: '#c8c8c8', period: 27.32,  phase: 0.5 },
     { id: 'phobos',    name: 'Phobos',    parent: 'Mars',    orbitR: 8,  radius: 0.55, color: '#9b8e83', period: 0.3189, phase: 0.2 },
     { id: 'deimos',    name: 'Deimos',    parent: 'Mars',    orbitR: 12, radius: 0.45, color: '#b7ada6', period: 1.2624, phase: 1.1 },
     { id: 'io',        name: 'Io',        parent: 'Jupiter', orbitR: 10, radius: 0.75, color: '#d8b28b', period: 1.769,  phase: 0.4 },
@@ -142,10 +138,15 @@ function buildOrbitTube(points) {
     return new THREE.TubeGeometry(curve, 256, ORBIT_TUBE_RADIUS, 8, true);
 }
 
-const SolarSystem3D = () => {
+const SolarSystem3D = ({ focusedId }) => {
     const mountRef  = useRef(null);
     const navigate  = useNavigate();
     const [hoverLabel, setHoverLabel] = useState(null);
+
+    const focusedIdRef = useRef(focusedId);
+    useEffect(() => {
+        focusedIdRef.current = focusedId;
+    }, [focusedId]);
 
     useEffect(() => {
         const mount = mountRef.current;
@@ -178,8 +179,12 @@ const SolarSystem3D = () => {
         controls.enablePan     = false;
         controls.autoRotate = true;
         controls.autoRotateSpeed = 0.22;
-        controls.minDistance   = 140;
+        controls.minDistance   = 30;
         controls.maxDistance   = 900;
+
+        let isInteracting = false;
+        controls.addEventListener('start', () => { isInteracting = true; });
+        controls.addEventListener('end', () => { isInteracting = false; });
 
         // ── Lights ─────────────────────────────────────────────────────────────
         const mainLight = new THREE.PointLight(0xffffff, 3.2, 0, 0); // decay=0: no distance falloff
@@ -249,6 +254,10 @@ const SolarSystem3D = () => {
             const orbitGeo = buildOrbitTube(orbitPoints);
             const orbitMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: ORBIT_BASE_OPACITY });
             const orbitLine = new THREE.Mesh(orbitGeo, orbitMat);
+            orbitLine.userData = {
+                baseOpacity: ORBIT_BASE_OPACITY,
+                hoverOpacity: ORBIT_HOVER_OPACITY,
+            };
 
             const inc   = oel.inc   * Math.PI / 180;
             const Omega = oel.omega * Math.PI / 180;
@@ -406,7 +415,6 @@ const SolarSystem3D = () => {
             const parentGroup = planetGroups.find(({ planet }) => planet.name === satellite.parent)?.group;
             if (!parentGroup) return;
 
-            const orbitGeo = new THREE.BufferGeometry();
             const orbitPoints = [];
             for (let i = 0; i <= 96; i++) {
                 const t = (i / 96) * Math.PI * 2;
@@ -420,10 +428,14 @@ const SolarSystem3D = () => {
             const orbitMat = new THREE.MeshBasicMaterial({
                 color: 0xffffff,
                 transparent: true,
-                opacity: ORBIT_BASE_OPACITY,
+                opacity: SATELLITE_ORBIT_BASE_OPACITY,
             });
             const orbitLine = new THREE.Mesh(orbitTubeGeo, orbitMat);
             orbitLine.rotation.x = Math.PI / 2;
+            orbitLine.userData = {
+                baseOpacity: SATELLITE_ORBIT_BASE_OPACITY,
+                hoverOpacity: SATELLITE_ORBIT_HOVER_OPACITY,
+            };
 
             const satelliteGroup = new THREE.Group();
             satelliteGroup.add(orbitLine);
@@ -512,10 +524,10 @@ const SolarSystem3D = () => {
 
                 if (orbit !== activeOrbit) {
                     if (activeOrbit) {
-                        activeOrbit.material.opacity = ORBIT_BASE_OPACITY;
+                        activeOrbit.material.opacity = activeOrbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY;
                     }
                     if (orbit) {
-                        orbit.material.opacity = ORBIT_HOVER_OPACITY;
+                        orbit.material.opacity = orbit.userData.hoverOpacity ?? ORBIT_HOVER_OPACITY;
                     }
                     activeOrbit = orbit ?? null;
                 }
@@ -532,7 +544,7 @@ const SolarSystem3D = () => {
                 renderer.domElement.style.cursor = 'pointer';
             } else {
                 if (activeOrbit) {
-                    activeOrbit.material.opacity = ORBIT_BASE_OPACITY;
+                    activeOrbit.material.opacity = activeOrbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY;
                     activeOrbit = null;
                 }
                 if (mounted) setHoverLabel(null);
@@ -566,6 +578,49 @@ const SolarSystem3D = () => {
             asteroidBelt.rotation.y  += 0.0001;
             kuiperBelt.rotation.y    += 0.00004;
             planetMeshes.forEach(m => { m.rotation.y += 0.002; });
+
+            const currentFocusedId = focusedIdRef.current;
+            const targetMesh = currentFocusedId ? planetMeshes.find(m => m.userData.id === currentFocusedId) : null;
+
+            if (targetMesh) {
+                const targetPos = new THREE.Vector3();
+                targetMesh.getWorldPosition(targetPos);
+
+                // Smoothly focus camera target on the planet/moon
+                controls.target.lerp(targetPos, 0.08);
+
+                if (!isInteracting) {
+                    let desiredDistance = 55;
+                    if (targetMesh.userData.id === 'sun') {
+                        desiredDistance = 50;
+                    } else {
+                        const radius = targetMesh.geometry?.parameters?.radius ?? 3.5;
+                        desiredDistance = radius * 4.5 + 14;
+                    }
+                    const currentDistance = camera.position.distanceTo(controls.target);
+                    const nextDistance = THREE.MathUtils.lerp(currentDistance, desiredDistance, 0.08);
+                    const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+                    camera.position.copy(controls.target).addScaledVector(dir, nextDistance);
+                }
+                controls.autoRotate = false;
+            } else {
+                const defaultTarget = new THREE.Vector3(0, 0, 0);
+                controls.target.lerp(defaultTarget, 0.08);
+
+                if (!isInteracting) {
+                    const currentDistance = camera.position.distanceTo(controls.target);
+                    const desiredDistance = 556; // sqrt(280^2 + 480^2)
+                    if (currentDistance < 400) {
+                        const nextDistance = THREE.MathUtils.lerp(currentDistance, desiredDistance, 0.08);
+                        const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+                        camera.position.copy(controls.target).addScaledVector(dir, nextDistance);
+                    }
+                    // Rotate vertically slowly in one direction
+                    controls.rotateUp(-0.00012);
+                }
+                controls.autoRotate = true;
+            }
+
             controls.update();
             renderer.render(scene, camera);
         };
@@ -591,13 +646,25 @@ const SolarSystem3D = () => {
     return (
         <div style={{ position: 'relative', overflow: 'hidden' }}>
             {/* Title + date — matches Orrery.jsx overlay */}
-            <div style={{ position: 'absolute', top: 14, left: 18, zIndex: 10, pointerEvents: 'none' }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                    Solar System
-                </p>
-                <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.28)', marginTop: 3 }}>
-                    {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                </p>
+            <div style={{ position: 'absolute', top: 14, left: 18, zIndex: 10 }}>
+                {focusedId ? (
+                    <button
+                        onClick={() => navigate('/')}
+                        className="flex items-center gap-1.5 text-xs font-bold transition-all text-white/70 hover:text-white pointer-events-auto bg-black/45 hover:bg-black/60 px-3 py-1.5 rounded-xl border border-white/10 animate-fade-in"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                        <span>Back to System</span>
+                    </button>
+                ) : (
+                    <div style={{ pointerEvents: 'none' }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                            Solar System
+                        </p>
+                        <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.28)', marginTop: 3 }}>
+                            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* Canvas mount — 3D scene fills this div */}

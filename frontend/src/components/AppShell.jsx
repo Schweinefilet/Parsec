@@ -61,7 +61,7 @@ const AppShell = ({ children }) => {
                     height: '64px',
                 }}
             >
-                {TABS.map(({ id, label, icon: Icon }) => {
+                {TABS.map(({ id, label, icon: Icon }) => { // eslint-disable-line no-unused-vars
                     const isActive = activeTab === id;
                     return (
                         <button

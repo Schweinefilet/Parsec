@@ -182,7 +182,7 @@ const ChartPane = forwardRef(({
         const currentIds = new Set(overlays.map(o => o.id));
         Object.keys(seriesRefs.current).forEach(sid => {
             if (!currentIds.has(sid)) {
-                try { chartRef.current.removeSeries(seriesRefs.current[sid]); } catch {}
+                try { chartRef.current.removeSeries(seriesRefs.current[sid]); } catch {} // eslint-disable-line no-empty
                 delete seriesRefs.current[sid];
             }
         });
