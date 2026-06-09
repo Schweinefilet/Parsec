@@ -83,7 +83,7 @@ const ObjectSearch = () => {
                     <input
                         ref={inputRef}
                         type="text"
-                        placeholder="Search planets, moons, exoplanets..."
+                        placeholder="Search planets, moons, dwarf planets..."
                         className="glass-input glass-input-search"
                         value={query}
                         onChange={e => setQuery(e.target.value)}

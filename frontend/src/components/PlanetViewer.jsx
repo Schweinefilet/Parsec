@@ -24,6 +24,7 @@ const PLANET_COLORS = {
     Saturn:  '#e4d191',
     Uranus:  '#7de8e8',
     Neptune: '#5b7fdb',
+    Pluto:   '#d9c3a8',
     Luna:    '#c8c8c8',
 };
 

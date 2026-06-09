@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Globe, Moon, Star, Eye, Zap, Telescope } from 'lucide-react';
+import { Globe, Moon, Star, Eye, Zap, Telescope, CircleDot } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
 
 const TABS = [
     { id: 'planets',    label: 'Planets',    icon: Globe },
+    { id: 'dwarf-planets', label: 'Dwarf Planets', icon: CircleDot },
     { id: 'moons',      label: 'Moons',      icon: Moon },
     { id: 'exoplanets', label: 'Exoplanets', icon: Star },
     { id: 'deep-sky',   label: 'Deep Sky',   icon: Eye },

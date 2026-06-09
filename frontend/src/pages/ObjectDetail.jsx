@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Globe, Moon, Star, Eye, Zap } from 'lucide-react';
+import { ChevronLeft, Globe, Moon, Star, Eye, Zap, CircleDot } from 'lucide-react';
 import { getObjectById } from '../data/objectCatalog';
 import { computeDistanceSeries } from '../utils/astroFormatters';
 import ObjectStatsPanel from '../components/ObjectStatsPanel';
@@ -12,6 +12,7 @@ import PlanetViewer from '../components/PlanetViewer';
 const CATEGORY_ICONS = {
     stars:      Star,
     planets:    Globe,
+    'dwarf-planets': CircleDot,
     moons:      Moon,
     exoplanets: Star,
     'deep-sky': Eye,
@@ -21,6 +22,7 @@ const CATEGORY_ICONS = {
 const CATEGORY_COLORS = {
     stars:      '#fdb813',
     planets:    '#64a0ff',
+    'dwarf-planets': '#d9c3a8',
     moons:      '#c8c8f0',
     exoplanets: '#ffbe50',
     'deep-sky': '#8cdcbe',
@@ -34,7 +36,7 @@ const TIME_RANGES = [
     { key: '2y',  label: '2Y',  days: 730 },
 ];
 
-const HAS_ORBIT_CHART = new Set(['planets', 'moons', 'neos']);
+const HAS_ORBIT_CHART = new Set(['planets', 'dwarf-planets', 'moons', 'neos']);
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -136,7 +138,7 @@ const ObjectDetail = () => {
         ? `Astronomical Units (AU) — eccentricity e = ${object.orbital.e.toFixed(3)}`
         : 'Astronomical Units (AU) — circular orbit approximation';
 
-    const isPlanetOrMoon = object.category === 'planets' || object.category === 'stars' || object.id === 'luna';
+    const isPlanetOrMoon = object.category === 'planets' || object.category === 'dwarf-planets' || object.category === 'stars' || object.id === 'luna';
     const physicalRows   = object.stats?.find(s => s.section === 'Physical')?.rows ?? [];
 
     return (

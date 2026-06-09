@@ -2,7 +2,6 @@ import { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import * as Astronomy from 'astronomy-engine';
 
 const PLANETS = [
     { id: 'mercury', name: 'Mercury', r: 2,   orbitR: 48,  color: '#b5b5b5' },
@@ -13,6 +12,7 @@ const PLANETS = [
     { id: 'saturn',  name: 'Saturn',  r: 7,   orbitR: 245, color: '#e4d191' },
     { id: 'uranus',  name: 'Uranus',  r: 5.5, orbitR: 295, color: '#7de8e8' },
     { id: 'neptune', name: 'Neptune', r: 5,   orbitR: 340, color: '#5b7fdb' },
+    { id: 'pluto',   name: 'Pluto',   r: 2.1, orbitR: 410, color: '#d9c3a8' },
 ];
 
 const ORBITAL_ELEMENTS = {
@@ -24,6 +24,7 @@ const ORBITAL_ELEMENTS = {
     Saturn:  { e: 0.0565, inc: 2.485, omega: 113.665, w: 339.391 },
     Uranus:  { e: 0.0463, inc: 0.773, omega: 74.006,  w: 98.999  },
     Neptune: { e: 0.0100, inc: 1.769, omega: 131.784, w: 276.340 },
+    Pluto:   { e: 0.2488, inc: 17.16, omega: 110.299, w: 113.834 },
 };
 
 const PLANET_PBR = {
@@ -35,20 +36,110 @@ const PLANET_PBR = {
     Saturn:  { roughness: 0.35, metalness: 0.00 },
     Uranus:  { roughness: 0.25, metalness: 0.05 },
     Neptune: { roughness: 0.20, metalness: 0.05 },
+    Pluto:   { roughness: 0.95, metalness: 0.00 },
 };
 
-function computePlanetPos(name, orbitR) {
-    try {
-        const vec   = Astronomy.HelioVector(name, new Date());
-        const angle = Math.atan2(vec.y, vec.x);
-        return {
-            x: Math.cos(angle) * orbitR,
-            z: Math.sin(angle) * orbitR,
-            y: vec.z * 80,
-        };
-    } catch {
-        return { x: orbitR, z: 0, y: 0 };
+const ORBIT_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
+const ORBIT_BASE_OPACITY = 0.34;
+const ORBIT_HOVER_OPACITY = 0.86;
+const ORBIT_TUBE_RADIUS = 0.45;
+const PLANET_EMISSIVE_INTENSITY = 0.08;
+const BELT_BRIGHTNESS = 0.58;
+const BELT_SIZE = 0.85;
+
+const PLANET_ORBIT_STATE = {
+    Mercury: { period: 87.97, phase: 1.5 },
+    Venus:   { period: 224.7, phase: 0.8 },
+    Earth:   { period: 365.25, phase: 0.0 },
+    Mars:    { period: 686.97, phase: 2.2 },
+    Jupiter: { period: 4332.6, phase: 0.3 },
+    Saturn:  { period: 10759.2, phase: 1.2 },
+    Uranus:  { period: 30688.5, phase: 0.5 },
+    Neptune: { period: 60182.0, phase: 2.5 },
+    Pluto:   { period: 90560.0, phase: 1.4 },
+};
+
+const MOON_ORBIT_STATE = {
+    period: 27.32,
+    phase: 0.5,
+    orbitR: 14,
+    radius: 1.1,
+    color: '#c8c8c8',
+};
+
+const SATELLITES = [
+    { id: 'phobos',    name: 'Phobos',    parent: 'Mars',    orbitR: 8,  radius: 0.55, color: '#9b8e83', period: 0.3189, phase: 0.2 },
+    { id: 'deimos',    name: 'Deimos',    parent: 'Mars',    orbitR: 12, radius: 0.45, color: '#b7ada6', period: 1.2624, phase: 1.1 },
+    { id: 'io',        name: 'Io',        parent: 'Jupiter', orbitR: 10, radius: 0.75, color: '#d8b28b', period: 1.769,  phase: 0.4 },
+    { id: 'europa',    name: 'Europa',    parent: 'Jupiter', orbitR: 13, radius: 0.7,  color: '#d8e0ea', period: 3.551,  phase: 0.6 },
+    { id: 'ganymede',  name: 'Ganymede',  parent: 'Jupiter', orbitR: 17, radius: 0.9,  color: '#b8c3cc', period: 7.155,  phase: 0.2 },
+    { id: 'callisto',  name: 'Callisto',  parent: 'Jupiter', orbitR: 21, radius: 0.85, color: '#9a8f86', period: 16.689, phase: 2.0 },
+    { id: 'titan',     name: 'Titan',     parent: 'Saturn',  orbitR: 16, radius: 0.9,  color: '#d7c18b', period: 15.95,  phase: 1.3 },
+    { id: 'enceladus', name: 'Enceladus', parent: 'Saturn',  orbitR: 9,  radius: 0.5,  color: '#dfe9f2', period: 1.37,   phase: 1.5 },
+    { id: 'triton',    name: 'Triton',    parent: 'Neptune', orbitR: 11, radius: 0.8,  color: '#bcc7d4', period: 5.877,  phase: 2.6 },
+];
+
+function solveKepler(meanAnomaly, eccentricity) {
+    let eccentricAnomaly = meanAnomaly;
+    for (let i = 0; i < 8; i++) {
+        const f = eccentricAnomaly - eccentricity * Math.sin(eccentricAnomaly) - meanAnomaly;
+        const fp = 1 - eccentricity * Math.cos(eccentricAnomaly);
+        eccentricAnomaly -= f / fp;
     }
+    return eccentricAnomaly;
+}
+
+function applyOrbitOrientation(localPosition, name) {
+    const oel = ORBITAL_ELEMENTS[name];
+    const inc = oel.inc * Math.PI / 180;
+    const Omega = oel.omega * Math.PI / 180;
+    const wRad = oel.w * Math.PI / 180;
+
+    const qLay = new THREE.Quaternion()
+        .setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+    const nodeAxis = new THREE.Vector3(Math.cos(Omega), 0, Math.sin(Omega));
+    const qTilt = new THREE.Quaternion()
+        .setFromAxisAngle(nodeAxis, -inc);
+    const qPeri = new THREE.Quaternion()
+        .setFromAxisAngle(new THREE.Vector3(0, 1, 0), -wRad);
+
+    const orientation = new THREE.Quaternion().multiplyQuaternions(
+        qTilt,
+        new THREE.Quaternion().multiplyQuaternions(qLay, qPeri)
+    );
+
+    return localPosition.clone().applyQuaternion(orientation);
+}
+
+function computePlanetPos(name, orbitR, date = new Date()) {
+    const orbit = PLANET_ORBIT_STATE[name];
+    const oel = ORBITAL_ELEMENTS[name];
+    if (!orbit || !oel) {
+        return { x: orbitR, y: 0, z: 0 };
+    }
+
+    const daysSinceEpoch = (date.getTime() - ORBIT_EPOCH_MS) / 86400000;
+    const tau = Math.PI * 2;
+    const meanAnomaly = orbit.phase + (tau * daysSinceEpoch / orbit.period);
+    const normalizedMeanAnomaly = ((meanAnomaly % tau) + tau) % tau;
+    const eccentricAnomaly = solveKepler(normalizedMeanAnomaly, oel.e);
+    const a = orbitR;
+    const b = a * Math.sqrt(1 - oel.e * oel.e);
+
+    const local = new THREE.Vector3(
+        a * (Math.cos(eccentricAnomaly) - oel.e),
+        b * Math.sin(eccentricAnomaly),
+        0,
+    );
+
+    return applyOrbitOrientation(local, name);
+}
+
+function buildOrbitTube(points) {
+    const curve = new THREE.CatmullRomCurve3(
+        points.map((point) => new THREE.Vector3(point.x, point.y, 0))
+    );
+    return new THREE.TubeGeometry(curve, 256, ORBIT_TUBE_RADIUS, 8, true);
 }
 
 const SolarSystem3D = () => {
@@ -85,20 +176,22 @@ const SolarSystem3D = () => {
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan     = false;
-        controls.minDistance   = 200;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.22;
+        controls.minDistance   = 140;
         controls.maxDistance   = 900;
 
         // ── Lights ─────────────────────────────────────────────────────────────
-        const mainLight = new THREE.PointLight(0xffffff, 2.5, 0, 0); // decay=0: no distance falloff
+        const mainLight = new THREE.PointLight(0xffffff, 3.2, 0, 0); // decay=0: no distance falloff
         mainLight.castShadow         = true;
         mainLight.shadow.camera.near = 1;
         mainLight.shadow.camera.far  = 2000;
         scene.add(mainLight);
 
-        const coronaLight = new THREE.PointLight(0xfff4e0, 1.2, 600);
+        const coronaLight = new THREE.PointLight(0xfff4e0, 1.8, 750);
         scene.add(coronaLight);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.28));
 
         // ── Shared loader + texture list (declared early for sun texture) ──────
         const loader   = new THREE.TextureLoader();
@@ -141,6 +234,7 @@ const SolarSystem3D = () => {
 
         const planetMeshes  = [sunMesh];   // raycaster targets
         const planetGroups  = [];   // for position refresh
+        const satelliteGroups = []; // moons and dwarf-planet companions
 
         // ── Planets ────────────────────────────────────────────────────────────
         PLANETS.forEach(planet => {
@@ -151,9 +245,10 @@ const SolarSystem3D = () => {
             const a     = planet.orbitR;
             const b     = a * Math.sqrt(1 - oel.e * oel.e);
             const curve = new THREE.EllipseCurve(-a * oel.e, 0, a, b, 0, 2 * Math.PI, false);
-            const orbitGeo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(256));
-            const orbitMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.08 });
-            const orbitLine = new THREE.Line(orbitGeo, orbitMat);
+            const orbitPoints = curve.getPoints(256);
+            const orbitGeo = buildOrbitTube(orbitPoints);
+            const orbitMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: ORBIT_BASE_OPACITY });
+            const orbitLine = new THREE.Mesh(orbitGeo, orbitMat);
 
             const inc   = oel.inc   * Math.PI / 180;
             const Omega = oel.omega * Math.PI / 180;
@@ -190,6 +285,8 @@ const SolarSystem3D = () => {
                 color:     planet.color,
                 roughness: pbr.roughness,
                 metalness: pbr.metalness,
+                emissive:  new THREE.Color(planet.color),
+                emissiveIntensity: PLANET_EMISSIVE_INTENSITY,
             });
             const mesh     = new THREE.Mesh(geo, colorMat);
             mesh.userData      = { id: planet.id, name: planet.name, orbitLine };
@@ -246,6 +343,8 @@ const SolarSystem3D = () => {
                         map:       tex,
                         roughness: pbr.roughness,
                         metalness: pbr.metalness,
+                        emissive:  new THREE.Color(planet.color),
+                        emissiveIntensity: PLANET_EMISSIVE_INTENSITY,
                     });
                     mesh.material = texMat;
                     colorMat.dispose();
@@ -303,6 +402,52 @@ const SolarSystem3D = () => {
             planetGroups.push({ group, planet });
         });
 
+        SATELLITES.forEach((satellite) => {
+            const parentGroup = planetGroups.find(({ planet }) => planet.name === satellite.parent)?.group;
+            if (!parentGroup) return;
+
+            const orbitGeo = new THREE.BufferGeometry();
+            const orbitPoints = [];
+            for (let i = 0; i <= 96; i++) {
+                const t = (i / 96) * Math.PI * 2;
+                orbitPoints.push(new THREE.Vector3(
+                    Math.cos(t) * satellite.orbitR,
+                    Math.sin(t) * satellite.orbitR,
+                    0,
+                ));
+            }
+            const orbitTubeGeo = buildOrbitTube(orbitPoints);
+            const orbitMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: ORBIT_BASE_OPACITY,
+            });
+            const orbitLine = new THREE.Mesh(orbitTubeGeo, orbitMat);
+            orbitLine.rotation.x = Math.PI / 2;
+
+            const satelliteGroup = new THREE.Group();
+            satelliteGroup.add(orbitLine);
+
+            const satGeo = new THREE.SphereGeometry(satellite.radius, 16, 16);
+            const satMat = new THREE.MeshStandardMaterial({
+                color: satellite.color,
+                roughness: 0.94,
+                metalness: 0.02,
+                emissive: new THREE.Color(satellite.color),
+                emissiveIntensity: 0.04,
+            });
+            const satMesh = new THREE.Mesh(satGeo, satMat);
+            satMesh.position.set(satellite.orbitR, 0, 0);
+            satMesh.userData = { id: satellite.id, name: satellite.name, orbitLine };
+            satelliteGroup.add(satMesh);
+
+            parentGroup.add(satelliteGroup);
+            planetMeshes.push(satMesh);
+            geos.push(orbitTubeGeo, satGeo);
+            mats.push(orbitMat, satMat);
+            satelliteGroups.push({ group: satelliteGroup, period: satellite.period, phase: satellite.phase });
+        });
+
         // ── Belt helper ────────────────────────────────────────────────────────
         function createBelt(innerR, outerR, count, thickness, size, opacity) {
             const positions = new Float32Array(count * 3);
@@ -317,14 +462,14 @@ const SolarSystem3D = () => {
             const geo = new THREE.BufferGeometry();
             geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             const mat = new THREE.PointsMaterial({
-                color: 0xaaaaaa, size, transparent: true, opacity,
+                color: 0xffffff, size, transparent: true, opacity,
                 sizeAttenuation: true, depthWrite: false,
             });
             return new THREE.Points(geo, mat);
         }
 
-        const asteroidBelt = createBelt(142, 176, 4000, 6,  0.7, 0.35);
-        const kuiperBelt   = createBelt(360, 460, 7000, 18, 0.6, 0.18);
+        const asteroidBelt = createBelt(142, 176, 4000, 6,  BELT_SIZE, BELT_BRIGHTNESS);
+        const kuiperBelt   = createBelt(360, 460, 7000, 18, BELT_SIZE, BELT_BRIGHTNESS);
         scene.add(asteroidBelt);
         scene.add(kuiperBelt);
         geos.push(asteroidBelt.geometry, kuiperBelt.geometry);
@@ -366,8 +511,12 @@ const SolarSystem3D = () => {
                 const orbit    = hitMesh.userData.orbitLine;
 
                 if (orbit !== activeOrbit) {
-                    if (activeOrbit) activeOrbit.material.opacity = 0.08;
-                    if (orbit)       orbit.material.opacity       = 0.55;
+                    if (activeOrbit) {
+                        activeOrbit.material.opacity = ORBIT_BASE_OPACITY;
+                    }
+                    if (orbit) {
+                        orbit.material.opacity = ORBIT_HOVER_OPACITY;
+                    }
                     activeOrbit = orbit ?? null;
                 }
 
@@ -383,7 +532,7 @@ const SolarSystem3D = () => {
                 renderer.domElement.style.cursor = 'pointer';
             } else {
                 if (activeOrbit) {
-                    activeOrbit.material.opacity = 0.08;
+                    activeOrbit.material.opacity = ORBIT_BASE_OPACITY;
                     activeOrbit = null;
                 }
                 if (mounted) setHoverLabel(null);
@@ -408,6 +557,11 @@ const SolarSystem3D = () => {
         let animId;
         const animate = () => {
             animId = requestAnimationFrame(animate);
+            const nowDays = (Date.now() - ORBIT_EPOCH_MS) / 86400000;
+            const tau = Math.PI * 2;
+            satelliteGroups.forEach(({ group, period, phase }) => {
+                group.rotation.y = phase + (tau * nowDays / period);
+            });
             sunMesh.rotation.y       += 0.0008;
             asteroidBelt.rotation.y  += 0.0001;
             kuiperBelt.rotation.y    += 0.00004;

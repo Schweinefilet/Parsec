@@ -120,6 +120,7 @@ const SpaceDataStrip = () => {
 const CATEGORY_COLORS = {
     stars:      'rgba(253, 184, 19, 0.18)',
     planets:    'rgba(100, 160, 255, 0.18)',
+    'dwarf-planets': 'rgba(210, 190, 160, 0.18)',
     moons:      'rgba(180, 180, 220, 0.15)',
     exoplanets: 'rgba(255, 180, 80, 0.15)',
     'deep-sky': 'rgba(120, 220, 180, 0.15)',
@@ -129,6 +130,7 @@ const CATEGORY_COLORS = {
 const CATEGORY_TEXT = {
     stars:      'rgba(253, 184, 19, 0.95)',
     planets:    'rgba(100, 160, 255, 0.9)',
+    'dwarf-planets': 'rgba(220, 205, 180, 0.95)',
     moons:      'rgba(200, 200, 240, 0.9)',
     exoplanets: 'rgba(255, 190, 100, 0.9)',
     'deep-sky': 'rgba(140, 230, 190, 0.9)',
