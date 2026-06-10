@@ -42,12 +42,13 @@ const ObjectStatsPanel = ({ object }) => {
                 ))}
             </div>
 
-            {/* Stats grid — last row spans full width when row count is odd */}
-            <div className="grid grid-cols-2 gap-2 p-4">
+            {/* Stats grid — Physical/Orbital: 3 cols; General: 2 cols */}
+            <div className={`grid gap-2 p-4 ${currentSection.section === 'Physical' || currentSection.section === 'Orbital' ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 {currentSection.rows.map(({ label, value }, idx) => {
-                    const isLastOdd = idx === currentSection.rows.length - 1 && currentSection.rows.length % 2 !== 0;
+                    const cols = (currentSection.section === 'Physical' || currentSection.section === 'Orbital') ? 3 : 2;
+                    const isOrphan = idx === currentSection.rows.length - 1 && currentSection.rows.length % cols !== 0;
                     return (
-                        <div key={label} className={`p-3${isLastOdd ? ' col-span-2' : ''}`}>
+                        <div key={label} className={`p-3${isOrphan ? ` col-span-${cols}` : ''}`}>
                             <div className="text-[10px] font-semibold uppercase tracking-wider mb-1"
                                 style={{ color: 'var(--text-tertiary)' }}>
                                 {label}

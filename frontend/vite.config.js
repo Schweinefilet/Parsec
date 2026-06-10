@@ -14,6 +14,11 @@ export default defineConfig({
         target: 'http://localhost:5001',
         changeOrigin: true,
       },
+      '/open-notify': {
+        target: 'http://api.open-notify.org',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/open-notify/, ''),
+      },
     },
   },
 })

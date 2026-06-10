@@ -1,27 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
 
-// Generic hook for NASA Open API endpoints.
-// api.nasa.gov supports CORS — no proxy needed.
 const NASA_BASE = 'https://api.nasa.gov';
-const DEMO_KEY  = 'DEMO_KEY'; // 30 req/hr unauthenticated limit
+
+const NASA_API_KEY = import.meta.env.VITE_NASA_API_KEY || (() => {
+    console.warn('[useNasaQuery] VITE_NASA_API_KEY not set — using DEMO_KEY');
+    return 'DEMO_KEY';
+})();
 
 export function useNasaQuery(path, params = {}, { skip = false } = {}) {
-    const [data, setData]     = useState(null);
+    const [data, setData]       = useState(null);
     const [loading, setLoading] = useState(!skip);
-    const [error, setError]   = useState(null);
+    const [error, setError]     = useState(null);
     const abortRef = useRef(null);
 
     useEffect(() => {
         if (skip) return;
 
-        abortRef.current?.abort();
+        abortRef.current?.abort('superseded');
         const controller = new AbortController();
         abortRef.current = controller;
 
         setLoading(true);
         setError(null);
 
-        const query = new URLSearchParams({ api_key: DEMO_KEY, ...params }).toString();
+        const query = new URLSearchParams({ api_key: NASA_API_KEY, ...params }).toString();
         const url   = `${NASA_BASE}${path}?${query}`;
 
         fetch(url, { signal: controller.signal })
@@ -39,7 +41,7 @@ export function useNasaQuery(path, params = {}, { skip = false } = {}) {
                 if (!controller.signal.aborted) setLoading(false);
             });
 
-        return () => controller.abort();
+        return () => controller.abort('component unmounted');
     }, [path, JSON.stringify(params), skip]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return { data, loading, error };

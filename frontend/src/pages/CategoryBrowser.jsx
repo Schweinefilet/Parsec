@@ -326,7 +326,7 @@ const CATEGORY_ACCENT_COLORS = {
 const SPACECRAFT_CATEGORIES = new Set(['space-stations', 'space-telescopes', 'deep-space-probes', 'historical']);
 
 const LiveDistanceRow = ({ spacecraftId }) => {
-    const { distanceAU, loading } = useHorizons(spacecraftId);
+    const { distanceAU, loading, error } = useHorizons(spacecraftId);
     return (
         <div className="glass p-5">
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
@@ -344,7 +344,11 @@ const LiveDistanceRow = ({ spacecraftId }) => {
                         Live · via JPL Horizons · cached 24h
                     </p>
                 </>
-            ) : null}
+            ) : (
+                <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                    {error ? 'Distance unavailable' : '···'}
+                </p>
+            )}
         </div>
     );
 };
@@ -454,22 +458,16 @@ const CategoryBrowser = () => {
     );
     const physicalRows = object?.stats?.find(s => s.section === 'Physical')?.rows ?? [];
 
-    // Scroll-reveal: reset when a new planet is selected, reveal on first scroll
+    // Expand/collapse toggle: reset when a new object is selected
     const [hasScrolled, setHasScrolled] = useState(false);
     const showDetailContent = hasScrolled || isSpacecraft;
     useEffect(() => { setHasScrolled(false); }, [id]);
-    useEffect(() => {
-        if (!id || !isPlanetOrMoon || hasScrolled) return;
-        const onScroll = () => setHasScrolled(true);
-        window.addEventListener('scroll', onScroll, { once: true, passive: true });
-        return () => window.removeEventListener('scroll', onScroll);
-    }, [id, isPlanetOrMoon, hasScrolled]);
 
     return (
         <>
             <StarfieldBg canvasId="starfield-browser" />
 
-            <div className="relative" style={{ zIndex: 1 }}>
+            <div className="relative" style={{ zIndex: 1, ...(id ? { height: '100vh', overflow: 'hidden' } : {}) }}>
 
                 {/* 3D Visualizer — full viewport, breaks out to all 4 edges */}
                 <div
@@ -546,30 +544,63 @@ const CategoryBrowser = () => {
                         )}
                     </div>
 
-                    {/* Scroll-down arrow — clickable, overlaid at bottom of 3D view */}
-                    {id && isPlanetOrMoon && !hasScrolled && (
-                        <button
-                            onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
-                            style={{
-                                position: 'absolute',
-                                bottom: '32px',
-                                left: 0,
-                                right: 0,
-                                zIndex: 6,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '0px',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                padding: '8px 0',
-                                animation: 'scrollPromptBob 1.8s ease-in-out infinite',
-                            }}
-                        >
-                            <ChevronDown style={{ width: '44px', height: '44px', color: 'rgba(255,255,255,0.80)', marginBottom: '-18px' }} />
-                            <ChevronDown style={{ width: '44px', height: '44px', color: 'rgba(255,255,255,0.40)' }} />
-                        </button>
+                    {/* Description — slides in from top */}
+                    {id && object && !isSpacecraft && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            zIndex: 6,
+                            transform: hasScrolled ? 'translateY(0)' : 'translateY(-100%)',
+                            transition: 'transform 0.45s cubic-bezier(0.32, 0.72, 0, 1)',
+                        }}>
+                            <div style={{ padding: '72px 16px 24px' }}>
+                                <div className="max-w-2xl mx-auto">
+                                    <div className="glass p-5">
+                                        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem' }}>
+                                            {object.description}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Stats + chevron — slides up from bottom */}
+                    {id && object && !isSpacecraft && (
+                        <div style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            zIndex: 6,
+                            transform: hasScrolled ? 'translateY(0)' : 'translateY(calc(100% - 79px))',
+                            transition: 'transform 0.45s cubic-bezier(0.32, 0.72, 0, 1)',
+                        }}>
+                            <button
+                                onClick={() => setHasScrolled(prev => !prev)}
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    width: '100%',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: '12px 0 4px',
+                                    animation: hasScrolled ? 'none' : 'scrollPromptBob 1.8s ease-in-out infinite',
+                                }}
+                            >
+                                <ChevronDown style={{ width: '44px', height: '44px', color: 'rgba(255,255,255,0.80)', marginBottom: '-24px', transform: hasScrolled ? 'scaleX(1.5)' : 'scaleX(1.5) rotate(180deg)', transition: 'transform 0.35s ease' }} />
+                                <ChevronDown style={{ width: '44px', height: '44px', color: 'rgba(255,255,255,0.40)', transform: hasScrolled ? 'scaleX(1.5)' : 'scaleX(1.5) rotate(180deg)', transition: 'transform 0.35s ease' }} />
+                            </button>
+                            <div style={{ maxHeight: '60vh', overflowY: 'auto', padding: '0 16px 32px' }}>
+                                <div className="max-w-2xl mx-auto">
+                                    <ObjectStatsPanel object={object} />
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </div>
 
@@ -720,30 +751,17 @@ const CategoryBrowser = () => {
                                 </button>
                             )}
 
-                            {/* Description */}
-                            <div
-                                className="glass p-5"
-                                style={{
-                                    opacity: showDetailContent ? 1 : 0,
-                                    transform: showDetailContent ? 'translateY(0)' : 'translateY(28px)',
-                                    transition: 'opacity 600ms ease, transform 600ms ease',
-                                }}
-                            >
-                                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem' }}>
-                                    {object.description}
-                                </p>
-                            </div>
-
-                            {/* Stats panel */}
-                            <div
-                                style={{
-                                    opacity: showDetailContent ? 1 : 0,
-                                    transform: showDetailContent ? 'translateY(0)' : 'translateY(28px)',
-                                    transition: 'opacity 600ms ease 120ms, transform 600ms ease 120ms',
-                                }}
-                            >
-                                <ObjectStatsPanel object={object} />
-                            </div>
+                            {/* Description + Stats — spacecraft only; planets use the viewport overlay above */}
+                            {isSpacecraft && (
+                                <div className="flex flex-col gap-4" style={{ paddingBottom: '4px' }}>
+                                    <div className="glass p-5">
+                                        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem' }}>
+                                            {object.description}
+                                        </p>
+                                    </div>
+                                    <ObjectStatsPanel object={object} />
+                                </div>
+                            )}
 
                             {/* Distance Chart — stashed (buggy), restore when fixed */}
                             {/* {showChart && object.orbital && (

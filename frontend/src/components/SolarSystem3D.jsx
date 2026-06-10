@@ -249,7 +249,7 @@ const SolarSystem3D = ({ focusedId }) => {
 
         // ── Camera ─────────────────────────────────────────────────────────────
         const camera = new THREE.PerspectiveCamera(45, w / h, 1, 10000);
-        camera.position.set(-70, 130, 480);
+        camera.position.set(-350, 280, 365);
         camera.lookAt(0, 0, 0);
 
         // ── Renderer ───────────────────────────────────────────────────────────
@@ -266,7 +266,7 @@ const SolarSystem3D = ({ focusedId }) => {
         controls.enableDamping = true;
         controls.enablePan     = false;
         controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.11;
+        controls.autoRotateSpeed = 0.09;
         controls.minDistance   = 30;
         controls.maxDistance   = 1200;
 
@@ -379,9 +379,10 @@ const SolarSystem3D = ({ focusedId }) => {
         const planetGroups    = [];         // for position refresh
         const planetMeshRefs  = new Map();  // name → group, for moon positioning
         const planetHitboxRefs = new Map(); // name → planet hitbox mesh, for focus-scale
-        const moonMeshRefs    = new Map();  // moon.name → visual mesh
-        const moonHitRefs     = new Map();  // moon.name → hitbox mesh (scene-direct, position synced each frame)
-        const moonAngles      = new Map();  // moon.name → current liveAngle (radians)
+        const moonMeshRefs     = new Map();  // moon.name → visual mesh
+        const moonHitRefs      = new Map();  // moon.name → hitbox mesh (scene-direct, position synced each frame)
+        const moonHitRadii     = new Map();  // moon.name → hitbox geometry radius (for scale restoration)
+        const moonAngles       = new Map();  // moon.name → current liveAngle (radians)
 
         // Earth day/night shader references — set once textures load, used in rAF loop
         let earthMesh      = null;
@@ -829,6 +830,7 @@ const SolarSystem3D = ({ focusedId }) => {
             geos.push(hitGeo);
             mats.push(hitMat);
             moonHitRefs.set(moon.name, hitMesh);
+            moonHitRadii.set(moon.name, hitR);
             planetMeshes.push(hitMesh);
         });
         MOON_DATA.forEach(moon => moonAngles.set(moon.name, moon.phase0));
@@ -845,7 +847,9 @@ const SolarSystem3D = ({ focusedId }) => {
         // ── Raycaster helpers ──────────────────────────────────────────────────
         const raycaster    = new THREE.Raycaster();
         const mouse        = new THREE.Vector2();
-        let activeOrbit    = null;
+        let activeOrbit       = null;
+        let hoveredMoonId     = null;
+        let prevHoveredMoonId = null;
 
         const toNDC = (e) => {
             const rect = renderer.domElement.getBoundingClientRect();
@@ -885,6 +889,9 @@ const SolarSystem3D = ({ focusedId }) => {
                 }
 
                 renderer.domElement.style.cursor = hitMesh.userData.id ? 'pointer' : '';
+                // Track moon hover for orbital speed slow-down
+                hoveredMoonId = (focusedIdRef.current && MOON_DATA.some(m => m.id === hitMesh.userData.id))
+                    ? hitMesh.userData.id : null;
                 // Decelerate auto-rotate only in home view (focused mode already disables it)
                 if (!focusedIdRef.current) targetAutoRotateSpeed = 0;
             } else {
@@ -893,6 +900,7 @@ const SolarSystem3D = ({ focusedId }) => {
                     activeOrbit = null;
                 }
                 renderer.domElement.style.cursor = '';
+                hoveredMoonId = null;
                 targetAutoRotateSpeed = 0.11;
             }
         };
@@ -914,6 +922,7 @@ const SolarSystem3D = ({ focusedId }) => {
         let animId;
         let prevNowDays = null;
         let meshRotSpeed = 0.002;
+        let liveOrbitSpeed = 2000;
         // Target axial-tilt z-rotation per planet — lerped smoothly each frame
         const tiltTargets = new Map(); // mesh uuid → target rotation.z (radians)
 
@@ -944,6 +953,11 @@ const SolarSystem3D = ({ focusedId }) => {
                         const hb = planetHitboxRefs.get(prevPlanet.name);
                         if (hb) hb.scale.setScalar(1.0);
                     }
+                    // Restore all moon hitboxes to full inflated size
+                    MOON_DATA.forEach(moon => {
+                        const hm = moonHitRefs.get(moon.name);
+                        if (hm) hm.scale.setScalar(1.0);
+                    });
                 }
                 // Apply axial tilt + hide ALL orbit rings when focusing
                 if (currentFocusedId) {
@@ -966,6 +980,21 @@ const SolarSystem3D = ({ focusedId }) => {
                         const hb   = planetHitboxRefs.get(focusedPlanet.name);
                         const geomR = hb?.geometry?.parameters?.radius ?? 1;
                         if (hb) hb.scale.setScalar(focusedPlanet.r / geomR);
+                        // Scale each moon's hitbox to its actual visual radius
+                        MOON_DATA.forEach(moon => {
+                            if (moon.parent !== focusedPlanet.name) return;
+                            const hm   = moonHitRefs.get(moon.name);
+                            const hitR = moonHitRadii.get(moon.name) ?? 1;
+                            if (hm) hm.scale.setScalar(moon.radius / hitR);
+                        });
+                    } else {
+                        // Focused on a moon — shrink its own hitbox to visual size
+                        const focusedMoon = MOON_DATA.find(m => m.id === currentFocusedId);
+                        if (focusedMoon) {
+                            const hm   = moonHitRefs.get(focusedMoon.name);
+                            const hitR = moonHitRadii.get(focusedMoon.name) ?? 1;
+                            if (hm) hm.scale.setScalar(focusedMoon.radius / hitR);
+                        }
                     }
                     // Compute smooth focus animation — starts from current camera,
                     // ends at 30° elevation above the planet at the correct zoom distance
@@ -1003,7 +1032,11 @@ const SolarSystem3D = ({ focusedId }) => {
             // ── Moon positions (MOON_DATA) ─────────────────────────────────────
             // Delta-time keeps motion continuous (no snapping between frames).
             // 2000× visual speedup: Phobos ~14s/orbit, Io ~76s, Moon ~20min.
-            const MOON_SPEED = 2000;
+            // Slow orbital speed when focused on a moon.
+            const moonFocused = currentFocusedId && MOON_DATA.some(m => m.id === currentFocusedId);
+            const targetOrbitSpeed = hoveredMoonId ? 80 : moonFocused ? 500 : 2000;
+            liveOrbitSpeed += (targetOrbitSpeed - liveOrbitSpeed) * 0.04;
+            const MOON_SPEED = liveOrbitSpeed;
             const deltaDays = prevNowDays != null ? Math.min(nowDays - prevNowDays, 0.005) : 0;
             prevNowDays = nowDays;
             MOON_DATA.forEach(moon => {
@@ -1022,6 +1055,30 @@ const SolarSystem3D = ({ focusedId }) => {
                 const hitMesh = moonHitRefs.get(moon.name);
                 if (hitMesh) hitMesh.position.set(mx, my, mz);
             });
+
+            // Scale hovered moon hitbox to 1.5× visual radius; restore previous on change
+            if (hoveredMoonId !== prevHoveredMoonId) {
+                const focusedPlanet = PLANETS.find(p => p.id === currentFocusedId);
+                if (focusedPlanet) {
+                    if (prevHoveredMoonId) {
+                        const prev = MOON_DATA.find(m => m.id === prevHoveredMoonId);
+                        if (prev && prev.parent === focusedPlanet.name) {
+                            const hm = moonHitRefs.get(prev.name);
+                            const hr = moonHitRadii.get(prev.name) ?? 1;
+                            if (hm) hm.scale.setScalar(prev.radius / hr);
+                        }
+                    }
+                    if (hoveredMoonId) {
+                        const hov = MOON_DATA.find(m => m.id === hoveredMoonId);
+                        if (hov && hov.parent === focusedPlanet.name) {
+                            const hm = moonHitRefs.get(hov.name);
+                            const hr = moonHitRadii.get(hov.name) ?? 1;
+                            if (hm) hm.scale.setScalar(hov.radius * 1.5 / hr);
+                        }
+                    }
+                }
+                prevHoveredMoonId = hoveredMoonId;
+            }
 
             // ── Small body positions (updated every frame; orbits are slow) ───
             smallBodyGroups.forEach(({ group, body }) => {
@@ -1043,7 +1100,6 @@ const SolarSystem3D = ({ focusedId }) => {
             }
 
             // ── Self-rotation ──────────────────────────────────────────────────
-            const moonFocused = currentFocusedId && MOON_DATA.some(m => m.id === currentFocusedId);
             const targetRotSpeed = moonFocused ? 0.00008 : 0.002;
             meshRotSpeed += (targetRotSpeed - meshRotSpeed) * 0.03;
             sunMesh.rotation.y      += 0.0008;

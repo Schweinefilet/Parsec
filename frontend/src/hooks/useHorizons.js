@@ -52,12 +52,14 @@ export function useHorizons(spacecraftId) {
 
         setState(s => ({ ...s, loading: true }));
 
+        const controller = new AbortController();
         const today    = new Date().toISOString().slice(0, 10);
         const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
         const params = new URLSearchParams({
             format:     'text',
             COMMAND:    cmd,
+            OBJ_DATA:   'NO',
             CENTER:     '500@10',
             MAKE_EPHEM: 'YES',
             EPHEM_TYPE: 'VECTORS',
@@ -67,16 +69,19 @@ export function useHorizons(spacecraftId) {
             OUT_UNITS:  'AU-D',
         });
 
-        fetch(`https://ssd.jpl.nasa.gov/api/horizons.api?${params}`)
+        fetch(`https://ssd.jpl.nasa.gov/api/horizons.api?${params}`, { signal: controller.signal })
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
             .then(text => {
                 const distanceAU = parseDistance(text);
                 setCache(cacheKey, { distanceAU });
-                setState({ distanceAU, loading: false, error: null });
+                setState({ distanceAU, loading: false, error: distanceAU === null ? 'No data in response' : null });
             })
             .catch(err => {
+                if (err.name === 'AbortError') return;
                 setState({ distanceAU: null, loading: false, error: err.message });
             });
+
+        return () => controller.abort('component unmounted');
     }, [cmd, cacheKey]);
 
     return state;
