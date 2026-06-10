@@ -21,17 +21,24 @@ const TEXTURE_URLS = {
 };
 
 const PLANET_COLORS = {
-    Sun:     '#fdb813',
-    Mercury: '#b5b5b5',
-    Venus:   '#e8cda0',
-    Earth:   '#4fa3e0',
-    Mars:    '#c1440e',
-    Jupiter: '#c88b3a',
-    Saturn:  '#e4d191',
-    Uranus:  '#7de8e8',
-    Neptune: '#5b7fdb',
-    Pluto:   '#d9c3a8',
-    Luna:    '#c8c8c8',
+    Sun:      '#fdb813',
+    Mercury:  '#b5b5b5',
+    Venus:    '#e8cda0',
+    Earth:    '#4fa3e0',
+    Mars:     '#c1440e',
+    Jupiter:  '#c88b3a',
+    Saturn:   '#e4d191',
+    Uranus:   '#7de8e8',
+    Neptune:  '#5b7fdb',
+    Pluto:    '#d9c3a8',
+    Luna:     '#c8c8c8',
+    Ceres:    '#8a8a7a',
+    Vesta:    '#7a7060',
+    Pallas:   '#6a6a60',
+    Haumea:   '#ccc8c0',
+    Makemake: '#c8c4b8',
+    Eris:     '#d0cece',
+    "Halley's Comet": '#3a3a38',
 };
 
 const PlanetViewer = ({ planetName }) => {

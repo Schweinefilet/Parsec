@@ -137,10 +137,86 @@ function buildOrbitPoints(name, orbitR) {
     return pts;
 }
 
-function buildOrbitTube(points) {
+function buildOrbitTube(points, tubeRadius = ORBIT_TUBE_RADIUS, segments = 256) {
     const curve = new THREE.CatmullRomCurve3(points, true);
-    return new THREE.TubeGeometry(curve, 256, ORBIT_TUBE_RADIUS, 8, true);
+    return new THREE.TubeGeometry(curve, segments, tubeRadius, 8, true);
 }
+
+// ── Keplerian orbit helpers ────────────────────────────────────────────────
+const DEG2RAD = Math.PI / 180;
+
+function solveKepler(M, e) {
+    let E = M;
+    for (let j = 0; j < 12; j++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+    return E;
+}
+
+function _perifocalBasis(nodeRad, iRad, periRad) {
+    const cN = Math.cos(nodeRad), sN = Math.sin(nodeRad);
+    const cP = Math.cos(periRad), sP = Math.sin(periRad);
+    const cI = Math.cos(iRad),    sI = Math.sin(iRad);
+    return {
+        Px:  cN*cP - sN*sP*cI,  Py:  sN*cP + cN*sP*cI,  Pz: sP*sI,
+        Qx: -cN*sP - sN*cP*cI,  Qy: -sN*sP + cN*cP*cI,  Qz: cP*sI,
+    };
+}
+
+// Position in scene units at a given date using J2000 keplerian elements.
+// sceneScale: scene-units / AU based on each body's semi-major axis.
+function keplerianScenePos(el, sceneScale, date = new Date()) {
+    const t = (date - ORBIT_EPOCH_MS) / 86400000;
+    const n = (2 * Math.PI) / el.period;
+    const M = ((el.M0 ?? 0) + n * t);
+    const Mnorm = ((M % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const E  = solveKepler(Mnorm, el.e);
+    const nu = 2 * Math.atan2(Math.sqrt(1 + el.e) * Math.sin(E / 2), Math.sqrt(1 - el.e) * Math.cos(E / 2));
+    const r  = el.a * (1 - el.e * Math.cos(E));
+    const px = r * Math.cos(nu), py = r * Math.sin(nu);
+    const b  = _perifocalBasis(el.node * DEG2RAD, el.i * DEG2RAD, el.peri * DEG2RAD);
+    return {
+        x: (px * b.Px + py * b.Qx) * sceneScale,
+        y: (px * b.Pz + py * b.Qz) * sceneScale,   // ecliptic Z → scene Y
+        z: (px * b.Py + py * b.Qy) * sceneScale,   // ecliptic Y → scene Z
+    };
+}
+
+// 3D keplerian orbit ring, sampled in true anomaly for correct ellipse shape.
+function buildKeplerOrbitPoints(el, sceneScale, N = 360) {
+    const b   = _perifocalBasis(el.node * DEG2RAD, el.i * DEG2RAD, el.peri * DEG2RAD);
+    const pts = [];
+    for (let j = 0; j <= N; j++) {
+        const nu = (j / N) * 2 * Math.PI;
+        const r  = el.a * (1 - el.e * el.e) / (1 + el.e * Math.cos(nu));
+        const px = r * Math.cos(nu), py = r * Math.sin(nu);
+        pts.push(new THREE.Vector3(
+            (px * b.Px + py * b.Qx) * sceneScale,
+            (px * b.Pz + py * b.Qz) * sceneScale,
+            (px * b.Py + py * b.Qy) * sceneScale,
+        ));
+    }
+    return pts;
+}
+
+// Scene-units/AU scale factor for each body, derived by linear interpolation
+// of the same compressed scale the planets use.
+const SMALL_BODIES = [
+    // i=0 so bodies sit visually in their belt plane (beltQuat handles ecliptic tilt)
+    { id: 'ceres',    name: 'Ceres',           r: 0.10, color: '#8a8a7a', scale: 53.8,
+      el: { a: 2.767, e: 0.079, i: 0, node: 0, peri:  73.60, period: 1681.6, M0: 1.1 } },
+    { id: 'vesta',    name: 'Vesta',            r: 0.09, color: '#7a7060', scale: 60.2,
+      el: { a: 2.362, e: 0.089, i: 0, node: 0, peri: 151.2,  period: 1325.1, M0: 2.3 } },
+    { id: 'pallas',   name: 'Pallas',           r: 0.08, color: '#6a6a60', scale: 53.8,
+      el: { a: 2.772, e: 0.231, i: 0, node: 0, peri: 310.1,  period: 1686.0, M0: 0.7 } },
+    { id: 'haumea',   name: 'Haumea',           r: 0.12, color: '#ccc8c0', scale: 10.14,
+      el: { a: 43.13, e: 0.191, i: 0, node: 0, peri: 239.0,  period: 103468, M0: 1.8 } },
+    { id: 'makemake', name: 'Makemake',         r: 0.12, color: '#c8c4b8', scale:  9.98,
+      el: { a: 45.79, e: 0.159, i: 0, node: 0, peri: 294.8,  period: 113183, M0: 2.9 } },
+    { id: 'eris',     name: 'Eris',             r: 0.15, color: '#d0cece', scale:  9.16,
+      el: { a: 67.8,  e: 0.436, i: 0, node: 0, peri: 151.4,  period: 203469, M0: 3.2 } },
+    // Halley keeps its real retrograde inclination — it's the defining feature of this comet
+    { id: 'halley',   name: "Halley's Comet",   r: 0.06, color: '#2a2a28', scale: 16.15, isComet: true,
+      el: { a: 17.834, e: 0.967, i: 162.3, node: 58.42, peri: 111.3,  period:  27494, M0: 1.159 } },
+];
 
 // Persists across React Router remounts so the exit animation survives navigation
 let _exitState = { active: false, cameraPos: null, targetPos: null };
@@ -502,7 +578,7 @@ const SolarSystem3D = ({ focusedId }) => {
             planetMeshes.push(mesh);
 
             // Invisible hitbox — larger than visual sphere so small planets are easy to click
-            const hitboxR  = Math.max(planet.r * 2 + 2.5, 4.5);
+            const hitboxR  = Math.max(planet.r * 2 + 2.5, planet.name === 'Pluto' ? 11.25 : 6.0);
             const pHitGeo  = new THREE.SphereGeometry(hitboxR, 8, 8);
             const pHitMat  = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
             const pHitMesh = new THREE.Mesh(pHitGeo, pHitMat);
@@ -604,6 +680,112 @@ const SolarSystem3D = ({ focusedId }) => {
             mats.push(kbMat);
         }
 
+        // ── Small bodies: dwarf planets, asteroids, comet ─────────────────────
+        const smallBodyGroups = [];
+        let halleyGroupRef = null; // for per-frame coma orientation
+
+        SMALL_BODIES.forEach(body => {
+            const rawP = keplerianScenePos(body.el, body.scale);
+            const pv   = new THREE.Vector3(rawP.x, rawP.y, rawP.z).applyQuaternion(beltQuat);
+            const p    = { x: pv.x, y: pv.y, z: pv.z };
+
+            // Orbit ring — true keplerian ellipse, thinner tube than planets
+            const orbitPts = buildKeplerOrbitPoints(body.el, body.scale, body.isComet ? 512 : 360)
+                .map(pt => pt.applyQuaternion(beltQuat));
+            const orbitGeo = buildOrbitTube(orbitPts, 0.18, body.isComet ? 512 : 256);
+            const orbitMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff, transparent: true,
+                opacity: ORBIT_BASE_OPACITY * 0.8, depthWrite: false,
+            });
+            const orbitLine = new THREE.Mesh(orbitGeo, orbitMat);
+            orbitLine.userData = { baseOpacity: ORBIT_BASE_OPACITY * 0.8, hoverOpacity: ORBIT_HOVER_OPACITY };
+            scene.add(orbitLine);
+            geos.push(orbitGeo);
+            mats.push(orbitMat);
+
+            // Nucleus sphere
+            const geo = new THREE.SphereGeometry(body.r, 16, 16);
+            const mat = new THREE.MeshStandardMaterial({
+                color: body.color, roughness: 0.9, metalness: 0.0,
+                emissive: new THREE.Color(body.color),
+                emissiveIntensity: PLANET_EMISSIVE_INTENSITY,
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.userData = { id: body.id, name: body.name, orbitLine };
+            mesh.castShadow    = true;
+            mesh.receiveShadow = true;
+            geos.push(geo);
+            mats.push(mat);
+
+            // Optional texture load (Ceres, Vesta only — NASA-mapped surfaces)
+            if (body.id === 'ceres' || body.id === 'vesta') {
+                loader.load(
+                    `/textures/${body.id}.jpg`,
+                    (tex) => {
+                        if (!mounted) { tex.dispose(); return; }
+                        textures.push(tex);
+                        const texMat = new THREE.MeshStandardMaterial({
+                            map: tex, roughness: 0.9, metalness: 0.0,
+                            emissive: new THREE.Color(body.color),
+                            emissiveIntensity: PLANET_EMISSIVE_INTENSITY,
+                        });
+                        mesh.material = texMat;
+                        mat.dispose();
+                        mats.push(texMat);
+                    },
+                    undefined,
+                    () => {}, // silently keep color fallback
+                );
+            }
+
+            const group = new THREE.Group();
+            group.add(mesh);
+            group.position.set(p.x, p.y, p.z);
+
+            // Halley coma — teardrop of 300 particles extending along local +Z
+            if (body.isComet) {
+                const COMA_COUNT  = 300;
+                const TAIL_LEN    = 8;
+                const comaPos     = new Float32Array(COMA_COUNT * 3);
+                for (let j = 0; j < COMA_COUNT; j++) {
+                    const dist   = Math.random() * TAIL_LEN;
+                    const spread = TAIL_LEN * 0.55 * (1 - dist / TAIL_LEN) * Math.sqrt(Math.random());
+                    const theta  = Math.random() * Math.PI * 2;
+                    comaPos[j * 3]     = spread * Math.cos(theta);
+                    comaPos[j * 3 + 1] = spread * Math.sin(theta);
+                    comaPos[j * 3 + 2] = dist;
+                }
+                const comaGeo = new THREE.BufferGeometry();
+                comaGeo.setAttribute('position', new THREE.BufferAttribute(comaPos, 3));
+                const comaMat = new THREE.PointsMaterial({
+                    color: '#e8e8d8', size: 0.4,
+                    transparent: true, opacity: 0.4,
+                    sizeAttenuation: true, depthWrite: false,
+                });
+                group.add(new THREE.Points(comaGeo, comaMat));
+                geos.push(comaGeo);
+                mats.push(comaMat);
+                halleyGroupRef = group;
+            }
+
+            scene.add(group);
+
+            // Invisible hitbox — KBO dwarf planets get 2× larger radius (tiny, very far out)
+            const isKBO   = ['haumea', 'makemake', 'eris'].includes(body.id);
+            const hitR    = Math.max(body.r * 2 + 2.5, isKBO ? 14.0 : 7.0);
+            const hitGeo  = new THREE.SphereGeometry(hitR, 8, 8);
+            const hitMat  = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+            const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+            hitMesh.userData = { id: body.id, name: body.name, orbitLine };
+            group.add(hitMesh);
+            geos.push(hitGeo);
+            mats.push(hitMat);
+            planetMeshes.push(mesh);
+            planetMeshes.push(hitMesh);
+
+            smallBodyGroups.push({ group, body });
+        });
+
         // ── Moon meshes (MOON_DATA) ────────────────────────────────────────────
         MOON_DATA.forEach(moon => {
             const parentGroup = planetMeshRefs.get(moon.parent);
@@ -638,7 +820,7 @@ const SolarSystem3D = ({ focusedId }) => {
             // Invisible hitbox — added directly to scene so its matrixWorld is
             // always independent and up to date. Position is synced to moonMesh
             // explicitly every rAF frame via moonHitRefs.
-            const hitR    = Math.max(moon.radius * 5, 2.5);
+            const hitR    = Math.max(moon.radius * 6, 4.5);
             const hitGeo  = new THREE.SphereGeometry(hitR, 8, 8);
             const hitMat  = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
             const hitMesh = new THREE.Mesh(hitGeo, hitMat);
@@ -732,6 +914,8 @@ const SolarSystem3D = ({ focusedId }) => {
         let animId;
         let prevNowDays = null;
         let meshRotSpeed = 0.002;
+        // Target axial-tilt z-rotation per planet — lerped smoothly each frame
+        const tiltTargets = new Map(); // mesh uuid → target rotation.z (radians)
 
         const animate = () => {
             animId = requestAnimationFrame(animate);
@@ -745,7 +929,7 @@ const SolarSystem3D = ({ focusedId }) => {
                 if (prevFocusedId) {
                     const prevMesh = planetMeshes.find(m => m.userData.id === prevFocusedId);
                     if (prevMesh && prevMesh.userData.name !== 'Saturn') {
-                        prevMesh.rotation.z = 0;
+                        tiltTargets.set(prevMesh.uuid, 0); // lerp tilt back to upright
                     }
                     // Restore ALL orbit rings when exiting any focused state
                     planetMeshes.forEach(m => {
@@ -764,10 +948,10 @@ const SolarSystem3D = ({ focusedId }) => {
                 // Apply axial tilt + hide ALL orbit rings when focusing
                 if (currentFocusedId) {
                     const newMesh = planetMeshes.find(m => m.userData.id === currentFocusedId);
-                    // Apply axial tilt (except Saturn — it already looks cool)
+                    // Queue axial tilt as a lerp target (except Saturn — always tilted)
                     if (newMesh && newMesh.userData.name !== 'Saturn') {
                         const tilt = AXIAL_TILT_DEG[newMesh.userData.name];
-                        if (tilt !== undefined) newMesh.rotation.z = tilt * Math.PI / 180;
+                        tiltTargets.set(newMesh.uuid, tilt !== undefined ? tilt * Math.PI / 180 : 0);
                     }
                     // Hide ALL orbit rings in the scene when any planet is focused
                     planetMeshes.forEach(m => {
@@ -839,13 +1023,45 @@ const SolarSystem3D = ({ focusedId }) => {
                 if (hitMesh) hitMesh.position.set(mx, my, mz);
             });
 
+            // ── Small body positions (updated every frame; orbits are slow) ───
+            smallBodyGroups.forEach(({ group, body }) => {
+                const rawP = keplerianScenePos(body.el, body.scale);
+                const pv   = new THREE.Vector3(rawP.x, rawP.y, rawP.z).applyQuaternion(beltQuat);
+                group.position.set(pv.x, pv.y, pv.z);
+            });
+
+            // ── Halley coma: orient group so local +Z points anti-sunward ─────
+            if (halleyGroupRef) {
+                const hp  = halleyGroupRef.position;
+                const len = Math.sqrt(hp.x * hp.x + hp.y * hp.y + hp.z * hp.z);
+                if (len > 0.01) {
+                    halleyGroupRef.quaternion.setFromUnitVectors(
+                        new THREE.Vector3(0, 0, 1),
+                        new THREE.Vector3(hp.x / len, hp.y / len, hp.z / len),
+                    );
+                }
+            }
+
             // ── Self-rotation ──────────────────────────────────────────────────
             const moonFocused = currentFocusedId && MOON_DATA.some(m => m.id === currentFocusedId);
             const targetRotSpeed = moonFocused ? 0.00008 : 0.002;
             meshRotSpeed += (targetRotSpeed - meshRotSpeed) * 0.03;
             sunMesh.rotation.y      += 0.0008;
             skySphere.rotation.y    += 0.00002;
-            planetMeshes.forEach(m => { m.rotation.y += meshRotSpeed; });
+            planetMeshes.forEach(m => {
+                m.rotation.y += meshRotSpeed;
+                // Smoothly lerp axial tilt instead of snapping (avoids surface-texture jump)
+                const targetZ = tiltTargets.get(m.uuid);
+                if (targetZ !== undefined) {
+                    const diff = targetZ - m.rotation.z;
+                    if (Math.abs(diff) < 0.0002) {
+                        m.rotation.z = targetZ;
+                        tiltTargets.delete(m.uuid);
+                    } else {
+                        m.rotation.z += diff * 0.04;
+                    }
+                }
+            });
             moonMeshRefs.forEach(m => { m.rotation.y += meshRotSpeed; });
 
             // ── Earth day/night shader: update sun direction each frame ──────────
@@ -975,6 +1191,11 @@ const SolarSystem3D = ({ focusedId }) => {
                         const pos = project(group);
                         if (pos) newLabels.push({ name: planet.name, kind: 'planet', ...pos });
                     });
+                    // Small body labels (dimmer, same size as moon labels)
+                    smallBodyGroups.forEach(({ group, body }) => {
+                        const pos = project(group);
+                        if (pos) newLabels.push({ name: body.name, kind: 'small-body', ...pos });
+                    });
                 } else {
                     // Focused on a planet — show its moons only
                     const focusedPlanet = planetGroups.find(({ planet }) => planet.id === currentFocusedId);
@@ -1040,13 +1261,30 @@ const SolarSystem3D = ({ focusedId }) => {
                 ref={mountRef}
                 style={{ width: '100%', height: '100vh', position: 'relative' }}
             >
+                {/* Not-to-scale disclaimer */}
+                <div style={{
+                    position: 'absolute',
+                    bottom: '14px',
+                    left: '16px',
+                    pointerEvents: 'none',
+                    color: 'rgba(255,255,255,0.28)',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    letterSpacing: '0.04em',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                    zIndex: 2,
+                }}>
+                    *not to scale
+                </div>
+
                 {/* Floating object labels */}
                 {objectLabels.map((label, i) => {
                     // Planet labels: 20–28. Moon labels: 4–8.
                     // Within each band, closer objects (lower depth) get higher z.
-                    const isMoon = label.kind === 'moon';
-                    const base   = isMoon ? 4 : 20;
-                    const range  = isMoon ? 4 : 8;
+                    const isMoon       = label.kind === 'moon';
+                    const isSmallBody  = label.kind === 'small-body';
+                    const base   = isMoon ? 4 : isSmallBody ? 12 : 20;
+                    const range  = isMoon ? 4 : isSmallBody ? 4  : 8;
                     const zIndex = base + Math.round((1 - label.depth) * range * 0.5);
                     return (
                     <div key={`${label.name}-${i}`} style={{
@@ -1056,7 +1294,7 @@ const SolarSystem3D = ({ focusedId }) => {
                         transform: 'translate(12px, -50%)',
                         pointerEvents: 'none',
                         zIndex,
-                        opacity: isMoon ? (moonLabelsReady ? 1 : 0) : 1,
+                        opacity: isMoon ? (moonLabelsReady ? 1 : 0) : isSmallBody ? 0.6 : 1,
                         transition: isMoon ? 'opacity 0.5s ease' : 'none',
                     }}>
                         <div style={{

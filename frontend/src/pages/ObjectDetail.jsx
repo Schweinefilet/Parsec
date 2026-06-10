@@ -15,6 +15,8 @@ const CATEGORY_ICONS = {
     exoplanets: Star,
     'deep-sky': Eye,
     neos:       Zap,
+    asteroid:   CircleDot,
+    comet:      Zap,
 };
 
 const CATEGORY_COLORS = {
@@ -25,6 +27,8 @@ const CATEGORY_COLORS = {
     exoplanets: '#ffbe50',
     'deep-sky': '#8cdcbe',
     neos:       '#ff8c50',
+    asteroid:   '#c8b888',
+    comet:      '#b0deff',
 };
 
 const ScrollReveal = ({ children, delay = 0, style = {}, canReveal }) => {

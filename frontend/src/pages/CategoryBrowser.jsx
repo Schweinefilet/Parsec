@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate, useMatch } from 'react-router-dom';
-import { ChevronDown, ChevronLeft, Globe, Moon, Star, Eye, Zap, CircleDot } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Globe, Moon, Star, Eye, Zap, CircleDot, Satellite, Aperture, Radio, Archive } from 'lucide-react';
 import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
 import { CATEGORY_TABS, getObjectsByCategory, getObjectById } from '../data/objectCatalog';
@@ -9,6 +9,8 @@ import { useNasaImage } from '../hooks/useNasaImage';
 import { computeDistanceSeries } from '../utils/astroFormatters';
 import ObjectStatsPanel from '../components/ObjectStatsPanel';
 import DataChart from '../components/DataChart';
+import SpacecraftViewer from '../components/SpacecraftViewer';
+import { useHorizons } from '../hooks/useHorizons';
 
 const SCROLL_SPEED = 0.45;
 
@@ -121,23 +123,35 @@ const SpaceDataStrip = () => {
 
 // ── ObjectCard ─────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
-    stars:      'rgba(253, 184, 19, 0.18)',
-    planets:    'rgba(100, 160, 255, 0.18)',
-    'dwarf-planets': 'rgba(210, 190, 160, 0.18)',
-    moons:      'rgba(180, 180, 220, 0.15)',
-    exoplanets: 'rgba(255, 180, 80, 0.15)',
-    'deep-sky': 'rgba(120, 220, 180, 0.15)',
-    neos:       'rgba(255, 120, 80, 0.15)',
+    stars:               'rgba(253, 184, 19, 0.18)',
+    planets:             'rgba(100, 160, 255, 0.18)',
+    'dwarf-planets':     'rgba(210, 190, 160, 0.18)',
+    moons:               'rgba(180, 180, 220, 0.15)',
+    exoplanets:          'rgba(255, 180, 80, 0.15)',
+    'deep-sky':          'rgba(120, 220, 180, 0.15)',
+    neos:                'rgba(255, 120, 80, 0.15)',
+    asteroid:            'rgba(180, 160, 120, 0.15)',
+    comet:               'rgba(160, 220, 255, 0.15)',
+    'space-stations':    'rgba(100, 200, 255, 0.15)',
+    'space-telescopes':  'rgba(200, 160, 255, 0.15)',
+    'deep-space-probes': 'rgba(255, 200, 100, 0.15)',
+    historical:          'rgba(200, 200, 180, 0.15)',
 };
 
 const CATEGORY_TEXT = {
-    stars:      'rgba(253, 184, 19, 0.95)',
-    planets:    'rgba(100, 160, 255, 0.9)',
-    'dwarf-planets': 'rgba(220, 205, 180, 0.95)',
-    moons:      'rgba(200, 200, 240, 0.9)',
-    exoplanets: 'rgba(255, 190, 100, 0.9)',
-    'deep-sky': 'rgba(140, 230, 190, 0.9)',
-    neos:       'rgba(255, 140, 100, 0.9)',
+    stars:               'rgba(253, 184, 19, 0.95)',
+    planets:             'rgba(100, 160, 255, 0.9)',
+    'dwarf-planets':     'rgba(220, 205, 180, 0.95)',
+    moons:               'rgba(200, 200, 240, 0.9)',
+    exoplanets:          'rgba(255, 190, 100, 0.9)',
+    'deep-sky':          'rgba(140, 230, 190, 0.9)',
+    neos:                'rgba(255, 140, 100, 0.9)',
+    asteroid:            'rgba(200, 180, 140, 0.9)',
+    comet:               'rgba(180, 230, 255, 0.9)',
+    'space-stations':    'rgba(120, 210, 255, 0.9)',
+    'space-telescopes':  'rgba(210, 170, 255, 0.9)',
+    'deep-space-probes': 'rgba(255, 210, 120, 0.9)',
+    historical:          'rgba(210, 210, 190, 0.9)',
 };
 
 const ObjectCard = ({ object }) => {
@@ -278,23 +292,61 @@ const SortDropdown = ({ value, onChange }) => {
 
 // ── CategoryBrowser ────────────────────────────────────────────────────────────
 const CATEGORY_ICONS = {
-    stars:      Star,
-    planets:    Globe,
-    'dwarf-planets': CircleDot,
-    moons:      Moon,
-    exoplanets: Star,
-    'deep-sky': Eye,
-    neos:       Zap,
+    stars:               Star,
+    planets:             Globe,
+    'dwarf-planets':     CircleDot,
+    moons:               Moon,
+    exoplanets:          Star,
+    'deep-sky':          Eye,
+    neos:                Zap,
+    asteroid:            CircleDot,
+    comet:               Zap,
+    'space-stations':    Satellite,
+    'space-telescopes':  Aperture,
+    'deep-space-probes': Radio,
+    historical:          Archive,
 };
 
 const CATEGORY_ACCENT_COLORS = {
-    stars:      '#fdb813',
-    planets:    '#64a0ff',
-    'dwarf-planets': '#d9c3a8',
-    moons:      '#c8c8f0',
-    exoplanets: '#ffbe50',
-    'deep-sky': '#8cdcbe',
-    neos:       '#ff8c50',
+    stars:               '#fdb813',
+    planets:             '#64a0ff',
+    'dwarf-planets':     '#d9c3a8',
+    moons:               '#c8c8f0',
+    exoplanets:          '#ffbe50',
+    'deep-sky':          '#8cdcbe',
+    neos:                '#ff8c50',
+    asteroid:            '#c8b888',
+    comet:               '#b0deff',
+    'space-stations':    '#64c8ff',
+    'space-telescopes':  '#c8a0ff',
+    'deep-space-probes': '#ffc864',
+    historical:          '#d0d0b8',
+};
+
+const SPACECRAFT_CATEGORIES = new Set(['space-stations', 'space-telescopes', 'deep-space-probes', 'historical']);
+
+const LiveDistanceRow = ({ spacecraftId }) => {
+    const { distanceAU, loading } = useHorizons(spacecraftId);
+    return (
+        <div className="glass p-5">
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
+                Current Distance from Sun
+            </p>
+            {loading ? (
+                <p className="text-lg font-bold mt-1 animate-pulse" style={{ color: 'var(--text-tertiary)' }}>···</p>
+            ) : distanceAU ? (
+                <>
+                    <p className="text-lg font-bold mt-1 text-white">
+                        {distanceAU.toFixed(2)}{' '}
+                        <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>AU</span>
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Live · via JPL Horizons · cached 24h
+                    </p>
+                </>
+            ) : null}
+        </div>
+    );
 };
 
 const TIME_RANGES = [
@@ -393,11 +445,18 @@ const CategoryBrowser = () => {
         ? `Astronomical Units (AU) — eccentricity e = ${object.orbital.e.toFixed(3)}`
         : 'Astronomical Units (AU) — circular orbit approximation';
 
-    const isPlanetOrMoon = object && (object.category === 'planets' || object.category === 'dwarf-planets' || object.category === 'stars' || object.category === 'moons');
-    const physicalRows   = object?.stats?.find(s => s.section === 'Physical')?.rows ?? [];
+    const isSpacecraft   = object ? SPACECRAFT_CATEGORIES.has(object.category) : false;
+    const isPlanetOrMoon = object && (
+        object.category === 'planets' || object.category === 'dwarf-planets' ||
+        object.category === 'stars'   || object.category === 'moons' ||
+        object.category === 'asteroid' || object.category === 'comet' ||
+        isSpacecraft
+    );
+    const physicalRows = object?.stats?.find(s => s.section === 'Physical')?.rows ?? [];
 
     // Scroll-reveal: reset when a new planet is selected, reveal on first scroll
     const [hasScrolled, setHasScrolled] = useState(false);
+    const showDetailContent = hasScrolled || isSpacecraft;
     useEffect(() => { setHasScrolled(false); }, [id]);
     useEffect(() => {
         if (!id || !isPlanetOrMoon || hasScrolled) return;
@@ -422,13 +481,14 @@ const CategoryBrowser = () => {
                 >
                     <SolarSystem3D focusedId={id} />
 
-                    {/* Annotations overlay (faded in if id is present) */}
+                    {/* Annotations overlay — planets/moons: left+right layout */}
                     <div
-                        className="absolute inset-0 pointer-events-none flex items-center justify-between px-6 md:px-16 transition-all duration-700 ease-out"
+                        className="absolute inset-0 pointer-events-none flex items-center justify-between px-6 md:px-16 transition-all duration-1000 ease-out"
                         style={{
                             zIndex: 5,
                             opacity: id && isPlanetOrMoon ? 1 : 0,
                             transform: id && isPlanetOrMoon ? 'scale(1)' : 'scale(0.96)',
+                            transitionDelay: id && isPlanetOrMoon ? '700ms' : '0ms',
                             pointerEvents: 'none',
                         }}
                     >
@@ -507,8 +567,8 @@ const CategoryBrowser = () => {
                                 animation: 'scrollPromptBob 1.8s ease-in-out infinite',
                             }}
                         >
-                            <ChevronDown style={{ width: '22px', height: '22px', color: 'rgba(255,255,255,0.55)', marginBottom: '-10px' }} />
-                            <ChevronDown style={{ width: '22px', height: '22px', color: 'rgba(255,255,255,0.25)' }} />
+                            <ChevronDown style={{ width: '44px', height: '44px', color: 'rgba(255,255,255,0.80)', marginBottom: '-18px' }} />
+                            <ChevronDown style={{ width: '44px', height: '44px', color: 'rgba(255,255,255,0.40)' }} />
                         </button>
                     )}
                 </div>
@@ -583,73 +643,89 @@ const CategoryBrowser = () => {
                 >
                     {object && (
                         <div className="px-4 md:px-8 max-w-2xl mx-auto w-full relative z-10 flex flex-col gap-4">
-                            
-                            {/* Hero image — non-planet/moon objects only */}
-                            {!isPlanetOrMoon && imageUrl && (
+
+                            {/* Spacecraft 3D Viewer */}
+                            {isSpacecraft && (
                                 <div
+                                    className="glass overflow-hidden"
                                     style={{
-                                        position: 'relative',
-                                        overflow: 'hidden',
                                         borderRadius: 'var(--radius-card)',
-                                        height: '220px',
-                                        border: '1px solid var(--glass-border)',
-                                        boxShadow: 'var(--glass-shadow)',
-                                        background: '#000',
+                                        opacity: showDetailContent ? 1 : 0,
+                                        transform: showDetailContent ? 'translateY(0)' : 'translateY(28px)',
+                                        transition: 'opacity 600ms ease, transform 600ms ease',
                                     }}
                                 >
-                                    <img
-                                        src={imageUrl}
-                                        alt={object.name}
-                                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
-                                    />
-                                    <div
-                                        className="card-overlay absolute inset-0"
-                                        style={{
-                                            background: 'linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.65) 100%)',
-                                        }}
-                                    />
-                                    <div style={{ position: 'absolute', bottom: 16, left: 18, right: 18 }}>
-                                        <p className="font-bold text-lg text-white leading-tight">{object.name}</p>
-                                        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>{object.type}</p>
+                                    <SpacecraftViewer spacecraftId={object.id} />
+                                </div>
+                            )}
+
+                            {/* Spacecraft metadata */}
+                            {isSpacecraft && (
+                                <div
+                                    className="glass p-5"
+                                    style={{
+                                        opacity: showDetailContent ? 1 : 0,
+                                        transform: showDetailContent ? 'translateY(0)' : 'translateY(28px)',
+                                        transition: 'opacity 600ms ease 60ms, transform 600ms ease 60ms',
+                                    }}
+                                >
+                                    <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Launch Year</p>
+                                            <p className="font-bold text-white">{object.launchYear}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Status</p>
+                                            <span
+                                                className="text-xs font-bold px-2 py-0.5 rounded-lg"
+                                                style={{
+                                                    background: object.currentStatus === 'active'
+                                                        ? 'rgba(80,200,120,0.15)' : 'rgba(140,140,140,0.15)',
+                                                    color: object.currentStatus === 'active'
+                                                        ? '#50e090' : 'rgba(200,200,200,0.7)',
+                                                }}
+                                            >
+                                                {object.currentStatus.toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Operator</p>
+                                            <p className="font-bold text-white text-sm">{object.operator}</p>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Location / Altitude</p>
+                                            <p className="font-bold text-white text-sm">{object.altitude}</p>
+                                        </div>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Key stats strip — non-planet/moon objects only */}
-                            {!isPlanetOrMoon && (
-                                <div className="glass p-4 flex gap-6 flex-wrap">
-                                    <div>
-                                        <p className="text-2xl font-black" style={{ color: '#fff' }}>
-                                            {object.keyStatValue}
-                                        </p>
-                                        <p className="text-[10px] uppercase tracking-wider mt-0.5"
-                                            style={{ color: 'var(--text-tertiary)' }}>
-                                            {object.keyStatLabel}
-                                        </p>
-                                    </div>
-                                    {object.secondaryStatValue && (
-                                        <>
-                                            <div className="w-px self-stretch" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                                            <div>
-                                                <p className="text-xl font-bold" style={{ color: 'var(--text-secondary)' }}>
-                                                    {object.secondaryStatValue}
-                                                </p>
-                                                <p className="text-[10px] uppercase tracking-wider mt-0.5"
-                                                    style={{ color: 'var(--text-tertiary)' }}>
-                                                    {object.secondaryStatLabel}
-                                                </p>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
+                            {/* Live distance — deep-space probes only */}
+                            {object.category === 'deep-space-probes' && (
+                                <LiveDistanceRow spacecraftId={object.id} />
+                            )}
+
+                            {/* ISS Track Live button */}
+                            {object.id === 'iss' && (
+                                <button
+                                    onClick={() => navigate('/satellites?highlight=25544')}
+                                    className="w-full rounded-2xl font-bold py-3.5 text-sm transition-all"
+                                    style={{
+                                        background: 'rgba(80,200,120,0.18)',
+                                        color: '#50e090',
+                                        border: '1px solid rgba(80,200,120,0.30)',
+                                    }}
+                                >
+                                    Track Live →
+                                </button>
                             )}
 
                             {/* Description */}
                             <div
                                 className="glass p-5"
                                 style={{
-                                    opacity: (!isPlanetOrMoon || hasScrolled) ? 1 : 0,
-                                    transform: (!isPlanetOrMoon || hasScrolled) ? 'translateY(0)' : 'translateY(28px)',
+                                    opacity: showDetailContent ? 1 : 0,
+                                    transform: showDetailContent ? 'translateY(0)' : 'translateY(28px)',
                                     transition: 'opacity 600ms ease, transform 600ms ease',
                                 }}
                             >
@@ -661,8 +737,8 @@ const CategoryBrowser = () => {
                             {/* Stats panel */}
                             <div
                                 style={{
-                                    opacity: (!isPlanetOrMoon || hasScrolled) ? 1 : 0,
-                                    transform: (!isPlanetOrMoon || hasScrolled) ? 'translateY(0)' : 'translateY(28px)',
+                                    opacity: showDetailContent ? 1 : 0,
+                                    transform: showDetailContent ? 'translateY(0)' : 'translateY(28px)',
                                     transition: 'opacity 600ms ease 120ms, transform 600ms ease 120ms',
                                 }}
                             >

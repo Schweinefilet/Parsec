@@ -1,15 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams, useMatch } from 'react-router-dom';
-import { Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search } from 'lucide-react';
+import { Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search, Crosshair, Sparkles, Satellite, Aperture, Radio, Archive } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
 
 const TABS = [
-    { id: 'planets',    label: 'Planets',    icon: Globe },
-    { id: 'dwarf-planets', label: 'Dwarf Planets', icon: CircleDot },
-    { id: 'moons',      label: 'Moons',      icon: Moon },
-    { id: 'exoplanets', label: 'Exoplanets', icon: Star },
-    { id: 'deep-sky',   label: 'Deep Sky',   icon: Eye },
-    { id: 'neos',       label: 'NEOs',       icon: Zap },
+    { id: 'planets',           label: 'Planets',          icon: Globe },
+    { id: 'dwarf-planets',     label: 'Dwarf Planets',    icon: CircleDot },
+    { id: 'moons',             label: 'Moons',            icon: Moon },
+    { id: 'exoplanets',        label: 'Exoplanets',       icon: Star },
+    { id: 'deep-sky',          label: 'Deep Sky',         icon: Eye },
+    { id: 'neos',              label: 'NEOs',             icon: Zap },
+    { id: 'asteroid',          label: 'Asteroids',        icon: Crosshair },
+    { id: 'comet',             label: 'Comets',           icon: Sparkles },
+    { id: 'space-stations',    label: 'Space Stations',   icon: Satellite },
+    { id: 'space-telescopes',  label: 'Space Telescopes', icon: Aperture },
+    { id: 'deep-space-probes', label: 'Deep Space',       icon: Radio },
+    { id: 'historical',        label: 'Historical',       icon: Archive },
 ];
 
 const AppShell = ({ children }) => {
@@ -55,6 +61,7 @@ const AppShell = ({ children }) => {
                     to="/"
                     className="flex items-center gap-2 font-bold text-lg flex-shrink-0"
                     style={{ color: 'rgba(255,255,255,0.90)', pointerEvents: 'auto', textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'instant' })}
                 >
                     <Telescope className="h-5 w-5" style={{ color: 'var(--accent)' }} />
                     <span>Parsec</span>
@@ -98,13 +105,20 @@ const AppShell = ({ children }) => {
 
             {/* ── Bottom tab bar ── */}
             <nav
-                className="glass fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around transition-all duration-500 ease-in-out"
+                className="glass fixed bottom-0 left-0 right-0 z-50 flex items-center transition-all duration-500 ease-in-out"
                 style={{
                     borderRadius: 0,
                     borderLeft: 'none',
                     borderRight: 'none',
                     borderBottom: 'none',
                     height: '64px',
+                    overflowX: 'auto',
+                    overflowY: 'hidden',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    paddingLeft: '8px',
+                    paddingRight: '8px',
+                    gap: '2px',
                     transform: (id || !scrolled) ? 'translateY(100%)' : 'translateY(0)',
                     opacity: (id || !scrolled) ? 0 : 1,
                     pointerEvents: (id || !scrolled) ? 'none' : 'auto',
@@ -116,7 +130,7 @@ const AppShell = ({ children }) => {
                         <button
                             key={id}
                             onClick={() => setTab(id)}
-                            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all relative"
+                            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all relative flex-shrink-0"
                             style={isActive
                                 ? { color: '#fff' }
                                 : { color: 'rgba(255,255,255,0.40)' }

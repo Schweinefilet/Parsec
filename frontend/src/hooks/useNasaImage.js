@@ -24,7 +24,9 @@ export function useNasaImage(query, override) {
                 return r.json();
             })
             .then(data => {
-                const href = data?.collection?.items?.[0]?.links?.[0]?.href ?? null;
+                const raw  = data?.collection?.items?.[0]?.links?.[0]?.href ?? null;
+                // NASA Images API returns ~thumb.jpg thumbnails (~160 px) — upgrade to ~medium (~1024 px)
+                const href = raw ? raw.replace(/~thumb\.jpg$/i, '~medium.jpg') : null;
                 cache.set(key, href);
                 if (!cancelled) setImageUrl(href);
             })
