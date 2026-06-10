@@ -2,6 +2,7 @@ import { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import * as Astronomy from 'astronomy-engine';
 
 const PLANETS = [
@@ -202,11 +203,11 @@ function buildKeplerOrbitPoints(el, sceneScale, N = 360) {
 const SMALL_BODIES = [
     // i=0 so bodies sit visually in their belt plane (beltQuat handles ecliptic tilt)
     { id: 'ceres',    name: 'Ceres',           r: 0.10, color: '#8a8a7a', scale: 53.8,
-      el: { a: 2.767, e: 0.079, i: 0, node: 0, peri:  73.60, period: 1681.6, M0: 1.1 } },
+      el: { a: 2.767, e: 0.076, i: 10.59, node:  80.3, peri:  73.60, period: 1682.0, M0: 1.68 } },
     { id: 'vesta',    name: 'Vesta',            r: 0.09, color: '#7a7060', scale: 60.2,
-      el: { a: 2.362, e: 0.089, i: 0, node: 0, peri: 151.2,  period: 1325.1, M0: 2.3 } },
+      el: { a: 2.361, e: 0.089, i:  7.14, node: 103.9, peri: 151.2,  period: 1325.0, M0: 0.36 } },
     { id: 'pallas',   name: 'Pallas',           r: 0.08, color: '#6a6a60', scale: 53.8,
-      el: { a: 2.772, e: 0.231, i: 0, node: 0, peri: 310.1,  period: 1686.0, M0: 0.7 } },
+      el: { a: 2.772, e: 0.231, i: 34.84, node: 173.1, peri: 310.1, period: 1686.0, M0: 1.37 } },
     { id: 'haumea',   name: 'Haumea',           r: 0.12, color: '#ccc8c0', scale: 10.14,
       el: { a: 43.13, e: 0.191, i: 0, node: 0, peri: 239.0,  period: 103468, M0: 1.8 } },
     { id: 'makemake', name: 'Makemake',         r: 0.12, color: '#c8c4b8', scale:  9.98,
@@ -275,10 +276,10 @@ const SolarSystem3D = ({ focusedId }) => {
         controls.addEventListener('end', () => { isInteracting = false; });
 
         // ── Exit-animation state (declared early so restore can pre-set them) ──
-        let prevFocusedId  = null;
+        let prevFocusedId          = null;
+        let prevFocusedPlanetName  = null;
         let exitPhase      = 0; // 0=normal  1=pull-back  2=fly-to-sun
         let exitFrames     = 0;
-        let hasInitialZoom = false;
         let targetAutoRotateSpeed = 0.11; // smoothly updated on hover
 
         // ── Focus zoom-in animation state ──────────────────────────────────────
@@ -378,8 +379,10 @@ const SolarSystem3D = ({ focusedId }) => {
         const planetMeshes    = [sunMesh];  // raycaster targets
         const planetGroups    = [];         // for position refresh
         const planetMeshRefs  = new Map();  // name → group, for moon positioning
-        const planetHitboxRefs = new Map(); // name → planet hitbox mesh, for focus-scale
-        const moonMeshRefs     = new Map();  // moon.name → visual mesh
+        const planetHitboxRefs  = new Map(); // planet.name → hitbox mesh
+        const smallBodyHitRefs  = new Map(); // body.id → hitbox mesh
+        const smallBodyHitRadii = new Map(); // body.id → hitbox geometry radius
+        const moonMeshRefs      = new Map();  // moon.name → visual mesh
         const moonHitRefs      = new Map();  // moon.name → hitbox mesh (scene-direct, position synced each frame)
         const moonHitRadii     = new Map();  // moon.name → hitbox geometry radius (for scale restoration)
         const moonAngles       = new Map();  // moon.name → current liveAngle (radians)
@@ -572,6 +575,150 @@ const SolarSystem3D = ({ focusedId }) => {
                 );
             }
 
+            // ── Jupiter halo ring ─────────────────────────────────────────────────
+            if (planet.name === 'Jupiter') {
+                const jIR = planet.r * 1.72;
+                const jOR = planet.r * 1.81;
+
+                const jCanvas = document.createElement('canvas');
+                jCanvas.width = 256; jCanvas.height = 2;
+                const jCtx = jCanvas.getContext('2d');
+                const jGrad = jCtx.createLinearGradient(0, 0, 256, 0);
+                jGrad.addColorStop(0,    'rgba(58,42,26,0)');
+                jGrad.addColorStop(0.15, 'rgba(58,42,26,0.045)');
+                jGrad.addColorStop(0.5,  'rgba(58,42,26,0.07)');
+                jGrad.addColorStop(0.85, 'rgba(58,42,26,0.045)');
+                jGrad.addColorStop(1,    'rgba(58,42,26,0)');
+                jCtx.fillStyle = jGrad;
+                jCtx.fillRect(0, 0, 256, 2);
+                const jTex = new THREE.CanvasTexture(jCanvas);
+                textures.push(jTex);
+
+                const jGeo = new THREE.RingGeometry(jIR, jOR, 128, 8);
+                const jPa  = jGeo.attributes.position;
+                const jUa  = jGeo.attributes.uv;
+                for (let i = 0; i < jPa.count; i++) {
+                    const jvec = new THREE.Vector3().fromBufferAttribute(jPa, i);
+                    jUa.setXY(i, (jvec.length() - jIR) / (jOR - jIR), 0);
+                }
+                const jMat = new THREE.MeshBasicMaterial({
+                    map: jTex, side: THREE.DoubleSide,
+                    transparent: true, depthWrite: false, alphaTest: 0.005,
+                });
+                const jRing = new THREE.Mesh(jGeo, jMat);
+                jRing.rotation.x = Math.PI / 2;
+                jRing.rotation.z = AXIAL_TILT_DEG['Jupiter'] * DEG2RAD;
+                geos.push(jGeo); mats.push(jMat);
+                group.add(jRing);
+            }
+
+            // ── Uranus rings — 5 narrow bands, ~vertical at 97.77° tilt ──────────
+            if (planet.name === 'Uranus') {
+                // c = center radius ×planet.r, hw = half-width ×planet.r, op = opacity
+                // Epsilon defined by explicit inner/outer multiples instead
+                const uDefs = [
+                    { c: 1.638, hw: 0.010, op: 0.35 },         // 6 Ring
+                    { c: 1.748, hw: 0.010, op: 0.40 },         // Alpha
+                    { c: 1.786, hw: 0.010, op: 0.40 },         // Beta
+                    { c: 1.826, hw: 0.010, op: 0.30 },         // Eta
+                    { inner: 1.950, outer: 2.000, op: 0.75 },  // Epsilon (widest, brightest)
+                ];
+                uDefs.forEach(def => {
+                    const uIR = def.inner !== undefined ? def.inner * planet.r : (def.c - def.hw) * planet.r;
+                    const uOR = def.outer !== undefined ? def.outer * planet.r : (def.c + def.hw) * planet.r;
+
+                    const uCanvas = document.createElement('canvas');
+                    uCanvas.width = 64; uCanvas.height = 2;
+                    const uCtx = uCanvas.getContext('2d');
+                    const uGrad = uCtx.createLinearGradient(0, 0, 64, 0);
+                    uGrad.addColorStop(0,    `rgba(22,22,28,0)`);
+                    uGrad.addColorStop(0.06, `rgba(22,22,28,${def.op})`);
+                    uGrad.addColorStop(0.94, `rgba(22,22,28,${def.op})`);
+                    uGrad.addColorStop(1,    `rgba(22,22,28,0)`);
+                    uCtx.fillStyle = uGrad;
+                    uCtx.fillRect(0, 0, 64, 2);
+                    const uTex = new THREE.CanvasTexture(uCanvas);
+                    textures.push(uTex);
+
+                    const uGeo = new THREE.RingGeometry(uIR, uOR, 128, 8);
+                    const uPa  = uGeo.attributes.position;
+                    const uUa  = uGeo.attributes.uv;
+                    for (let i = 0; i < uPa.count; i++) {
+                        const uvec = new THREE.Vector3().fromBufferAttribute(uPa, i);
+                        uUa.setXY(i, (uvec.length() - uIR) / (uOR - uIR), 0);
+                    }
+                    const uMat = new THREE.MeshBasicMaterial({
+                        map: uTex, side: THREE.DoubleSide,
+                        transparent: true, depthWrite: false, alphaTest: 0.01,
+                    });
+                    const uRingMesh = new THREE.Mesh(uGeo, uMat);
+                    uRingMesh.rotation.y = Math.PI / 2;
+                    geos.push(uGeo); mats.push(uMat);
+                    group.add(uRingMesh);
+                });
+            }
+
+            // ── Neptune rings — 4 rings + Adams arc clumps ───────────────────────
+            if (planet.name === 'Neptune') {
+                const nTiltZ = AXIAL_TILT_DEG['Neptune'] * DEG2RAD;
+
+                // Helper: build one ring or partial arc and add to group
+                const addNRing = (iR, oR, op, feather, thetaStart, thetaLength) => {
+                    const nCanvas = document.createElement('canvas');
+                    nCanvas.width = 128; nCanvas.height = 2;
+                    const nCtx = nCanvas.getContext('2d');
+                    const nGrad = nCtx.createLinearGradient(0, 0, 128, 0);
+                    if (feather) {
+                        nGrad.addColorStop(0,   `rgba(30,30,32,0)`);
+                        nGrad.addColorStop(0.2, `rgba(30,30,32,${op})`);
+                        nGrad.addColorStop(0.8, `rgba(30,30,32,${op})`);
+                        nGrad.addColorStop(1,   `rgba(30,30,32,0)`);
+                    } else {
+                        nGrad.addColorStop(0,    `rgba(30,30,32,0)`);
+                        nGrad.addColorStop(0.06, `rgba(30,30,32,${op})`);
+                        nGrad.addColorStop(0.94, `rgba(30,30,32,${op})`);
+                        nGrad.addColorStop(1,    `rgba(30,30,32,0)`);
+                    }
+                    nCtx.fillStyle = nGrad;
+                    nCtx.fillRect(0, 0, 128, 2);
+                    const nTex = new THREE.CanvasTexture(nCanvas);
+                    textures.push(nTex);
+
+                    const isArc = thetaStart !== undefined;
+                    const nGeo = isArc
+                        ? new THREE.RingGeometry(iR, oR, 32, 4, thetaStart, thetaLength)
+                        : new THREE.RingGeometry(iR, oR, 128, 8);
+                    const nPa = nGeo.attributes.position;
+                    const nUa = nGeo.attributes.uv;
+                    for (let i = 0; i < nPa.count; i++) {
+                        const nvec = new THREE.Vector3().fromBufferAttribute(nPa, i);
+                        nUa.setXY(i, (nvec.length() - iR) / (oR - iR), 0);
+                    }
+                    const nMat = new THREE.MeshBasicMaterial({
+                        map: nTex, side: THREE.DoubleSide,
+                        transparent: true, depthWrite: false, alphaTest: 0.005,
+                    });
+                    const nRingMesh = new THREE.Mesh(nGeo, nMat);
+                    nRingMesh.rotation.x = Math.PI / 2;
+                    nRingMesh.rotation.z = nTiltZ;
+                    geos.push(nGeo); mats.push(nMat);
+                    group.add(nRingMesh);
+                };
+
+                // Full rings: Galle (diffuse), Le Verrier (narrow), Lassell (haze), Adams (narrow)
+                addNRing(planet.r * 1.677, planet.r * 1.707, 0.05, true);
+                addNRing(planet.r * 2.141, planet.r * 2.155, 0.20, false);
+                addNRing(planet.r * 2.155, planet.r * 2.400, 0.04, true);
+                addNRing(planet.r * 2.539, planet.r * 2.549, 0.30, false);
+
+                // Adams ring arcs — Liberté, Égalité, Fraternité (three bright clumps)
+                const aIR = planet.r * 2.539;
+                const aOR = planet.r * 2.549;
+                addNRing(aIR, aOR, 0.65, false, 0,                 40 * DEG2RAD);
+                addNRing(aIR, aOR, 0.65, false, 120 * DEG2RAD,     10 * DEG2RAD);
+                addNRing(aIR, aOR, 0.65, false, 230 * DEG2RAD,     30 * DEG2RAD);
+            }
+
             // Place at real position and add to scene
             const p = computePlanetPos(planet.name, planet.orbitR);
             group.position.set(p.x, p.y, p.z);
@@ -610,15 +757,15 @@ const SolarSystem3D = ({ focusedId }) => {
             const eclipticNormal = new THREE.Vector3().crossVectors(sm1, sm2).normalize();
             if (eclipticNormal.y < 0) eclipticNormal.negate(); // ensure north-facing
             beltQuat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), eclipticNormal);
-        } catch (_) { /* keep identity quaternion */ }
+        } catch { /* keep identity quaternion */ }
 
         // ── Asteroid Belt ─────────────────────────────────────────────────────
         // Between Mars (128) and Jupiter (190): 2.0–3.2 AU maps to ~136–156 scene units.
         // Uniform-area distribution: r = sqrt(rand*(R²-r²)+r²) avoids inner-edge clumping.
         {
             const AB_COUNT  = 3500;
-            const AB_INNER  = 150;
-            const AB_OUTER  = 162;
+            const AB_INNER  = 134;
+            const AB_OUTER  = 158;
             const AB_HEIGHT = 5;
             const positions = new Float32Array(AB_COUNT * 3);
             const _p = new THREE.Vector3();
@@ -718,8 +865,8 @@ const SolarSystem3D = ({ focusedId }) => {
             geos.push(geo);
             mats.push(mat);
 
-            // Optional texture load (Ceres, Vesta only — NASA-mapped surfaces)
-            if (body.id === 'ceres' || body.id === 'vesta') {
+            // Optional texture load (Ceres only — NASA-mapped surface)
+            if (body.id === 'ceres') {
                 loader.load(
                     `/textures/${body.id}.jpg`,
                     (tex) => {
@@ -735,7 +882,29 @@ const SolarSystem3D = ({ focusedId }) => {
                         mats.push(texMat);
                     },
                     undefined,
-                    () => {}, // silently keep color fallback
+                    () => {},
+                );
+            }
+
+            // STL model for Vesta
+            if (body.id === 'vesta') {
+                new STLLoader().load(
+                    '/models/vesta.stl',
+                    (stlGeo) => {
+                        if (!mounted) { stlGeo.dispose(); return; }
+                        stlGeo.computeVertexNormals();
+                        stlGeo.center();
+                        // Scale so the bounding sphere matches body.r
+                        stlGeo.computeBoundingSphere();
+                        const modelR = stlGeo.boundingSphere.radius;
+                        const scaleFactor = body.r / modelR;
+                        stlGeo.scale(scaleFactor, scaleFactor, scaleFactor);
+                        mesh.geometry.dispose();
+                        mesh.geometry = stlGeo;
+                        geos.push(stlGeo);
+                    },
+                    undefined,
+                    () => {}, // silently keep sphere fallback
                 );
             }
 
@@ -783,6 +952,8 @@ const SolarSystem3D = ({ focusedId }) => {
             mats.push(hitMat);
             planetMeshes.push(mesh);
             planetMeshes.push(hitMesh);
+            smallBodyHitRefs.set(body.id, hitMesh);
+            smallBodyHitRadii.set(body.id, hitR);
 
             smallBodyGroups.push({ group, body });
         });
@@ -947,13 +1118,15 @@ const SolarSystem3D = ({ focusedId }) => {
                             m.userData.orbitLine.material.opacity = base ?? ORBIT_BASE_OPACITY;
                         }
                     });
-                    // Restore hitbox to full 2× size
-                    const prevPlanet = PLANETS.find(p => p.id === prevFocusedId);
-                    if (prevPlanet) {
-                        const hb = planetHitboxRefs.get(prevPlanet.name);
+                    // Restore all hitboxes to full inflated size
+                    PLANETS.forEach(p => {
+                        const hb = planetHitboxRefs.get(p.name);
                         if (hb) hb.scale.setScalar(1.0);
-                    }
-                    // Restore all moon hitboxes to full inflated size
+                    });
+                    SMALL_BODIES.forEach(b => {
+                        const hb = smallBodyHitRefs.get(b.id);
+                        if (hb) hb.scale.setScalar(1.0);
+                    });
                     MOON_DATA.forEach(moon => {
                         const hm = moonHitRefs.get(moon.name);
                         if (hm) hm.scale.setScalar(1.0);
@@ -973,29 +1146,22 @@ const SolarSystem3D = ({ focusedId }) => {
                             m.userData.orbitLine.material.opacity = 0;
                         }
                     });
-                    // Shrink focused planet's hitbox to 1× visual radius so nearby
-                    // moons are clickable without the planet intercepting the ray
-                    const focusedPlanet = PLANETS.find(p => p.id === currentFocusedId);
-                    if (focusedPlanet) {
-                        const hb   = planetHitboxRefs.get(focusedPlanet.name);
-                        const geomR = hb?.geometry?.parameters?.radius ?? 1;
-                        if (hb) hb.scale.setScalar(focusedPlanet.r / geomR);
-                        // Scale each moon's hitbox to its actual visual radius
-                        MOON_DATA.forEach(moon => {
-                            if (moon.parent !== focusedPlanet.name) return;
-                            const hm   = moonHitRefs.get(moon.name);
-                            const hitR = moonHitRadii.get(moon.name) ?? 1;
-                            if (hm) hm.scale.setScalar(moon.radius / hitR);
-                        });
-                    } else {
-                        // Focused on a moon — shrink its own hitbox to visual size
-                        const focusedMoon = MOON_DATA.find(m => m.id === currentFocusedId);
-                        if (focusedMoon) {
-                            const hm   = moonHitRefs.get(focusedMoon.name);
-                            const hitR = moonHitRadii.get(focusedMoon.name) ?? 1;
-                            if (hm) hm.scale.setScalar(focusedMoon.radius / hitR);
-                        }
-                    }
+                    // Shrink all hitboxes to 1× visual radius when anything is focused
+                    PLANETS.forEach(p => {
+                        const hb = planetHitboxRefs.get(p.name);
+                        const hr = hb?.geometry?.parameters?.radius ?? 1;
+                        if (hb) hb.scale.setScalar(p.r / hr);
+                    });
+                    SMALL_BODIES.forEach(b => {
+                        const hb = smallBodyHitRefs.get(b.id);
+                        const hr = smallBodyHitRadii.get(b.id) ?? 1;
+                        if (hb) hb.scale.setScalar(b.r / hr);
+                    });
+                    MOON_DATA.forEach(moon => {
+                        const hm = moonHitRefs.get(moon.name);
+                        const hr = moonHitRadii.get(moon.name) ?? 1;
+                        if (hm) hm.scale.setScalar(moon.radius * 2 / hr);
+                    });
                     // Compute smooth focus animation — starts from current camera,
                     // ends at 30° elevation above the planet at the correct zoom distance
                     if (newMesh) {
@@ -1025,17 +1191,40 @@ const SolarSystem3D = ({ focusedId }) => {
                     exitFrames = 0;
                 }
                 setMoonLabelsReady(false);
-                hasInitialZoom = false;
                 prevFocusedId  = currentFocusedId;
             }
 
             // ── Moon positions (MOON_DATA) ─────────────────────────────────────
             // Delta-time keeps motion continuous (no snapping between frames).
-            // 2000× visual speedup: Phobos ~14s/orbit, Io ~76s, Moon ~20min.
-            // Slow orbital speed when focused on a moon.
-            const moonFocused = currentFocusedId && MOON_DATA.some(m => m.id === currentFocusedId);
-            const targetOrbitSpeed = hoveredMoonId ? 80 : moonFocused ? 500 : 2000;
-            liveOrbitSpeed += (targetOrbitSpeed - liveOrbitSpeed) * 0.04;
+            // liveOrbitSpeed only applies to the focused planet's moons; all others
+            // stay at 2000 so switching focus doesn't accelerate unrelated moons.
+            const moonFocused       = currentFocusedId && MOON_DATA.some(m => m.id === currentFocusedId);
+            const focusedMoon       = moonFocused ? MOON_DATA.find(m => m.id === currentFocusedId) : null;
+            const focusedMoonParent = focusedMoon?.parent ?? null;
+            const focusedPlanet     = !moonFocused ? (PLANETS.find(p => p.id === currentFocusedId) ?? null) : null;
+            const currentFocusedPlanetName = focusedPlanet?.name ?? null;
+            let targetOrbitSpeed;
+            if (hoveredMoonId) {
+                targetOrbitSpeed = 80;
+            } else if (moonFocused) {
+                targetOrbitSpeed = 500;
+            } else if (focusedPlanet) {
+                const moons = MOON_DATA.filter(m => m.parent === focusedPlanet.name);
+                const minP  = moons.length ? Math.min(...moons.map(m => m.period)) : Infinity;
+                targetOrbitSpeed = Math.max(2000, minP * 86400 / 30);
+            } else {
+                targetOrbitSpeed = 2000;
+            }
+            // Snap down instantly only when the focused planet changes (avoids mach-speed
+            // bleed on focus switch). Moon-hover deceleration uses the same lerp so it
+            // feels gradual rather than instant.
+            const planetFocusChanged = currentFocusedPlanetName !== prevFocusedPlanetName;
+            if (planetFocusChanged && targetOrbitSpeed < liveOrbitSpeed) {
+                liveOrbitSpeed = targetOrbitSpeed;
+            } else {
+                liveOrbitSpeed += (targetOrbitSpeed - liveOrbitSpeed) * 0.05;
+            }
+            prevFocusedPlanetName = currentFocusedPlanetName;
             const MOON_SPEED = liveOrbitSpeed;
             const deltaDays = prevNowDays != null ? Math.min(nowDays - prevNowDays, 0.005) : 0;
             prevNowDays = nowDays;
@@ -1043,8 +1232,12 @@ const SolarSystem3D = ({ focusedId }) => {
                 const parentGroup = planetMeshRefs.get(moon.parent);
                 const moonMesh    = moonMeshRefs.get(moon.name);
                 if (!parentGroup || !moonMesh) return;
-                const dir   = moon.retrograde ? -1 : 1;
-                const dAngle = dir * (tau / moon.period) * deltaDays * MOON_SPEED;
+                const dir = moon.retrograde ? -1 : 1;
+                // Focused planet's moons, or any moon sharing a parent with the focused moon
+                const effectiveSpeed = (focusedPlanet && moon.parent === focusedPlanet.name)
+                    || (focusedMoonParent && moon.parent === focusedMoonParent)
+                    ? MOON_SPEED : 2000;
+                const dAngle = dir * (tau / moon.period) * deltaDays * effectiveSpeed;
                 moonAngles.set(moon.name, (moonAngles.get(moon.name) ?? moon.phase0) + dAngle);
                 const angle  = moonAngles.get(moon.name);
                 const incRad = moon.inc * Math.PI / 180;
@@ -1065,7 +1258,7 @@ const SolarSystem3D = ({ focusedId }) => {
                         if (prev && prev.parent === focusedPlanet.name) {
                             const hm = moonHitRefs.get(prev.name);
                             const hr = moonHitRadii.get(prev.name) ?? 1;
-                            if (hm) hm.scale.setScalar(prev.radius / hr);
+                            if (hm) hm.scale.setScalar(prev.radius * 2 / hr);
                         }
                     }
                     if (hoveredMoonId) {
@@ -1073,7 +1266,7 @@ const SolarSystem3D = ({ focusedId }) => {
                         if (hov && hov.parent === focusedPlanet.name) {
                             const hm = moonHitRefs.get(hov.name);
                             const hr = moonHitRadii.get(hov.name) ?? 1;
-                            if (hm) hm.scale.setScalar(hov.radius * 1.5 / hr);
+                            if (hm) hm.scale.setScalar(hov.radius * 3 / hr);
                         }
                     }
                 }
@@ -1140,14 +1333,19 @@ const SolarSystem3D = ({ focusedId }) => {
                 exitPhase = 0;
                 targetMesh.getWorldPosition(targetPos);
 
-                const planetRadius = targetMesh.geometry?.parameters?.radius ?? 3.5;
-                controls.minDistance = Math.max(planetRadius * 3, 6);
+                const bodyDef = PLANETS.find(b => b.id === currentFocusedId)
+                    ?? SMALL_BODIES.find(b => b.id === currentFocusedId)
+                    ?? MOON_DATA.find(b => b.id === currentFocusedId);
+                const planetRadius = bodyDef?.r ?? bodyDef?.radius ?? 3.5;
+                controls.minDistance = planetRadius * 2.5;
+                // Shrink near plane for small bodies so they don't clip before minDistance
+                camera.near = Math.max(0.05, planetRadius * 0.5);
+                camera.updateProjectionMatrix();
 
                 if (focusAnimating) {
                     if (isInteracting) {
                         // User grabbed control mid-animation — hand off immediately
                         focusAnimating = false;
-                        hasInitialZoom = true;
                         controls.target.copy(targetPos);
                         setMoonLabelsReady(true);
                     } else {
@@ -1162,6 +1360,8 @@ const SolarSystem3D = ({ focusedId }) => {
 
             } else if (exitPhase === 1) {
                 controls.minDistance = 30;
+                camera.near = 1;
+                camera.updateProjectionMatrix();
                 // Phase 1: constant-velocity pull-back from the planet (50 frames ≈ 0.8s)
                 exitFrames++;
                 if (!isInteracting) {
@@ -1220,7 +1420,6 @@ const SolarSystem3D = ({ focusedId }) => {
                 camera.lookAt(_focusLookTarget);
                 if (focusProgress >= 1) {
                     focusAnimating = false;
-                    hasInitialZoom = true;
                     controls.target.copy(targetPos);
                     setMoonLabelsReady(true);
                 }

@@ -555,7 +555,7 @@ const CategoryBrowser = () => {
                             transform: hasScrolled ? 'translateY(0)' : 'translateY(-100%)',
                             transition: 'transform 0.45s cubic-bezier(0.32, 0.72, 0, 1)',
                         }}>
-                            <div style={{ padding: '72px 16px 24px' }}>
+                            <div style={{ padding: '36px 16px 24px' }}>
                                 <div className="max-w-2xl mx-auto">
                                     <div className="glass p-5">
                                         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem' }}>
