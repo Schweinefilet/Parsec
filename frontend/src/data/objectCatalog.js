@@ -1922,6 +1922,7 @@ export const OBJECTS = [
     {
         id: 'iss',
         name: 'International Space Station',
+        shortName: 'ISS',
         type: 'Space Station',
         category: 'space-stations',
         imageQuery: 'International Space Station ISS orbit Earth',
@@ -1936,10 +1937,10 @@ export const OBJECTS = [
         description: 'The International Space Station is the largest structure ever assembled in space and a continuous human presence in orbit since November 2000. Built and operated by a partnership of five space agencies, it serves as a microgravity research laboratory, observatory, and testbed for deep-space exploration technologies. The station completes roughly 16 orbits of Earth every day.',
         stats: [
             { section: 'Physical', rows: [
-                { label: 'Operator',         value: 'NASA / Roscosmos / ESA / JAXA / CSA' },
                 { label: 'Mass',             value: '420,000 kg' },
                 { label: 'Length',           value: '109 m (main truss)' },
                 { label: 'Habitable Volume', value: '388 m³' },
+                { label: 'Operator',         value: 'NASA / Roscosmos / ESA / JAXA / CSA' },
             ]},
             { section: 'Orbital', rows: [
                 { label: 'Altitude',         value: '408 km LEO' },

@@ -1,0 +1,92 @@
+Attached Element Context from Integrated Browser
+
+Element: div.glass.p-5
+
+URL: http://localhost:5173/object/jupiter
+
+HTML Path: div.min-h-screen.text-white.flex.flex-col > main.flex-1.max-w-7xl.mx-auto.w-full > div.relative > div.relative > div > div > div.max-w-2xl.mx-auto > div.glass.p-5
+
+Outer HTML:
+```html
+<div class="glass p-5"><p style="color: var(--text-secondary); line-height: 1.65; font-size: 0.9rem;">The largest planet, with a mass more than twice that of all other planets combined. Jupiter's Great Red Spot is a centuries-old storm larger than Earth, and its powerful magnetosphere creates spectacular auroras.</p></div>
+```
+
+Dimensions:
+- top: 72px
+- left: 48px
+- width: 672px
+- height: 113px
+
+CSS:
+```css
+*, ::after, ::before, ::backdrop, ::file-selector-button { box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid; }
+.p-5 { padding: calc(var(--spacing) * 5); }
+* { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  box-sizing: border-box; }
+.glass { background: var(--glass-fill) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-shadow), var(--glass-specular) !important;
+  border-radius: var(--radius-card) !important;
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease; }
+.glass:hover { background: var(--glass-fill-hover) !important;
+  border-color: rgba(255, 255, 255, 0.20) !important; }
+
+/* Pseudo-elements */
+::-webkit-scrollbar { width: 6px;
+  height: 6px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15);
+  border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Inherited */
+* { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif }
+.text-white { color: var(--color-white) }
+html, :host { line-height: 1.5; tab-size: 4; font-family: var(--default-font-family, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"); font-feature-settings: var(--default-font-feature-settings, normal) }
+
+/* Resolved values */
+margin: 0px;
+padding: 20px;
+border-radius: 20px;
+border: 1px solid rgba(255, 255, 255, 0.2);
+transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+backdrop-filter: blur(6px) saturate(0.5);
+background-attachment: scroll;
+background-clip: border-box;
+background-color: rgba(255, 255, 255, 0.12);
+background-image: none;
+background-origin: padding-box;
+background-position-x: 0%;
+background-position-y: 0%;
+background-repeat: repeat;
+background-size: auto;
+box-shadow: rgba(0, 0, 0, 0.25) 0px 8px 32px 0px, rgba(255, 255, 255, 0.14) 0px 1px 0px 0px inset;
+box-sizing: border-box;
+color: rgb(255, 255, 255);
+display: block;
+font-family: -apple-system, "system-ui", "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+font-feature-settings: normal;
+height: 113.25px;
+line-height: 24px;
+tab-size: 4;
+unicode-bidi: isolate /*UA*/;
+width: 672px;
+
+/* CSS variables */
+--glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+--glass-fill: rgba(255, 255, 255, 0.08);
+--spacing: 0.25rem;
+--glass-fill-hover: rgba(255, 255, 255, 0.12);
+--glass-border: rgba(255, 255, 255, 0.18);
+--color-white: #fff;
+--default-font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+--radius-card: 20px;
+--glass-specular: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+--glass-blur: blur(6px) saturate(50%);
+```

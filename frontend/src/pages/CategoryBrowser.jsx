@@ -450,17 +450,16 @@ const CategoryBrowser = () => {
         : 'Astronomical Units (AU) — circular orbit approximation';
 
     const isSpacecraft   = object ? SPACECRAFT_CATEGORIES.has(object.category) : false;
-    const isPlanetOrMoon = object && (
-        object.category === 'planets' || object.category === 'dwarf-planets' ||
-        object.category === 'stars'   || object.category === 'moons' ||
-        object.category === 'asteroid' || object.category === 'comet' ||
-        isSpacecraft
-    );
+    // Objects that live in the 3D solar system viewer get the planet-style UI
+    // (description/stats panels) instead of the SpacecraftViewer card.
+    const isInSolarSystem = object?.id === 'iss';
+    const showPlanetStyle = !isSpacecraft || isInSolarSystem;
+    const isPlanetOrMoon = object && (showPlanetStyle || isSpacecraft);
     const physicalRows = object?.stats?.find(s => s.section === 'Physical')?.rows ?? [];
 
     // Expand/collapse toggle: reset when a new object is selected
     const [hasScrolled, setHasScrolled] = useState(false);
-    const showDetailContent = hasScrolled || isSpacecraft;
+    const showDetailContent = hasScrolled || (isSpacecraft && !isInSolarSystem);
     useEffect(() => { setHasScrolled(false); }, [id]);
 
     return (
@@ -496,7 +495,7 @@ const CategoryBrowser = () => {
                                 <div className="flex flex-col gap-8 md:gap-14 items-end text-right" style={{ maxWidth: '35%', textShadow: '0 2px 5px rgba(0,0,0,0.9)' }}>
                                     <div>
                                         <h1 className="font-extrabold tracking-tight leading-none text-white animate-fade-in" style={{ fontSize: 'clamp(1.2rem, 3.8vw, 2.2rem)' }}>
-                                            {object?.name}
+                                            {object?.shortName ?? object?.name}
                                         </h1>
                                         <p className="font-bold tracking-widest uppercase text-white/40 mt-1" style={{ fontSize: '0.62rem' }}>
                                             {object?.type}
@@ -545,7 +544,7 @@ const CategoryBrowser = () => {
                     </div>
 
                     {/* Description — slides in from top */}
-                    {id && object && !isSpacecraft && (
+                    {id && object && showPlanetStyle && (
                         <div style={{
                             position: 'absolute',
                             top: 0,
@@ -568,7 +567,7 @@ const CategoryBrowser = () => {
                     )}
 
                     {/* Stats + chevron — slides up from bottom */}
-                    {id && object && !isSpacecraft && (
+                    {id && object && showPlanetStyle && (
                         <div style={{
                             position: 'absolute',
                             bottom: 0,
@@ -675,8 +674,8 @@ const CategoryBrowser = () => {
                     {object && (
                         <div className="px-4 md:px-8 max-w-2xl mx-auto w-full relative z-10 flex flex-col gap-4">
 
-                            {/* Spacecraft 3D Viewer */}
-                            {isSpacecraft && (
+                            {/* Spacecraft 3D Viewer — hidden for bodies present in the solar system */}
+                            {isSpacecraft && !isInSolarSystem && (
                                 <div
                                     className="glass overflow-hidden"
                                     style={{
@@ -691,7 +690,7 @@ const CategoryBrowser = () => {
                             )}
 
                             {/* Spacecraft metadata */}
-                            {isSpacecraft && (
+                            {isSpacecraft && !isInSolarSystem && (
                                 <div
                                     className="glass p-5"
                                     style={{
@@ -751,8 +750,8 @@ const CategoryBrowser = () => {
                                 </button>
                             )}
 
-                            {/* Description + Stats — spacecraft only; planets use the viewport overlay above */}
-                            {isSpacecraft && (
+                            {/* Description + Stats — spacecraft without solar system presence */}
+                            {isSpacecraft && !isInSolarSystem && (
                                 <div className="flex flex-col gap-4" style={{ paddingBottom: '4px' }}>
                                     <div className="glass p-5">
                                         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem' }}>

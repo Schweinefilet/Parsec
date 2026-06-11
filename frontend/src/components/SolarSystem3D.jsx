@@ -72,10 +72,13 @@ const MOON_TEXTURES = {
     triton:    '/textures/triton.jpg',
 };
 
-// 23 natural satellites — id matches objectCatalog (null = no detail page)
+// 23 natural satellites + ISS — id matches objectCatalog (null = no detail page)
+// noSpeedScaling: true → excluded from the minP orbit-speed calculation so fast
+// short-period bodies don't slow down all other moons; capped at speed 2000.
 const MOON_DATA = [
     // Earth
     { id: 'luna',      name: 'Moon',      parent: 'Earth',   orbitR: 14,  radius: 0.41, color: '#c8c8c8', period: 27.321,  phase0: 2.35, inc: 5.1,   retrograde: false },
+    { id: 'iss',       name: 'ISS',       parent: 'Earth',   orbitR: 2.8, radius: 0.036, hitRadius: 0.18, color: '#c0c8d0', period: 0.0642,  phase0: 1.0,  inc: 51.6,  retrograde: false, noSpeedScaling: true },
     // Mars
     { id: 'phobos',    name: 'Phobos',    parent: 'Mars',    orbitR: 5,   radius: 0.15, color: '#9b8e83', period: 0.319,   phase0: 1.20, inc: 1.1,   retrograde: false },
     { id: 'deimos',    name: 'Deimos',    parent: 'Mars',    orbitR: 8,   radius: 0.14, color: '#b7ada6', period: 1.262,   phase0: 3.70, inc: 1.8,   retrograde: false },
@@ -959,6 +962,10 @@ const SolarSystem3D = ({ focusedId }) => {
         });
 
         // ── Moon meshes (MOON_DATA) ────────────────────────────────────────────
+        let issOrbitMat  = null; // fades in/out with Earth focus
+        let issRingMesh  = null; // billboard selection ring at ISS position
+        let issRingMat   = null;
+
         MOON_DATA.forEach(moon => {
             const parentGroup = planetMeshRefs.get(moon.parent);
             if (!parentGroup) return;
@@ -1003,6 +1010,58 @@ const SolarSystem3D = ({ focusedId }) => {
             moonHitRefs.set(moon.name, hitMesh);
             moonHitRadii.set(moon.name, hitR);
             planetMeshes.push(hitMesh);
+
+            // ── ISS-specific extras ────────────────────────────────────────────
+            if (moon.id === 'iss') {
+                // Replace sphere with STL model
+                new STLLoader().load(
+                    '/models/iss.stl',
+                    (stlGeo) => {
+                        if (!mounted) { stlGeo.dispose(); return; }
+                        stlGeo.computeVertexNormals();
+                        stlGeo.center();
+                        stlGeo.computeBoundingSphere();
+                        const sf = moon.radius / stlGeo.boundingSphere.radius;
+                        stlGeo.scale(sf, sf, sf);
+                        moonMesh.geometry.dispose();
+                        moonMesh.geometry = stlGeo;
+                        geos.push(stlGeo);
+                    },
+                    undefined,
+                    () => {},
+                );
+
+                // Orbital path ring (line loop in Earth's local space, moves with Earth)
+                const incR = moon.inc * Math.PI / 180;
+                const orbitPts = [];
+                for (let j = 0; j <= 256; j++) {
+                    const a = (j / 256) * Math.PI * 2;
+                    orbitPts.push(new THREE.Vector3(
+                        Math.cos(a) * moon.orbitR,
+                        Math.sin(a) * moon.orbitR * Math.sin(incR),
+                        Math.sin(a) * moon.orbitR * Math.cos(incR),
+                    ));
+                }
+                const orbitLineGeo = new THREE.BufferGeometry().setFromPoints(orbitPts);
+                issOrbitMat = new THREE.LineBasicMaterial({
+                    color: '#7799bb', transparent: true, opacity: 0, depthWrite: false,
+                });
+                const issOrbitLine = new THREE.LineLoop(orbitLineGeo, issOrbitMat);
+                parentGroup.add(issOrbitLine);
+                geos.push(orbitLineGeo);
+                mats.push(issOrbitMat);
+
+                // Billboard selection ring (follows ISS, always faces camera)
+                const ringGeo = new THREE.RingGeometry(0.152, 0.216, 64);
+                issRingMat  = new THREE.MeshBasicMaterial({
+                    color: '#aaccff', transparent: true, opacity: 0,
+                    side: THREE.DoubleSide, depthWrite: false,
+                });
+                issRingMesh = new THREE.Mesh(ringGeo, issRingMat);
+                scene.add(issRingMesh);
+                geos.push(ringGeo);
+                mats.push(issRingMat);
+            }
         });
         MOON_DATA.forEach(moon => moonAngles.set(moon.name, moon.phase0));
 
@@ -1028,10 +1087,26 @@ const SolarSystem3D = ({ focusedId }) => {
             mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
         };
 
+        // Moons are only selectable when their parent planet (or a sibling moon) is focused.
+        // The focused object itself is excluded — it can't be re-focused, and keeping it in
+        // would let Earth's hitbox block rays aimed at the ISS when ISS passes behind Earth.
+        const getSelectableMeshes = () => {
+            const focused = focusedIdRef.current;
+            const planet  = focused ? PLANETS.find(p => p.id === focused) : null;
+            const moon    = focused ? MOON_DATA.find(m => m.id === focused) : null;
+            const focusedParent = planet?.name ?? moon?.parent ?? null;
+            return planetMeshes.filter(m => {
+                if (focused && m.userData.id === focused) return false; // already focused — skip
+                const moonDef = MOON_DATA.find(mm => mm.id === m.userData.id);
+                if (!moonDef) return true; // sun / planet / small-body — always selectable
+                return moonDef.parent === focusedParent;
+            });
+        };
+
         const handleClick = (e) => {
             toNDC(e);
             raycaster.setFromCamera(mouse, camera);
-            const hits = raycaster.intersectObjects(planetMeshes, false);
+            const hits = raycaster.intersectObjects(getSelectableMeshes(), false);
             if (hits.length > 0) {
                 const id = hits[0].object.userData.id;
                 if (id) {
@@ -1044,7 +1119,7 @@ const SolarSystem3D = ({ focusedId }) => {
         const handleMouseMove = (e) => {
             toNDC(e);
             raycaster.setFromCamera(mouse, camera);
-            const hits = raycaster.intersectObjects(planetMeshes, false);
+            const hits = raycaster.intersectObjects(getSelectableMeshes(), false);
             if (hits.length > 0) {
                 const hitMesh  = hits[0].object;
                 const orbit    = hitMesh.userData.orbitLine;
@@ -1094,6 +1169,7 @@ const SolarSystem3D = ({ focusedId }) => {
         let prevNowDays = null;
         let meshRotSpeed = 0.002;
         let liveOrbitSpeed = 2000;
+        let liveISSSpeed   = 2000; // tracked independently so hover response is immediate
         // Target axial-tilt z-rotation per planet — lerped smoothly each frame
         const tiltTargets = new Map(); // mesh uuid → target rotation.z (radians)
 
@@ -1160,7 +1236,7 @@ const SolarSystem3D = ({ focusedId }) => {
                     MOON_DATA.forEach(moon => {
                         const hm = moonHitRefs.get(moon.name);
                         const hr = moonHitRadii.get(moon.name) ?? 1;
-                        if (hm) hm.scale.setScalar(moon.radius * 2 / hr);
+                        if (hm) hm.scale.setScalar((moon.hitRadius ?? moon.radius) * 2 / hr);
                     });
                     // Compute smooth focus animation — starts from current camera,
                     // ends at 30° elevation above the planet at the correct zoom distance
@@ -1168,7 +1244,9 @@ const SolarSystem3D = ({ focusedId }) => {
                         const planetPos = new THREE.Vector3();
                         newMesh.getWorldPosition(planetPos);
                         const radius = newMesh.geometry?.parameters?.radius ?? 3.5;
-                        const dist   = newMesh.userData.id === 'sun' ? 50 : radius * 4.5 + 14;
+                        const dist   = newMesh.userData.id === 'sun' ? 50
+                                     : newMesh.userData.id === 'iss' ? 0.3
+                                     : radius * 4.5 + 14;
                         const TILT   = 30 * Math.PI / 180; // 30° above equatorial = looking 30° down
                         const startCamPos = pendingFocusCamPos ?? camera.position;
                         pendingFocusCamPos = null;
@@ -1209,7 +1287,9 @@ const SolarSystem3D = ({ focusedId }) => {
             } else if (moonFocused) {
                 targetOrbitSpeed = 500;
             } else if (focusedPlanet) {
-                const moons = MOON_DATA.filter(m => m.parent === focusedPlanet.name);
+                // Exclude noSpeedScaling bodies (e.g. ISS) — their ultra-short periods
+                // would otherwise collapse the speed for all other moons.
+                const moons = MOON_DATA.filter(m => m.parent === focusedPlanet.name && !m.noSpeedScaling);
                 const minP  = moons.length ? Math.min(...moons.map(m => m.period)) : Infinity;
                 targetOrbitSpeed = Math.max(2000, minP * 86400 / 30);
             } else {
@@ -1226,6 +1306,22 @@ const SolarSystem3D = ({ focusedId }) => {
             }
             prevFocusedPlanetName = currentFocusedPlanetName;
             const MOON_SPEED = liveOrbitSpeed;
+
+            // ISS has its own speed tracker so hover/focus response is immediate,
+            // not delayed by liveOrbitSpeed lerping down from ~78k.
+            {
+                const issMoon = MOON_DATA.find(m => m.noSpeedScaling);
+                if (issMoon) {
+                    const issParentFocused = (focusedPlanet && issMoon.parent === focusedPlanet.name)
+                        || (focusedMoonParent && issMoon.parent === focusedMoonParent);
+                    const issTarget = issMoon.id === currentFocusedId ? 10
+                                    : hoveredMoonId === issMoon.id    ? 80
+                                    : issParentFocused                ? 667
+                                    : 2000;
+                    liveISSSpeed += (issTarget - liveISSSpeed) * 0.05;
+                }
+            }
+
             const deltaDays = prevNowDays != null ? Math.min(nowDays - prevNowDays, 0.005) : 0;
             prevNowDays = nowDays;
             MOON_DATA.forEach(moon => {
@@ -1233,10 +1329,11 @@ const SolarSystem3D = ({ focusedId }) => {
                 const moonMesh    = moonMeshRefs.get(moon.name);
                 if (!parentGroup || !moonMesh) return;
                 const dir = moon.retrograde ? -1 : 1;
-                // Focused planet's moons, or any moon sharing a parent with the focused moon
-                const effectiveSpeed = (focusedPlanet && moon.parent === focusedPlanet.name)
-                    || (focusedMoonParent && moon.parent === focusedMoonParent)
-                    ? MOON_SPEED : 2000;
+                const parentFocused = (focusedPlanet && moon.parent === focusedPlanet.name)
+                    || (focusedMoonParent && moon.parent === focusedMoonParent);
+                const effectiveSpeed = moon.noSpeedScaling
+                    ? liveISSSpeed
+                    : parentFocused ? MOON_SPEED : 2000;
                 const dAngle = dir * (tau / moon.period) * deltaDays * effectiveSpeed;
                 moonAngles.set(moon.name, (moonAngles.get(moon.name) ?? moon.phase0) + dAngle);
                 const angle  = moonAngles.get(moon.name);
@@ -1258,7 +1355,7 @@ const SolarSystem3D = ({ focusedId }) => {
                         if (prev && prev.parent === focusedPlanet.name) {
                             const hm = moonHitRefs.get(prev.name);
                             const hr = moonHitRadii.get(prev.name) ?? 1;
-                            if (hm) hm.scale.setScalar(prev.radius * 2 / hr);
+                            if (hm) hm.scale.setScalar((prev.hitRadius ?? prev.radius) * 2 / hr);
                         }
                     }
                     if (hoveredMoonId) {
@@ -1266,11 +1363,31 @@ const SolarSystem3D = ({ focusedId }) => {
                         if (hov && hov.parent === focusedPlanet.name) {
                             const hm = moonHitRefs.get(hov.name);
                             const hr = moonHitRadii.get(hov.name) ?? 1;
-                            if (hm) hm.scale.setScalar(hov.radius * 3 / hr);
+                            if (hm) hm.scale.setScalar((hov.hitRadius ?? hov.radius) * 3 / hr);
                         }
                     }
                 }
                 prevHoveredMoonId = hoveredMoonId;
+            }
+
+            // ── ISS orbit ring + billboard selection ring ─────────────────────
+            const earthFocused = currentFocusedId === 'earth'
+                || (moonFocused && focusedMoonParent === 'Earth');
+            const issHovered   = hoveredMoonId === 'iss';
+            const issFocused   = currentFocusedId === 'iss';
+
+            if (issOrbitMat) {
+                const tgt = (earthFocused || issFocused) ? 0.35 : 0;
+                issOrbitMat.opacity += (tgt - issOrbitMat.opacity) * 0.08;
+            }
+            if (issRingMesh && issRingMat) {
+                const issMesh = moonMeshRefs.get('ISS');
+                if (issMesh) {
+                    issRingMesh.position.copy(issMesh.position);
+                    issRingMesh.quaternion.copy(camera.quaternion);
+                }
+                const tgt = issFocused ? 0 : issHovered ? 0.92 : earthFocused ? 0.42 : 0;
+                issRingMat.opacity += (tgt - issRingMat.opacity) * 0.1;
             }
 
             // ── Small body positions (updated every frame; orbits are slow) ───
