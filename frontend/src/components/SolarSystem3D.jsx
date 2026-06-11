@@ -310,8 +310,12 @@ const SolarSystem3D = ({ focusedId }) => {
         // ── Lights ─────────────────────────────────────────────────────────────
         const mainLight = new THREE.PointLight(0xffffff, 3.2, 0, 0); // decay=0: no distance falloff
         mainLight.castShadow         = true;
-        mainLight.shadow.camera.near = 1;
-        mainLight.shadow.camera.far  = 2000;
+        mainLight.shadow.camera.near    = 1;
+        mainLight.shadow.camera.far     = 2000;
+        mainLight.shadow.mapSize.width  = 2048;
+        mainLight.shadow.mapSize.height = 2048;
+        mainLight.shadow.bias           = -0.002;
+        mainLight.shadow.normalBias     = 0.05;
         scene.add(mainLight);
 
         const coronaLight = new THREE.PointLight(0xfff4e0, 1.8, 750);
@@ -348,7 +352,7 @@ const SolarSystem3D = ({ focusedId }) => {
             side:        THREE.BackSide,
             depthWrite:  false,
             transparent: true,
-            opacity:     0.5,
+            opacity:     0.35,
         });
         const skySphere = new THREE.Mesh(skyGeo, skyMat);
         scene.add(skySphere);
@@ -393,6 +397,7 @@ const SolarSystem3D = ({ focusedId }) => {
         // Earth day/night shader references — set once textures load, used in rAF loop
         let earthMesh      = null;
         let earthShaderMat = null;
+        const sRingRefs = { mat: null, group: null };
 
         // ── Planets ────────────────────────────────────────────────────────────
         PLANETS.forEach(planet => {
@@ -544,7 +549,7 @@ const SolarSystem3D = ({ focusedId }) => {
                 const innerR = 2.0 * scale;
                 const outerR = 3.5 * scale;
 
-                const sRingGeo = new THREE.RingGeometry(innerR, outerR, 64);
+                const sRingGeo = new THREE.RingGeometry(innerR, outerR, 256, 8);
                 const posAttr  = sRingGeo.attributes.position;
                 const uvAttr   = sRingGeo.attributes.uv;
                 for (let i = 0; i < posAttr.count; i++) {
@@ -552,17 +557,54 @@ const SolarSystem3D = ({ focusedId }) => {
                     uvAttr.setXY(i, (v.length() - innerR) / (outerR - innerR), 0);
                 }
 
+                // Analytic ray-sphere shadow: no shadow maps needed, no resolution limits.
+                // For each ring fragment, cast a ray toward the sun (at origin) and test
+                // whether it passes through Saturn's sphere — if so, darken the fragment.
                 const sRingMat = new THREE.MeshBasicMaterial({
                     side: THREE.DoubleSide,
                     transparent: true,
-                    opacity: 0.85,
                     alphaTest: 0.05,
+                    depthWrite: false,
                 });
+                sRingMat.userData.shader = null;
+                sRingMat.onBeforeCompile = (shader) => {
+                    shader.uniforms.uSaturnPos    = { value: new THREE.Vector3() };
+                    shader.uniforms.uSaturnRadius = { value: planet.r };
+                    sRingMat.userData.shader = shader;
+                    // Prepend varying declaration; inject world-pos write after project_vertex
+                    shader.vertexShader = 'varying vec3 vRingWorldPos;\n' +
+                        shader.vertexShader.replace(
+                            '#include <project_vertex>',
+                            '#include <project_vertex>\nvRingWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;'
+                        );
+                    // Prepend uniform/varying; inject shadow just before tonemapping
+                    shader.fragmentShader =
+                        'varying vec3 vRingWorldPos;\nuniform vec3 uSaturnPos;\nuniform float uSaturnRadius;\n' +
+                        shader.fragmentShader.replace(
+                            '#include <tonemapping_fragment>',
+                            `{
+                                vec3  toSun = normalize(-vRingWorldPos);
+                                vec3  oc    = uSaturnPos - vRingWorldPos;
+                                float tca   = dot(oc, toSun);
+                                if (tca > 0.0) {
+                                    float d2     = max(0.0, dot(oc, oc) - tca * tca);
+                                    float r2     = uSaturnRadius * uSaturnRadius;
+                                    float r2soft = r2 * 1.1;
+                                    float shadow = 1.0 - smoothstep(r2, r2soft, d2);
+                                    gl_FragColor.rgb *= mix(1.0, 0.08, shadow);
+                                }
+                            }
+                            #include <tonemapping_fragment>`
+                        );
+                };
+                sRingRefs.mat   = sRingMat;
+                sRingRefs.group = group;
+
                 const sRing = new THREE.Mesh(sRingGeo, sRingMat);
                 sRing.rotation.x    = Math.PI / 2 - 0.5;
                 sRing.rotation.z    = 0.2;
                 sRing.castShadow    = false;
-                sRing.receiveShadow = true;
+                sRing.receiveShadow = false;
                 group.add(sRing);
                 geos.push(sRingGeo);
                 mats.push(sRingMat);
@@ -762,62 +804,114 @@ const SolarSystem3D = ({ focusedId }) => {
             beltQuat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), eclipticNormal);
         } catch { /* keep identity quaternion */ }
 
+        // Belt config — declared in outer scope so the LOD system can read them.
+        const AB_COUNT  = 3500;
+        const AB_INNER  = 134;
+        const AB_OUTER  = 158;
+        const KB_COUNT  = 5000;
+        const KB_INNER  = 342;
+        const KB_OUTER  = 490;
+
+        // Belt shape helpers — Box-Muller Gaussian, used by particles and LOD placement.
+        const gaussRand = () => {
+            let u, v;
+            do { u = Math.random(); } while (u === 0);
+            do { v = Math.random(); } while (v === 0);
+            return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+        };
+
+        // AB: 2.2–3.2 AU → AB_INNER–AB_OUTER scene units (24 scene units/AU)
+        const AB_AU_SCALE   = (AB_OUTER - AB_INNER) / 1.0;   // scene units per AU of belt width
+        const AB_PEAK_R     = AB_INNER + (2.70 - 2.2) * AB_AU_SCALE;  // 2.7 AU density peak
+        const AB_SIGMA_R    = 0.33 * AB_AU_SCALE;            // radial density sigma (~0.33 AU)
+        const AB_SIGMA_Z    = 7;                              // Gaussian vertical sigma (scene units)
+        const KIRKWOOD_GAPS = [
+            { r: AB_INNER + (2.50 - 2.2) * AB_AU_SCALE, hw: 1.8 }, // 3:1 resonance (widest gap)
+            { r: AB_INNER + (2.82 - 2.2) * AB_AU_SCALE, hw: 1.2 }, // 5:2 resonance
+            { r: AB_INNER + (2.96 - 2.2) * AB_AU_SCALE, hw: 1.0 }, // 7:3 resonance
+        ];
+
+        // KB: density peaks in the classical belt (inner half), KBOs have high inclinations
+        const KB_PEAK_R     = KB_INNER + (KB_OUTER - KB_INNER) * 0.38;
+        const KB_SIGMA_R    = (KB_OUTER - KB_INNER) * 0.30;
+        const KB_SIGMA_Z    = 40;  // much wider than AB — KBO inclinations average ~15-20°
+
+        // LOD tracking — populated below, used in the animate loop and cleanup.
+        let abParticles = null;
+        let kbParticles = null;
+        const abLODGroups    = [];
+        const kbLODGroups    = [];
+        const beltLODInstances = [];
+        const lodDummy = new THREE.Object3D();
+
         // ── Asteroid Belt ─────────────────────────────────────────────────────
-        // Between Mars (128) and Jupiter (190): 2.0–3.2 AU maps to ~136–156 scene units.
-        // Uniform-area distribution: r = sqrt(rand*(R²-r²)+r²) avoids inner-edge clumping.
+        // Torus shape: Gaussian Z spread, density peaked at 2.7 AU, Kirkwood gaps excluded.
+        // Inner belt S-type (brownish) → outer belt C-type (dark neutral) via vertex color.
         {
-            const AB_COUNT  = 3500;
-            const AB_INNER  = 134;
-            const AB_OUTER  = 158;
-            const AB_HEIGHT = 5;
             const positions = new Float32Array(AB_COUNT * 3);
+            const colors    = new Float32Array(AB_COUNT * 3);
+            const innerRGB  = [0.478, 0.396, 0.376];  // #7a6560 S-type silicate
+            const outerRGB  = [0.184, 0.184, 0.173];  // #4a4a46 C-type carbonaceous
             const _p = new THREE.Vector3();
-            for (let i = 0; i < AB_COUNT; i++) {
-                const r     = Math.sqrt(Math.random() * (AB_OUTER ** 2 - AB_INNER ** 2) + AB_INNER ** 2);
+            let placed = 0, attempts = 0;
+            while (placed < AB_COUNT && attempts < AB_COUNT * 25) {
+                attempts++;
+                const r = Math.sqrt(Math.random() * (AB_OUTER ** 2 - AB_INNER ** 2) + AB_INNER ** 2);
+                const density = 0.1 + 0.9 * Math.exp(-0.5 * ((r - AB_PEAK_R) / AB_SIGMA_R) ** 2);
+                if (Math.random() > density) continue;
+                let inGap = false;
+                for (const g of KIRKWOOD_GAPS) { if (Math.abs(r - g.r) < g.hw) { inGap = true; break; } }
+                if (inGap) continue;
                 const theta = Math.random() * Math.PI * 2;
-                _p.set(r * Math.cos(theta), (Math.random() - 0.5) * 2 * AB_HEIGHT, r * Math.sin(theta));
+                _p.set(r * Math.cos(theta), gaussRand() * AB_SIGMA_Z, r * Math.sin(theta));
                 _p.applyQuaternion(beltQuat);
-                positions[i * 3]     = _p.x;
-                positions[i * 3 + 1] = _p.y;
-                positions[i * 3 + 2] = _p.z;
+                positions[placed * 3]     = _p.x;
+                positions[placed * 3 + 1] = _p.y;
+                positions[placed * 3 + 2] = _p.z;
+                const t = Math.max(0, Math.min(1, (r - AB_INNER) / (AB_OUTER - AB_INNER)));
+                colors[placed * 3]     = innerRGB[0] + t * (outerRGB[0] - innerRGB[0]);
+                colors[placed * 3 + 1] = innerRGB[1] + t * (outerRGB[1] - innerRGB[1]);
+                colors[placed * 3 + 2] = innerRGB[2] + t * (outerRGB[2] - innerRGB[2]);
+                placed++;
             }
             const abGeo = new THREE.BufferGeometry();
-            abGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            abGeo.setAttribute('position', new THREE.BufferAttribute(positions.subarray(0, placed * 3), 3));
+            abGeo.setAttribute('color',    new THREE.BufferAttribute(colors.subarray(0, placed * 3), 3));
             const abMat = new THREE.PointsMaterial({
-                color: '#8a7a6a',
+                vertexColors: true,
                 size: 0.9,
                 transparent: true,
                 opacity: 0.55,
                 sizeAttenuation: true,
                 depthWrite: false,
             });
-            scene.add(new THREE.Points(abGeo, abMat));
+            abParticles = new THREE.Points(abGeo, abMat);
+            scene.add(abParticles);
             geos.push(abGeo);
             mats.push(abMat);
         }
 
         // ── Kuiper Belt ────────────────────────────────────────────────────────
-        // Beyond Neptune (340) out to ~50 AU → 490 scene units (extrapolating
-        // Neptune 30AU/340 ↔ Pluto 39.5AU/410 scale: ~7.4 units/AU).
-        // KBOs have higher inclinations → taller height spread.
+        // Torus shape: Gaussian Z spread (much wider than AB), density peaked in classical belt.
         {
-            const KB_COUNT  = 5000;
-            const KB_INNER  = 342;
-            const KB_OUTER  = 490;
-            const KB_HEIGHT = 20;
             const positions = new Float32Array(KB_COUNT * 3);
             const _p = new THREE.Vector3();
-            for (let i = 0; i < KB_COUNT; i++) {
-                const r     = Math.sqrt(Math.random() * (KB_OUTER ** 2 - KB_INNER ** 2) + KB_INNER ** 2);
+            let placed = 0, attempts = 0;
+            while (placed < KB_COUNT && attempts < KB_COUNT * 15) {
+                attempts++;
+                const r = Math.sqrt(Math.random() * (KB_OUTER ** 2 - KB_INNER ** 2) + KB_INNER ** 2);
+                const density = 0.1 + 0.9 * Math.exp(-0.5 * ((r - KB_PEAK_R) / KB_SIGMA_R) ** 2);
+                if (Math.random() > density) continue;
                 const theta = Math.random() * Math.PI * 2;
-                _p.set(r * Math.cos(theta), (Math.random() - 0.5) * 2 * KB_HEIGHT, r * Math.sin(theta));
+                _p.set(r * Math.cos(theta), gaussRand() * KB_SIGMA_Z, r * Math.sin(theta));
                 _p.applyQuaternion(beltQuat);
-                positions[i * 3]     = _p.x;
-                positions[i * 3 + 1] = _p.y;
-                positions[i * 3 + 2] = _p.z;
+                positions[placed * 3]     = _p.x;
+                positions[placed * 3 + 1] = _p.y;
+                positions[placed * 3 + 2] = _p.z;
+                placed++;
             }
             const kbGeo = new THREE.BufferGeometry();
-            kbGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            kbGeo.setAttribute('position', new THREE.BufferAttribute(positions.subarray(0, placed * 3), 3));
             const kbMat = new THREE.PointsMaterial({
                 color: '#7aaec8',
                 size: 1.2,
@@ -826,9 +920,150 @@ const SolarSystem3D = ({ focusedId }) => {
                 sizeAttenuation: true,
                 depthWrite: false,
             });
-            scene.add(new THREE.Points(kbGeo, kbMat));
+            kbParticles = new THREE.Points(kbGeo, kbMat);
+            scene.add(kbParticles);
             geos.push(kbGeo);
             mats.push(kbMat);
+        }
+
+        // ── Belt LOD: swap particle clouds for real 3D geometry when close ──────
+        {
+            const abAstMat = new THREE.MeshStandardMaterial({ color: '#b0a48e', roughness: 0.75, metalness: 0.30, emissive: '#6e5c3a', emissiveIntensity: 0.18 });
+            const kbAstMat = new THREE.MeshStandardMaterial({ color: '#7a8494', roughness: 0.78, metalness: 0.25, emissive: '#2a3a52', emissiveIntensity: 0.22 });
+            mats.push(abAstMat, kbAstMat);
+
+            const ASTEROID_DEFS = [
+                { key: 'geographos', abCount: 600, kbCount: 200, abSize: 0.15, kbSize: 0.52 },
+                { key: 'mithra',     abCount: 480, kbCount: 160, abSize: 0.15, kbSize: 0.52 },
+                { key: 'vesta',      abCount: 240, kbCount:  80, abSize: 0.15, kbSize: 0.52 },
+                { key: 'bennu',      abCount: 240, kbCount:  80, abSize: 0.15, kbSize: 0.52 },
+                { key: 'golevka',    abCount: 240, kbCount:  80, abSize: 0.15, kbSize: 0.52 },
+            ];
+
+            const buildABPositions = (count) => {
+                const positions = [];
+                const _p = new THREE.Vector3();
+                let placed = 0, attempts = 0;
+                while (placed < count && attempts < count * 25) {
+                    attempts++;
+                    const r = Math.sqrt(Math.random() * (AB_OUTER**2 - AB_INNER**2) + AB_INNER**2);
+                    const density = 0.1 + 0.9 * Math.exp(-0.5 * ((r - AB_PEAK_R) / AB_SIGMA_R)**2);
+                    if (Math.random() > density) continue;
+                    let inGap = false;
+                    for (const g of KIRKWOOD_GAPS) { if (Math.abs(r - g.r) < g.hw) { inGap = true; break; } }
+                    if (inGap) continue;
+                    const theta = Math.random() * Math.PI * 2;
+                    _p.set(r * Math.cos(theta), gaussRand() * AB_SIGMA_Z, r * Math.sin(theta));
+                    _p.applyQuaternion(beltQuat);
+                    positions.push(_p.clone());
+                    placed++;
+                }
+                return positions;
+            };
+            const buildKBPositions = (count) => {
+                const positions = [];
+                const _p = new THREE.Vector3();
+                let placed = 0, attempts = 0;
+                while (placed < count && attempts < count * 15) {
+                    attempts++;
+                    const r = Math.sqrt(Math.random() * (KB_OUTER**2 - KB_INNER**2) + KB_INNER**2);
+                    const density = 0.1 + 0.9 * Math.exp(-0.5 * ((r - KB_PEAK_R) / KB_SIGMA_R)**2);
+                    if (Math.random() > density) continue;
+                    const theta = Math.random() * Math.PI * 2;
+                    _p.set(r * Math.cos(theta), gaussRand() * KB_SIGMA_Z, r * Math.sin(theta));
+                    _p.applyQuaternion(beltQuat);
+                    positions.push(_p.clone());
+                    placed++;
+                }
+                return positions;
+            };
+
+            const loader = new STLLoader();
+            const loadSTL = (key) => new Promise((resolve, reject) => {
+                loader.load(`/models/asteroids/${key}.stl`,
+                    geo => resolve(geo),
+                    undefined,
+                    err => reject(err)
+                );
+            });
+
+            Promise.all(ASTEROID_DEFS.map(d => loadSTL(d.key))).then(geometries => {
+                geometries.forEach((geo, idx) => {
+                    geo.computeVertexNormals();
+                    // Normalize to unit scale so abSize/kbSize directly control scene-unit diameter,
+                    // regardless of the original units the STL was exported in (km, m, etc.).
+                    geo.computeBoundingBox();
+                    const bb = geo.boundingBox;
+                    const maxDim = Math.max(
+                        bb.max.x - bb.min.x,
+                        bb.max.y - bb.min.y,
+                        bb.max.z - bb.min.z
+                    );
+                    if (maxDim > 0) {
+                        const center = new THREE.Vector3();
+                        bb.getCenter(center);
+                        geo.translate(-center.x, -center.y, -center.z);
+                        geo.scale(1 / maxDim, 1 / maxDim, 1 / maxDim);
+                    }
+                    const def = ASTEROID_DEFS[idx];
+
+                    // AB InstancedMesh
+                    const abPositions = buildABPositions(def.abCount);
+                    const abScales    = new Float32Array(def.abCount).map(() => 0.4 + Math.random() * 1.2);
+                    const abAngles    = Array.from({ length: def.abCount }, () => ({
+                        ax: Math.random() * Math.PI * 2,
+                        ay: Math.random() * Math.PI * 2,
+                        az: Math.random() * Math.PI * 2,
+                        sx: (Math.random() - 0.5) * 0.0005,
+                        sy: (Math.random() - 0.5) * 0.0005,
+                        sz: (Math.random() - 0.5) * 0.0005,
+                    }));
+                    const abMesh = new THREE.InstancedMesh(geo, abAstMat, def.abCount);
+                    abMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+                    abMesh.visible = true;
+                    abMesh.frustumCulled = false;
+                    abMesh.userData.abAngles = abAngles;
+                    abPositions.forEach((pos, i) => {
+                        lodDummy.position.copy(pos);
+                        lodDummy.rotation.set(abAngles[i].ax, abAngles[i].ay, abAngles[i].az);
+                        lodDummy.scale.setScalar(def.abSize * abScales[i]);
+                        lodDummy.updateMatrix();
+                        abMesh.setMatrixAt(i, lodDummy.matrix);
+                    });
+                    abMesh.instanceMatrix.needsUpdate = true;
+                    scene.add(abMesh);
+                    abLODGroups.push({ mesh: abMesh, positions: abPositions, scales: abScales, def });
+                    beltLODInstances.push(abMesh);
+
+                    // KB InstancedMesh
+                    const kbPositions = buildKBPositions(def.kbCount);
+                    const kbScales    = new Float32Array(def.kbCount).map(() => 0.4 + Math.random() * 1.2);
+                    const kbAngles    = Array.from({ length: def.kbCount }, () => ({
+                        ax: Math.random() * Math.PI * 2,
+                        ay: Math.random() * Math.PI * 2,
+                        az: Math.random() * Math.PI * 2,
+                        sx: (Math.random() - 0.5) * 0.0003,
+                        sy: (Math.random() - 0.5) * 0.0003,
+                        sz: (Math.random() - 0.5) * 0.0003,
+                    }));
+                    const kbMesh = new THREE.InstancedMesh(geo, kbAstMat, def.kbCount);
+                    kbMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+                    kbMesh.visible = true;
+                    kbMesh.frustumCulled = false;
+                    kbMesh.userData.kbAngles = kbAngles;
+                    kbPositions.forEach((pos, i) => {
+                        lodDummy.position.copy(pos);
+                        lodDummy.rotation.set(kbAngles[i].ax, kbAngles[i].ay, kbAngles[i].az);
+                        lodDummy.scale.setScalar(def.kbSize * kbScales[i]);
+                        lodDummy.updateMatrix();
+                        kbMesh.setMatrixAt(i, lodDummy.matrix);
+                    });
+                    kbMesh.instanceMatrix.needsUpdate = true;
+                    scene.add(kbMesh);
+                    kbLODGroups.push({ mesh: kbMesh, positions: kbPositions, scales: kbScales, def });
+                    beltLODInstances.push(kbMesh);
+                });
+            }).catch(err => console.warn('Belt LOD STL load failed:', err));
         }
 
         // ── Small bodies: dwarf planets, asteroids, comet ─────────────────────
@@ -970,6 +1205,9 @@ const SolarSystem3D = ({ focusedId }) => {
             const parentGroup = planetMeshRefs.get(moon.parent);
             if (!parentGroup) return;
 
+            const parentPlanet = PLANETS.find(p => p.name === moon.parent);
+            const planetR      = parentPlanet?.r ?? 1.0;
+
             const moonGeo = new THREE.SphereGeometry(moon.radius, 16, 16);
             const moonMat = new THREE.MeshStandardMaterial({
                 color: moon.color,
@@ -978,6 +1216,39 @@ const SolarSystem3D = ({ focusedId }) => {
                 emissive: new THREE.Color(moon.color),
                 emissiveIntensity: 0.04,
             });
+
+            // Analytic planet-shadow on moon: same ray-sphere test as Saturn ring.
+            // Store the planet-position Vector3 in userData so the animate loop can
+            // mutate it in place — the shader uniform points to the same object.
+            moonMat.userData.planetShadowPos = new THREE.Vector3();
+            moonMat.onBeforeCompile = (shader) => {
+                shader.uniforms.uPlanetPos    = { value: moonMat.userData.planetShadowPos };
+                shader.uniforms.uPlanetRadius = { value: planetR };
+                moonMat.userData.shader = shader;
+                shader.vertexShader = 'varying vec3 vMoonWorldPos;\n' +
+                    shader.vertexShader.replace(
+                        '#include <project_vertex>',
+                        '#include <project_vertex>\nvMoonWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;'
+                    );
+                shader.fragmentShader =
+                    'varying vec3 vMoonWorldPos;\nuniform vec3 uPlanetPos;\nuniform float uPlanetRadius;\n' +
+                    shader.fragmentShader.replace(
+                        '#include <tonemapping_fragment>',
+                        `{
+                            vec3  toSun = normalize(-vMoonWorldPos);
+                            vec3  oc    = uPlanetPos - vMoonWorldPos;
+                            float tca   = dot(oc, toSun);
+                            if (tca > 0.0) {
+                                float d2     = max(0.0, dot(oc, oc) - tca * tca);
+                                float r2     = uPlanetRadius * uPlanetRadius;
+                                float shadow = 1.0 - smoothstep(r2 * 0.85, r2 * 1.15, d2);
+                                gl_FragColor.rgb *= mix(1.0, 0.06, shadow);
+                            }
+                        }
+                        #include <tonemapping_fragment>`
+                    );
+            };
+
             const moonMesh = new THREE.Mesh(moonGeo, moonMat);
             moonMesh.userData = { id: moon.id, name: moon.name };
             scene.add(moonMesh);
@@ -1246,7 +1517,7 @@ const SolarSystem3D = ({ focusedId }) => {
                         const radius = newMesh.geometry?.parameters?.radius ?? 3.5;
                         const dist   = newMesh.userData.id === 'sun' ? 50
                                      : newMesh.userData.id === 'iss' ? 0.3
-                                     : radius * 4.5 + 14;
+                                     : radius * 3.5 + 2;
                         const TILT   = 30 * Math.PI / 180; // 30° above equatorial = looking 30° down
                         const startCamPos = pendingFocusCamPos ?? camera.position;
                         pendingFocusCamPos = null;
@@ -1328,6 +1599,9 @@ const SolarSystem3D = ({ focusedId }) => {
                 const parentGroup = planetMeshRefs.get(moon.parent);
                 const moonMesh    = moonMeshRefs.get(moon.name);
                 if (!parentGroup || !moonMesh) return;
+                // Keep planet-shadow uniform in sync with the planet's current world position
+                const shadowVec = moonMesh.material?.userData?.planetShadowPos;
+                if (shadowVec) parentGroup.getWorldPosition(shadowVec);
                 const dir = moon.retrograde ? -1 : 1;
                 const parentFocused = (focusedPlanet && moon.parent === focusedPlanet.name)
                     || (focusedMoonParent && moon.parent === focusedMoonParent);
@@ -1597,6 +1871,48 @@ const SolarSystem3D = ({ focusedId }) => {
                 });
             }
 
+            // ── Belt LOD: rotate 3D asteroid instances every frame ────────────
+            if (abLODGroups.length > 0) {
+                if (abParticles) abParticles.visible = false;
+                abLODGroups.forEach(({ mesh, positions, scales, def }) => {
+                    const angles = mesh.userData.abAngles;
+                    positions.forEach((pos, i) => {
+                        angles[i].ax += angles[i].sx;
+                        angles[i].ay += angles[i].sy;
+                        angles[i].az += angles[i].sz;
+                        lodDummy.position.copy(pos);
+                        lodDummy.rotation.set(angles[i].ax, angles[i].ay, angles[i].az);
+                        lodDummy.scale.setScalar(def.abSize * scales[i]);
+                        lodDummy.updateMatrix();
+                        mesh.setMatrixAt(i, lodDummy.matrix);
+                    });
+                    mesh.instanceMatrix.needsUpdate = true;
+                });
+            }
+            if (kbLODGroups.length > 0) {
+                if (kbParticles) kbParticles.visible = false;
+                kbLODGroups.forEach(({ mesh, positions, scales, def }) => {
+                    const angles = mesh.userData.kbAngles;
+                    positions.forEach((pos, i) => {
+                        angles[i].ax += angles[i].sx;
+                        angles[i].ay += angles[i].sy;
+                        angles[i].az += angles[i].sz;
+                        lodDummy.position.copy(pos);
+                        lodDummy.rotation.set(angles[i].ax, angles[i].ay, angles[i].az);
+                        lodDummy.scale.setScalar(def.kbSize * scales[i]);
+                        lodDummy.updateMatrix();
+                        mesh.setMatrixAt(i, lodDummy.matrix);
+                    });
+                    mesh.instanceMatrix.needsUpdate = true;
+                });
+            }
+
+            if (sRingRefs.mat?.userData?.shader) {
+                sRingRefs.group.getWorldPosition(
+                    sRingRefs.mat.userData.shader.uniforms.uSaturnPos.value
+                );
+            }
+
             renderer.render(scene, camera);
         };
         animate();
@@ -1622,6 +1938,7 @@ const SolarSystem3D = ({ focusedId }) => {
             geos.forEach(g => g.dispose());
             mats.forEach(m => m.dispose());
             textures.forEach(t => t.dispose());
+            beltLODInstances.forEach(m => { m.geometry.dispose(); scene.remove(m); });
             renderer.dispose();
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1671,7 +1988,7 @@ const SolarSystem3D = ({ focusedId }) => {
                     }}>
                         <div style={{
                             color: 'rgba(255,255,255,0.85)',
-                            fontSize: 10,
+                            fontSize: isMoon || isSmallBody ? 7 : 10,
                             fontWeight: 700,
                             letterSpacing: '0.07em',
                             lineHeight: 1.3,

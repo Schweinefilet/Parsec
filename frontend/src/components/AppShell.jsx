@@ -130,11 +130,12 @@ const AppShell = ({ children }) => {
                         <button
                             key={id}
                             onClick={() => setTab(id)}
-                            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all relative flex-shrink-0"
-                            style={isActive
-                                ? { color: '#fff' }
-                                : { color: 'rgba(255,255,255,0.40)' }
-                            }
+                            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all relative"
+                            style={{
+                                flex: '1 1 0',
+                                minWidth: 0,
+                                color: isActive ? '#fff' : 'rgba(255,255,255,0.40)',
+                            }}
                         >
                             <Icon
                                 className="h-5 w-5 transition-transform"
