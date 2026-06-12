@@ -1729,8 +1729,10 @@ const SolarSystem3D = ({ focusedId }) => {
                     ?? MOON_DATA.find(b => b.id === currentFocusedId);
                 const planetRadius = bodyDef?.r ?? bodyDef?.radius ?? 3.5;
                 controls.minDistance = planetRadius * 2.5;
-                // Shrink near plane for small bodies so they don't clip before minDistance
-                camera.near = Math.max(0.05, planetRadius * 0.5);
+                // Near plane must stay smaller than the closest moon can get to the camera.
+                // e.g. Saturn r=3.56 → cam at 14.46, Mimas orbitR=13 → gap=1.46.
+                // Using 0.1× radius keeps near well below that gap for all planet/moon combos.
+                camera.near = Math.max(0.01, planetRadius * 0.1);
                 camera.updateProjectionMatrix();
 
                 if (focusAnimating) {
