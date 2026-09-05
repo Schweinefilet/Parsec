@@ -63,6 +63,13 @@ const ORBIT_TUBE_RADIUS = 0.28;
 const PLANET_EMISSIVE_INTENSITY = 0.08;
 
 
+// Planets that ship a photographic map under /textures. Pluto is absent on
+// purpose — it gets a painted surface, and listing it here would mean firing
+// a request that can only 404.
+const PLANET_TEXTURES = new Set([
+    'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune',
+]);
+
 // Only Luna ships a photographic map; every other moon is painted at runtime
 // by proceduralTextures.js from its real surface characteristics.
 const MOON_TEXTURES = {
@@ -486,6 +493,18 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
             const group = new THREE.Group();
             group.add(mesh);
 
+            // Falls back to a painted surface, whether we skipped the request
+            // outright or the file failed to load.
+            const applyPaintedSurface = () => {
+                if (!mounted) return;
+                const tex = proceduralTexture(planet.id, planet.color,
+                    planet.name === 'Pluto' ? 'icy' : 'rocky');
+                textures.push(tex);
+                colorMat.map = tex;
+                colorMat.color.set(0xffffff);
+                colorMat.needsUpdate = true;
+            };
+
             // Texture (async)
             if (planet.name === 'Earth') {
                 // Earth: day/night/clouds shader — load three textures in parallel
@@ -540,7 +559,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
                 loader.load('/textures/earth.jpg',        (t) => { dayTex    = t; tryApplyEarthShader(); }, undefined, () => {});
                 loader.load('/textures/earth_night.jpg',  (t) => { nightTex  = t; tryApplyEarthShader(); }, undefined, () => {});
                 loader.load('/textures/earth_clouds.jpg', (t) => { cloudsTex = t; tryApplyEarthShader(); }, undefined, () => {});
-            } else {
+            } else if (PLANET_TEXTURES.has(planet.id)) {
                 loader.load(
                     `/textures/${planet.id}.jpg`,
                     (tex) => {
@@ -558,16 +577,12 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
                         mats.push(texMat);
                     },
                     undefined,
-                    () => {
-                        // No texture file (e.g. Pluto) — generate a surface instead
-                        if (!mounted) return;
-                        const tex = proceduralTexture(planet.id, planet.color, planet.name === 'Pluto' ? 'icy' : 'rocky');
-                        textures.push(tex);
-                        colorMat.map = tex;
-                        colorMat.color.set(0xffffff);
-                        colorMat.needsUpdate = true;
-                    },
+                    applyPaintedSurface,
                 );
+            } else {
+                // No map ships for this planet (Pluto) — paint it instead of
+                // firing a request we know will 404.
+                applyPaintedSurface();
             }
 
             // Saturn rings — proportions and UV fix match PlanetViewer.jsx
