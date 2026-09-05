@@ -159,7 +159,9 @@ const SatelliteView = () => {
                                     background: follow ? 'rgba(80,220,140,0.16)' : 'rgba(0,0,0,0.45)',
                                     border: `1px solid ${follow ? 'rgba(80,220,140,0.32)' : 'rgba(255,255,255,0.16)'}`,
                                     color: follow ? '#6ee7a0' : 'rgba(255,255,255,0.75)',
-                                    backdropFilter: 'blur(12px)', cursor: 'pointer',
+                                    backdropFilter: 'blur(12px)',
+                                    WebkitBackdropFilter: 'blur(12px)',
+                                    cursor: 'pointer',
                                 }}
                             >
                                 <Crosshair style={{ width: 12, height: 12 }} />

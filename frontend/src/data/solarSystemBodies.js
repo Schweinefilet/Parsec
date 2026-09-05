@@ -131,3 +131,22 @@ export const SMALL_BODIES = [
 ];
 
 // Persists across React Router remounts so the exit animation survives navigation
+
+/**
+ * Whether this body's surface in the 3D view is painted rather than
+ * photographed.
+ *
+ * Most moons and dwarf planets have no global photographic map, so their
+ * surfaces are generated from what the body is known to look like. That is a
+ * reasonable thing to show, but not something to pass off as imagery — the UI
+ * says so on the object's page.
+ *
+ * Vesta and Halley are excluded: their shape comes from real 3D shape models
+ * rather than a painted map.
+ */
+export function isSurfacePainted(id) {
+    if (['vesta', 'halley', 'sun', 'iss'].includes(id)) return false;
+    if (PLANETS.some(p => p.id === id)) return !PLANET_TEXTURES.has(id);
+    if (MOON_DATA.some(m => m.id === id)) return !MOON_TEXTURES[id];
+    return SMALL_BODIES.some(b => b.id === id);
+}

@@ -3,6 +3,7 @@ import ObjectStatsPanel from './ObjectStatsPanel';
 import DistanceChart from './DistanceChart';
 import { computeDistanceSeries } from '../utils/astroFormatters';
 import { CATEGORY_ACCENT } from '../data/categoryStyles';
+import { isSurfacePainted } from '../data/solarSystemBodies';
 
 // Distance chart is stashed for now — flip this back to true to restore it.
 // Everything it needs (DistanceChart, the series builder, the range picker)
@@ -100,6 +101,19 @@ const ObjectDetailBody = ({ object, showDescription = true }) => {
             )}
 
             <ObjectStatsPanel object={object} />
+
+            {/* No global map exists for most of these bodies, so their surface
+                is generated. Say so rather than letting it pass as imagery. */}
+            {isSurfacePainted(object.id) && (
+                <p style={{
+                    margin: 0, padding: '0 4px',
+                    fontSize: '0.66rem', lineHeight: 1.5,
+                    color: 'var(--text-tertiary)',
+                }}>
+                    No global photographic map exists for {object.shortName ?? object.name}.
+                    Its surface here is a rendering based on known features, not a photograph.
+                </p>
+            )}
 
             {SHOW_DISTANCE_CHART && chart && chart.points.length > 1 && (
                 <div className="glass p-5">
