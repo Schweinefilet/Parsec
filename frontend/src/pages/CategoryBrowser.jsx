@@ -175,11 +175,9 @@ const CategoryBrowser = () => {
         window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
     }, []);
 
-    // Lift the focused body clear of whatever panel covers the lower half:
-    // a lot on mobile (full-width sheet), a little on desktop once the stats
-    // panel has slid up. Without this the open panel's backdrop blur sits
-    // directly over the object you came to look at.
-    const focusOffsetY = !id ? 0 : isMobile ? 0.24 : (sheetOpen ? 0.14 : 0);
+    // Mobile puts a full-width sheet over the lower half, so the focused body
+    // is lifted clear of it. Desktop keeps the body centred as it always was.
+    const focusOffsetY = !id ? 0 : isMobile ? 0.24 : 0;
 
     return (
         <>
@@ -418,7 +416,7 @@ const CategoryBrowser = () => {
                             </button>
 
                             <div style={{
-                                maxHeight: isMobile ? '58vh' : '46vh',
+                                maxHeight: isMobile ? '58vh' : '60vh',
                                 overflowY: 'auto',
                                 overscrollBehavior: 'contain',
                                 WebkitOverflowScrolling: 'touch',

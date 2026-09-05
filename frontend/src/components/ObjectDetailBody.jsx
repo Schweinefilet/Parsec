@@ -4,6 +4,11 @@ import DistanceChart from './DistanceChart';
 import { computeDistanceSeries } from '../utils/astroFormatters';
 import { CATEGORY_ACCENT } from '../data/categoryStyles';
 
+// Distance chart is stashed for now — flip this back to true to restore it.
+// Everything it needs (DistanceChart, the series builder, the range picker)
+// is still here and working; only the render is gated.
+const SHOW_DISTANCE_CHART = false;
+
 const TIME_RANGES = [
     { key: '3m', label: '3M', days: 90 },
     { key: '6m', label: '6M', days: 180 },
@@ -42,6 +47,7 @@ const ObjectDetailBody = ({ object, showDescription = true }) => {
     const [range, setRange] = useState('1y');
 
     const chart = useMemo(() => {
+        if (!SHOW_DISTANCE_CHART) return null;
         if (!object?.orbital) return null;
         if (!HAS_ORBIT_CHART.has(object.category) && object.id !== 'luna') return null;
         const days = (TIME_RANGES.find(r => r.key === range) ?? TIME_RANGES[2]).days;
@@ -95,7 +101,7 @@ const ObjectDetailBody = ({ object, showDescription = true }) => {
 
             <ObjectStatsPanel object={object} />
 
-            {chart && chart.points.length > 1 && (
+            {SHOW_DISTANCE_CHART && chart && chart.points.length > 1 && (
                 <div className="glass p-5">
                     <div className="flex items-start justify-between gap-3 mb-3">
                         <div>
