@@ -381,13 +381,47 @@ class ErrorBoundary extends React.Component {
     }
 }
 
+// Planets that have moons in the 3D scene (parents in SolarSystem3D's MOON_DATA)
+const PLANETS_WITH_MOONS = new Set(['earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']);
+
 const CategoryBrowser = () => {
     const match = useMatch('/object/:id');
     const id = match?.params?.id;
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'planets';
     const [sortBy, setSortBy] = useState('default');
     const [timeRange, setTimeRange] = useState('1y');
+
+    // ── Onboarding hints ───────────────────────────────────────────────────
+    // Controls hint fades permanently after the first interaction with the 3D
+    // canvas; the scroll chevron fades once the page has been scrolled.
+    const [hasInteracted3D, setHasInteracted3D] = useState(false);
+    const [hasScrolledPage, setHasScrolledPage] = useState(false);
+    const [moonHintVisible, setMoonHintVisible] = useState(false);
+
+    useEffect(() => {
+        const onScroll = () => { if (window.scrollY > 40) setHasScrolledPage(true); };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
+
+    // Escape returns to the solar system from any focused object
+    useEffect(() => {
+        if (!id) return;
+        const onKey = (e) => { if (e.key === 'Escape') navigate('/'); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [id, navigate]);
+
+    // Moon hint: appears after the focus fly-in settles, fades on its own
+    useEffect(() => {
+        setMoonHintVisible(false);
+        if (!id || !PLANETS_WITH_MOONS.has(id)) return;
+        const show = setTimeout(() => setMoonHintVisible(true), 1600);
+        const hide = setTimeout(() => setMoonHintVisible(false), 9500);
+        return () => { clearTimeout(show); clearTimeout(hide); };
+    }, [id]);
 
     const currentCategory = CATEGORY_TABS.find(t => t.id === activeTab) ?? CATEGORY_TABS[0];
     const objects = getObjectsByCategory(currentCategory.id);
@@ -475,8 +509,89 @@ const CategoryBrowser = () => {
                         width: '100vw',
                         marginLeft: 'calc(-50vw + 50%)',
                     }}
+                    onPointerDown={() => setHasInteracted3D(true)}
+                    onWheel={() => setHasInteracted3D(true)}
                 >
                     <SolarSystem3D focusedId={id} />
+
+                    {/* Home onboarding hints — bottom-center, fade out once learned */}
+                    <div
+                        className="absolute inset-x-0 flex flex-col items-center pointer-events-none"
+                        style={{ bottom: '10px', zIndex: 4, gap: '2px' }}
+                    >
+                        <p
+                            className="transition-opacity duration-700"
+                            style={{
+                                opacity: id || hasInteracted3D ? 0 : 1,
+                                color: 'rgba(255,255,255,0.55)',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                letterSpacing: '0.08em',
+                                textShadow: '0 1px 6px rgba(0,0,0,0.9)',
+                                margin: 0,
+                            }}
+                        >
+                            Drag to orbit&ensp;·&ensp;Scroll to zoom&ensp;·&ensp;Click any object to explore
+                        </p>
+                        <ChevronDown
+                            className="transition-opacity duration-700"
+                            style={{
+                                width: '18px',
+                                height: '18px',
+                                color: 'rgba(255,255,255,0.9)',
+                                opacity: id || hasScrolledPage ? 0 : 1,
+                                // Keyframes drive opacity while bobbing, so disable the
+                                // animation when hiding or the inline opacity is ignored.
+                                animation: id || hasScrolledPage
+                                    ? 'none'
+                                    : 'scrollPromptBob 1.8s ease-in-out infinite',
+                            }}
+                        />
+                    </div>
+
+                    {/* Focused-planet moon hint — appears after fly-in, fades on its own */}
+                    <div
+                        className="absolute inset-x-0 flex justify-center pointer-events-none transition-opacity duration-700"
+                        style={{ bottom: '96px', zIndex: 5, opacity: moonHintVisible && !hasScrolled ? 1 : 0 }}
+                    >
+                        <p
+                            style={{
+                                color: 'rgba(255,255,255,0.45)',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                letterSpacing: '0.08em',
+                                textShadow: '0 1px 6px rgba(0,0,0,0.9)',
+                                margin: 0,
+                            }}
+                        >
+                            Click a moon to explore it
+                        </p>
+                    </div>
+
+                    {/* Back to solar system — mirrors the header search button style */}
+                    {id && (
+                        <button
+                            onClick={() => navigate('/')}
+                            aria-label="Back to solar system"
+                            title="Back to solar system (Esc)"
+                            className="absolute flex items-center justify-center rounded-xl animate-fade-in"
+                            style={{
+                                top: '68px',
+                                left: '20px',
+                                zIndex: 7,
+                                width: '36px',
+                                height: '36px',
+                                background: 'rgba(0,0,0,0.40)',
+                                border: '1px solid rgba(255,255,255,0.14)',
+                                color: 'rgba(255,255,255,0.80)',
+                                backdropFilter: 'blur(14px)',
+                                WebkitBackdropFilter: 'blur(14px)',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                    )}
 
                     {/* Annotations overlay — planets/moons: left+right layout */}
                     <div

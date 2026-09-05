@@ -56,7 +56,7 @@ const AXIAL_TILT_DEG = {
 };
 
 const ORBIT_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
-const ORBIT_BASE_OPACITY = 0.20;
+const ORBIT_BASE_OPACITY = 0.27;
 const ORBIT_HOVER_OPACITY = 0.86;
 const ORBIT_TUBE_RADIUS = 0.28;
 const PLANET_EMISSIVE_INTENSITY = 0.08;
@@ -1989,12 +1989,12 @@ const SolarSystem3D = ({ focusedId }) => {
                         transform: 'translate(12px, -50%)',
                         pointerEvents: 'none',
                         zIndex,
-                        opacity: isMoon ? (moonLabelsReady ? 1 : 0) : isSmallBody ? 0.6 : 1,
+                        opacity: isMoon ? (moonLabelsReady ? 1 : 0) : isSmallBody ? 0.72 : 1,
                         transition: isMoon ? 'opacity 0.5s ease' : 'none',
                     }}>
                         <div style={{
-                            color: 'rgba(255,255,255,0.85)',
-                            fontSize: isMoon || isSmallBody ? 7 : 10,
+                            color: 'rgba(255,255,255,0.92)',
+                            fontSize: isMoon || isSmallBody ? 8 : 11,
                             fontWeight: 700,
                             letterSpacing: '0.07em',
                             lineHeight: 1.3,
