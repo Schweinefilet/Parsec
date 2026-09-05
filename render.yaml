@@ -1,0 +1,31 @@
+# Render blueprint. The important part is the rewrite: a single-page app needs
+# unknown paths handed back to index.html, otherwise deep links like
+# /object/saturn and /satellites return 404 instead of loading the app.
+#
+# If this service was created through the Render dashboard rather than from a
+# blueprint, this file is not read automatically. Set the same rule under
+# Settings → Redirects/Rewrites:  Source /*  →  Destination /index.html
+# (Action: Rewrite). The 404.html shipped by the build is a fallback for when
+# neither is configured; it works, but still answers with a 404 status.
+services:
+  - type: web
+    runtime: static
+    name: parsec
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      # Fingerprinted assets are safe to cache forever; the shell must not be.
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /textures/*
+        name: Cache-Control
+        value: public, max-age=604800
+      - path: /models/*
+        name: Cache-Control
+        value: public, max-age=604800

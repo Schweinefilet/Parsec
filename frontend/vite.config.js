@@ -1,6 +1,31 @@
+import { copyFileSync, existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+
+/**
+ * Client-side routing needs the server to hand unknown paths back to the SPA.
+ * Without it, loading /object/saturn or /satellites directly — or refreshing on
+ * one, or opening a shared link — returns a hard 404, because no such file
+ * exists in the build.
+ *
+ * The correct fix is a host rewrite rule (`/*` → `/index.html`), which also
+ * returns a 200. This plugin is the belt-and-braces version: static hosts,
+ * Render included, serve `404.html` for unmatched paths, so shipping a copy of
+ * the shell under that name makes deep links work even with no host config.
+ */
+function spaFallback() {
+  return {
+    name: 'spa-404-fallback',
+    apply: 'build',
+    closeBundle() {
+      const dir = resolve(import.meta.dirname, 'dist')
+      const index = resolve(dir, 'index.html')
+      if (existsSync(index)) copyFileSync(index, resolve(dir, '404.html'))
+    },
+  }
+}
 
 // Parsec is a static front end — every data source (NASA images, JPL Horizons,
 // wheretheiss.at) is called directly over CORS, so there is no dev proxy and no
@@ -9,6 +34,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    spaFallback(),
   ],
   build: {
     rollupOptions: {
