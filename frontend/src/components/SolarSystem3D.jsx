@@ -3,7 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
-import * as Astronomy from 'astronomy-engine';
+import {
+    PLANETS, PLANET_PBR, AXIAL_TILT_DEG, PLANET_TEXTURES, MOON_TEXTURES,
+    MOON_DATA, SMALL_BODIES,
+} from '../data/solarSystemBodies';
+import {
+    DEG2RAD, ORBIT_EPOCH_MS, ORBIT_BASE_OPACITY, ORBIT_HOVER_OPACITY,
+    PLANET_EMISSIVE_INTENSITY, computePlanetPos, buildOrbitPoints, buildOrbitTube,
+    keplerianScenePos, buildKeplerOrbitPoints, eclipticQuaternion,
+} from '../utils/orbits';
 import { proceduralTexture } from '../utils/proceduralTextures';
 import { quality, texturePath, pixelRatioFor } from '../utils/quality';
 import {
@@ -11,227 +19,6 @@ import {
     advanceMoonAngle, moonOffset, DEFAULT_ORBIT_SPEED,
 } from '../utils/orbitalMotion';
 
-const PLANETS = [
-    { id: 'mercury', name: 'Mercury', r: 0.68, orbitR: 48,  color: '#b5b5b5' },
-    { id: 'venus',   name: 'Venus',   r: 1.24, orbitR: 72,  color: '#e8cda0' },
-    { id: 'earth',   name: 'Earth',   r: 1.31, orbitR: 96,  color: '#4fa3e0' },
-    { id: 'mars',    name: 'Mars',    r: 0.83, orbitR: 128, color: '#c1440e' },
-    { id: 'jupiter', name: 'Jupiter', r: 4.13, orbitR: 190, color: '#c88b3a' },
-    { id: 'saturn',  name: 'Saturn',  r: 3.56, orbitR: 245, color: '#e4d191' },
-    { id: 'uranus',  name: 'Uranus',  r: 2.25, orbitR: 295, color: '#7de8e8' },
-    { id: 'neptune', name: 'Neptune', r: 2.18, orbitR: 340, color: '#5b7fdb' },
-    { id: 'pluto',   name: 'Pluto',   r: 0.45, orbitR: 410, color: '#d9c3a8' },
-];
-
-// Orbital periods in days — used only for sampling the orbit path
-const ORBITAL_PERIODS = {
-    Mercury:  87.97,
-    Venus:   224.70,
-    Earth:   365.25,
-    Mars:    686.97,
-    Jupiter: 4332.6,
-    Saturn:  10759.2,
-    Uranus:  30688.5,
-    Neptune: 60182.0,
-    Pluto:   90560.0,
-};
-
-const PLANET_PBR = {
-    Mercury: { roughness: 0.95, metalness: 0.05 },
-    Venus:   { roughness: 0.45, metalness: 0.10 },
-    Earth:   { roughness: 0.60, metalness: 0.05 },
-    Mars:    { roughness: 0.90, metalness: 0.05 },
-    Jupiter: { roughness: 0.30, metalness: 0.00 },
-    Saturn:  { roughness: 0.35, metalness: 0.00 },
-    Uranus:  { roughness: 0.25, metalness: 0.05 },
-    Neptune: { roughness: 0.20, metalness: 0.05 },
-    Pluto:   { roughness: 0.95, metalness: 0.00 },
-};
-
-// Axial tilt in degrees (angle between rotation axis and ecliptic normal).
-// Saturn is intentionally omitted — its existing tilt + rings look great.
-const AXIAL_TILT_DEG = {
-    Mercury: 0.034,
-    Venus:   177.4,
-    Earth:   23.44,
-    Mars:    25.19,
-    Jupiter: 3.13,
-    Uranus:  97.77,
-    Neptune: 28.32,
-    Pluto:   122.53,
-};
-
-const ORBIT_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
-const ORBIT_BASE_OPACITY = 0.27;
-const ORBIT_HOVER_OPACITY = 0.86;
-const ORBIT_TUBE_RADIUS = 0.28;
-const PLANET_EMISSIVE_INTENSITY = 0.08;
-
-
-// Planets that ship a photographic map under /textures. Pluto is absent on
-// purpose — it gets a painted surface, and listing it here would mean firing
-// a request that can only 404.
-const PLANET_TEXTURES = new Set([
-    'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune',
-]);
-
-// Only Luna ships a photographic map; every other moon is painted at runtime
-// by proceduralTextures.js from its real surface characteristics.
-const MOON_TEXTURES = {
-    luna: 'moon.jpg',
-};
-
-// 23 natural satellites + ISS — id matches objectCatalog (null = no detail page)
-// noSpeedScaling: true → excluded from the minP orbit-speed calculation so fast
-// short-period bodies don't slow down all other moons; capped at speed 2000.
-const MOON_DATA = [
-    // Earth
-    { id: 'luna',      name: 'Moon',      parent: 'Earth',   orbitR: 14,  radius: 0.41, color: '#c8c8c8', period: 27.321,  phase0: 2.35, inc: 5.1,   retrograde: false },
-    { id: 'iss',       name: 'ISS',       parent: 'Earth',   orbitR: 2.8, radius: 0.036, hitRadius: 0.18, color: '#c0c8d0', period: 0.0642,  phase0: 1.0,  inc: 51.6,  retrograde: false, noSpeedScaling: true },
-    // Mars
-    { id: 'phobos',    name: 'Phobos',    parent: 'Mars',    orbitR: 5,   radius: 0.15, color: '#9b8e83', period: 0.319,   phase0: 1.20, inc: 1.1,   retrograde: false },
-    { id: 'deimos',    name: 'Deimos',    parent: 'Mars',    orbitR: 8,   radius: 0.14, color: '#b7ada6', period: 1.262,   phase0: 3.70, inc: 1.8,   retrograde: false },
-    // Jupiter
-    { id: 'amalthea',  name: 'Amalthea',  parent: 'Jupiter', orbitR: 13,  radius: 0.19, color: '#c0826a', period: 0.498,   phase0: 0.80, inc: 0.4,   retrograde: false },
-    { id: 'io',        name: 'Io',        parent: 'Jupiter', orbitR: 17,  radius: 0.38, color: '#d8b28b', period: 1.769,   phase0: 1.50, inc: 0.05,  retrograde: false },
-    { id: 'europa',    name: 'Europa',    parent: 'Jupiter', orbitR: 21,  radius: 0.34, color: '#d8e0ea', period: 3.551,   phase0: 3.10, inc: 0.47,  retrograde: false },
-    { id: 'ganymede',  name: 'Ganymede',  parent: 'Jupiter', orbitR: 27,  radius: 0.45, color: '#b8c3cc', period: 7.155,   phase0: 0.60, inc: 0.2,   retrograde: false },
-    { id: 'callisto',  name: 'Callisto',  parent: 'Jupiter', orbitR: 34,  radius: 0.41, color: '#9a8f86', period: 16.689,  phase0: 5.20, inc: 0.19,  retrograde: false },
-    // Saturn
-    { id: 'mimas',     name: 'Mimas',     parent: 'Saturn',  orbitR: 13,  radius: 0.17, color: '#d0cdc8', period: 0.942,   phase0: 2.10, inc: 1.5,   retrograde: false },
-    { id: 'enceladus', name: 'Enceladus', parent: 'Saturn',  orbitR: 16,  radius: 0.23, color: '#dfe9f2', period: 1.370,   phase0: 4.80, inc: 0.0,   retrograde: false },
-    { id: 'tethys',    name: 'Tethys',    parent: 'Saturn',  orbitR: 19,  radius: 0.26, color: '#c8c4be', period: 1.888,   phase0: 1.00, inc: 1.1,   retrograde: false },
-    { id: 'dione',     name: 'Dione',     parent: 'Saturn',  orbitR: 22,  radius: 0.26, color: '#c2bdb8', period: 2.737,   phase0: 3.50, inc: 0.0,   retrograde: false },
-    { id: 'rhea',      name: 'Rhea',      parent: 'Saturn',  orbitR: 26,  radius: 0.32, color: '#bfbbb5', period: 4.518,   phase0: 5.60, inc: 0.3,   retrograde: false },
-    { id: 'titan',     name: 'Titan',     parent: 'Saturn',  orbitR: 33,  radius: 0.45, color: '#d7c18b', period: 15.945,  phase0: 1.80, inc: 0.3,   retrograde: false },
-    { id: 'iapetus',   name: 'Iapetus',   parent: 'Saturn',  orbitR: 45,  radius: 0.26, color: '#a09488', period: 79.330,  phase0: 4.20, inc: 15.5,  retrograde: false },
-    // Uranus
-    { id: 'miranda',   name: 'Miranda',   parent: 'Uranus',  orbitR: 10,  radius: 0.14, color: '#c5c5ca', period: 1.413,   phase0: 0.40, inc: 4.2,   retrograde: false },
-    { id: 'ariel',     name: 'Ariel',     parent: 'Uranus',  orbitR: 13,  radius: 0.23, color: '#cccdd4', period: 2.520,   phase0: 2.80, inc: 0.0,   retrograde: false },
-    { id: 'umbriel',   name: 'Umbriel',   parent: 'Uranus',  orbitR: 16,  radius: 0.23, color: '#8a8d94', period: 4.144,   phase0: 5.00, inc: 0.1,   retrograde: false },
-    { id: 'titania',   name: 'Titania',   parent: 'Uranus',  orbitR: 20,  radius: 0.3,  color: '#c0bfc5', period: 8.706,   phase0: 1.60, inc: 0.1,   retrograde: false },
-    { id: 'oberon',    name: 'Oberon',    parent: 'Uranus',  orbitR: 24,  radius: 0.3,  color: '#aaa8ae', period: 13.463,  phase0: 3.90, inc: 0.1,   retrograde: false },
-    // Neptune
-    { id: 'proteus',   name: 'Proteus',   parent: 'Neptune', orbitR: 9,   radius: 0.19, color: '#8a8f96', period: 1.122,   phase0: 2.50, inc: 0.0,   retrograde: false },
-    { id: 'triton',    name: 'Triton',    parent: 'Neptune', orbitR: 13,  radius: 0.34, color: '#bcc7d4', period: 5.877,   phase0: 0.90, inc: 157.0, retrograde: true  },
-    { id: 'nereid',    name: 'Nereid',    parent: 'Neptune', orbitR: 22,  radius: 0.15, color: '#9fa6b0', period: 360.14,  phase0: 5.10, inc: 7.2,   retrograde: false },
-];
-
-// Use astronomy-engine's HelioVector for true planet positions (includes perturbations).
-// Normalize to a unit direction then scale by the visual orbitR so out-of-ecliptic
-// displacement stays geometrically consistent with the compressed radii.
-// Axis mapping: astronomical (x,y,z) → scene (x, z_astro→y, y_astro→z)
-function computePlanetPos(name, orbitR, date = new Date()) {
-    try {
-        const vec  = Astronomy.HelioVector(name, date);
-        const dist = Math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
-        if (dist === 0) return { x: orbitR, y: 0, z: 0 };
-        return {
-            x:  (vec.x / dist) * orbitR,
-            y:  (vec.z / dist) * orbitR,
-            z:  (vec.y / dist) * orbitR,
-        };
-    } catch {
-        return { x: orbitR, y: 0, z: 0 };
-    }
-}
-
-// Sample the real orbit path via HelioVector over one full period
-function buildOrbitPoints(name, orbitR) {
-    const period = ORBITAL_PERIODS[name];
-    const now = Date.now();
-    const N = 256;
-    const pts = [];
-    for (let i = 0; i < N; i++) {
-        const date = new Date(now + (i / N) * period * 86400000);
-        const p = computePlanetPos(name, orbitR, date);
-        pts.push(new THREE.Vector3(p.x, p.y, p.z));
-    }
-    return pts;
-}
-
-function buildOrbitTube(points, tubeRadius = ORBIT_TUBE_RADIUS, segments = 256) {
-    const curve = new THREE.CatmullRomCurve3(points, true);
-    return new THREE.TubeGeometry(curve, segments, tubeRadius, 8, true);
-}
-
-// ── Keplerian orbit helpers ────────────────────────────────────────────────
-const DEG2RAD = Math.PI / 180;
-
-function solveKepler(M, e) {
-    let E = M;
-    for (let j = 0; j < 12; j++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
-    return E;
-}
-
-function _perifocalBasis(nodeRad, iRad, periRad) {
-    const cN = Math.cos(nodeRad), sN = Math.sin(nodeRad);
-    const cP = Math.cos(periRad), sP = Math.sin(periRad);
-    const cI = Math.cos(iRad),    sI = Math.sin(iRad);
-    return {
-        Px:  cN*cP - sN*sP*cI,  Py:  sN*cP + cN*sP*cI,  Pz: sP*sI,
-        Qx: -cN*sP - sN*cP*cI,  Qy: -sN*sP + cN*cP*cI,  Qz: cP*sI,
-    };
-}
-
-// Position in scene units at a given date using J2000 keplerian elements.
-// sceneScale: scene-units / AU based on each body's semi-major axis.
-function keplerianScenePos(el, sceneScale, date = new Date()) {
-    const t = (date - ORBIT_EPOCH_MS) / 86400000;
-    const n = (2 * Math.PI) / el.period;
-    const M = ((el.M0 ?? 0) + n * t);
-    const Mnorm = ((M % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-    const E  = solveKepler(Mnorm, el.e);
-    const nu = 2 * Math.atan2(Math.sqrt(1 + el.e) * Math.sin(E / 2), Math.sqrt(1 - el.e) * Math.cos(E / 2));
-    const r  = el.a * (1 - el.e * Math.cos(E));
-    const px = r * Math.cos(nu), py = r * Math.sin(nu);
-    const b  = _perifocalBasis(el.node * DEG2RAD, el.i * DEG2RAD, el.peri * DEG2RAD);
-    return {
-        x: (px * b.Px + py * b.Qx) * sceneScale,
-        y: (px * b.Pz + py * b.Qz) * sceneScale,   // ecliptic Z → scene Y
-        z: (px * b.Py + py * b.Qy) * sceneScale,   // ecliptic Y → scene Z
-    };
-}
-
-// 3D keplerian orbit ring, sampled in true anomaly for correct ellipse shape.
-function buildKeplerOrbitPoints(el, sceneScale, N = 360) {
-    const b   = _perifocalBasis(el.node * DEG2RAD, el.i * DEG2RAD, el.peri * DEG2RAD);
-    const pts = [];
-    for (let j = 0; j <= N; j++) {
-        const nu = (j / N) * 2 * Math.PI;
-        const r  = el.a * (1 - el.e * el.e) / (1 + el.e * Math.cos(nu));
-        const px = r * Math.cos(nu), py = r * Math.sin(nu);
-        pts.push(new THREE.Vector3(
-            (px * b.Px + py * b.Qx) * sceneScale,
-            (px * b.Pz + py * b.Qz) * sceneScale,
-            (px * b.Py + py * b.Qy) * sceneScale,
-        ));
-    }
-    return pts;
-}
-
-// Scene-units/AU scale factor for each body, derived by linear interpolation
-// of the same compressed scale the planets use.
-const SMALL_BODIES = [
-    // i=0 so bodies sit visually in their belt plane (beltQuat handles ecliptic tilt)
-    { id: 'ceres',    name: 'Ceres',           r: 0.10, color: '#8a8a7a', scale: 53.8,
-      el: { a: 2.767, e: 0.076, i: 10.59, node:  80.3, peri:  73.60, period: 1682.0, M0: 1.68 } },
-    { id: 'vesta',    name: 'Vesta',            r: 0.09, color: '#7a7060', scale: 60.2,
-      el: { a: 2.361, e: 0.089, i:  7.14, node: 103.9, peri: 151.2,  period: 1325.0, M0: 0.36 } },
-    { id: 'pallas',   name: 'Pallas',           r: 0.08, color: '#6a6a60', scale: 53.8,
-      el: { a: 2.772, e: 0.231, i: 34.84, node: 173.1, peri: 310.1, period: 1686.0, M0: 1.37 } },
-    { id: 'haumea',   name: 'Haumea',           r: 0.12, color: '#ccc8c0', scale: 10.14,
-      el: { a: 43.13, e: 0.191, i: 0, node: 0, peri: 239.0,  period: 103468, M0: 1.8 } },
-    { id: 'makemake', name: 'Makemake',         r: 0.12, color: '#c8c4b8', scale:  9.98,
-      el: { a: 45.79, e: 0.159, i: 0, node: 0, peri: 294.8,  period: 113183, M0: 2.9 } },
-    { id: 'eris',     name: 'Eris',             r: 0.15, color: '#d0cece', scale:  9.16,
-      el: { a: 67.8,  e: 0.436, i: 0, node: 0, peri: 151.4,  period: 203469, M0: 3.2 } },
-    // Halley keeps its real retrograde inclination — it's the defining feature of this comet
-    { id: 'halley',   name: "Halley's Comet",   r: 0.11, color: '#57524a', scale: 16.15, isComet: true,
-      el: { a: 17.834, e: 0.967, i: 162.3, node: 58.42, peri: 111.3,  period:  27494, M0: 1.159 } },
-];
-
-// Persists across React Router remounts so the exit animation survives navigation
 let _exitState = { active: false, cameraPos: null, targetPos: null };
 
 const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
@@ -859,18 +646,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
         // 90 days apart. The cross product of the two unit-direction vectors
         // gives the exact orbital plane normal in scene-space, so both belts
         // align with the same plane the planet orbit rings live in.
-        const beltQuat = new THREE.Quaternion();
-        try {
-            const toSceneUnit = (v) => {
-                const d = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-                return new THREE.Vector3(v.x / d, v.z / d, v.y / d); // scene mapping
-            };
-            const sm1 = toSceneUnit(Astronomy.HelioVector('Mars', new Date()));
-            const sm2 = toSceneUnit(Astronomy.HelioVector('Mars', new Date(Date.now() + 90 * 86400000)));
-            const eclipticNormal = new THREE.Vector3().crossVectors(sm1, sm2).normalize();
-            if (eclipticNormal.y < 0) eclipticNormal.negate(); // ensure north-facing
-            beltQuat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), eclipticNormal);
-        } catch { /* keep identity quaternion */ }
+        const beltQuat = eclipticQuaternion();
 
         // Belt config — declared in outer scope so the LOD system can read them.
         const AB_COUNT  = q.beltParticles.asteroid;

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { quality, texturePath, pixelRatioFor, __setTier } from './quality';
 
 const TIERS = ['low', 'medium', 'high'];

@@ -14,9 +14,13 @@ npm install
 npm run dev      # http://localhost:5173
 ```
 
-`npm run build` produces a static bundle in `frontend/dist`; `npm run lint`
-runs ESLint. There is no backend — every data source is called directly from
-the browser.
+```bash
+npm test          # vitest, ~100 tests
+npm run lint
+npm run build     # static bundle in frontend/dist
+```
+
+There is no backend — every data source is called directly from the browser.
 
 Optional: put a [NASA API key](https://api.nasa.gov/) in `frontend/.env.local`
 as `VITE_NASA_API_KEY` to raise the rate limit on the near-Earth-object counter
@@ -39,10 +43,39 @@ frontend/src/
                          for both the catalog and the category nav
     objectImages.js      curated, load-verified NASA image per object
   utils/
+    orbits.js             real heliocentric + Keplerian position maths
+    orbitalMotion.js      moon speed/angle arithmetic (see "Watch out for")
+    quality.js            per-device render settings — read this before adding
+                          anything expensive to the scene
     proceduralTextures.js painted surface maps for bodies with no photographic
                           texture (Io's sulfur, Europa's linea, Pluto's heart)
     spacecraftModels.js   spacecraft built from primitives, no model downloads
 ```
+
+### Performance is a feature here
+
+`utils/quality.js` picks a tier from the device and everything expensive reads
+from it: texture set, canvas pixel budget, shadow maps, belt density, geometry
+detail. This exists because the scene originally shipped 4K maps to every
+device, which came to ~395 MB of GPU texture memory — past what mobile Safari
+will allocate, so iOS dropped textures or killed the tab rather than warning.
+
+If you add a texture, a light, or per-frame work, put it behind a tier setting.
+The numbers worth keeping an eye on: total payload (currently ~7 MB on phones,
+~13 MB elsewhere) and canvas pixel count (budgeted, see `pixelRatioFor`).
+
+### Watch out for
+
+**Non-finite numbers in the render loop.** The moons once vanished until you
+reloaded because focusing a moonless planet made a speed target `Infinity`,
+and `Infinity - Infinity` is `NaN`, which then propagated through every
+subsequent frame. `utils/orbitalMotion.js` holds that arithmetic behind
+guards, with tests that fail if the guards are removed.
+
+**`HelioVector` returns J2000 *equatorial* coordinates**, not ecliptic. The
+scene maps them as `(x, z, y)` and derives the belt plane from two Mars
+samples so the belts share a plane with the orbit rings. `orbits.test.js`
+pins that ~23.4° tilt, so a frame change can't slip through unnoticed.
 
 ### Positions are real
 
