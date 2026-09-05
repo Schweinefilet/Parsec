@@ -142,10 +142,16 @@ const AppShell = ({ children }) => {
             <nav
                 ref={navRef}
                 aria-label="Object categories"
-                className="glass fixed bottom-0 left-0 right-0 z-50 flex items-stretch transition-all duration-500 ease-in-out no-scrollbar"
+                className="fixed bottom-0 left-0 right-0 z-50 flex items-stretch transition-all duration-500 ease-in-out no-scrollbar"
                 style={{
-                    borderRadius: 0,
-                    borderLeft: 'none', borderRight: 'none', borderBottom: 'none',
+                    // Not .glass: at 8% white over bright catalog imagery the
+                    // labels were barely legible. This needs to be opaque enough
+                    // to read against anything scrolling underneath it.
+                    background: 'rgba(6,8,12,0.92)',
+                    backdropFilter: 'blur(18px) saturate(140%)',
+                    WebkitBackdropFilter: 'blur(18px) saturate(140%)',
+                    borderTop: '1px solid rgba(255,255,255,0.12)',
+                    boxShadow: '0 -8px 28px rgba(0,0,0,0.45)',
                     height: 68,
                     overflowX: 'auto',
                     overflowY: 'hidden',
