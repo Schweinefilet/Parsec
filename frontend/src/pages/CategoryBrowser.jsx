@@ -397,11 +397,11 @@ const CategoryBrowser = () => {
     // Controls hint fades permanently after the first interaction with the 3D
     // canvas; the scroll chevron fades once the page has been scrolled.
     const [hasInteracted3D, setHasInteracted3D] = useState(false);
-    const [hasScrolledPage, setHasScrolledPage] = useState(false);
+    const [pageScrolled, setPageScrolled] = useState(false);
     const [moonHintVisible, setMoonHintVisible] = useState(false);
 
     useEffect(() => {
-        const onScroll = () => { if (window.scrollY > 40) setHasScrolledPage(true); };
+        const onScroll = () => setPageScrolled(window.scrollY > 40);
         window.addEventListener('scroll', onScroll, { passive: true });
         return () => window.removeEventListener('scroll', onScroll);
     }, []);
@@ -491,10 +491,16 @@ const CategoryBrowser = () => {
     const isPlanetOrMoon = object && (showPlanetStyle || isSpacecraft);
     const physicalRows = object?.stats?.find(s => s.section === 'Physical')?.rows ?? [];
 
-    // Expand/collapse toggle: reset when a new object is selected
+    // Expand/collapse toggle: reset on selection, then auto-open once the camera
+    // fly-in settles — panels slide in with their transition; chevron still collapses.
     const [hasScrolled, setHasScrolled] = useState(false);
     const showDetailContent = hasScrolled || (isSpacecraft && !isInSolarSystem);
-    useEffect(() => { setHasScrolled(false); }, [id]);
+    useEffect(() => {
+        setHasScrolled(false);
+        if (!id) return;
+        const t = setTimeout(() => setHasScrolled(true), 1500);
+        return () => clearTimeout(t);
+    }, [id]);
 
     return (
         <>
@@ -533,39 +539,31 @@ const CategoryBrowser = () => {
                         >
                             Drag to orbit&ensp;·&ensp;Scroll to zoom&ensp;·&ensp;Click any object to explore
                         </p>
-                        <ChevronDown
-                            className="transition-opacity duration-700"
+                        {/* Clickable entry point to the catalog below the fold */}
+                        <button
+                            onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
+                            aria-label="Scroll down to the object catalog"
+                            className="flex items-center gap-1.5 rounded-full transition-opacity duration-700"
                             style={{
-                                width: '18px',
-                                height: '18px',
-                                color: 'rgba(255,255,255,0.9)',
-                                opacity: id || hasScrolledPage ? 0 : 1,
-                                // Keyframes drive opacity while bobbing, so disable the
-                                // animation when hiding or the inline opacity is ignored.
-                                animation: id || hasScrolledPage
-                                    ? 'none'
-                                    : 'scrollPromptBob 1.8s ease-in-out infinite',
-                            }}
-                        />
-                    </div>
-
-                    {/* Focused-planet moon hint — appears after fly-in, fades on its own */}
-                    <div
-                        className="absolute inset-x-0 flex justify-center pointer-events-none transition-opacity duration-700"
-                        style={{ bottom: '96px', zIndex: 5, opacity: moonHintVisible && !hasScrolled ? 1 : 0 }}
-                    >
-                        <p
-                            style={{
-                                color: 'rgba(255,255,255,0.45)',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                letterSpacing: '0.08em',
-                                textShadow: '0 1px 6px rgba(0,0,0,0.9)',
-                                margin: 0,
+                                pointerEvents: id || pageScrolled ? 'none' : 'auto',
+                                opacity: id || pageScrolled ? 0 : 1,
+                                background: 'rgba(0,0,0,0.40)',
+                                border: '1px solid rgba(255,255,255,0.14)',
+                                backdropFilter: 'blur(14px)',
+                                WebkitBackdropFilter: 'blur(14px)',
+                                color: 'rgba(255,255,255,0.75)',
+                                padding: '6px 14px',
+                                marginTop: '8px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                letterSpacing: '0.1em',
+                                textTransform: 'uppercase',
+                                cursor: 'pointer',
                             }}
                         >
-                            Click a moon to explore it
-                        </p>
+                            Explore the catalog
+                            <ChevronDown style={{ width: '14px', height: '14px' }} />
+                        </button>
                     </div>
 
                     {/* Back to solar system — mirrors the header search button style */}
@@ -615,6 +613,23 @@ const CategoryBrowser = () => {
                                         <p className="font-bold tracking-widest uppercase text-white/40 mt-1" style={{ fontSize: '0.62rem' }}>
                                             {object?.type}
                                         </p>
+                                        {/* Moon hint — lives with the annotations so the open
+                                            info panels never cover it; fades on its own */}
+                                        {PLANETS_WITH_MOONS.has(id ?? '') && (
+                                            <p
+                                                className="transition-opacity duration-700"
+                                                style={{
+                                                    opacity: moonHintVisible ? 1 : 0,
+                                                    color: 'rgba(255,255,255,0.38)',
+                                                    fontSize: '0.6rem',
+                                                    fontWeight: 600,
+                                                    letterSpacing: '0.05em',
+                                                    marginTop: '10px',
+                                                }}
+                                            >
+                                                Click a moon to explore it
+                                            </p>
+                                        )}
                                     </div>
 
                                     {physicalRows[0] && (

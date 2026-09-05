@@ -218,7 +218,7 @@ const SMALL_BODIES = [
     { id: 'eris',     name: 'Eris',             r: 0.15, color: '#d0cece', scale:  9.16,
       el: { a: 67.8,  e: 0.436, i: 0, node: 0, peri: 151.4,  period: 203469, M0: 3.2 } },
     // Halley keeps its real retrograde inclination — it's the defining feature of this comet
-    { id: 'halley',   name: "Halley's Comet",   r: 0.06, color: '#2a2a28', scale: 16.15, isComet: true,
+    { id: 'halley',   name: "Halley's Comet",   r: 0.11, color: '#57524a', scale: 16.15, isComet: true,
       el: { a: 17.834, e: 0.967, i: 162.3, node: 58.42, peri: 111.3,  period:  27494, M0: 1.159 } },
 ];
 
@@ -1146,33 +1146,103 @@ const SolarSystem3D = ({ focusedId }) => {
                 );
             }
 
+            // Elongated STL nucleus for Halley — the Geographos asteroid model has
+            // a similar peanut shape to Halley's imaged nucleus.
+            if (body.id === 'halley') {
+                new STLLoader().load(
+                    '/models/asteroids/geographos.stl',
+                    (stlGeo) => {
+                        if (!mounted) { stlGeo.dispose(); return; }
+                        stlGeo.computeVertexNormals();
+                        stlGeo.center();
+                        stlGeo.computeBoundingSphere();
+                        const sf = body.r / stlGeo.boundingSphere.radius;
+                        stlGeo.scale(sf, sf, sf);
+                        mesh.geometry.dispose();
+                        mesh.geometry = stlGeo;
+                        geos.push(stlGeo);
+                    },
+                    undefined,
+                    () => {}, // silently keep sphere fallback
+                );
+            }
+
             const group = new THREE.Group();
             group.add(mesh);
             group.position.set(p.x, p.y, p.z);
 
-            // Halley coma — teardrop of 300 particles extending along local +Z
+            // ── Halley: glowing coma + twin tails, streaming along local +Z ──────
+            // The group is re-oriented every frame so +Z points anti-sunward.
             if (body.isComet) {
-                const COMA_COUNT  = 300;
-                const TAIL_LEN    = 8;
-                const comaPos     = new Float32Array(COMA_COUNT * 3);
-                for (let j = 0; j < COMA_COUNT; j++) {
-                    const dist   = Math.random() * TAIL_LEN;
-                    const spread = TAIL_LEN * 0.55 * (1 - dist / TAIL_LEN) * Math.sqrt(Math.random());
-                    const theta  = Math.random() * Math.PI * 2;
-                    comaPos[j * 3]     = spread * Math.cos(theta);
-                    comaPos[j * 3 + 1] = spread * Math.sin(theta);
-                    comaPos[j * 3 + 2] = dist;
-                }
-                const comaGeo = new THREE.BufferGeometry();
-                comaGeo.setAttribute('position', new THREE.BufferAttribute(comaPos, 3));
-                const comaMat = new THREE.PointsMaterial({
-                    color: '#e8e8d8', size: 0.4,
-                    transparent: true, opacity: 0.4,
-                    sizeAttenuation: true, depthWrite: false,
+                // Coma — layered additive shells wrap the nucleus in a soft halo
+                [
+                    { r: 0.20, op: 0.34, color: '#f2f6ff' },
+                    { r: 0.36, op: 0.16, color: '#d8e8ff' },
+                    { r: 0.62, op: 0.07, color: '#b8d4ff' },
+                    { r: 1.05, op: 0.03, color: '#96bcff' },
+                ].forEach(({ r, op, color }) => {
+                    const g = new THREE.SphereGeometry(r, 24, 24);
+                    const m = new THREE.MeshBasicMaterial({
+                        color, transparent: true, opacity: op,
+                        depthWrite: false, blending: THREE.AdditiveBlending,
+                    });
+                    group.add(new THREE.Mesh(g, m));
+                    geos.push(g);
+                    mats.push(m);
                 });
-                group.add(new THREE.Points(comaGeo, comaMat));
-                geos.push(comaGeo);
-                mats.push(comaMat);
+
+                // Soft radial sprite — without a map, points render as hard squares
+                // that are very visible at the close focused-camera distance.
+                const puffCanvas = document.createElement('canvas');
+                puffCanvas.width = puffCanvas.height = 64;
+                const pctx = puffCanvas.getContext('2d');
+                const pGrad = pctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+                pGrad.addColorStop(0,    'rgba(255,255,255,1)');
+                pGrad.addColorStop(0.35, 'rgba(255,255,255,0.45)');
+                pGrad.addColorStop(1,    'rgba(255,255,255,0)');
+                pctx.fillStyle = pGrad;
+                pctx.fillRect(0, 0, 64, 64);
+                const puffTex = new THREE.CanvasTexture(puffCanvas);
+                textures.push(puffTex);
+
+                // Tail builder — cone of points along +Z, denser and brighter near
+                // the nucleus; `curve` bends the tip sideways (dust lags the orbit).
+                const buildTail = ({ count, len, baseSpread, flare, curve, rgb, size }) => {
+                    const pos = new Float32Array(count * 3);
+                    const col = new Float32Array(count * 3);
+                    for (let j = 0; j < count; j++) {
+                        const t      = Math.pow(Math.random(), 1.6); // cluster near nucleus
+                        const dist   = t * len;
+                        const spread = (baseSpread + flare * dist) * Math.sqrt(Math.random());
+                        const theta  = Math.random() * Math.PI * 2;
+                        pos[j * 3]     = spread * Math.cos(theta) + curve * t * t * len * 0.18;
+                        pos[j * 3 + 1] = spread * Math.sin(theta);
+                        pos[j * 3 + 2] = dist;
+                        // Additive blending: fading color to black fades the point out
+                        const fade = Math.pow(1 - t, 1.4) * (0.55 + Math.random() * 0.45);
+                        col[j * 3]     = rgb[0] * fade;
+                        col[j * 3 + 1] = rgb[1] * fade;
+                        col[j * 3 + 2] = rgb[2] * fade;
+                    }
+                    const g = new THREE.BufferGeometry();
+                    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+                    g.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+                    const m = new THREE.PointsMaterial({
+                        map: puffTex, vertexColors: true, size,
+                        transparent: true, opacity: 0.9,
+                        sizeAttenuation: true, depthWrite: false,
+                        blending: THREE.AdditiveBlending,
+                    });
+                    group.add(new THREE.Points(g, m));
+                    geos.push(g);
+                    mats.push(m);
+                };
+
+                // Ion tail — long, straight, narrow, blue
+                buildTail({ count: 900, len: 17, baseSpread: 0.05, flare: 0.045, curve: 0, rgb: [0.45, 0.65, 1.0], size: 0.22 });
+                // Dust tail — shorter, broad, warm, gently curved
+                buildTail({ count: 650, len: 10, baseSpread: 0.08, flare: 0.15, curve: 1.0, rgb: [1.0, 0.9, 0.72], size: 0.34 });
+
                 halleyGroupRef = group;
             }
 
@@ -1517,6 +1587,8 @@ const SolarSystem3D = ({ focusedId }) => {
                         const radius = newMesh.geometry?.parameters?.radius ?? 3.5;
                         const dist   = newMesh.userData.id === 'sun' ? 50
                                      : newMesh.userData.id === 'iss' ? 0.3
+                                     // Back off further for Halley so coma + tails frame the shot
+                                     : newMesh.userData.id === 'halley' ? 7
                                      : radius * 3.5 + 2;
                         const TILT   = 30 * Math.PI / 180; // 30° above equatorial = looking 30° down
                         const startCamPos = pendingFocusCamPos ?? camera.position;
@@ -1829,7 +1901,9 @@ const SolarSystem3D = ({ focusedId }) => {
                     const wp = new THREE.Vector3();
                     mesh.getWorldPosition(wp);
                     const pr = wp.clone().project(camera);
-                    if (pr.z > 1) return null;
+                    // Clip labels outside the viewport — off-screen absolutely-positioned
+                    // labels would otherwise stretch the document height while zooming.
+                    if (pr.z > 1 || Math.abs(pr.x) > 1.05 || Math.abs(pr.y) > 1.05) return null;
                     return {
                         x: (pr.x + 1) / 2 * rect.width,
                         y: -(pr.y - 1) / 2 * rect.height,
@@ -1954,7 +2028,7 @@ const SolarSystem3D = ({ focusedId }) => {
             {/* Canvas mount — fills full viewport height, sits behind transparent header */}
             <div
                 ref={mountRef}
-                style={{ width: '100%', height: '100vh', position: 'relative' }}
+                style={{ width: '100%', height: '100vh', position: 'relative', overflow: 'hidden' }}
             >
                 {/* Not-to-scale disclaimer */}
                 <div style={{
