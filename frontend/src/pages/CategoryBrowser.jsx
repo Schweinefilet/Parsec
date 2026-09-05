@@ -179,6 +179,16 @@ const CategoryBrowser = () => {
     // is lifted clear of it. Desktop keeps the body centred as it always was.
     const focusOffsetY = !id ? 0 : isMobile ? 0.24 : 0;
 
+    // OrbitControls sets touch-action:none on the canvas so one finger orbits.
+    // That also means a full-height canvas swallows the swipe people use to
+    // scroll, leaving the catalog — and the category bar, which only appears
+    // once scrolled — unreachable on a phone unless they spot the button.
+    // Ending the scene short of the fold puts the ticker on screen, which both
+    // restores somewhere to swipe and signals there is more below.
+    const sceneHeight = isMobile && !id
+        ? 'calc(var(--app-vh, 100vh) - 68px)'   // leaves room for the category bar
+        : 'var(--app-vh, 100vh)';
+
     return (
         <>
             <StarfieldBg canvasId="starfield-browser" />
@@ -217,7 +227,11 @@ const CategoryBrowser = () => {
                         transition: 'opacity 600ms ease, filter 600ms ease',
                         pointerEvents: isSpacecraftCard ? 'none' : 'auto',
                     }}>
-                        <SolarSystem3D focusedId={inScene ? id : null} focusOffsetY={focusOffsetY} />
+                        <SolarSystem3D
+                            focusedId={inScene ? id : null}
+                            focusOffsetY={focusOffsetY}
+                            height={sceneHeight}
+                        />
                     </div>
 
                     {/* Home hints */}

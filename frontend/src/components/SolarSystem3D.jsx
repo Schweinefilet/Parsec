@@ -21,7 +21,7 @@ import {
 
 let _exitState = { active: false, cameraPos: null, targetPos: null };
 
-const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
+const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 100vh)' }) => {
     const mountRef  = useRef(null);
     const navigate  = useNavigate();
     const [objectLabels, setObjectLabels] = useState([]);
@@ -1897,7 +1897,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
             {/* Canvas mount — fills full viewport height, sits behind transparent header */}
             <div
                 ref={mountRef}
-                style={{ width: '100%', height: 'var(--app-vh, 100vh)', position: 'relative', overflow: 'hidden' }}
+                style={{ width: '100%', height, position: 'relative', overflow: 'hidden' }}
             >
                 {/* Not-to-scale disclaimer */}
                 <div style={{

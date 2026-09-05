@@ -5,6 +5,7 @@ import {
     Crosshair, Sparkles, Satellite, Aperture, Radio, Archive,
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
+import { useIsMobile } from '../hooks/useMediaQuery';
 import { CATEGORY_TABS } from '../data/objectCatalog';
 
 // Icon per category id. Kept beside the tab list rather than duplicating the
@@ -31,8 +32,15 @@ const AppShell = ({ children }) => {
     const match = useMatch('/object/:id');
     const focusedId = match?.params?.id;
     const activeTab = searchParams.get('tab') || 'planets';
-    const setTab = (id) => setSearchParams({ tab: id }, { replace: true });
+    const setTab = (id) => {
+        setSearchParams({ tab: id }, { replace: true });
+        // Choosing a category from the hero view should take you to it
+        if (window.scrollY < window.innerHeight * 0.5) {
+            window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
+        }
+    };
 
+    const isMobile = useIsMobile();
     const [scrolled, setScrolled] = useState(false);
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 40);
@@ -71,7 +79,11 @@ const AppShell = ({ children }) => {
         el?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
     }, [activeTab]);
 
-    const navHidden = !!focusedId || !scrolled;
+    // On desktop the bar appears once you scroll, keeping the hero view clean.
+    // On a phone that would strand people: OrbitControls takes every touch on
+    // the canvas, so there is no swipe to scroll with, and the bar you would
+    // scroll to reach is the only other way into the catalog. Keep it visible.
+    const navHidden = !!focusedId || (!scrolled && !isMobile);
 
     return (
         <div
