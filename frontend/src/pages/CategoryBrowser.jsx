@@ -200,7 +200,7 @@ const CategoryBrowser = () => {
                 <main>, so clipping it would cut the full-bleed 3D overlay's
                 annotations off at the content edge. Scrolling is locked on
                 <body> instead (see the effect above). */}
-            <div className="relative" style={{ zIndex: 1, ...(id ? { height: '100vh' } : {}) }}>
+            <div className="relative" style={{ zIndex: 1, ...(id ? { height: 'var(--app-vh, 100vh)' } : {}) }}>
 
                 {/* ── 3D viewport — full bleed ──
                     A spacecraft card has its own model viewer, so the solar

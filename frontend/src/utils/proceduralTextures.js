@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { quality } from './quality';
 
 // Procedurally painted equirectangular surface maps for the bodies we have no
 // photographic texture for. Each profile below is drawn from what the body
@@ -607,7 +608,10 @@ export function proceduralTexture(id, base, style = 'rocky') {
     if (cache.has(key)) return cache.get(key);
 
     const profile = PROFILES[id];
-    const W = profile?.hero ? 1024 : 512;
+    // Generated maps count against the same GPU budget as downloaded ones, so
+    // their resolution follows the device tier too.
+    const q = quality();
+    const W = profile?.hero ? q.heroTextureSize : q.minorTextureSize;
     const H = W / 2;
 
     const canvas = document.createElement('canvas');

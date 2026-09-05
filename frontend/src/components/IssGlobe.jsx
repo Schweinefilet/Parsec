@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { quality, texturePath, pixelRatioFor } from '../utils/quality';
 
 const R = 2;                    // Earth radius in scene units
 const ALT_SCALE = 1 / 6371;     // km → Earth radii, so altitude is to scale
@@ -49,9 +50,10 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
         const w = mount.clientWidth || 640;
         const h = mount.clientHeight || 480;
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const q = quality();
+        const renderer = new THREE.WebGLRenderer({ antialias: q.antialias, alpha: true });
         renderer.setSize(w, h);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(pixelRatioFor(w, h));
         renderer.setClearColor(0x000000, 0);
         mount.appendChild(renderer.domElement);
         renderer.domElement.setAttribute('role', 'img');
@@ -77,7 +79,7 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
         scene.add(sunLight);
 
         // ── Earth with a day/night blend ──────────────────────────────────
-        const geo = new THREE.SphereGeometry(R, 96, 96);
+        const geo = new THREE.SphereGeometry(R, q.skySegments + 32, q.skySegments + 32);
         const uniforms = {
             dayMap:       { value: null },
             nightMap:     { value: null },
@@ -123,13 +125,13 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
 
         const loader = new THREE.TextureLoader();
         const loaded = [];
-        loader.load('/textures/earth.jpg', (t) => {
+        loader.load(texturePath('earth.jpg'), (t) => {
             if (!mounted) { t.dispose(); return; }
             t.colorSpace = THREE.SRGBColorSpace;
             uniforms.dayMap.value = t;
             loaded.push(t);
         });
-        loader.load('/textures/earth_night.jpg', (t) => {
+        loader.load(texturePath('earth_night.jpg'), (t) => {
             if (!mounted) { t.dispose(); return; }
             t.colorSpace = THREE.SRGBColorSpace;
             uniforms.nightMap.value = t;
@@ -138,7 +140,7 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
         });
 
         // Atmosphere shell
-        const atmoGeo = new THREE.SphereGeometry(R * 1.022, 64, 64);
+        const atmoGeo = new THREE.SphereGeometry(R * 1.022, q.skySegments, q.skySegments);
         const atmoMat = new THREE.MeshBasicMaterial({
             color: '#5aa8ff', transparent: true, opacity: 0.10,
             side: THREE.BackSide, depthWrite: false,
@@ -211,6 +213,9 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
             if (!mounted) return;
             const { width, height } = entry.contentRect;
             if (!width || !height) return;
+            // Re-budget on resize too: rotating a tablet changes the surface
+            // area enough to matter.
+            renderer.setPixelRatio(pixelRatioFor(width, height));
             renderer.setSize(width, height);
             camera.aspect = width / height;
             camera.updateProjectionMatrix();

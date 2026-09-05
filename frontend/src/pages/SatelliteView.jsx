@@ -77,7 +77,7 @@ const SatelliteView = () => {
         <>
             <StarfieldBg canvasId="starfield-satellites" />
 
-            <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', paddingTop: 64 }}>
+            <div style={{ position: 'relative', zIndex: 1, minHeight: 'var(--app-vh, 100vh)', paddingTop: 64 }}>
                 <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 16px 40px' }}>
 
                     {/* ── Header ── */}

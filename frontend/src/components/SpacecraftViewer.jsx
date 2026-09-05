@@ -4,6 +4,7 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildSpacecraft } from '../utils/spacecraftModels';
 import { useReducedMotion } from '../hooks/useMediaQuery';
+import { quality, pixelRatioFor } from '../utils/quality';
 
 // Craft we ship a real mesh for; everything else is assembled from primitives.
 const STL_MODELS = { iss: '/models/iss.stl' };
@@ -21,9 +22,10 @@ const SpacecraftViewer = ({ spacecraftId }) => {
         const w = mount.clientWidth || 400;
         const h = mount.clientHeight || 280;
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const q = quality();
+        const renderer = new THREE.WebGLRenderer({ antialias: q.antialias, alpha: true });
         renderer.setSize(w, h);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(pixelRatioFor(w, h));
         renderer.setClearColor(0x000000, 0);
         mount.appendChild(renderer.domElement);
         renderer.domElement.setAttribute('role', 'img');
@@ -87,6 +89,9 @@ const SpacecraftViewer = ({ spacecraftId }) => {
             if (!mounted) return;
             const { width, height } = entry.contentRect;
             if (!width || !height) return;
+            // Re-budget on resize too: rotating a tablet changes the surface
+            // area enough to matter.
+            renderer.setPixelRatio(pixelRatioFor(width, height));
             renderer.setSize(width, height);
             camera.aspect = width / height;
             camera.updateProjectionMatrix();

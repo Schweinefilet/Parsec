@@ -5,6 +5,11 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import * as Astronomy from 'astronomy-engine';
 import { proceduralTexture } from '../utils/proceduralTextures';
+import { quality, texturePath, pixelRatioFor } from '../utils/quality';
+import {
+    targetOrbitSpeed, stepOrbitSpeed, targetIssSpeed,
+    advanceMoonAngle, moonOffset, DEFAULT_ORBIT_SPEED,
+} from '../utils/orbitalMotion';
 
 const PLANETS = [
     { id: 'mercury', name: 'Mercury', r: 0.68, orbitR: 48,  color: '#b5b5b5' },
@@ -73,7 +78,7 @@ const PLANET_TEXTURES = new Set([
 // Only Luna ships a photographic map; every other moon is painted at runtime
 // by proceduralTextures.js from its real surface characteristics.
 const MOON_TEXTURES = {
-    luna: '/textures/moon.jpg',
+    luna: 'moon.jpg',
 };
 
 // 23 natural satellites + ISS — id matches objectCatalog (null = no detail page)
@@ -268,13 +273,34 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
         camera.lookAt(0, 0, 0);
 
         // ── Renderer ───────────────────────────────────────────────────────────
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, premultipliedAlpha: false });
+        const q = quality();
+        const renderer = new THREE.WebGLRenderer({ antialias: q.antialias, alpha: true, premultipliedAlpha: false });
         renderer.setSize(w, h);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(pixelRatioFor(w, h));
         renderer.setClearColor(0x000000, 0);
-        renderer.shadowMap.enabled = true;
+        // Shadow maps are the single most expensive thing here on a mobile GPU.
+        // The analytic ring and moon shadows are shader maths and stay on.
+        renderer.shadowMap.enabled = q.shadows;
         renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
         mount.appendChild(renderer.domElement);
+        renderer.domElement.setAttribute('role', 'img');
+        renderer.domElement.setAttribute('aria-label',
+            'Interactive 3D solar system. Drag to orbit, scroll to zoom, click an object to explore it.');
+
+        // Mobile GPUs reclaim contexts under memory pressure. Without these the
+        // canvas silently freezes on whatever frame it died on, with no way back
+        // short of a manual reload.
+        const onContextLost = (e) => {
+            e.preventDefault();               // required for restore to ever fire
+            cancelAnimationFrame(animId);
+            console.warn('[Parsec] WebGL context lost — pausing render loop');
+        };
+        const onContextRestored = () => {
+            console.warn('[Parsec] WebGL context restored');
+            if (mounted) animate();
+        };
+        renderer.domElement.addEventListener('webglcontextlost', onContextLost);
+        renderer.domElement.addEventListener('webglcontextrestored', onContextRestored);
 
         // ── OrbitControls ──────────────────────────────────────────────────────
         const controls = new OrbitControls(camera, renderer.domElement);
@@ -321,7 +347,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
 
         // ── Lights ─────────────────────────────────────────────────────────────
         const mainLight = new THREE.PointLight(0xffffff, 3.2, 0, 0); // decay=0: no distance falloff
-        mainLight.castShadow         = true;
+        mainLight.castShadow         = q.shadows;
         mainLight.shadow.camera.near    = 1;
         mainLight.shadow.camera.far     = 2000;
         mainLight.shadow.mapSize.width  = 2048;
@@ -361,7 +387,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
         sunMesh.userData = { id: 'sun', name: 'Sun' };
         scene.add(sunMesh);
 
-        loader.load('/textures/sun.jpg', (tex) => {
+        loader.load(texturePath('sun.jpg'), (tex) => {
             if (!mounted) { tex.dispose(); return; }
             textures.push(tex);
             sunMat.map   = tex;
@@ -370,8 +396,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
         });
 
         // ── Milky Way skysphere ────────────────────────────────────────────────
-        const skyGeo = new THREE.SphereGeometry(8000, 64, 64);
-        const skyTex = loader.load('/textures/milky_way.jpg');
+        const skyGeo = new THREE.SphereGeometry(8000, q.skySegments, q.skySegments);
+        const skyTex = loader.load(texturePath('milky_way.jpg'));
         textures.push(skyTex);
         const skyMat = new THREE.MeshBasicMaterial({
             map:         skyTex,
@@ -440,7 +466,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
             mats.push(orbitMat);
 
             // Planet sphere
-            const geo      = new THREE.SphereGeometry(planet.r, 32, 32);
+            const geo      = new THREE.SphereGeometry(planet.r, q.planetSegments, q.planetSegments);
             const colorMat = new THREE.MeshStandardMaterial({
                 color:     planet.color,
                 roughness: pbr.roughness,
@@ -450,8 +476,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
             });
             const mesh     = new THREE.Mesh(geo, colorMat);
             mesh.userData      = { id: planet.id, name: planet.name, orbitLine };
-            mesh.castShadow    = true;
-            mesh.receiveShadow = true;
+            mesh.castShadow    = q.shadows;
+            mesh.receiveShadow = q.shadows;
             geos.push(geo);
             mats.push(colorMat);
 
@@ -556,12 +582,12 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
                     earthMesh    = mesh;
                     earthShaderMat = shaderMat;
                 };
-                loader.load('/textures/earth.jpg',        (t) => { dayTex    = t; tryApplyEarthShader(); }, undefined, () => {});
-                loader.load('/textures/earth_night.jpg',  (t) => { nightTex  = t; tryApplyEarthShader(); }, undefined, () => {});
-                loader.load('/textures/earth_clouds.jpg', (t) => { cloudsTex = t; tryApplyEarthShader(); }, undefined, () => {});
+                loader.load(texturePath('earth.jpg'),        (t) => { dayTex    = t; tryApplyEarthShader(); }, undefined, () => {});
+                loader.load(texturePath('earth_night.jpg'),  (t) => { nightTex  = t; tryApplyEarthShader(); }, undefined, () => {});
+                loader.load(texturePath('earth_clouds.jpg'), (t) => { cloudsTex = t; tryApplyEarthShader(); }, undefined, () => {});
             } else if (PLANET_TEXTURES.has(planet.id)) {
                 loader.load(
-                    `/textures/${planet.id}.jpg`,
+                    texturePath(`${planet.id}.jpg`),
                     (tex) => {
                         if (!mounted) { tex.dispose(); return; }
                         textures.push(tex);
@@ -652,7 +678,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
                 mats.push(sRingMat);
 
                 loader.load(
-                    '/textures/saturn_ring.png',
+                    texturePath('saturn_ring.png'),
                     (tex) => {
                         if (!mounted) { tex.dispose(); return; }
                         textures.push(tex);
@@ -847,10 +873,10 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
         } catch { /* keep identity quaternion */ }
 
         // Belt config — declared in outer scope so the LOD system can read them.
-        const AB_COUNT  = 3500;
+        const AB_COUNT  = q.beltParticles.asteroid;
         const AB_INNER  = 134;
         const AB_OUTER  = 158;
-        const KB_COUNT  = 5000;
+        const KB_COUNT  = q.beltParticles.kuiper;
         const KB_INNER  = 342;
         const KB_OUTER  = 490;
 
@@ -1029,7 +1055,11 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
                 );
             });
 
-            Promise.all(ASTEROID_DEFS.map(d => loadSTL(d.key))).then(geometries => {
+            // Low tier keeps the particle clouds: no STL fetch, no instancing.
+            // (Guarded with a conditional rather than an early return — this is a
+            // bare block inside the effect, so `return` would abandon the rest of
+            // the scene setup entirely.)
+            if (q.beltLOD) Promise.all(ASTEROID_DEFS.map(d => loadSTL(d.key))).then(geometries => {
                 geometries.forEach((geo, idx) => {
                     geo.computeVertexNormals();
                     // Normalize to unit scale so abSize/kbSize directly control scene-unit diameter,
@@ -1133,8 +1163,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
 
             // Nucleus sphere
             // 16 segments showed obvious facets on the limb once you could fly
-            // right up to these bodies; 48 is smooth at any focus distance.
-            const geo = new THREE.SphereGeometry(body.r, 48, 48);
+            // right up to these bodies; the tier picks a smooth-enough count.
+            const geo = new THREE.SphereGeometry(body.r, q.moonSegments, q.moonSegments);
             const mat = new THREE.MeshStandardMaterial({
                 color: body.color, roughness: 0.9, metalness: 0.0,
                 emissive: new THREE.Color(body.color),
@@ -1142,8 +1172,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
             });
             const mesh = new THREE.Mesh(geo, mat);
             mesh.userData = { id: body.id, name: body.name, orbitLine };
-            mesh.castShadow    = true;
-            mesh.receiveShadow = true;
+            mesh.castShadow    = q.shadows;
+            mesh.receiveShadow = q.shadows;
             geos.push(geo);
             mats.push(mat);
 
@@ -1311,7 +1341,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
             const parentPlanet = PLANETS.find(p => p.name === moon.parent);
             const planetR      = parentPlanet?.r ?? 1.0;
 
-            const moonGeo = new THREE.SphereGeometry(moon.radius, 48, 48);
+            const moonGeo = new THREE.SphereGeometry(moon.radius, q.moonSegments, q.moonSegments);
             const moonMat = new THREE.MeshStandardMaterial({
                 color: moon.color,
                 roughness: 0.95,
@@ -1360,7 +1390,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
             moonMeshRefs.set(moon.name, moonMesh);
 
             if (moon.id && MOON_TEXTURES[moon.id]) {
-                loader.load(MOON_TEXTURES[moon.id], (tex) => {
+                loader.load(texturePath(MOON_TEXTURES[moon.id]), (tex) => {
                     if (!mounted) { tex.dispose(); return; }
                     textures.push(tex);
                     moonMat.map = tex;
@@ -1558,6 +1588,9 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
         const ro = new ResizeObserver(([entry]) => {
             const { width, height } = entry.contentRect;
             if (!width || !height) return;
+            // Re-budget on resize too: rotating a tablet changes the surface
+            // area enough to matter.
+            renderer.setPixelRatio(pixelRatioFor(width, height));
             renderer.setSize(width, height);
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
@@ -1566,6 +1599,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
 
         // ── Animation loop ─────────────────────────────────────────────────────
         let animId;
+        let frameCount = 0;
         let prevNowDays = null;
         let meshRotSpeed = 0.002;
         let liveOrbitSpeed = 2000;
@@ -1575,8 +1609,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
 
         const animate = () => {
             animId = requestAnimationFrame(animate);
+            frameCount++;
             const nowDays = (Date.now() - ORBIT_EPOCH_MS) / 86400000;
-            const tau = Math.PI * 2;
             const currentFocusedId = focusedIdRef.current;
 
             // ── Detect focus changes ───────────────────────────────────────────
@@ -1701,49 +1735,26 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
             const focusedMoonParent = focusedMoon?.parent ?? null;
             const focusedPlanet     = !moonFocused ? (PLANETS.find(p => p.id === currentFocusedId) ?? null) : null;
             const currentFocusedPlanetName = focusedPlanet?.name ?? null;
-            let targetOrbitSpeed;
-            if (hoveredMoonId) {
-                targetOrbitSpeed = 80;
-            } else if (moonFocused) {
-                targetOrbitSpeed = 500;
-            } else if (focusedPlanet) {
-                // Exclude noSpeedScaling bodies (e.g. ISS) — their ultra-short periods
-                // would otherwise collapse the speed for all other moons.
-                const moons = MOON_DATA.filter(m => m.parent === focusedPlanet.name && !m.noSpeedScaling);
-                // Moonless planet (Mercury/Venus/Pluto): fall back to the default speed.
-                // An Infinity target would poison liveOrbitSpeed with NaN via the lerp
-                // (Infinity - Infinity), permanently hiding all moons until reload.
-                targetOrbitSpeed = moons.length
-                    ? Math.max(2000, Math.min(...moons.map(m => m.period)) * 86400 / 30)
-                    : 2000;
-            } else {
-                targetOrbitSpeed = 2000;
-            }
-            // Snap down instantly only when the focused planet changes (avoids mach-speed
-            // bleed on focus switch). Moon-hover deceleration uses the same lerp so it
-            // feels gradual rather than instant.
+            const speedTarget = targetOrbitSpeed({
+                hoveredMoonId, focusedMoon, focusedPlanet, moons: MOON_DATA,
+            });
             const planetFocusChanged = currentFocusedPlanetName !== prevFocusedPlanetName;
-            if (planetFocusChanged && targetOrbitSpeed < liveOrbitSpeed) {
-                liveOrbitSpeed = targetOrbitSpeed;
-            } else {
-                liveOrbitSpeed += (targetOrbitSpeed - liveOrbitSpeed) * 0.05;
-            }
+            liveOrbitSpeed = stepOrbitSpeed(liveOrbitSpeed, speedTarget, { planetFocusChanged });
             prevFocusedPlanetName = currentFocusedPlanetName;
             const MOON_SPEED = liveOrbitSpeed;
 
-            // ISS has its own speed tracker so hover/focus response is immediate,
-            // not delayed by liveOrbitSpeed lerping down from ~78k.
+            // The ISS tracks its own speed so hover and focus respond immediately
+            // instead of easing down from the outer moons' much larger values.
             {
                 const issMoon = MOON_DATA.find(m => m.noSpeedScaling);
-                if (issMoon) {
-                    const issParentFocused = (focusedPlanet && issMoon.parent === focusedPlanet.name)
-                        || (focusedMoonParent && issMoon.parent === focusedMoonParent);
-                    const issTarget = issMoon.id === currentFocusedId ? 10
-                                    : hoveredMoonId === issMoon.id    ? 80
-                                    : issParentFocused                ? 667
-                                    : 2000;
-                    liveISSSpeed += (issTarget - liveISSSpeed) * 0.05;
-                }
+                const parentFocused = !!issMoon && (
+                    (focusedPlanet && issMoon.parent === focusedPlanet.name) ||
+                    (focusedMoonParent && issMoon.parent === focusedMoonParent)
+                );
+                liveISSSpeed = stepOrbitSpeed(
+                    liveISSSpeed,
+                    targetIssSpeed({ issMoon, focusedId: currentFocusedId, hoveredMoonId, parentFocused }),
+                );
             }
 
             const deltaDays = prevNowDays != null ? Math.min(nowDays - prevNowDays, 0.005) : 0;
@@ -1755,19 +1766,19 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
                 // Keep planet-shadow uniform in sync with the planet's current world position
                 const shadowVec = moonMesh.material?.userData?.planetShadowPos;
                 if (shadowVec) parentGroup.getWorldPosition(shadowVec);
-                const dir = moon.retrograde ? -1 : 1;
                 const parentFocused = (focusedPlanet && moon.parent === focusedPlanet.name)
                     || (focusedMoonParent && moon.parent === focusedMoonParent);
                 const effectiveSpeed = moon.noSpeedScaling
                     ? liveISSSpeed
-                    : parentFocused ? MOON_SPEED : 2000;
-                const dAngle = dir * (tau / moon.period) * deltaDays * effectiveSpeed;
-                moonAngles.set(moon.name, (moonAngles.get(moon.name) ?? moon.phase0) + dAngle);
-                const angle  = moonAngles.get(moon.name);
-                const incRad = moon.inc * Math.PI / 180;
-                const mx = parentGroup.position.x + Math.cos(angle) * moon.orbitR;
-                const my = parentGroup.position.y + Math.sin(angle) * moon.orbitR * Math.sin(incRad);
-                const mz = parentGroup.position.z + Math.sin(angle) * moon.orbitR * Math.cos(incRad);
+                    : parentFocused ? MOON_SPEED : DEFAULT_ORBIT_SPEED;
+                const angle = advanceMoonAngle(
+                    moon, moonAngles.get(moon.name) ?? moon.phase0, deltaDays, effectiveSpeed,
+                );
+                moonAngles.set(moon.name, angle);
+                const off = moonOffset(moon, angle);
+                const mx = parentGroup.position.x + off.x;
+                const my = parentGroup.position.y + off.y;
+                const mz = parentGroup.position.z + off.z;
                 moonMesh.position.set(mx, my, mz);
                 const hitMesh = moonHitRefs.get(moon.name);
                 if (hitMesh) hitMesh.position.set(mx, my, mz);
@@ -2038,40 +2049,32 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
                 });
             }
 
-            // ── Belt LOD: rotate 3D asteroid instances every frame ────────────
-            if (abLODGroups.length > 0) {
-                if (abParticles) abParticles.visible = false;
-                abLODGroups.forEach(({ mesh, positions, scales, def }) => {
-                    const angles = mesh.userData.abAngles;
-                    positions.forEach((pos, i) => {
-                        angles[i].ax += angles[i].sx;
-                        angles[i].ay += angles[i].sy;
-                        angles[i].az += angles[i].sz;
-                        lodDummy.position.copy(pos);
-                        lodDummy.rotation.set(angles[i].ax, angles[i].ay, angles[i].az);
-                        lodDummy.scale.setScalar(def.abSize * scales[i]);
-                        lodDummy.updateMatrix();
-                        mesh.setMatrixAt(i, lodDummy.matrix);
+            // ── Belt LOD ──────────────────────────────────────────────────────
+            // Tumbling the instances means rebuilding ~3,200 matrices on the CPU
+            // every frame, for rocks a couple of pixels across. Only the top tier
+            // pays for it, and even there only every third frame — the motion is
+            // far too slow to tell apart.
+            if (abLODGroups.length > 0 && abParticles) abParticles.visible = false;
+            if (kbLODGroups.length > 0 && kbParticles) kbParticles.visible = false;
+
+            if (q.beltLODRotate && frameCount % 3 === 0) {
+                const spin = (groups, anglesKey, sizeKey) => {
+                    groups.forEach(({ mesh, positions, scales, def }) => {
+                        const angles = mesh.userData[anglesKey];
+                        for (let i = 0; i < positions.length; i++) {
+                            const a = angles[i];
+                            a.ax += a.sx * 3; a.ay += a.sy * 3; a.az += a.sz * 3;
+                            lodDummy.position.copy(positions[i]);
+                            lodDummy.rotation.set(a.ax, a.ay, a.az);
+                            lodDummy.scale.setScalar(def[sizeKey] * scales[i]);
+                            lodDummy.updateMatrix();
+                            mesh.setMatrixAt(i, lodDummy.matrix);
+                        }
+                        mesh.instanceMatrix.needsUpdate = true;
                     });
-                    mesh.instanceMatrix.needsUpdate = true;
-                });
-            }
-            if (kbLODGroups.length > 0) {
-                if (kbParticles) kbParticles.visible = false;
-                kbLODGroups.forEach(({ mesh, positions, scales, def }) => {
-                    const angles = mesh.userData.kbAngles;
-                    positions.forEach((pos, i) => {
-                        angles[i].ax += angles[i].sx;
-                        angles[i].ay += angles[i].sy;
-                        angles[i].az += angles[i].sz;
-                        lodDummy.position.copy(pos);
-                        lodDummy.rotation.set(angles[i].ax, angles[i].ay, angles[i].az);
-                        lodDummy.scale.setScalar(def.kbSize * scales[i]);
-                        lodDummy.updateMatrix();
-                        mesh.setMatrixAt(i, lodDummy.matrix);
-                    });
-                    mesh.instanceMatrix.needsUpdate = true;
-                });
+                };
+                spin(abLODGroups, 'abAngles', 'abSize');
+                spin(kbLODGroups, 'kbAngles', 'kbSize');
             }
 
             if (sRingRefs.mat?.userData?.shader) {
@@ -2101,6 +2104,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
             ro.disconnect();
             renderer.domElement.removeEventListener('click',     handleClick);
             renderer.domElement.removeEventListener('mousemove', handleMouseMove);
+            renderer.domElement.removeEventListener('webglcontextlost',     onContextLost);
+            renderer.domElement.removeEventListener('webglcontextrestored', onContextRestored);
             if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
             controls.dispose();
             geos.forEach(g => g.dispose());
@@ -2116,7 +2121,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
             {/* Canvas mount — fills full viewport height, sits behind transparent header */}
             <div
                 ref={mountRef}
-                style={{ width: '100%', height: '100vh', position: 'relative', overflow: 'hidden' }}
+                style={{ width: '100%', height: 'var(--app-vh, 100vh)', position: 'relative', overflow: 'hidden' }}
             >
                 {/* Not-to-scale disclaimer */}
                 <div style={{

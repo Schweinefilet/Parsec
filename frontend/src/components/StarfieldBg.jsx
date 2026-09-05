@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { quality } from '../utils/quality';
 
 // Sparse drifting starfield painted behind everything. Density scales with
 // viewport area so phones don't get a dense mesh in a narrow column, and the
@@ -32,7 +33,7 @@ const StarfieldBg = ({ canvasId = 'starfield-bg' }) => {
 
             // ~1 star per 9000 px² of viewport, clamped so neither phones nor
             // ultrawides get an unreasonable count.
-            const count = Math.round(Math.min(260, Math.max(70, (w * h) / 9000)));
+            const count = Math.round(Math.min(quality().starCount, Math.max(60, (w * h) / 9000)));
             stars = Array.from({ length: count }, () => {
                 // Cube the roll so most stars stay faint and only a few are bright
                 const mag = Math.pow(Math.random(), 3);
