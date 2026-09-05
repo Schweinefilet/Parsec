@@ -1561,8 +1561,12 @@ const SolarSystem3D = ({ focusedId }) => {
                 // Exclude noSpeedScaling bodies (e.g. ISS) — their ultra-short periods
                 // would otherwise collapse the speed for all other moons.
                 const moons = MOON_DATA.filter(m => m.parent === focusedPlanet.name && !m.noSpeedScaling);
-                const minP  = moons.length ? Math.min(...moons.map(m => m.period)) : Infinity;
-                targetOrbitSpeed = Math.max(2000, minP * 86400 / 30);
+                // Moonless planet (Mercury/Venus/Pluto): fall back to the default speed.
+                // An Infinity target would poison liveOrbitSpeed with NaN via the lerp
+                // (Infinity - Infinity), permanently hiding all moons until reload.
+                targetOrbitSpeed = moons.length
+                    ? Math.max(2000, Math.min(...moons.map(m => m.period)) * 86400 / 30)
+                    : 2000;
             } else {
                 targetOrbitSpeed = 2000;
             }
