@@ -75,12 +75,85 @@ body::after {
   50%       { transform: translateY(5px); opacity: 0.50; }
 }
 
+@keyframes issPulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.8); }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-in {
   animation: fadeIn 0.35s ease both;
+}
+
+/* ── Focus visibility ───────────────────────────────────────── */
+/* Keyboard users get a clear ring; pointer users see nothing extra. */
+.focus-ring:focus-visible,
+.object-card:focus-visible,
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 10px 16px;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0 0 12px 0;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.skip-link:focus {
+  left: 0;
+}
+
+/* ── Catalog cards ──────────────────────────────────────────── */
+.object-card {
+  transition: transform 0.3s cubic-bezier(0.22, 0.61, 0.36, 1),
+              border-color 0.3s ease,
+              box-shadow 0.3s ease;
+}
+@media (hover: hover) {
+  .object-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 255, 255, 0.30) !important;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), var(--glass-specular);
+  }
+  .object-card:hover .object-card-img {
+    transform: scale(1.045);
+  }
+}
+.object-card:active {
+  transform: translateY(-1px);
+}
+
+/* ── Utilities ──────────────────────────────────────────────── */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 #root {

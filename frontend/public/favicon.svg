@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="p" cx="38%" cy="32%" r="72%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="45%" stop-color="#9fc4ff"/>
+      <stop offset="100%" stop-color="#2a4a8f"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#05070c"/>
+  <!-- Orbit ring, tilted -->
+  <ellipse cx="32" cy="33" rx="25" ry="9.5" fill="none" stroke="#ffffff" stroke-opacity="0.42"
+           stroke-width="2.2" transform="rotate(-22 32 33)"/>
+  <!-- Planet -->
+  <circle cx="32" cy="33" r="12" fill="url(#p)"/>
+  <!-- Front half of the ring, drawn over the planet -->
+  <path d="M 8.6 27.5 A 25 9.5 0 0 0 55.4 38.5" fill="none" stroke="#ffffff" stroke-opacity="0.75"
+        stroke-width="2.2" stroke-linecap="round" transform="rotate(-22 32 33)"/>
+  <!-- Companion moon -->
+  <circle cx="52" cy="17" r="3.1" fill="#ffffff" fill-opacity="0.92"/>
+</svg>

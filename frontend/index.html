@@ -2,12 +2,37 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Parsec</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>Parsec — Explore the Solar System in 3D</title>
+    <meta name="description" content="An interactive 3D atlas of the solar system. Fly to every planet, moon, dwarf planet and comet, track the ISS live, and browse 70 objects with real orbital data." />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <!-- Textures and the astronomy engine come from the same origin; warm up the
+         NASA image CDN that the catalog cards pull from. -->
+    <link rel="preconnect" href="https://images-assets.nasa.gov" crossorigin />
+    <link rel="dns-prefetch" href="https://api.wheretheiss.at" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Parsec" />
+    <meta property="og:title" content="Parsec — Explore the Solar System in 3D" />
+    <meta property="og:description" content="Fly to every planet, moon and comet in an interactive 3D solar system. Track the ISS live and browse 70 objects with real orbital data." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Parsec — Explore the Solar System in 3D" />
+    <meta name="twitter:description" content="An interactive 3D atlas of the solar system, with live ISS tracking." />
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="padding:32px;font-family:system-ui,sans-serif;color:#fff;background:#000;min-height:100vh">
+        <h1>Parsec</h1>
+        <p>Parsec renders the solar system in 3D and needs JavaScript enabled.</p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

@@ -40,19 +40,25 @@ function weekAheadISO() {
 }
 
 async function fetchJSON(url, signal, timeoutMs = 6000) {
+    // Combine the caller's signal with a local timeout. Passing `signal` straight
+    // through (as this used to) meant the timeout controller was never the one
+    // fetch listened to, so slow requests hung until the network gave up.
     const controller = new AbortController();
+    const onAbort = () => controller.abort(signal?.reason ?? 'aborted');
+    if (signal) {
+        if (signal.aborted) controller.abort(signal.reason);
+        else signal.addEventListener('abort', onAbort, { once: true });
+    }
     const id = setTimeout(() => controller.abort('timeout'), timeoutMs);
     try {
-        // Use whichever aborts first: component unmount signal or local timeout
-        const r = await fetch(url, { signal: signal ?? controller.signal });
-        clearTimeout(id);
+        const r = await fetch(url, { signal: controller.signal });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const json = await r.json();
         if (json?.error?.code === 'OVER_RATE_LIMIT') throw new Error('OVER_RATE_LIMIT');
         return json;
-    } catch (err) {
+    } finally {
         clearTimeout(id);
-        throw err;
+        signal?.removeEventListener('abort', onAbort);
     }
 }
 
@@ -92,26 +98,27 @@ export function useSpaceStrip() {
         );
 
     const fetchIss = async (signal) => {
-        // wheretheiss.at is primary (has CORS); /open-notify is a dev-proxy fallback
-        const endpoints = [
-            'https://api.wheretheiss.at/v1/satellites/25544',
-            '/open-notify/iss-now.json',
-        ];
-        for (const url of endpoints) {
-            try {
-                const d = await fetchJSON(url, signal);
-                const lat = Number(d.latitude ?? d.iss_position?.latitude);
-                const lon = Number(d.longitude ?? d.iss_position?.longitude);
-                if (Number.isFinite(lat) && Number.isFinite(lon)) {
-                    if (!mountedRef.current) return;
-                    updateCell('iss_lat', `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'}`);
-                    updateCell('iss_lon', `${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'}`);
-                    return;
-                }
-            } catch (err) {
-                if (err.name === 'AbortError') return;
-                console.warn(`[SpaceStrip] ISS fetch failed (${url}):`, err.message);
+        // wheretheiss.at serves CORS headers and returns altitude/velocity too,
+        // so the strip's ISS cells all come from one request.
+        try {
+            const d = await fetchJSON('https://api.wheretheiss.at/v1/satellites/25544', signal);
+            if (!mountedRef.current) return;
+            const lat = Number(d.latitude);
+            const lon = Number(d.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                updateCell('iss_lat', `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'}`);
+                updateCell('iss_lon', `${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'}`);
             }
+            if (Number.isFinite(Number(d.altitude))) {
+                updateCell('iss_alt', Number(d.altitude).toFixed(0), 'km');
+            }
+            if (Number.isFinite(Number(d.velocity))) {
+                // API reports km/h; the strip shows km/s
+                updateCell('iss_speed', (Number(d.velocity) / 3600).toFixed(2), 'km/s');
+            }
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            console.warn('[SpaceStrip] ISS fetch failed:', err.message);
         }
     };
 

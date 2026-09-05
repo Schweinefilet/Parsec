@@ -1,88 +1,46 @@
 import { useState, useEffect } from 'react';
 
-const HORIZONS_COMMANDS = {
-    'voyager1':     '-31',
-    'voyager2':     '-32',
-    'new-horizons': '-98',
+// Heliocentric distance for the deep-space probes.
+//
+// This used to call JPL Horizons directly from the browser. Horizons serves the
+// data fine but sends no Access-Control-Allow-Origin header, so every request
+// was blocked by CORS and the panel only ever showed "Distance unavailable".
+// A static site has nowhere to proxy it, so instead we pin real Horizons state
+// vectors and extrapolate.
+//
+// All three craft are on hyperbolic escape trajectories far beyond the planets,
+// where the Sun's pull is negligible and recession is effectively linear.
+// Anchors below came from Horizons (CENTER=500@10, EPHEM_TYPE=VECTORS) at
+// 2026-01-01 and 2031-01-01; across that five-year span a linear fit holds to
+// better than 0.01 AU, so this stays accurate for many years.
+const EPOCH = Date.UTC(2026, 0, 1);
+const MS_PER_YEAR = 365.25 * 86400000;
+
+const PROBES = {
+    voyager1:       { au: 169.255, rate: 3.5595 },
+    voyager2:       { au: 141.714, rate: 3.1749 },
+    'new-horizons': { au: 63.576,  rate: 2.8436 },
 };
 
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 h
-
-function getCached(key) {
-    try {
-        const raw = localStorage.getItem(key);
-        if (!raw) return null;
-        const { ts, data } = JSON.parse(raw);
-        if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(key); return null; }
-        return data;
-    } catch { return null; }
+export function heliocentricDistanceAU(spacecraftId, date = new Date()) {
+    const p = PROBES[spacecraftId];
+    if (!p) return null;
+    return p.au + p.rate * ((date.getTime() - EPOCH) / MS_PER_YEAR);
 }
 
-function setCache(key, data) {
-    try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch { /* quota */ }
-}
-
-function parseDistance(text) {
-    // Horizons VECTORS output: X = ... Y = ... Z = ... on separate lines in $$SOE block
-    const soe = text.match(/\$\$SOE([\s\S]*?)\$\$EOE/);
-    if (!soe) return null;
-    const block = soe[1];
-    const xm = block.match(/X\s*=\s*([\-\d.E+]+)/i);
-    const ym = block.match(/Y\s*=\s*([\-\d.E+]+)/i);
-    const zm = block.match(/Z\s*=\s*([\-\d.E+]+)/i);
-    if (!xm || !ym || !zm) return null;
-    const x = parseFloat(xm[1]), y = parseFloat(ym[1]), z = parseFloat(zm[1]);
-    return Math.sqrt(x * x + y * y + z * z);
-}
-
+/**
+ * Current distance from the Sun in AU for a deep-space probe.
+ * Recomputed every minute; null for anything not in the table.
+ */
 export function useHorizons(spacecraftId) {
-    const cmd = HORIZONS_COMMANDS[spacecraftId];
-    const cacheKey = `horizons_v1_${spacecraftId}`;
-
-    const [state, setState] = useState(() => {
-        if (!cmd) return { distanceAU: null, loading: false, error: null };
-        const cached = getCached(cacheKey);
-        return { distanceAU: cached?.distanceAU ?? null, loading: !cached, error: null };
-    });
+    const [distanceAU, setDistanceAU] = useState(() => heliocentricDistanceAU(spacecraftId));
 
     useEffect(() => {
-        if (!cmd) return;
-        const cached = getCached(cacheKey);
-        if (cached) { setState({ distanceAU: cached.distanceAU, loading: false, error: null }); return; }
+        setDistanceAU(heliocentricDistanceAU(spacecraftId));
+        if (!PROBES[spacecraftId]) return;
+        const iv = setInterval(() => setDistanceAU(heliocentricDistanceAU(spacecraftId)), 60000);
+        return () => clearInterval(iv);
+    }, [spacecraftId]);
 
-        setState(s => ({ ...s, loading: true }));
-
-        const controller = new AbortController();
-        const today    = new Date().toISOString().slice(0, 10);
-        const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-
-        const params = new URLSearchParams({
-            format:     'text',
-            COMMAND:    cmd,
-            OBJ_DATA:   'NO',
-            CENTER:     '500@10',
-            MAKE_EPHEM: 'YES',
-            EPHEM_TYPE: 'VECTORS',
-            START_TIME: today,
-            STOP_TIME:  tomorrow,
-            STEP_SIZE:  '1d',
-            OUT_UNITS:  'AU-D',
-        });
-
-        fetch(`https://ssd.jpl.nasa.gov/api/horizons.api?${params}`, { signal: controller.signal })
-            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
-            .then(text => {
-                const distanceAU = parseDistance(text);
-                setCache(cacheKey, { distanceAU });
-                setState({ distanceAU, loading: false, error: distanceAU === null ? 'No data in response' : null });
-            })
-            .catch(err => {
-                if (err.name === 'AbortError') return;
-                setState({ distanceAU: null, loading: false, error: err.message });
-            });
-
-        return () => controller.abort('component unmounted');
-    }, [cmd, cacheKey]);
-
-    return state;
+    return { distanceAU, loading: false, error: null };
 }

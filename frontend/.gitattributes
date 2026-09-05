@@ -1,3 +1,0 @@
-stock-app/backend/data/stock_cache.db filter=lfs diff=lfs merge=lfs -text
-backend/data/stock_cache.db filter=lfs diff=lfs merge=lfs -text
-../backend/data/stock_cache.db filter=lfs diff=lfs merge=lfs -text

@@ -1,30 +1,37 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams, useMatch } from 'react-router-dom';
-import { Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search, Crosshair, Sparkles, Satellite, Aperture, Radio, Archive } from 'lucide-react';
+import {
+    Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
+    Crosshair, Sparkles, Satellite, Aperture, Radio, Archive,
+} from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
+import { CATEGORY_TABS } from '../data/objectCatalog';
 
-const TABS = [
-    { id: 'planets',           label: 'Planets',          icon: Globe },
-    { id: 'dwarf-planets',     label: 'Dwarf Planets',    icon: CircleDot },
-    { id: 'moons',             label: 'Moons',            icon: Moon },
-    { id: 'exoplanets',        label: 'Exoplanets',       icon: Star },
-    { id: 'deep-sky',          label: 'Deep Sky',         icon: Eye },
-    { id: 'neos',              label: 'NEOs',             icon: Zap },
-    { id: 'asteroid',          label: 'Asteroids',        icon: Crosshair },
-    { id: 'comet',             label: 'Comets',           icon: Sparkles },
-    { id: 'space-stations',    label: 'Space Stations',   icon: Satellite },
-    { id: 'space-telescopes',  label: 'Space Telescopes', icon: Aperture },
-    { id: 'deep-space-probes', label: 'Deep Space',       icon: Radio },
-    { id: 'historical',        label: 'Historical',       icon: Archive },
-];
+// Icon per category id. Kept beside the tab list rather than duplicating the
+// list itself — CATEGORY_TABS in the catalog is the single source of truth, so
+// a category can never exist in the data yet be unreachable from the nav.
+const TAB_ICONS = {
+    stars: Star,
+    planets: Globe,
+    'dwarf-planets': CircleDot,
+    moons: Moon,
+    exoplanets: Sparkles,
+    'deep-sky': Eye,
+    neos: Zap,
+    asteroid: Crosshair,
+    comet: Sparkles,
+    'space-stations': Satellite,
+    'space-telescopes': Aperture,
+    'deep-space-probes': Radio,
+    historical: Archive,
+};
 
 const AppShell = ({ children }) => {
     const [searchParams, setSearchParams] = useSearchParams();
     const match = useMatch('/object/:id');
-    const id = match?.params?.id;
+    const focusedId = match?.params?.id;
     const activeTab = searchParams.get('tab') || 'planets';
-
-    const setTab = id => setSearchParams({ tab: id }, { replace: true });
+    const setTab = (id) => setSearchParams({ tab: id }, { replace: true });
 
     const [scrolled, setScrolled] = useState(false);
     useEffect(() => {
@@ -35,117 +42,149 @@ const AppShell = ({ children }) => {
 
     const [searchOpen, setSearchOpen] = useState(false);
     const searchRef = useRef(null);
+    const navRef = useRef(null);
 
-    // Close search on outside click
     useEffect(() => {
         if (!searchOpen) return;
         const handler = (e) => {
-            if (searchRef.current && !searchRef.current.contains(e.target)) {
-                setSearchOpen(false);
-            }
+            if (searchRef.current && !searchRef.current.contains(e.target)) setSearchOpen(false);
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [searchOpen]);
 
-    return (
-        <div className="min-h-screen text-white flex flex-col" style={{ paddingBottom: id || !scrolled ? '0' : '64px', transition: 'padding-bottom 500ms ease' }}>
+    // Cmd/Ctrl-K opens search from anywhere
+    useEffect(() => {
+        const onKey = (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                setSearchOpen(true);
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
 
-            {/* ── Floating header — transparent overlay, lets solar system show through ── */}
+    // Keep the selected tab in view when the bar scrolls horizontally
+    useEffect(() => {
+        const el = navRef.current?.querySelector('[data-active="true"]');
+        el?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    }, [activeTab]);
+
+    const navHidden = !!focusedId || !scrolled;
+
+    return (
+        <div
+            className="min-h-screen text-white flex flex-col"
+            style={{ paddingBottom: navHidden ? 0 : 68, transition: 'padding-bottom 500ms ease' }}
+        >
+            <a href="#catalog" className="skip-link">Skip to catalog</a>
+
+            {/* ── Floating header ── */}
+            {/* Once the page scrolls, the ticker and cards pass beneath this
+                overlay header; a soft scrim keeps the logo readable instead of
+                letting the two sets of text collide. */}
             <header
                 className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 md:px-8"
-                style={{ height: '56px', pointerEvents: 'none' }}
+                style={{
+                    height: 56,
+                    pointerEvents: 'none',
+                    background: scrolled
+                        ? 'linear-gradient(to bottom, rgba(3,5,9,0.92) 0%, rgba(3,5,9,0.72) 55%, rgba(3,5,9,0) 100%)'
+                        : 'none',
+                    backdropFilter: scrolled ? 'blur(6px)' : 'none',
+                    WebkitBackdropFilter: scrolled ? 'blur(6px)' : 'none',
+                    transition: 'background 350ms ease, backdrop-filter 350ms ease',
+                }}
             >
-                {/* Parsec logo — standalone, no container */}
                 <Link
                     to="/"
-                    className="flex items-center gap-2 font-bold text-lg flex-shrink-0"
-                    style={{ color: 'rgba(255,255,255,0.90)', pointerEvents: 'auto', textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}
+                    className="flex items-center gap-2 font-bold text-lg flex-shrink-0 focus-ring rounded-lg"
+                    style={{ color: 'rgba(255,255,255,0.92)', pointerEvents: 'auto', textShadow: '0 1px 8px rgba(0,0,0,0.9)' }}
                     onClick={() => window.scrollTo({ top: 0, behavior: 'instant' })}
                 >
-                    <Telescope className="h-5 w-5" style={{ color: 'var(--accent)' }} />
+                    <Telescope className="h-5 w-5" style={{ color: 'var(--accent)' }} aria-hidden="true" />
                     <span>Parsec</span>
                 </Link>
 
-                {/* Search — icon + expandable input */}
                 <div ref={searchRef} className="flex items-center gap-2" style={{ pointerEvents: 'auto' }}>
                     {searchOpen && (
-                        <div
-                            className="animate-fade-in"
-                            style={{ width: 'clamp(220px, 30vw, 340px)' }}
-                        >
-                            <ObjectSearch
-                                autoFocus
-                                onClose={() => setSearchOpen(false)}
-                            />
+                        <div className="animate-fade-in" style={{ width: 'clamp(200px, 52vw, 340px)' }}>
+                            <ObjectSearch autoFocus onClose={() => setSearchOpen(false)} />
                         </div>
                     )}
                     <button
                         onClick={() => setSearchOpen(v => !v)}
-                        className="flex items-center justify-center rounded-xl transition-all"
+                        aria-label={searchOpen ? 'Close search' : 'Search objects'}
+                        aria-expanded={searchOpen}
+                        title="Search (⌘K)"
+                        className="flex items-center justify-center rounded-xl transition-all focus-ring"
                         style={{
-                            width: '36px',
-                            height: '36px',
-                            background: searchOpen ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.40)',
-                            border: '1px solid rgba(255,255,255,0.14)',
-                            color: 'rgba(255,255,255,0.80)',
+                            width: 36, height: 36, flexShrink: 0,
+                            background: searchOpen ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.42)',
+                            border: '1px solid rgba(255,255,255,0.16)',
+                            color: 'rgba(255,255,255,0.85)',
                             backdropFilter: 'blur(14px)',
-                            flexShrink: 0,
+                            WebkitBackdropFilter: 'blur(14px)',
+                            cursor: 'pointer',
                         }}
                     >
-                        <Search className="h-4 w-4" />
+                        <Search className="h-4 w-4" aria-hidden="true" />
                     </button>
                 </div>
             </header>
 
-            {/* ── Main content — no top padding so solar system touches the top edge ── */}
-            <main className="flex-1 max-w-7xl mx-auto w-full">
-                {children}
-            </main>
+            <main className="flex-1 max-w-7xl mx-auto w-full">{children}</main>
 
-            {/* ── Bottom tab bar ── */}
+            {/* ── Category bar ──
+                Tabs keep their natural width and the bar scrolls, so labels never
+                compress into each other on narrow screens. */}
             <nav
-                className="glass fixed bottom-0 left-0 right-0 z-50 flex items-center transition-all duration-500 ease-in-out"
+                ref={navRef}
+                aria-label="Object categories"
+                className="glass fixed bottom-0 left-0 right-0 z-50 flex items-stretch transition-all duration-500 ease-in-out no-scrollbar"
                 style={{
                     borderRadius: 0,
-                    borderLeft: 'none',
-                    borderRight: 'none',
-                    borderBottom: 'none',
-                    height: '64px',
+                    borderLeft: 'none', borderRight: 'none', borderBottom: 'none',
+                    height: 68,
                     overflowX: 'auto',
                     overflowY: 'hidden',
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
-                    paddingLeft: '8px',
-                    paddingRight: '8px',
-                    gap: '2px',
-                    transform: (id || !scrolled) ? 'translateY(100%)' : 'translateY(0)',
-                    opacity: (id || !scrolled) ? 0 : 1,
-                    pointerEvents: (id || !scrolled) ? 'none' : 'auto',
+                    padding: '0 8px',
+                    gap: 2,
+                    transform: navHidden ? 'translateY(100%)' : 'translateY(0)',
+                    opacity: navHidden ? 0 : 1,
+                    pointerEvents: navHidden ? 'none' : 'auto',
                 }}
             >
-                {TABS.map(({ id, label, icon: Icon }) => { // eslint-disable-line no-unused-vars
+                {CATEGORY_TABS.map(({ id, label }) => {
+                    const Icon = TAB_ICONS[id] ?? CircleDot;
                     const isActive = activeTab === id;
                     return (
                         <button
                             key={id}
+                            data-active={isActive}
                             onClick={() => setTab(id)}
-                            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all relative"
+                            aria-current={isActive ? 'page' : undefined}
+                            className="flex flex-col items-center justify-center gap-1 rounded-xl transition-all relative flex-shrink-0 focus-ring"
                             style={{
-                                flex: '1 1 0',
-                                minWidth: 0,
-                                color: isActive ? '#fff' : 'rgba(255,255,255,0.40)',
+                                minWidth: 72,
+                                padding: '8px 10px',
+                                color: isActive ? '#fff' : 'rgba(255,255,255,0.42)',
+                                cursor: 'pointer',
                             }}
                         >
                             <Icon
                                 className="h-5 w-5 transition-transform"
-                                style={{ transform: isActive ? 'scale(1.1)' : 'scale(1)' }}
+                                style={{ transform: isActive ? 'scale(1.12)' : 'scale(1)' }}
+                                aria-hidden="true"
                             />
-                            <span className="text-[10px] font-semibold tracking-wide">{label}</span>
+                            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+                                {label}
+                            </span>
                             {isActive && (
                                 <span
-                                    className="absolute -bottom-0.5 w-4 h-0.5 rounded-full"
-                                    style={{ background: 'var(--accent)' }}
+                                    className="absolute rounded-full"
+                                    style={{ bottom: 2, width: 16, height: 2, background: 'var(--accent)' }}
                                 />
                             )}
                         </button>

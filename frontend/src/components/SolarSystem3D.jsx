@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import * as Astronomy from 'astronomy-engine';
+import { proceduralTexture } from '../utils/proceduralTextures';
 
 const PLANETS = [
     { id: 'mercury', name: 'Mercury', r: 0.68, orbitR: 48,  color: '#b5b5b5' },
@@ -62,14 +63,10 @@ const ORBIT_TUBE_RADIUS = 0.28;
 const PLANET_EMISSIVE_INTENSITY = 0.08;
 
 
+// Only Luna ships a photographic map; every other moon is painted at runtime
+// by proceduralTextures.js from its real surface characteristics.
 const MOON_TEXTURES = {
-    luna:      '/textures/moon.jpg',
-    io:        '/textures/io.jpg',
-    europa:    '/textures/europa.jpg',
-    ganymede:  '/textures/ganymede.jpg',
-    titan:     '/textures/titan.jpg',
-    enceladus: '/textures/enceladus.jpg',
-    triton:    '/textures/triton.jpg',
+    luna: '/textures/moon.jpg',
 };
 
 // 23 natural satellites + ISS — id matches objectCatalog (null = no detail page)
@@ -222,96 +219,10 @@ const SMALL_BODIES = [
       el: { a: 17.834, e: 0.967, i: 162.3, node: 58.42, peri: 111.3,  period:  27494, M0: 1.159 } },
 ];
 
-// ── Procedural fallback textures ───────────────────────────────────────────
-// Bodies without a texture file get a generated surface: regional albedo
-// patches, craters (rocky) or banding (icy), and fine grain — seeded from the
-// body id so the surface is stable across reloads.
-function _seededRand(seedKey) {
-    let h = 2166136261;
-    for (let i = 0; i < seedKey.length; i++) {
-        h ^= seedKey.charCodeAt(i);
-        h = Math.imul(h, 16777619);
-    }
-    let s = h >>> 0;
-    return () => {
-        s |= 0; s = (s + 0x6D2B79F5) | 0;
-        let t = Math.imul(s ^ (s >>> 15), 1 | s);
-        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-}
-
-function makeProceduralTexture(seedKey, baseColor, style = 'rocky') {
-    const rand = _seededRand(seedKey);
-    const W = 512, H = 256;
-    const canvas = document.createElement('canvas');
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = baseColor;
-    ctx.fillRect(0, 0, W, H);
-
-    // Draw at x and x±W so features wrap seamlessly across the UV seam
-    const wrapped = (x, draw) => { draw(x); draw(x - W); draw(x + W); };
-
-    // Large soft light/dark patches — regional albedo variation
-    for (let i = 0; i < 46; i++) {
-        const x = rand() * W, y = rand() * H;
-        const r = 18 + rand() * 70;
-        const light = rand() > 0.5;
-        const a = 0.04 + rand() * (style === 'icy' ? 0.05 : 0.08);
-        wrapped(x, (wx) => {
-            const g = ctx.createRadialGradient(wx, y, 0, wx, y, r);
-            g.addColorStop(0, light ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
-            g.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = g;
-            ctx.fillRect(wx - r, y - r, r * 2, r * 2);
-        });
-    }
-
-    if (style === 'rocky') {
-        // Craters — soft dark floor + slightly offset bright rim
-        for (let i = 0; i < 70; i++) {
-            const x = rand() * W, y = rand() * H;
-            const r = 1.5 + rand() * 7;
-            const floorA = 0.10 + rand() * 0.16;
-            const rimA   = 0.05 + rand() * 0.09;
-            wrapped(x, (wx) => {
-                const g = ctx.createRadialGradient(wx, y, 0, wx, y, r);
-                g.addColorStop(0,   `rgba(0,0,0,${floorA})`);
-                g.addColorStop(0.7, `rgba(0,0,0,${floorA * 0.5})`);
-                g.addColorStop(1,   'rgba(0,0,0,0)');
-                ctx.fillStyle = g;
-                ctx.beginPath(); ctx.arc(wx, y, r, 0, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = `rgba(255,255,255,${rimA})`;
-                ctx.lineWidth = Math.max(0.6, r * 0.16);
-                ctx.beginPath(); ctx.arc(wx - r * 0.15, y - r * 0.15, r * 0.9, 0, Math.PI * 2); ctx.stroke();
-            });
-        }
-    } else {
-        // Icy — faint latitudinal streaks
-        for (let i = 0; i < 22; i++) {
-            const y = rand() * H;
-            const hgt = 3 + rand() * 14;
-            ctx.fillStyle = `rgba(${rand() > 0.5 ? '255,255,255' : '0,0,0'},${0.025 + rand() * 0.04})`;
-            ctx.fillRect(0, y, W, hgt);
-        }
-    }
-
-    // Fine grain
-    for (let i = 0; i < 900; i++) {
-        ctx.fillStyle = `rgba(${rand() > 0.5 ? '255,255,255' : '0,0,0'},${0.03 + rand() * 0.05})`;
-        ctx.fillRect(rand() * W, rand() * H, 1 + rand() * 2, 1 + rand() * 2);
-    }
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    return tex;
-}
-
 // Persists across React Router remounts so the exit animation survives navigation
 let _exitState = { active: false, cameraPos: null, targetPos: null };
 
-const SolarSystem3D = ({ focusedId }) => {
+const SolarSystem3D = ({ focusedId, focusOffsetY = 0 }) => {
     const mountRef  = useRef(null);
     const navigate  = useNavigate();
     const [objectLabels, setObjectLabels] = useState([]);
@@ -321,6 +232,13 @@ const SolarSystem3D = ({ focusedId }) => {
     useLayoutEffect(() => {
         focusedIdRef.current = focusedId;
     }, [focusedId]);
+
+    // Fraction of the viewport height to lift the focused body by, so a panel
+    // covering the lower screen (mobile sheet) never sits on top of it.
+    const focusOffsetRef = useRef(focusOffsetY);
+    useLayoutEffect(() => {
+        focusOffsetRef.current = focusOffsetY;
+    }, [focusOffsetY]);
 
     // navigateRef keeps navigate stable so the main effect never re-runs on navigation
     const navigateRef = useRef(navigate);
@@ -378,6 +296,7 @@ const SolarSystem3D = ({ focusedId }) => {
         const focusEndCamPos    = new THREE.Vector3();
         const focusStartTarget  = new THREE.Vector3();
         const _focusLookTarget  = new THREE.Vector3();
+        const _camUpVec         = new THREE.Vector3();
         // Camera position captured at click time — guarantees start pos regardless of rAF timing
         let pendingFocusCamPos = null;
 
@@ -412,6 +331,20 @@ const SolarSystem3D = ({ focusedId }) => {
         // ── Shared loader + texture list (declared early for sun texture) ──────
         const loader   = new THREE.TextureLoader();
         const textures = [];
+
+        // Heavy meshes (ISS, Vesta) are several MB and are only ever seen close
+        // up, so they wait for an idle moment instead of competing with the
+        // textures that make up the first frame.
+        const idleTimers = [];
+        const whenIdle = (fn) => {
+            if (typeof window.requestIdleCallback === 'function') {
+                const h = window.requestIdleCallback(fn, { timeout: 4000 });
+                idleTimers.push(() => window.cancelIdleCallback(h));
+            } else {
+                const t = setTimeout(fn, 1500);
+                idleTimers.push(() => clearTimeout(t));
+            }
+        };
 
         // ── Sun ────────────────────────────────────────────────────────────────
         const sunGeo = new THREE.SphereGeometry(12, 64, 64);
@@ -628,8 +561,7 @@ const SolarSystem3D = ({ focusedId }) => {
                     () => {
                         // No texture file (e.g. Pluto) — generate a surface instead
                         if (!mounted) return;
-                        const tex = makeProceduralTexture(planet.id, planet.color,
-                            planet.name === 'Pluto' ? 'icy' : 'rocky');
+                        const tex = proceduralTexture(planet.id, planet.color, planet.name === 'Pluto' ? 'icy' : 'rocky');
                         textures.push(tex);
                         colorMat.map = tex;
                         colorMat.color.set(0xffffff);
@@ -1185,7 +1117,9 @@ const SolarSystem3D = ({ focusedId }) => {
             mats.push(orbitMat);
 
             // Nucleus sphere
-            const geo = new THREE.SphereGeometry(body.r, 16, 16);
+            // 16 segments showed obvious facets on the limb once you could fly
+            // right up to these bodies; 48 is smooth at any focus distance.
+            const geo = new THREE.SphereGeometry(body.r, 48, 48);
             const mat = new THREE.MeshStandardMaterial({
                 color: body.color, roughness: 0.9, metalness: 0.0,
                 emissive: new THREE.Color(body.color),
@@ -1198,48 +1132,19 @@ const SolarSystem3D = ({ focusedId }) => {
             geos.push(geo);
             mats.push(mat);
 
-            // Procedural surface for bodies without texture files. Vesta and Halley
-            // are skipped — their STL geometry has no UVs, so a map can't apply.
-            if (!['vesta', 'halley', 'ceres'].includes(body.id)) {
+            // Painted surface. Vesta and Halley are skipped — their STL geometry
+            // carries no UVs, so a map can't apply; their shape does the work.
+            if (!['vesta', 'halley'].includes(body.id)) {
                 const icy = ['haumea', 'makemake', 'eris'].includes(body.id);
-                const tex = makeProceduralTexture(body.id, body.color, icy ? 'icy' : 'rocky');
+                const tex = proceduralTexture(body.id, body.color, icy ? 'icy' : 'rocky');
                 textures.push(tex);
                 mat.map = tex;
                 mat.color.set(0xffffff);
             }
 
-            // Optional texture load (Ceres only — NASA-mapped surface)
-            if (body.id === 'ceres') {
-                loader.load(
-                    `/textures/${body.id}.jpg`,
-                    (tex) => {
-                        if (!mounted) { tex.dispose(); return; }
-                        textures.push(tex);
-                        const texMat = new THREE.MeshStandardMaterial({
-                            map: tex, roughness: 0.9, metalness: 0.0,
-                            emissive: new THREE.Color(body.color),
-                            emissiveIntensity: PLANET_EMISSIVE_INTENSITY,
-                        });
-                        mesh.material = texMat;
-                        mat.dispose();
-                        mats.push(texMat);
-                    },
-                    undefined,
-                    () => {
-                        // ceres.jpg is not shipped — fall back to a generated surface
-                        if (!mounted) return;
-                        const tex = makeProceduralTexture(body.id, body.color, 'rocky');
-                        textures.push(tex);
-                        mat.map = tex;
-                        mat.color.set(0xffffff);
-                        mat.needsUpdate = true;
-                    },
-                );
-            }
-
             // STL model for Vesta
             if (body.id === 'vesta') {
-                new STLLoader().load(
+                whenIdle(() => { if (!mounted) return; new STLLoader().load(
                     '/models/vesta.stl',
                     (stlGeo) => {
                         if (!mounted) { stlGeo.dispose(); return; }
@@ -1256,7 +1161,7 @@ const SolarSystem3D = ({ focusedId }) => {
                     },
                     undefined,
                     () => {}, // silently keep sphere fallback
-                );
+                ); });
             }
 
             // Elongated STL nucleus for Halley — the Geographos asteroid model has
@@ -1391,7 +1296,7 @@ const SolarSystem3D = ({ focusedId }) => {
             const parentPlanet = PLANETS.find(p => p.name === moon.parent);
             const planetR      = parentPlanet?.r ?? 1.0;
 
-            const moonGeo = new THREE.SphereGeometry(moon.radius, 16, 16);
+            const moonGeo = new THREE.SphereGeometry(moon.radius, 48, 48);
             const moonMat = new THREE.MeshStandardMaterial({
                 color: moon.color,
                 roughness: 0.95,
@@ -1449,12 +1354,18 @@ const SolarSystem3D = ({ focusedId }) => {
                     moonMat.needsUpdate = true;
                 });
             } else if (moon.id !== 'iss') {
-                // No texture file — generate a cratered surface (ISS is excluded:
-                // its sphere is replaced by the STL model)
-                const tex = makeProceduralTexture(moon.id ?? moon.name, moon.color, 'rocky');
+                // Painted surface (ISS is excluded — its sphere becomes the STL model).
+                // Icy moons keep a faint self-glow so they stay readable against space.
+                const icy = ['europa', 'enceladus', 'triton', 'titan'].includes(moon.id);
+                const tex = proceduralTexture(moon.id ?? moon.name, moon.color, icy ? 'icy' : 'rocky');
                 textures.push(tex);
                 moonMat.map = tex;
                 moonMat.color.set(0xffffff);
+                // Icy surfaces are highly reflective in reality but render grey
+                // this far from the Sun, so give them a little self-glow and a
+                // smoother finish to catch the light.
+                moonMat.emissiveIntensity = icy ? 0.10 : 0.03;
+                if (icy) moonMat.roughness = 0.72;
             }
 
             // Invisible hitbox — added directly to scene so its matrixWorld is
@@ -1488,7 +1399,7 @@ const SolarSystem3D = ({ focusedId }) => {
             // ── ISS-specific extras ────────────────────────────────────────────
             if (moon.id === 'iss') {
                 // Replace sphere with STL model
-                new STLLoader().load(
+                whenIdle(() => { if (!mounted) return; new STLLoader().load(
                     '/models/iss.stl',
                     (stlGeo) => {
                         if (!mounted) { stlGeo.dispose(); return; }
@@ -1503,7 +1414,7 @@ const SolarSystem3D = ({ focusedId }) => {
                     },
                     undefined,
                     () => {},
-                );
+                ); });
 
                 // Orbital path ring (line loop in Earth's local space, moves with Earth)
                 const incR = moon.inc * Math.PI / 180;
@@ -1726,7 +1637,7 @@ const SolarSystem3D = ({ focusedId }) => {
                             ?? newMesh.geometry?.parameters?.radius ?? 3.5;
                         const isTinyBody = SMALL_BODIES.some(b => b.id === currentFocusedId)
                             || MOON_DATA.some(b => b.id === currentFocusedId);
-                        const dist   = newMesh.userData.id === 'sun' ? 50
+                        const baseDist = newMesh.userData.id === 'sun' ? 50
                                      : newMesh.userData.id === 'iss' ? 0.3
                                      // Back off further for Halley so coma + tails frame the shot
                                      : newMesh.userData.id === 'halley' ? 7
@@ -1734,6 +1645,13 @@ const SolarSystem3D = ({ focusedId }) => {
                                      // pushed tiny objects much too far from the camera
                                      : isTinyBody ? Math.max(radius * 5.5, 0.5)
                                      : radius * 3.5 + 2;
+                        // A portrait viewport has a far narrower horizontal field of
+                        // view, so a distance framed for landscape pushes the body off
+                        // both edges. Back off in proportion, with a ceiling so phones
+                        // don't end up looking at a distant speck.
+                        const dist = baseDist * (camera.aspect < 1
+                            ? Math.min(2.0, Math.pow(1 / camera.aspect, 0.8))
+                            : 1);
                         const TILT   = 30 * Math.PI / 180; // 30° above equatorial = looking 30° down
                         const startCamPos = pendingFocusCamPos ?? camera.position;
                         pendingFocusCamPos = null;
@@ -1944,6 +1862,16 @@ const SolarSystem3D = ({ focusedId }) => {
                 exitPhase = 0;
                 targetMesh.getWorldPosition(targetPos);
 
+                // Aim below the body by a fraction of the visible height — the
+                // body then sits that much higher in frame.
+                const vOffset = focusOffsetRef.current;
+                if (vOffset) {
+                    const d = camera.position.distanceTo(targetPos);
+                    const viewH = 2 * d * Math.tan((camera.fov * Math.PI / 180) / 2);
+                    _camUpVec.set(0, 1, 0).applyQuaternion(camera.quaternion);
+                    targetPos.addScaledVector(_camUpVec, -vOffset * viewH);
+                }
+
                 const bodyDef = PLANETS.find(b => b.id === currentFocusedId)
                     ?? SMALL_BODIES.find(b => b.id === currentFocusedId)
                     ?? MOON_DATA.find(b => b.id === currentFocusedId);
@@ -2153,6 +2081,7 @@ const SolarSystem3D = ({ focusedId }) => {
             }
             mounted = false;
             cancelAnimationFrame(animId);
+            idleTimers.forEach(cancel => cancel());
             clearInterval(posInterval);
             ro.disconnect();
             renderer.domElement.removeEventListener('click',     handleClick);
