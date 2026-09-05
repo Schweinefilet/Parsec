@@ -1,5 +1,6 @@
 import { copyFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -20,7 +21,10 @@ function spaFallback() {
     name: 'spa-404-fallback',
     apply: 'build',
     closeBundle() {
-      const dir = resolve(import.meta.dirname, 'dist')
+      // fileURLToPath rather than import.meta.dirname: the latter needs
+      // Node >= 20.11, and the build host's version isn't ours to assume.
+      const here = dirname(fileURLToPath(import.meta.url))
+      const dir = resolve(here, 'dist')
       const index = resolve(dir, 'index.html')
       if (existsSync(index)) copyFileSync(index, resolve(dir, '404.html'))
     },
