@@ -40,11 +40,13 @@ frontend/src/
     ObjectDetailBody.jsx description + stats + distance chart, shared by
                          the desktop panel and the mobile sheet
     DistanceChart.jsx    inline-SVG distance-over-time chart
+    TimeControl.jsx      scrub the whole system through time
   data/
     objectCatalog.js     the 70 objects and their stats — single source of truth
                          for both the catalog and the category nav
     objectImages.js      curated, load-verified NASA image per object
   utils/
+    simTime.js            the clock the scene runs on (see "Time")
     orbits.js             real heliocentric + Keplerian position maths
     orbitalMotion.js      moon speed/angle arithmetic (see "Watch out for")
     quality.js            per-device render settings — read this before adding
@@ -78,6 +80,26 @@ guards, with tests that fail if the guards are removed.
 scene maps them as `(x, z, y)` and derives the belt plane from two Mars
 samples so the belts share a plane with the orbit rings. `orbits.test.js`
 pins that ~23.4° tilt, so a frame change can't slip through unnoticed.
+
+### Time
+
+Every position is computed from a date, so making the system explorable in
+time only meant changing which date. `utils/simTime.js` holds one simulated
+instant and a rate; the render loop reads it each frame *imperatively*, so
+dragging the scrubber through a decade never re-renders React.
+
+Two things to know if you touch this:
+
+- Planet positions cost an ephemeris call each, far too much per frame at real
+  time, so they refresh once a minute while live and every other frame while
+  scrubbing. The switch keys off `isLive()`, not the rate — jumping to another
+  date at rate 1 still has to move the planets.
+- Moons move two different ways on purpose. Live, the angle is integrated and
+  multiplied by a large factor, because a Galilean moon at its true rate is
+  motionless to the eye. Scrubbing, the angle is computed absolutely from the
+  date, so the system is correct for what is on screen and running time
+  backwards puts every moon exactly where it was. `scrubBase` carries the live
+  angles across the switch so the two modes join without a jump.
 
 ### Positions are real
 

@@ -7,6 +7,7 @@ import SpaceDataStrip from '../components/SpaceDataStrip';
 import ObjectCard from '../components/ObjectCard';
 import ObjectDetailBody from '../components/ObjectDetailBody';
 import SpacecraftViewer from '../components/SpacecraftViewer';
+import TimeControl from '../components/TimeControl';
 import { CATEGORY_TABS, getObjectsByCategory, getObjectById } from '../data/objectCatalog';
 import { useHorizons } from '../hooks/useHorizons';
 import { useIsMobile } from '../hooks/useMediaQuery';
@@ -235,6 +236,12 @@ const CategoryBrowser = () => {
                             height={sceneHeight}
                         />
                     </div>
+
+                    {/* Time scrubber. Kept while a planet is focused on desktop —
+                        watching a moon system wind forward is the best of it, and
+                        the bottom-left corner is clear of the centred sheet. Hidden
+                        on a focused mobile view, where the sheet takes that space. */}
+                    <TimeControl hidden={isMobile && !!id} />
 
                     {/* Home hints */}
                     <div

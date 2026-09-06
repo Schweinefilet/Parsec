@@ -13,6 +13,7 @@ import {
     keplerianScenePos, buildKeplerOrbitPoints, eclipticQuaternion,
 } from '../utils/orbits';
 import { proceduralSurface } from '../utils/proceduralTextures';
+import { simNow, isLive } from '../utils/simTime';
 import { quality, texturePath, pixelRatioFor } from '../utils/quality';
 import {
     targetOrbitSpeed, stepOrbitSpeed, targetIssSpeed,
@@ -1287,13 +1288,19 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         });
         MOON_DATA.forEach(moon => moonAngles.set(moon.name, moon.phase0));
 
-        // Refresh positions every 60 s
-        const posInterval = setInterval(() => {
-            if (!mounted) return;
+        // Planet positions come from an ephemeris call per planet, which is far
+        // too costly to run every frame at real time — a minute's refresh is
+        // imperceptible when a year takes a year. Once the clock is scrubbing,
+        // though, the planets are the whole point, so the animate loop takes
+        // over (see updatePlanetPositions below).
+        const updatePlanetPositions = (date) => {
             planetGroups.forEach(({ group, planet }) => {
-                const p = computePlanetPos(planet.name, planet.orbitR);
+                const p = computePlanetPos(planet.name, planet.orbitR, date);
                 group.position.set(p.x, p.y, p.z);
             });
+        };
+        const posInterval = setInterval(() => {
+            if (mounted && isLive()) updatePlanetPositions(new Date());
         }, 60000);
 
         // ── Raycaster helpers ──────────────────────────────────────────────────
@@ -1393,6 +1400,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         let animId;
         let frameCount = 0;
         let prevNowDays = null;
+        let scrubBase = null;   // live→scrub handover, see the moon block
         let meshRotSpeed = 0.002;
         let liveOrbitSpeed = 2000;
         let liveISSSpeed   = 2000; // tracked independently so hover response is immediate
@@ -1402,7 +1410,17 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         const animate = () => {
             animId = requestAnimationFrame(animate);
             frameCount++;
-            const nowDays = (Date.now() - ORBIT_EPOCH_MS) / 86400000;
+            const simMs   = simNow();
+            const simTime = new Date(simMs);
+            // "Scrubbing" is any state where the simulated clock has parted from
+            // the real one — including a plain jump to another date at live rate,
+            // which is what the slider does.
+            const scrubbing = !isLive();
+            // Planets then have to follow the clock. That is nine ephemeris calls,
+            // so it is throttled: every other frame is well past the point where
+            // the motion looks continuous.
+            if (scrubbing && frameCount % 2 === 0) updatePlanetPositions(simTime);
+            const nowDays = (simMs - ORBIT_EPOCH_MS) / 86400000;
             const currentFocusedId = focusedIdRef.current;
 
             // ── Detect focus changes ───────────────────────────────────────────
@@ -1549,8 +1567,28 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 );
             }
 
-            const deltaDays = prevNowDays != null ? Math.min(nowDays - prevNowDays, 0.005) : 0;
+            // Two ways of moving a moon, for two different jobs.
+            //
+            // Live, the angle is integrated frame to frame and multiplied by a
+            // large factor, because a Galilean moon moving at its real rate is
+            // motionless to the eye. That is a deliberate stylisation.
+            //
+            // Scrubbing, the angle is computed absolutely from the simulated
+            // date at the moon's true period, so the system is correct for the
+            // date on screen and running time backwards puts every moon exactly
+            // where it was. `scrubBase` carries the live angles across the
+            // switch so the two modes join without a jump.
+            const deltaDays = prevNowDays != null
+                ? Math.max(-0.005, Math.min(nowDays - prevNowDays, 0.005))
+                : 0;
             prevNowDays = nowDays;
+
+            if (scrubbing && !scrubBase) {
+                scrubBase = { days: nowDays, angles: new Map(moonAngles) };
+            } else if (!scrubbing && scrubBase) {
+                scrubBase = null;   // moonAngles already holds the handover value
+            }
+
             MOON_DATA.forEach(moon => {
                 const parentGroup = planetMeshRefs.get(moon.parent);
                 const moonMesh    = moonMeshRefs.get(moon.name);
@@ -1560,12 +1598,21 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 if (shadowVec) parentGroup.getWorldPosition(shadowVec);
                 const parentFocused = (focusedPlanet && moon.parent === focusedPlanet.name)
                     || (focusedMoonParent && moon.parent === focusedMoonParent);
-                const effectiveSpeed = moon.noSpeedScaling
-                    ? liveISSSpeed
-                    : parentFocused ? MOON_SPEED : DEFAULT_ORBIT_SPEED;
-                const angle = advanceMoonAngle(
-                    moon, moonAngles.get(moon.name) ?? moon.phase0, deltaDays, effectiveSpeed,
-                );
+                let angle;
+                if (scrubbing) {
+                    const base = scrubBase.angles.get(moon.name) ?? moon.phase0;
+                    const dir = moon.retrograde ? -1 : 1;
+                    const turns = (nowDays - scrubBase.days) / moon.period;
+                    angle = base + dir * Math.PI * 2 * turns;
+                    if (!Number.isFinite(angle)) angle = moon.phase0;
+                } else {
+                    const effectiveSpeed = moon.noSpeedScaling
+                        ? liveISSSpeed
+                        : parentFocused ? MOON_SPEED : DEFAULT_ORBIT_SPEED;
+                    angle = advanceMoonAngle(
+                        moon, moonAngles.get(moon.name) ?? moon.phase0, deltaDays, effectiveSpeed,
+                    );
+                }
                 moonAngles.set(moon.name, angle);
                 const off = moonOffset(moon, angle);
                 const mx = parentGroup.position.x + off.x;
@@ -1622,7 +1669,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
 
             // ── Small body positions (updated every frame; orbits are slow) ───
             smallBodyGroups.forEach(({ group, body }) => {
-                const rawP = keplerianScenePos(body.el, body.scale);
+                const rawP = keplerianScenePos(body.el, body.scale, simTime);
                 const pv   = new THREE.Vector3(rawP.x, rawP.y, rawP.z).applyQuaternion(beltQuat);
                 group.position.set(pv.x, pv.y, pv.z);
             });
@@ -1924,7 +1971,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 <div style={{
                     position: 'absolute',
                     bottom: '14px',
-                    left: '16px',
+                    right: '16px',
                     pointerEvents: 'none',
                     color: 'rgba(255,255,255,0.28)',
                     fontSize: '10px',

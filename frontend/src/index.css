@@ -279,3 +279,43 @@ body {
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
+
+/* ── Time scrubber ───────────────────────────────────────────── */
+/* The default range track is nearly invisible on a dark backdrop. */
+.time-scrub {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  background: transparent;
+  cursor: grab;
+}
+.time-scrub:active { cursor: grabbing; }
+.time-scrub::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.30) 50%, rgba(255,255,255,0.18) 100%);
+}
+.time-scrub::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.24);
+}
+.time-scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin-top: -5px;
+  border-radius: 999px;
+  background: #dce8ff;
+  border: 1px solid rgba(0,0,0,0.4);
+  box-shadow: 0 1px 5px rgba(0,0,0,0.6);
+}
+.time-scrub::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: #dce8ff;
+  border: 1px solid rgba(0,0,0,0.4);
+}
