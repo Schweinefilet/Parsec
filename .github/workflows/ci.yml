@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm test
+
+      - run: npm run build
+
+      # The scene is only worth shipping if it stays small. These ceilings are
+      # generous against current numbers (~5.7 MB of 2K textures, ~1.3 MB of 1K,
+      # ~4.8 MB of meshes) and exist to catch a 90 MB model being committed
+      # again, not to nag over a few hundred KB.
+      - name: Check asset budget
+        run: |
+          budget() {
+            local dir=$1 limit_mb=$2 label=$3
+            local kb=$(du -sk "$dir" | cut -f1)
+            local mb=$((kb / 1024))
+            echo "$label: ${mb} MB (limit ${limit_mb} MB)"
+            if [ "$mb" -gt "$limit_mb" ]; then
+              echo "::error::$label is ${mb} MB, over the ${limit_mb} MB budget"
+              exit 1
+            fi
+          }
+          budget public/textures 12 "textures"
+          budget public/models    8 "models"
+          budget dist            30 "built site"

@@ -15,10 +15,12 @@ npm run dev      # http://localhost:5173
 ```
 
 ```bash
-npm test          # vitest, ~100 tests
+npm test          # vitest — 107 tests
 npm run lint
 npm run build     # static bundle in frontend/dist
 ```
+
+CI runs all three on every push, plus an asset-size budget.
 
 There is no backend — every data source is called directly from the browser.
 
@@ -90,8 +92,25 @@ when you focus its planet, not to scale.
 
 ### Assets
 
-Textures are 4K for planets and 2K for moons; the ISS and Vesta meshes are
-decimated for the web and load during idle time rather than blocking the first
-frame. Bodies without a photographic map are painted procedurally at runtime,
-which costs no download at all. Keep an eye on total payload when adding
-anything here — the whole point is that the scene starts fast.
+Textures ship at 2K, with a 1K set under `public/textures/1k/` for phones. The
+ISS and Vesta meshes are decimated for the web and load during idle time rather
+than blocking the first frame. Bodies with no photographic map are painted at
+runtime, which costs no download at all.
+
+CI enforces a budget on `public/textures`, `public/models` and `dist`. If you
+need to raise it, that should be a deliberate decision rather than a surprise.
+
+### Deployment
+
+Static build, served by Render from `frontend/dist`.
+
+Client-side routing needs the host to hand unknown paths back to the SPA. The
+build emits a `404.html` copy of the shell, which makes deep links work
+anywhere with no configuration — but they still answer with a 404 *status*,
+which link previews and crawlers treat as broken. For a proper 200, set the
+rewrite in Render → Settings → Redirects/Rewrites:
+
+    Source /*   Destination /index.html   Action Rewrite
+
+`render.yaml` declares the same rule, but it only applies automatically if the
+service was created from a blueprint.
