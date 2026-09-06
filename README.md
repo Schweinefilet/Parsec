@@ -61,6 +61,7 @@ frontend/src/
     nearestCountry.js     which country the ISS ground point is closest to
     probeTracks.js        the Voyagers' flown trajectories, and the radial
                           compression every off-ring position goes through
+    useNearViewport.js    gate expensive loads on approaching the viewport
 ```
 
 ### Performance is a feature here
@@ -87,6 +88,20 @@ guards, with tests that fail if the guards are removed.
 scene maps them as `(x, z, y)` and derives the belt plane from two Mars
 samples so the belts share a plane with the orbit rings. `orbits.test.js`
 pins that ~23.4° tilt, so a frame change can't slip through unnoticed.
+
+**Textures reach the GPU when something using them is first drawn**, not when
+they finish loading. The upload and its mipmaps are a stall, so left alone the
+scene hitches every few seconds as bodies rotate into view and then runs
+perfectly once they are all resident — "laggy for a minute, then fine", which
+reads like a slow network and is not. `SolarSystem3D` walks the `textures` list
+a couple per frame calling `renderer.initTexture`, which pays that cost up front
+and thinly. If you add a texture, put it in that list.
+
+**`loading="lazy"` is the browser's judgement, not yours.** The catalog sits a
+screen below the 3D scene, and its cards carry megapixel photographs — seven of
+them, 30 MB of decoded pixels, were being fetched during the scene's first
+seconds for cards nobody had scrolled to. `useNearViewport` gates the `<img>`
+on an IntersectionObserver instead, so the margin is ours.
 
 **Two coordinate frames that look identical until they don't.**
 `HelioVector` returns J2000 *equatorial*; JPL Horizons hands you J2000

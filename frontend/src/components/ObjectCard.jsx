@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { objectImage } from '../data/objectImages';
 import { accentOf } from '../data/categoryStyles';
+import { useNearViewport } from '../hooks/useNearViewport';
 
 /**
  * Generated cover art for the objects NASA has no usable photograph of —
@@ -58,11 +59,21 @@ const ObjectCard = ({ object }) => {
     const src = objectImage(object.id);
     const [failed, setFailed] = useState(false);
     const [loaded, setLoaded] = useState(false);
-    const showPhoto = !!src && !failed;
     const accent = accentOf(object.category);
+
+    // The catalog sits a whole screen below the 3D scene, and these are big
+    // photographs — 1280px square in places, which is 6 MB of pixels once
+    // decoded. `loading="lazy"` was letting them through anyway, so seven of
+    // them were being fetched and decoded during the scene's first seconds,
+    // for cards nobody had scrolled to yet. Now the <img> does not exist until
+    // the card is nearly on screen.
+    const cardRef = useRef(null);
+    const near = useNearViewport(cardRef, '400px');
+    const showPhoto = !!src && !failed;
 
     return (
         <button
+            ref={cardRef}
             type="button"
             onClick={() => navigate(`/object/${object.id}`)}
             className="object-card group"
@@ -86,7 +97,7 @@ const ObjectCard = ({ object }) => {
         >
             {showPhoto ? (
                 <>
-                    <img
+                    {near && <img
                         src={src}
                         alt=""
                         loading="lazy"
@@ -101,7 +112,7 @@ const ObjectCard = ({ object }) => {
                             opacity: loaded ? 1 : 0,
                             transition: 'opacity 0.5s ease, transform 0.6s cubic-bezier(0.22,0.61,0.36,1)',
                         }}
-                    />
+                    />}
                     {/* Legibility scrim — darkest where the text sits */}
                     <div
                         aria-hidden="true"

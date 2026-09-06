@@ -16,6 +16,32 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.5.6
+
+- **The scene no longer hitches for the first minute on a phone.** It was not
+  the network, and it was not the download size — both had been dealt with in
+  1.5.3. A texture only reaches the GPU the first time something using it is
+  actually drawn, and that upload, with its mipmaps, is a stall. So the stalls
+  were arriving one at a time, whenever a body first rotated into view, for as
+  long as it took the camera to sweep past all thirty-odd of them — and then
+  everything was resident and it ran perfectly. Profiled on a throttled phone
+  profile, five textures were still being uploaded more than eighteen seconds
+  in, the last at forty-two. They are now pushed to the GPU deliberately, two
+  per frame, so it is all done inside the first couple of seconds and spread
+  thinly enough not to drop a frame. Textures uploaded after eighteen seconds:
+  five before, none after.
+
+- **The catalog was loading photographs for cards nobody had scrolled to.**
+  Not all seventy — only the open category, and `loading="lazy"` was on them —
+  but browsers choose their own margin for that and choose it generously, so
+  seven images came down during the scene's first seconds, several of them
+  1280px square. Around 30 MB of decoded pixels competing with the scene for
+  memory on a device that has little to spare. `useNearViewport` now gates the
+  `<img>` on an IntersectionObserver with a margin we pick, so nothing is
+  fetched until its card is nearly on screen: seven images and 30 MB before,
+  two and 8 MB after, and all eight still there by the time you have scrolled
+  to them.
+
 ## 1.5.5
 
 - **The Voyager tracks are the paths the spacecraft actually flew.** They were

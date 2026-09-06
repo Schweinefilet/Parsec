@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import ObjectCard from './ObjectCard';
 import ObjectStatsPanel from './ObjectStatsPanel';
@@ -46,6 +46,41 @@ describe('ObjectCard', () => {
             const { unmount } = withRouter(<ObjectCard object={object} />);
             unmount();
         }
+    });
+
+    describe('when the browser can tell it what is on screen', () => {
+        // jsdom has no IntersectionObserver, so the card loads eagerly in every
+        // test above — which is the documented fallback, not the real path.
+        // These drive the real one.
+        let fire;
+        const withObserver = (fn) => {
+            const original = globalThis.IntersectionObserver;
+            globalThis.IntersectionObserver = class {
+                constructor(cb) { fire = () => cb([{ isIntersecting: true }]); }
+                observe() {} unobserve() {} disconnect() {}
+            };
+            try { return fn(); } finally { globalThis.IntersectionObserver = original; }
+        };
+
+        it('holds the photograph back until the card is nearly on screen', () => {
+            // The catalog is a screen below the 3D scene, and these are
+            // megapixel images. Fetching them during the scene's first seconds
+            // is what made a phone crawl.
+            withObserver(() => {
+                const { container } = withRouter(<ObjectCard object={getObjectById('saturn')} />);
+                expect(container.querySelector('img')).toBeNull();
+                // Text is on the card from the start either way
+                expect(screen.getByText('Saturn')).toBeInTheDocument();
+            });
+        });
+
+        it('loads it once the card comes near', () => {
+            withObserver(() => {
+                const { container } = withRouter(<ObjectCard object={getObjectById('saturn')} />);
+                act(() => fire());
+                expect(container.querySelector('img')).not.toBeNull();
+            });
+        });
     });
 });
 

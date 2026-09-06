@@ -158,6 +158,27 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         const loader   = new THREE.TextureLoader();
         const textures = [];
 
+        // A texture only reaches the GPU the first time something using it is
+        // actually drawn, and the upload — plus building its mipmaps — is a
+        // stall. Left alone, that stall lands whenever a body first rotates
+        // into view, so a phone hitches every few seconds for as long as it
+        // takes the camera to sweep past all thirty-odd of them, and then runs
+        // perfectly once they are all resident. That is the "laggy for a
+        // minute, then fine" this fixes.
+        //
+        // So they are pushed to the GPU deliberately, a couple per frame, in
+        // the order they were created. Everything is resident within a second
+        // or two, thinly enough spread not to drop a frame, and nothing is left
+        // to surprise the renderer later. `textures` already collects every one
+        // of them for disposal, which makes it the list to walk.
+        let uploadedUpTo = 0;
+        const uploadSomeTextures = () => {
+            for (let n = 0; n < 2 && uploadedUpTo < textures.length; n++) {
+                const tex = textures[uploadedUpTo++];
+                if (tex) renderer.initTexture(tex);
+            }
+        };
+
         // Heavy meshes (ISS, Vesta) are several MB and are only ever seen close
         // up, so they wait for an idle moment instead of competing with the
         // textures that make up the first frame.
@@ -2118,6 +2139,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 spin(abLODGroups, 'abAngles', 'abSize');
                 spin(kbLODGroups, 'kbAngles', 'kbSize');
             }
+
+            uploadSomeTextures();
 
             if (sRingRefs.mat?.userData?.shader) {
                 sRingRefs.group.getWorldPosition(
