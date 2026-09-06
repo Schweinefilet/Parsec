@@ -16,6 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.5.1
+
+- Fixed the gap in the telemetry ticker's scroll loop. It duplicated its 7
+  cells exactly once and wrapped at half that width — seamless only if one
+  copy is at least as wide as the bar, but the bar spans the full viewport
+  width on any normal desktop window, far wider than 7 short cells. Past the
+  end of the two copies the scrolled window ran into empty track before the
+  wrap point arrived, which showed as dead space after the last cell ("Sol
+  Wind") until the loop caught back up. The copy count is now measured
+  against the container and kept just ahead of what the width needs, on any
+  screen from a phone to an ultrawide monitor.
+
 ## 1.5.0
 
 - **Imagery for objects the scene cannot place.** 27 of the 70 objects have no
