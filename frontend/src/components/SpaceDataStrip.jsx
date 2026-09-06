@@ -1,6 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { useSpaceStrip } from '../hooks/useSpaceStrip';
-import { useReducedMotion } from '../hooks/useMediaQuery';
 
 const SCROLL_SPEED = 0.45;
 
@@ -42,7 +41,6 @@ const SpaceDataStrip = () => {
     const dragStartX = useRef(0);
     const dragStartOffset = useRef(0);
     const rafRef = useRef(null);
-    const reduceMotion = useReducedMotion();
 
     const normalize = useCallback((val) => {
         const track = trackRef.current;
@@ -54,8 +52,11 @@ const SpaceDataStrip = () => {
         return val;
     }, []);
 
+    // Deliberately not gated on prefers-reduced-motion. The strip holds more
+    // readings than fit on screen, so stopping it hides data rather than just
+    // calming the page — and it stays draggable either way. The same figures
+    // are all on the ISS tracker for anyone who would rather not chase them.
     useEffect(() => {
-        if (reduceMotion) return;
         const tick = () => {
             if (!isDragging.current && trackRef.current) {
                 offsetRef.current = normalize(offsetRef.current - SCROLL_SPEED);
@@ -65,7 +66,7 @@ const SpaceDataStrip = () => {
         };
         rafRef.current = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(rafRef.current);
-    }, [normalize, reduceMotion]);
+    }, [normalize]);
 
     const handlePointerDown = useCallback(e => {
         isDragging.current = true;

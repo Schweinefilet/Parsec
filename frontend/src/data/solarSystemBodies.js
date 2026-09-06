@@ -150,3 +150,31 @@ export function isSurfacePainted(id) {
     if (MOON_DATA.some(m => m.id === id)) return !MOON_TEXTURES[id];
     return SMALL_BODIES.some(b => b.id === id);
 }
+
+// ── Interstellar probes ────────────────────────────────────────────────────
+// Real Horizons state vectors (CENTER=500@10, VECTORS, AU, J2000 equatorial)
+// at two epochs five years apart. Both craft are on hyperbolic escape
+// trajectories far beyond the planets, where the Sun's pull is negligible and
+// motion is a straight line to well under a hundredth of an AU — so a position
+// at any date is a linear read between these two samples.
+//
+// `scale` is scene units per AU, shared by both so their relative distances
+// stay honest. It is far smaller than the planets' scale: Voyager 1 is 171 AU
+// out, and at the inner system's scale it would sit thousands of units off
+// screen. Same compression the rest of the view uses, just more of it.
+export const PROBE_EPOCH_A = Date.UTC(2026, 0, 1);
+export const PROBE_EPOCH_B = Date.UTC(2031, 0, 1);
+export const PROBE_SCALE = 4.0;
+
+export const PROBES = [
+    {
+        id: 'voyager1', name: 'Voyager 1', color: '#ffd9a0', r: 6, focusDist: 46,
+        a: [-31.83641396068854, -134.6784849020786,  97.44480620314309],
+        b: [-34.00817390450292, -149.0263894391153, 107.8072242760942],
+    },
+    {
+        id: 'voyager2', name: 'Voyager 2', color: '#a8d4ff', r: 6, focusDist: 46,
+        a: [ 39.22753200608659, -103.9915497105585, -87.91865807489688],
+        b: [ 43.66497936520670, -113.8326465813978, -99.84384764825664],
+    },
+];

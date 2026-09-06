@@ -5,12 +5,12 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import {
     PLANETS, PLANET_PBR, AXIAL_TILT_DEG, PLANET_TEXTURES, MOON_TEXTURES,
-    MOON_DATA, SMALL_BODIES,
+    MOON_DATA, SMALL_BODIES, PROBES,
 } from '../data/solarSystemBodies';
 import {
     DEG2RAD, ORBIT_EPOCH_MS, ORBIT_BASE_OPACITY, ORBIT_HOVER_OPACITY,
     PLANET_EMISSIVE_INTENSITY, computePlanetPos, buildOrbitPoints, buildOrbitTube,
-    keplerianScenePos, buildKeplerOrbitPoints, eclipticQuaternion,
+    keplerianScenePos, buildKeplerOrbitPoints, eclipticQuaternion, probeScenePos,
 } from '../utils/orbits';
 import { proceduralSurface } from '../utils/proceduralTextures';
 import { simNow, isLive } from '../utils/simTime';
@@ -1117,6 +1117,65 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             smallBodyGroups.push({ group, body });
         });
 
+
+        // ── Interstellar probes ───────────────────────────────────────────────
+        // Voyager 1 and 2, at their real positions. They are metres across and
+        // over a hundred AU out, so there is nothing to model — what matters is
+        // where they are and which way they went. Each gets a small emissive
+        // marker with an additive halo (so it stays visible at that distance)
+        // and a faint line back to the Sun showing the direction of travel.
+        const probeGroups = [];
+        PROBES.forEach(probe => {
+            const group = new THREE.Group();
+
+            const coreGeo = new THREE.SphereGeometry(1.6, 12, 12);
+            const coreMat = new THREE.MeshBasicMaterial({ color: probe.color });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            core.userData = { id: probe.id, name: probe.name };
+            group.add(core);
+            geos.push(coreGeo); mats.push(coreMat);
+
+            const haloGeo = new THREE.SphereGeometry(4.5, 12, 12);
+            const haloMat = new THREE.MeshBasicMaterial({
+                color: probe.color, transparent: true, opacity: 0.28,
+                blending: THREE.AdditiveBlending, depthWrite: false,
+            });
+            group.add(new THREE.Mesh(haloGeo, haloMat));
+            geos.push(haloGeo); mats.push(haloMat);
+
+            // Position it now, not on the first animate frame. Focus detection
+            // runs before the per-frame probe update, so a group still sitting at
+            // the origin would send the camera flying to the Sun instead.
+            const here = probeScenePos(probe, new Date());
+            group.position.set(here.x, here.y, here.z);
+            scene.add(group);
+
+            // Outbound track, from the Sun out to the craft
+            const start = here;
+            const trackGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(start.x, start.y, start.z),
+            ]);
+            const trackMat = new THREE.LineBasicMaterial({
+                color: probe.color, transparent: true, opacity: 0.16, depthWrite: false,
+            });
+            const track = new THREE.Line(trackGeo, trackMat);
+            scene.add(track);
+            geos.push(trackGeo); mats.push(trackMat);
+
+            // Generous hitbox — the marker itself is a few pixels from anywhere
+            // you would realistically be looking at it from
+            const hitGeo = new THREE.SphereGeometry(16, 8, 8);
+            const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+            const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+            hitMesh.userData = { id: probe.id, name: probe.name };
+            group.add(hitMesh);
+            geos.push(hitGeo); mats.push(hitMat);
+
+            planetMeshes.push(core, hitMesh);
+            probeGroups.push({ group, track, probe });
+        });
+
         // ── Moon meshes (MOON_DATA) ────────────────────────────────────────────
         let issOrbitMat  = null; // fades in/out with Earth focus
         let issRingMesh  = null; // billboard selection ring at ISS position
@@ -1491,7 +1550,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                         // for meshes whose sphere was swapped for an STL model (Vesta).
                         const focusDef = PLANETS.find(b => b.id === currentFocusedId)
                             ?? SMALL_BODIES.find(b => b.id === currentFocusedId)
-                            ?? MOON_DATA.find(b => b.id === currentFocusedId);
+                            ?? MOON_DATA.find(b => b.id === currentFocusedId)
+                            ?? PROBES.find(b => b.id === currentFocusedId);
                         const radius = focusDef?.r ?? focusDef?.radius
                             ?? newMesh.geometry?.parameters?.radius ?? 3.5;
                         const isTinyBody = SMALL_BODIES.some(b => b.id === currentFocusedId)
@@ -1502,8 +1562,9 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                                      : newMesh.userData.id === 'halley' ? 7
                                      // Small bodies & moons scale with radius — the flat +2
                                      // pushed tiny objects much too far from the camera
-                                     : isTinyBody ? Math.max(radius * 5.5, 0.5)
-                                     : radius * 3.5 + 2;
+                                     : focusDef?.focusDist
+                                     ?? (isTinyBody ? Math.max(radius * 5.5, 0.5)
+                                                    : radius * 3.5 + 2);
                         // A portrait viewport has a far narrower horizontal field of
                         // view, so a distance framed for landscape pushes the body off
                         // both edges. Back off in proportion, with a ceiling so phones
@@ -1674,6 +1735,21 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 group.position.set(pv.x, pv.y, pv.z);
             });
 
+            // ── Probe positions ──────────────────────────────────────────────
+            probeGroups.forEach(({ group, track, probe }) => {
+                const pp = probeScenePos(probe, simTime);
+                group.position.set(pp.x, pp.y, pp.z);
+                // Hold the marker at a constant angular size. A probe is metres
+                // across; anything with a fixed world size is either invisible
+                // from the inner system or, up close, bigger than Earth.
+                const d = camera.position.distanceTo(group.position);
+                group.scale.setScalar(Math.max(0.02, d * 0.0078));
+                // Stretch the outbound line to keep pace with the craft
+                const arr = track.geometry.attributes.position.array;
+                arr[3] = pp.x; arr[4] = pp.y; arr[5] = pp.z;
+                track.geometry.attributes.position.needsUpdate = true;
+            });
+
             // ── Halley coma: orient group so local +Z points anti-sunward ─────
             if (halleyGroupRef) {
                 const hp  = halleyGroupRef.position;
@@ -1744,7 +1820,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
 
                 const bodyDef = PLANETS.find(b => b.id === currentFocusedId)
                     ?? SMALL_BODIES.find(b => b.id === currentFocusedId)
-                    ?? MOON_DATA.find(b => b.id === currentFocusedId);
+                    ?? MOON_DATA.find(b => b.id === currentFocusedId)
+                    ?? PROBES.find(b => b.id === currentFocusedId);
                 const planetRadius = bodyDef?.r ?? bodyDef?.radius ?? 3.5;
                 controls.minDistance = planetRadius * 2.5;
                 // Near plane must stay smaller than the closest moon can get to the camera.
@@ -1863,6 +1940,10 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                     smallBodyGroups.forEach(({ group, body }) => {
                         const pos = project(group);
                         if (pos) newLabels.push({ name: body.name, kind: 'small-body', ...pos });
+                    });
+                    probeGroups.forEach(({ group, probe }) => {
+                        const pos = project(group);
+                        if (pos) newLabels.push({ name: probe.name, kind: 'small-body', ...pos });
                     });
                 } else {
                     // Focused on a planet — show its moons only

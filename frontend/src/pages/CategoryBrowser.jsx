@@ -93,6 +93,12 @@ const LiveDistanceRow = ({ spacecraftId }) => {
 // Planets whose moons exist in the 3D scene
 const PLANETS_WITH_MOONS = new Set(['earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']);
 const SPACECRAFT_CATEGORIES = new Set(['space-stations', 'space-telescopes', 'deep-space-probes', 'historical']);
+// Spacecraft that exist in the 3D scene, so they get the fly-to treatment
+// rather than a separate card.
+const SPACECRAFT_IN_SCENE = new Set(['iss', 'voyager1', 'voyager2']);
+// The standalone model viewer is stashed for now. Flip this back to true to
+// bring it back; SpacecraftViewer and its procedural models are untouched.
+const SHOW_SPACECRAFT_VIEWER = false;
 
 const CategoryBrowser = () => {
     const match = useMatch('/object/:id');
@@ -107,8 +113,9 @@ const CategoryBrowser = () => {
 
     // Objects rendered by the solar-system scene use the 3D presentation; the
     // rest (Hubble, Voyager, …) get the spacecraft viewer card instead.
-    const inScene = !!object && (!SPACECRAFT_CATEGORIES.has(object.category) || object.id === 'iss');
-    const isSpacecraftCard = !!object && SPACECRAFT_CATEGORIES.has(object.category) && object.id !== 'iss';
+    const inScene = !!object
+        && (!SPACECRAFT_CATEGORIES.has(object.category) || SPACECRAFT_IN_SCENE.has(object.id));
+    const isSpacecraftCard = !!object && !inScene;
 
     // ── UI state ───────────────────────────────────────────────────────────
     const [hasInteracted3D, setHasInteracted3D] = useState(false);
@@ -479,9 +486,11 @@ const CategoryBrowser = () => {
 
                                     {isSpacecraftCard && (
                                         <>
-                                            <div className="glass overflow-hidden" style={{ borderRadius: 'var(--radius-card)' }}>
-                                                <SpacecraftViewer spacecraftId={object.id} />
-                                            </div>
+                                            {SHOW_SPACECRAFT_VIEWER && (
+                                                <div className="glass overflow-hidden" style={{ borderRadius: 'var(--radius-card)' }}>
+                                                    <SpacecraftViewer spacecraftId={object.id} />
+                                                </div>
+                                            )}
                                             <div className="glass p-5">
                                                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                                                     <div>
