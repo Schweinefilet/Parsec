@@ -6,7 +6,7 @@ live over a rendered Earth.
 
 **Live:** <https://parsec-uo4a.onrender.com/>
 
-**Version 1.4.3.** Releases follow `MAJOR.MINOR.PATCH` — main version, big
+**Version 1.5.0.** Releases follow `MAJOR.MINOR.PATCH` — main version, big
 patch, minor patch. See [CHANGELOG.md](CHANGELOG.md) for what each level means
 and the history; `frontend/package.json` tracks the same number.
 

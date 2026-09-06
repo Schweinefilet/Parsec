@@ -178,3 +178,16 @@ export const PROBES = [
         b: [ 43.66497936520670, -113.8326465813978, -99.84384764825664],
     },
 ];
+
+// Every id the 3D scene actually draws. Objects outside this set — exoplanets,
+// deep-sky targets, near-Earth asteroids, most spacecraft — have no position to
+// fly to, so their pages show imagery instead of an empty starfield.
+const SCENE_BODY_IDS = new Set([
+    'sun',
+    ...PLANETS.map(p => p.id),
+    ...MOON_DATA.map(m => m.id),
+    ...SMALL_BODIES.map(b => b.id),
+    ...PROBES.map(p => p.id),
+]);
+
+export const hasSceneBody = (id) => SCENE_BODY_IDS.has(id);

@@ -16,6 +16,20 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.5.0
+
+- **Imagery for objects the scene cannot place.** 27 of the 70 objects have no
+  body in the 3D view — every exoplanet and deep-sky target, the near-Earth
+  asteroids, and the spacecraft without a scene position. Their pages showed a
+  faded starfield with panels floating over nothing. They now show the curated
+  photograph where the planet would have been, or the generated cover art for
+  the twelve NASA has no usable image of, with the name and key figures
+  flanking it as they do for a planet.
+- Scene membership is now read from the scene itself rather than guessed from
+  an object's category. The old test called Andromeda "in scene" and then
+  focused the camera on nothing.
+- The time scrubber is hidden on those pages, where it has nothing to move.
+
 ## 1.4.3
 
 - The Voyager tracks now run from Earth rather than the Sun. They launched from

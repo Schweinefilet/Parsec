@@ -9,7 +9,7 @@ import { accentOf } from '../data/categoryStyles';
  * object so a card always looks the same, and clearly a designed graphic
  * rather than a failed image.
  */
-const FallbackArt = ({ object }) => {
+export const FallbackArt = ({ object }) => {
     const { rgb } = accentOf(object.category);
     // Stable pseudo-random offsets from the id so each card differs slightly
     const seed = [...object.id].reduce((a, c) => a + c.charCodeAt(0), 0);

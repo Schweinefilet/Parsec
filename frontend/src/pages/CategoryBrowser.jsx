@@ -6,9 +6,11 @@ import SolarSystem3D from '../components/SolarSystem3D';
 import SpaceDataStrip from '../components/SpaceDataStrip';
 import ObjectCard from '../components/ObjectCard';
 import ObjectDetailBody from '../components/ObjectDetailBody';
+import ObjectHero from '../components/ObjectHero';
 import SpacecraftViewer from '../components/SpacecraftViewer';
 import TimeControl from '../components/TimeControl';
 import { CATEGORY_TABS, getObjectsByCategory, getObjectById } from '../data/objectCatalog';
+import { hasSceneBody } from '../data/solarSystemBodies';
 import { useHorizons } from '../hooks/useHorizons';
 import { useIsMobile } from '../hooks/useMediaQuery';
 
@@ -93,9 +95,6 @@ const LiveDistanceRow = ({ spacecraftId }) => {
 // Planets whose moons exist in the 3D scene
 const PLANETS_WITH_MOONS = new Set(['earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']);
 const SPACECRAFT_CATEGORIES = new Set(['space-stations', 'space-telescopes', 'deep-space-probes', 'historical']);
-// Spacecraft that exist in the 3D scene, so they get the fly-to treatment
-// rather than a separate card.
-const SPACECRAFT_IN_SCENE = new Set(['iss', 'voyager1', 'voyager2']);
 // The standalone model viewer is stashed for now. Flip this back to true to
 // bring it back; SpacecraftViewer and its procedural models are untouched.
 const SHOW_SPACECRAFT_VIEWER = false;
@@ -111,11 +110,13 @@ const CategoryBrowser = () => {
 
     const object = useMemo(() => (id ? getObjectById(id) : null), [id]);
 
-    // Objects rendered by the solar-system scene use the 3D presentation; the
-    // rest (Hubble, Voyager, …) get the spacecraft viewer card instead.
-    const inScene = !!object
-        && (!SPACECRAFT_CATEGORIES.has(object.category) || SPACECRAFT_IN_SCENE.has(object.id));
+    // Whether the scene has a body to fly to. Exoplanets, deep-sky targets,
+    // near-Earth asteroids and most spacecraft have none — asking the category
+    // was a poor proxy, since it called Andromeda "in scene" and then focused
+    // on nothing. Those objects show imagery instead.
+    const inScene = !!object && hasSceneBody(object.id);
     const isSpacecraftCard = !!object && !inScene;
+    const isSpacecraft = !!object && SPACECRAFT_CATEGORIES.has(object.category);
 
     // ── UI state ───────────────────────────────────────────────────────────
     const [hasInteracted3D, setHasInteracted3D] = useState(false);
@@ -148,8 +149,6 @@ const CategoryBrowser = () => {
         setDescriptionOpen(false);
         setMoonHintVisible(false);
         if (!id) return;
-        if (isSpacecraftCard) { setSheetOpen(true); setDescriptionOpen(true); return; }
-
         const openAt = setTimeout(() => {
             setDescriptionOpen(true);
             if (isMobile) setSheetOpen(true);
@@ -240,8 +239,11 @@ const CategoryBrowser = () => {
                     onWheel={() => setHasInteracted3D(true)}
                 >
                     <div style={{
-                        opacity: isSpacecraftCard ? 0.10 : 1,
-                        filter: isSpacecraftCard ? 'saturate(0.35)' : 'none',
+                        // Barely there. The scene is irrelevant to these objects,
+                        // and at a readable opacity its planet labels drift across
+                        // the image competing with it.
+                        opacity: isSpacecraftCard ? 0.05 : 1,
+                        filter: isSpacecraftCard ? 'saturate(0.3)' : 'none',
                         transition: 'opacity 600ms ease, filter 600ms ease',
                         pointerEvents: isSpacecraftCard ? 'none' : 'auto',
                     }}>
@@ -252,11 +254,29 @@ const CategoryBrowser = () => {
                         />
                     </div>
 
+                    {/* Imagery stands in for objects the scene cannot place */}
+                    {object && !inScene && (
+                        <div
+                            className="absolute inset-0 flex justify-center pointer-events-none"
+                            style={{
+                                zIndex: 3,
+                                padding: '0 16px',
+                                // Mobile sits it under the header and above the
+                                // sheet; centring would bury it, since the sheet
+                                // opens over the lower half.
+                                alignItems: isMobile ? 'flex-start' : 'center',
+                                paddingTop: isMobile ? 76 : 0,
+                            }}
+                        >
+                            <ObjectHero object={object} compact={isMobile} />
+                        </div>
+                    )}
+
                     {/* Time scrubber. Kept while a planet is focused on desktop —
                         watching a moon system wind forward is the best of it, and
                         the bottom-left corner is clear of the centred sheet. Hidden
                         on a focused mobile view, where the sheet takes that space. */}
-                    <TimeControl hidden={isMobile && !!id} />
+                    <TimeControl hidden={(isMobile && !!id) || (!!id && !inScene)} />
 
                     {/* Home hints */}
                     <div
@@ -332,7 +352,7 @@ const CategoryBrowser = () => {
                     )}
 
                     {/* Desktop annotations flanking the body */}
-                    {!isMobile && object && inScene && (
+                    {!isMobile && object && (
                         <div
                             className="absolute inset-0 pointer-events-none flex items-center justify-between px-6 md:px-16 transition-all duration-1000 ease-out"
                             style={{
@@ -495,9 +515,9 @@ const CategoryBrowser = () => {
                                         </div>
                                     )}
 
-                                    {isSpacecraftCard && (
+                                    {isSpacecraft && (
                                         <>
-                                            {SHOW_SPACECRAFT_VIEWER && (
+                                            {SHOW_SPACECRAFT_VIEWER && isSpacecraftCard && (
                                                 <div className="glass overflow-hidden" style={{ borderRadius: 'var(--radius-card)' }}>
                                                     <SpacecraftViewer spacecraftId={object.id} />
                                                 </div>
@@ -551,7 +571,7 @@ const CategoryBrowser = () => {
                                     )}
 
                                     {/* Desktop already shows the description above the fold */}
-                                    <ObjectDetailBody object={object} showDescription={isMobile || isSpacecraftCard} />
+                                    <ObjectDetailBody object={object} showDescription={isMobile} />
                                 </div>
                             </div>
                         </div>
