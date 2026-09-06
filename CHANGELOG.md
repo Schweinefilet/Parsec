@@ -16,6 +16,14 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.5.2
+
+- Removed the middle-dot (·) separators from the home-view hint text and the
+  time control's readout — "Drag to orbit · Scroll to zoom · Click any object to
+  explore" and "1w/s · 30 days ahead" read as comma-joined phrases now.
+- Moved the "Explore the catalog" pill down onto the same row as the time
+  control, rather than stacked in its own row above it.
+
 ## 1.5.1
 
 - Fixed the gap in the telemetry ticker's scroll loop. It duplicated its 7

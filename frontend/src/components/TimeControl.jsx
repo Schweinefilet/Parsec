@@ -146,7 +146,7 @@ const TimeControl = ({ hidden }) => {
                             <div style={{
                                 fontSize: 9.5, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap',
                             }}>
-                                {live ? `${fmtTime(date)} · live` : `${rateLabel} · ${offsetLabel(off)}`}
+                                {live ? `${fmtTime(date)}, live` : `${rateLabel}, ${offsetLabel(off)}`}
                             </div>
                         </div>
 

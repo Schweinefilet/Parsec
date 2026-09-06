@@ -278,31 +278,37 @@ const CategoryBrowser = () => {
                         on a focused mobile view, where the sheet takes that space. */}
                     <TimeControl hidden={(isMobile && !!id) || (!!id && !inScene)} />
 
-                    {/* Home hints */}
-                    <div
-                        className="absolute inset-x-0 flex flex-col items-center pointer-events-none"
-                        // Sits above the time control's band rather than beside
-                        // it: the control is bottom-left and this is centred, so
-                        // on a narrower laptop window the two ran into each other.
-                        style={{ bottom: isMobile ? 22 : 78, zIndex: 4, gap: 6, padding: '0 16px' }}
+                    {/* Home hint text — sits above the time control's band rather
+                        than beside it: the control is bottom-left and this is
+                        centred, so on a narrower laptop window the two ran into
+                        each other. */}
+                    <p
+                        className="absolute inset-x-0 transition-opacity duration-700 pointer-events-none"
+                        style={{
+                            bottom: isMobile ? 74 : 82,
+                            zIndex: 4,
+                            padding: '0 16px',
+                            opacity: id || hasInteracted3D ? 0 : 1,
+                            color: 'rgba(255,255,255,0.58)',
+                            fontSize: isMobile ? 10 : 11,
+                            fontWeight: 600,
+                            letterSpacing: '0.07em',
+                            textShadow: '0 1px 6px rgba(0,0,0,0.9)',
+                            textAlign: 'center',
+                            margin: 0,
+                        }}
                     >
-                        <p
-                            className="transition-opacity duration-700"
-                            style={{
-                                opacity: id || hasInteracted3D ? 0 : 1,
-                                color: 'rgba(255,255,255,0.58)',
-                                fontSize: isMobile ? 10 : 11,
-                                fontWeight: 600,
-                                letterSpacing: '0.07em',
-                                textShadow: '0 1px 6px rgba(0,0,0,0.9)',
-                                textAlign: 'center',
-                                margin: 0,
-                            }}
-                        >
-                            {isMobile
-                                ? 'Drag to orbit · Pinch to zoom · Tap to explore'
-                                : 'Drag to orbit · Scroll to zoom · Click any object to explore'}
-                        </p>
+                        {isMobile
+                            ? 'Drag to orbit, pinch to zoom, tap to explore'
+                            : 'Drag to orbit, scroll to zoom, click any object to explore'}
+                    </p>
+
+                    {/* Catalog entry point — kept on the same row as the time
+                        control rather than stacked above it. */}
+                    <div
+                        className="absolute inset-x-0 flex justify-center pointer-events-none"
+                        style={{ bottom: isMobile ? 12 : 18, zIndex: 4, padding: '0 16px' }}
+                    >
                         <button
                             onClick={scrollToCatalog}
                             aria-label="Scroll down to the object catalog"
