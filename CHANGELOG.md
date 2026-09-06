@@ -16,6 +16,11 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.4.2
+
+- Removed the offset caption that appeared under the time control while
+  dragging the scrubber. The pill already reads out the same thing.
+
 ## 1.4.1
 
 - Scaled the Voyager markers down. They were sized to hold a constant angular

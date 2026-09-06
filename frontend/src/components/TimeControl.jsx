@@ -39,7 +39,6 @@ const TimeControl = ({ hidden }) => {
     const isMobile = useIsMobile();
     const [, force] = useState(0);
     const [open, setOpen] = useState(false);
-    const [dragging, setDragging] = useState(false);
     const dragRef = useRef(false);
 
     // Repaint the readout a few times a second; the scene doesn't wait on this
@@ -159,9 +158,9 @@ const TimeControl = ({ hidden }) => {
                             step={1}
                             value={sliderValue}
                             onChange={onScrub}
-                            onPointerDown={() => { dragRef.current = true; setDragging(true); }}
-                            onPointerUp={() => { dragRef.current = false; setDragging(false); }}
-                            onPointerCancel={() => { dragRef.current = false; setDragging(false); }}
+                            onPointerDown={() => { dragRef.current = true; }}
+                            onPointerUp={() => { dragRef.current = false; }}
+                            onPointerCancel={() => { dragRef.current = false; }}
                             aria-label="Scrub through time"
                             aria-valuetext={fmtDate(date)}
                             style={{ width: isMobile ? 100 : 168, accentColor: '#9fc4ff' }}
@@ -189,15 +188,6 @@ const TimeControl = ({ hidden }) => {
                     </>
                 )}
             </div>
-
-            {!compact && dragging && (
-                <p style={{
-                    margin: '6px 0 0', textAlign: 'center', fontSize: 10,
-                    color: 'rgba(255,255,255,0.5)',
-                }}>
-                    {offsetLabel(off)}
-                </p>
-            )}
         </div>
     );
 };
