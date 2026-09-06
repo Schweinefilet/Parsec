@@ -183,22 +183,30 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         });
 
         // ── Milky Way skysphere ────────────────────────────────────────────────
-        const skyGeo = new THREE.SphereGeometry(8000, q.skySegments, q.skySegments);
-        const skyTex = loader.load(texturePath('milky_way.jpg'));
-        textures.push(skyTex);
-        const skyMat = new THREE.MeshBasicMaterial({
-            map:         skyTex,
-            side:        THREE.BackSide,
-            depthWrite:  false,
-            transparent: true,
-            opacity:     0.35,
-        });
-        const skySphere = new THREE.Mesh(skyGeo, skyMat);
-        scene.add(skySphere);
+        // Skipped entirely on phones (q.skyTexture === null): a full-screen
+        // backdrop is the worst case for a mobile GPU's fill rate, and it is the
+        // one thing you are always looking past. Desktop gets the 8K map.
+        let skySphere = null;
+        let skyGeo = null;
+        let skyMat = null;
+        if (q.skyTexture) {
+            skyGeo = new THREE.SphereGeometry(8000, q.skySegments, q.skySegments);
+            const skyTex = loader.load('/textures/' + q.skyTexture);
+            textures.push(skyTex);
+            skyMat = new THREE.MeshBasicMaterial({
+                map:         skyTex,
+                side:        THREE.BackSide,
+                depthWrite:  false,
+                transparent: true,
+                opacity:     0.35,
+            });
+            skySphere = new THREE.Mesh(skyGeo, skyMat);
+            scene.add(skySphere);
+        }
 
         // ── Resource tracking (for cleanup) ────────────────────────────────────
-        const geos     = [sunGeo, skyGeo];
-        const mats     = [sunMat, skyMat];
+        const geos     = [sunGeo, skyGeo].filter(Boolean);
+        const mats     = [sunMat, skyMat].filter(Boolean);
 
         // Additive glow layers — colors add on top of the scene, building a bright halo
         const GLOW_LAYERS = [
@@ -1013,22 +1021,9 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             // ── Halley: glowing coma + twin tails, streaming along local +Z ──────
             // The group is re-oriented every frame so +Z points anti-sunward.
             if (body.isComet) {
-                // Coma — layered additive shells wrap the nucleus in a soft halo
-                [
-                    { r: 0.20, op: 0.34, color: '#f2f6ff' },
-                    { r: 0.36, op: 0.16, color: '#d8e8ff' },
-                    { r: 0.62, op: 0.07, color: '#b8d4ff' },
-                    { r: 1.05, op: 0.03, color: '#96bcff' },
-                ].forEach(({ r, op, color }) => {
-                    const g = new THREE.SphereGeometry(r, 24, 24);
-                    const m = new THREE.MeshBasicMaterial({
-                        color, transparent: true, opacity: op,
-                        depthWrite: false, blending: THREE.AdditiveBlending,
-                    });
-                    group.add(new THREE.Mesh(g, m));
-                    geos.push(g);
-                    mats.push(m);
-                });
+                // No coma shells here: concentric additive spheres read as flat
+                // rings around the nucleus rather than a halo. The tails below
+                // carry the comet's shape on their own.
 
                 // Soft radial sprite — without a map, points render as hard squares
                 // that are very visible at the close focused-camera distance.
@@ -1627,9 +1622,14 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             const targetRotSpeed = moonFocused ? 0.00008 : 0.002;
             meshRotSpeed += (targetRotSpeed - meshRotSpeed) * 0.03;
             sunMesh.rotation.y      += 0.0008;
-            skySphere.rotation.y    += 0.00002;
+            if (skySphere) skySphere.rotation.y += 0.00002;
             planetMeshes.forEach(m => {
-                m.rotation.y += meshRotSpeed;
+                // Halley holds still while focused. Its nucleus is an irregular
+                // lump and the tails are fixed anti-sunward, so spinning it just
+                // makes the shape wobble under a static tail.
+                if (!(m.userData.id === 'halley' && currentFocusedId === 'halley')) {
+                    m.rotation.y += meshRotSpeed;
+                }
                 // Smoothly lerp axial tilt instead of snapping (avoids surface-texture jump)
                 const targetZ = tiltTargets.get(m.uuid);
                 if (targetZ !== undefined) {

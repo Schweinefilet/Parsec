@@ -175,9 +175,11 @@ const CategoryBrowser = () => {
         window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
     }, []);
 
-    // Mobile puts a full-width sheet over the lower half, so the focused body
-    // is lifted clear of it. Desktop keeps the body centred as it always was.
-    const focusOffsetY = !id ? 0 : isMobile ? 0.24 : 0;
+    // Mobile lifts the focused body clear of the sheet — but only while the
+    // sheet is actually covering it. Collapsed, the viewport is free again and
+    // the object returns to centre instead of staying pinned to the top half.
+    // Desktop keeps the body centred throughout.
+    const focusOffsetY = id && isMobile && sheetOpen ? 0.24 : 0;
 
     // OrbitControls sets touch-action:none on the canvas so one finger orbits.
     // That also means a full-height canvas swallows the swipe people use to

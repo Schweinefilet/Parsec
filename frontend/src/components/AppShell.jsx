@@ -160,7 +160,7 @@ const AppShell = ({ children }) => {
                 aria-label="Object categories"
                 inert={navHidden || undefined}
                 aria-hidden={navHidden || undefined}
-                className="fixed bottom-0 left-0 right-0 z-50 flex items-stretch transition-all duration-500 ease-in-out no-scrollbar"
+                className="fixed bottom-0 left-0 right-0 z-50 flex transition-all duration-500 ease-in-out no-scrollbar"
                 style={{
                     // Not .glass: at 8% white over bright catalog imagery the
                     // labels were barely legible. This needs to be opaque enough
@@ -174,12 +174,19 @@ const AppShell = ({ children }) => {
                     overflowX: 'auto',
                     overflowY: 'hidden',
                     padding: '0 8px',
-                    gap: 2,
                     transform: navHidden ? 'translateY(100%)' : 'translateY(0)',
                     opacity: navHidden ? 0 : 1,
                     pointerEvents: navHidden ? 'none' : 'auto',
                 }}
             >
+                {/* Inner track: `margin: auto` centres the tabs when the window
+                    is wide enough to hold them all, and collapses to zero when
+                    it isn't, so the bar still scrolls from the first tab. A bare
+                    `justify-content: center` would clip the start when the tabs
+                    overflow. Which way it lands depends on window width, which
+                    is why this looked fine on one machine and left-packed on
+                    another. */}
+                <div style={{ display: 'flex', alignItems: 'stretch', gap: 2, margin: '0 auto', flex: '0 0 auto' }}>
                 {CATEGORY_TABS.map(({ id, label }) => {
                     const Icon = TAB_ICONS[id] ?? CircleDot;
                     const isActive = activeTab === id;
@@ -214,6 +221,7 @@ const AppShell = ({ children }) => {
                         </button>
                     );
                 })}
+                </div>
             </nav>
         </div>
     );

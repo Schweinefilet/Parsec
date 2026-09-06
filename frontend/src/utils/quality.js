@@ -43,6 +43,10 @@ const TIERS = {
         beltParticles: { asteroid: 1200, kuiper: 1600 },
         beltLOD: false,          // instanced STL asteroids: skip entirely
         beltLODRotate: false,
+        // No Milky Way sphere on phones. It is a full-screen backdrop with an
+        // 8192-wide map behind it, which is the worst possible shape for a
+        // mobile GPU: maximum overdraw for something you look past.
+        skyTexture: null,
         heroTextureSize: 512,    // procedural map resolution for close-up bodies
         minorTextureSize: 256,
         // Kept on: tile-based mobile GPUs resolve MSAA cheaply, and without it
@@ -62,6 +66,7 @@ const TIERS = {
         beltParticles: { asteroid: 2200, kuiper: 3200 },
         beltLOD: true,
         beltLODRotate: false,    // build the instances once, don't spin them per frame
+        skyTexture: 'milky_way.jpg',            // 2K
         heroTextureSize: 1024,
         minorTextureSize: 512,
         antialias: true,
@@ -78,6 +83,10 @@ const TIERS = {
         beltParticles: { asteroid: 3500, kuiper: 5000 },
         beltLOD: true,
         beltLODRotate: true,
+        // Desktop gets the full 8K sky. It costs ~170 MB of GPU texture memory,
+        // which only a discrete/desktop GPU should be asked for — but it is the
+        // difference between a starfield and a Milky Way.
+        skyTexture: '8k/milky_way.jpg',
         heroTextureSize: 1024,
         minorTextureSize: 512,
         antialias: true,

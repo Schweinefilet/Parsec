@@ -13,10 +13,10 @@ describe('tier settings', () => {
             for (const key of [
                 'texturePath', 'maxPixelRatio', 'pixelBudget', 'shadows',
                 'planetSegments', 'moonSegments', 'skySegments',
-                'beltParticles', 'beltLOD', 'beltLODRotate',
+                'beltParticles', 'beltLOD', 'beltLODRotate', 'skyTexture',
                 'heroTextureSize', 'minorTextureSize', 'antialias', 'starCount',
             ]) {
-                expect(q[key], `${tier} is missing ${key}`).toBeDefined();
+                expect(q, `${tier} is missing ${key}`).toHaveProperty(key);
             }
             expect(q.beltParticles.asteroid).toBeGreaterThan(0);
             expect(q.beltParticles.kuiper).toBeGreaterThan(0);
@@ -36,6 +36,14 @@ describe('tier settings', () => {
         expect(low.shadows).toBe(false);
         expect(high.shadows).toBe(true);
         expect(low.beltLOD).toBe(false);
+    });
+
+    it('drops the Milky Way sphere on phones and gives desktop the 8K map', () => {
+        const read = (tier) => { __setTier(tier); return quality(); };
+        // A full-screen backdrop is the worst case for a mobile GPU's fill rate
+        expect(read('low').skyTexture).toBeNull();
+        expect(read('medium').skyTexture).toBe('milky_way.jpg');
+        expect(read('high').skyTexture).toBe('8k/milky_way.jpg');
     });
 
     it('sends the low tier to the small texture set', () => {
