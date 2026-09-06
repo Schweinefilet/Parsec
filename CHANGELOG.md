@@ -16,6 +16,14 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.4.1
+
+- Scaled the Voyager markers down. They were sized to hold a constant angular
+  size, which sounds right but means the world size grows without limit — from
+  the default view, over a thousand units out, the halo had grown to rival the
+  Sun. The scaling is now capped well under Neptune's radius, so they read as
+  markers at any zoom while staying legible when focused.
+
 ## 1.4.0
 
 Interstellar probes, a time control, and a rebuild of the rocky surfaces.

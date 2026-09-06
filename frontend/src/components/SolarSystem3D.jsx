@@ -1128,14 +1128,14 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         PROBES.forEach(probe => {
             const group = new THREE.Group();
 
-            const coreGeo = new THREE.SphereGeometry(1.6, 12, 12);
+            const coreGeo = new THREE.SphereGeometry(1.0, 12, 12);
             const coreMat = new THREE.MeshBasicMaterial({ color: probe.color });
             const core = new THREE.Mesh(coreGeo, coreMat);
             core.userData = { id: probe.id, name: probe.name };
             group.add(core);
             geos.push(coreGeo); mats.push(coreMat);
 
-            const haloGeo = new THREE.SphereGeometry(4.5, 12, 12);
+            const haloGeo = new THREE.SphereGeometry(3.0, 12, 12);
             const haloMat = new THREE.MeshBasicMaterial({
                 color: probe.color, transparent: true, opacity: 0.28,
                 blending: THREE.AdditiveBlending, depthWrite: false,
@@ -1739,11 +1739,14 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             probeGroups.forEach(({ group, track, probe }) => {
                 const pp = probeScenePos(probe, simTime);
                 group.position.set(pp.x, pp.y, pp.z);
-                // Hold the marker at a constant angular size. A probe is metres
-                // across; anything with a fixed world size is either invisible
-                // from the inner system or, up close, bigger than Earth.
+                // Scale with camera distance so the marker stays legible up
+                // close, but cap it: pure constant-angular-size means the world
+                // size grows without limit, and from the default view — over a
+                // thousand units away — the halo came out rivalling the Sun.
+                // The cap is well under Neptune's radius, so it reads as a
+                // marker rather than a body.
                 const d = camera.position.distanceTo(group.position);
-                group.scale.setScalar(Math.max(0.02, d * 0.0078));
+                group.scale.setScalar(Math.min(1.2, Math.max(0.06, d * 0.0085)));
                 // Stretch the outbound line to keep pace with the craft
                 const arr = track.geometry.attributes.position.array;
                 arr[3] = pp.x; arr[4] = pp.y; arr[5] = pp.z;
