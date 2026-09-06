@@ -47,6 +47,9 @@ const TIERS = {
         // 8192-wide map behind it, which is the worst possible shape for a
         // mobile GPU: maximum overdraw for something you look past.
         skyTexture: null,
+        // Bump maps double a painted body's texture memory. The phone tier
+        // has the least room and the smallest screen to show relief on.
+        bumpMaps: false,
         heroTextureSize: 512,    // procedural map resolution for close-up bodies
         minorTextureSize: 256,
         // Kept on: tile-based mobile GPUs resolve MSAA cheaply, and without it
@@ -67,6 +70,7 @@ const TIERS = {
         beltLOD: true,
         beltLODRotate: false,    // build the instances once, don't spin them per frame
         skyTexture: 'milky_way.jpg',            // 2K
+        bumpMaps: true,
         heroTextureSize: 1024,
         minorTextureSize: 512,
         antialias: true,
@@ -87,6 +91,7 @@ const TIERS = {
         // which only a discrete/desktop GPU should be asked for — but it is the
         // difference between a starfield and a Milky Way.
         skyTexture: '8k/milky_way.jpg',
+        bumpMaps: true,
         heroTextureSize: 1024,
         minorTextureSize: 512,
         antialias: true,

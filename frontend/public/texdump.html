@@ -1,0 +1,18 @@
+<!doctype html><html><body style="margin:0;background:#111">
+<div id="out" style="display:grid;grid-template-columns:repeat(2,512px);gap:8px;padding:8px"></div>
+<script type="module">
+import { proceduralSurface } from '/src/utils/proceduralTextures.js';
+const ids = ['pallas','ceres','umbriel','proteus','oberon','deimos'];
+const out = document.getElementById('out');
+for (const id of ids) {
+  const surf = proceduralSurface(id, '#888888', 'rocky');
+  const c = surf.map.image;
+  const wrap = document.createElement('div');
+  const lbl = document.createElement('div');
+  lbl.textContent = id; lbl.style.cssText='color:#fff;font:12px system-ui;padding:2px';
+  const img = document.createElement('img');
+  img.src = c.toDataURL(); img.style.cssText='width:512px;display:block';
+  wrap.appendChild(lbl); wrap.appendChild(img); out.appendChild(wrap);
+}
+window.__ready = true;
+</script></body></html>

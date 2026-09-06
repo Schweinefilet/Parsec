@@ -12,7 +12,7 @@ import {
     PLANET_EMISSIVE_INTENSITY, computePlanetPos, buildOrbitPoints, buildOrbitTube,
     keplerianScenePos, buildKeplerOrbitPoints, eclipticQuaternion,
 } from '../utils/orbits';
-import { proceduralTexture } from '../utils/proceduralTextures';
+import { proceduralSurface } from '../utils/proceduralTextures';
 import { quality, texturePath, pixelRatioFor } from '../utils/quality';
 import {
     targetOrbitSpeed, stepOrbitSpeed, targetIssSpeed,
@@ -318,11 +318,16 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             // outright or the file failed to load.
             const applyPaintedSurface = () => {
                 if (!mounted) return;
-                const tex = proceduralTexture(planet.id, planet.color,
+                const surf = proceduralSurface(planet.id, planet.color,
                     planet.name === 'Pluto' ? 'icy' : 'rocky');
-                textures.push(tex);
-                colorMat.map = tex;
+                textures.push(surf.map);
+                colorMat.map = surf.map;
                 colorMat.color.set(0xffffff);
+                if (surf.bumpMap) {
+                    textures.push(surf.bumpMap);
+                    colorMat.bumpMap = surf.bumpMap;
+                    colorMat.bumpScale = surf.bumpScale;
+                }
                 colorMat.needsUpdate = true;
             };
 
@@ -956,8 +961,14 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             });
             const mesh = new THREE.Mesh(geo, mat);
             mesh.userData = { id: body.id, name: body.name, orbitLine };
-            mesh.castShadow    = q.shadows;
-            mesh.receiveShadow = q.shadows;
+            // Deliberately outside the shadow map. These bodies are a fraction
+            // of a scene unit across while the point light's shadow camera spans
+            // 2000, so they fall well under one shadow texel and end up
+            // self-shadowed into near-blackness — which is why Pallas rendered
+            // three times darker than Luna despite a brighter texture. Nothing
+            // meaningful casts onto them anyway.
+            mesh.castShadow    = false;
+            mesh.receiveShadow = false;
             geos.push(geo);
             mats.push(mat);
 
@@ -965,10 +976,15 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             // carries no UVs, so a map can't apply; their shape does the work.
             if (!['vesta', 'halley'].includes(body.id)) {
                 const icy = ['haumea', 'makemake', 'eris'].includes(body.id);
-                const tex = proceduralTexture(body.id, body.color, icy ? 'icy' : 'rocky');
-                textures.push(tex);
-                mat.map = tex;
+                const surf = proceduralSurface(body.id, body.color, icy ? 'icy' : 'rocky');
+                textures.push(surf.map);
+                mat.map = surf.map;
                 mat.color.set(0xffffff);
+                if (surf.bumpMap) {
+                    textures.push(surf.bumpMap);
+                    mat.bumpMap = surf.bumpMap;
+                    mat.bumpScale = surf.bumpScale;
+                }
             }
 
             // STL model for Vesta
@@ -1173,10 +1189,15 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 // Painted surface (ISS is excluded — its sphere becomes the STL model).
                 // Icy moons keep a faint self-glow so they stay readable against space.
                 const icy = ['europa', 'enceladus', 'triton', 'titan'].includes(moon.id);
-                const tex = proceduralTexture(moon.id ?? moon.name, moon.color, icy ? 'icy' : 'rocky');
-                textures.push(tex);
-                moonMat.map = tex;
+                const surf = proceduralSurface(moon.id ?? moon.name, moon.color, icy ? 'icy' : 'rocky');
+                textures.push(surf.map);
+                moonMat.map = surf.map;
                 moonMat.color.set(0xffffff);
+                if (surf.bumpMap) {
+                    textures.push(surf.bumpMap);
+                    moonMat.bumpMap = surf.bumpMap;
+                    moonMat.bumpScale = surf.bumpScale;
+                }
                 // Icy surfaces are highly reflective in reality but render grey
                 // this far from the Sun, so give them a little self-glow and a
                 // smoother finish to catch the light.

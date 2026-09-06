@@ -29,17 +29,33 @@ function seededRand(seedKey) {
 // ── Drawing primitives ─────────────────────────────────────────────────────
 // Every primitive draws three times (x, x−W, x+W) so features that straddle
 // the UV seam continue across it instead of being cut in half.
-function makePainter(ctx, W, H, rand) {
+//
+// Each profile is painted twice: once as colour, once as a height map used for
+// bump shading. `mode` decides which marks belong in which. Relief (craters,
+// grooves, grain) goes in both; pure albedo (regional patches, polar caps,
+// named bright regions) is colour only, because a bright patch is not a hill.
+//
+// Both passes run the same primitives in the same order and consume the same
+// random numbers whatever the mode, so features land in identical places and
+// the two maps register exactly.
+function makePainter(ctx, W, H, rand, mode = 'color') {
     const wrapped = (x, draw) => { draw(x); draw(x - W); draw(x + W); };
     const pick = (arr) => arr[Math.floor(rand() * arr.length) % arr.length];
+    const isColor = mode === 'color';
+    // In the height pass, "bright" means raised and "dark" means sunken
+    const relief = (up, amount) => up
+        ? `rgba(255,255,255,${amount})`
+        : `rgba(0,0,0,${amount})`;
 
     return {
         rand,
         wrapped,
         pick,
+        mode,
 
         fill(color) {
-            ctx.fillStyle = color;
+            // Height starts flat mid-grey; colour starts at the body's base tone
+            ctx.fillStyle = isColor ? color : '#808080';
             ctx.fillRect(0, 0, W, H);
         },
 
@@ -51,6 +67,7 @@ function makePainter(ctx, W, H, rand) {
                 const r = rMin + rand() * (rMax - rMin);
                 const a = alphaMin + rand() * (alphaMax - alphaMin);
                 const c = pick(colors);
+                if (!isColor) continue;          // albedo, not relief
                 wrapped(x, (wx) => {
                     const g = ctx.createRadialGradient(wx, y, 0, wx, y, r);
                     g.addColorStop(0, `rgba(${c},${a})`);
@@ -76,25 +93,30 @@ function makePainter(ctx, W, H, rand) {
                 const ra = rim * (0.6 + rand() * 0.7);
                 const rays = rand() < rayChance;
                 wrapped(x, (wx) => {
-                    if (rays) {
+                    // Ejecta rays are a splash of bright dust, not topography
+                    if (rays && isColor) {
                         const g = ctx.createRadialGradient(wx, y, r * 0.9, wx, y, r * 3.6);
                         g.addColorStop(0, `rgba(255,255,255,${ra * 0.45})`);
                         g.addColorStop(1, 'rgba(255,255,255,0)');
                         ctx.fillStyle = g;
                         ctx.fillRect(wx - r * 3.6, y - r * 3.6, r * 7.2, r * 7.2);
                     }
-                    // Bowl
+                    // Bowl — darker albedo, and genuinely lower in the height map
+                    const depth = isColor ? fa : Math.min(0.85, fa * 2.6);
                     const g = ctx.createRadialGradient(wx, y, 0, wx, y, r);
-                    g.addColorStop(0, `rgba(0,0,0,${fa})`);
-                    g.addColorStop(0.70, `rgba(0,0,0,${fa * 0.5})`);
+                    g.addColorStop(0, relief(false, depth));
+                    g.addColorStop(0.70, relief(false, depth * 0.5));
                     g.addColorStop(1, 'rgba(0,0,0,0)');
                     ctx.fillStyle = g;
                     ctx.beginPath(); ctx.arc(wx, y, r, 0, Math.PI * 2); ctx.fill();
-                    // Sunlit rim: bright on the upper-left, shadowed lower-right
-                    const lx = wx - r * 0.16, ly = y - r * 0.16;
+                    // Raised rim. Offset in colour so every crater is lit from the
+                    // same side; centred in height, where the shader does the lighting.
+                    const lift = isColor ? ra : Math.min(0.9, ra * 2.4);
+                    const lx = isColor ? wx - r * 0.16 : wx;
+                    const ly = isColor ? y - r * 0.16 : y;
                     const rg = ctx.createRadialGradient(lx, ly, r * 0.68, lx, ly, r * 1.08);
                     rg.addColorStop(0, 'rgba(255,255,255,0)');
-                    rg.addColorStop(0.55, `rgba(255,255,255,${ra})`);
+                    rg.addColorStop(0.55, relief(true, lift));
                     rg.addColorStop(1, 'rgba(255,255,255,0)');
                     ctx.fillStyle = rg;
                     ctx.beginPath(); ctx.arc(lx, ly, r * 1.08, 0, Math.PI * 2); ctx.fill();
@@ -102,27 +124,54 @@ function makePainter(ctx, W, H, rand) {
             }
         },
 
+        /**
+         * Heavily cratered terrain, the way an airless rocky surface actually
+         * looks: a few large basins, more mid-size craters, and a great many
+         * tiny ones — laid down largest-first so younger small craters cut
+         * across older big ones. A single crater pass at one size band is what
+         * made these bodies read as perforated cheese rather than ground.
+         */
+        cratered({ density = 1, rays = 0.16, floor = 0.20, rim = 0.17, maxR = 26 }) {
+            const bands = [
+                { n: Math.round(3 * density),   min: maxR * 0.55, max: maxR,        f: 0.85, r: 1.0 },
+                { n: Math.round(10 * density),  min: maxR * 0.26, max: maxR * 0.55, f: 0.95, r: 1.0 },
+                { n: Math.round(34 * density),  min: maxR * 0.12, max: maxR * 0.26, f: 1.0,  r: 0.95 },
+                { n: Math.round(90 * density),  min: maxR * 0.05, max: maxR * 0.12, f: 1.0,  r: 0.85 },
+                { n: Math.round(240 * density), min: 0.8,         max: maxR * 0.05, f: 0.9,  r: 0.6 },
+            ];
+            for (const b of bands) {
+                this.craters({
+                    count: b.n, rMin: b.min, rMax: b.max,
+                    floor: floor * b.f, rim: rim * b.r,
+                    rayChance: b.min > maxR * 0.05 ? rays : rays * 0.35,
+                });
+            }
+        },
+
         // One named, oversized impact basin (Mimas' Herschel, Tethys' Odysseus)
         basin({ x, y, r, floor = 0.30, rim = 0.34, peak = true }) {
             const px = x * W, py = y * H, pr = r * W;
+            const bFloor = isColor ? floor : Math.min(0.9, floor * 2.2);
+            const bRim = isColor ? rim : Math.min(0.9, rim * 2.2);
             wrapped(px, (wx) => {
                 const g = ctx.createRadialGradient(wx, py, 0, wx, py, pr);
-                g.addColorStop(0, `rgba(0,0,0,${floor})`);
-                g.addColorStop(0.72, `rgba(0,0,0,${floor * 0.55})`);
+                g.addColorStop(0, relief(false, bFloor));
+                g.addColorStop(0.72, relief(false, bFloor * 0.55));
                 g.addColorStop(1, 'rgba(0,0,0,0)');
                 ctx.fillStyle = g;
                 ctx.beginPath(); ctx.arc(wx, py, pr, 0, Math.PI * 2); ctx.fill();
                 // Feathered rim wall
-                const lx = wx - pr * 0.10, ly = py - pr * 0.10;
+                const lx = isColor ? wx - pr * 0.10 : wx;
+                const ly = isColor ? py - pr * 0.10 : py;
                 const rg = ctx.createRadialGradient(lx, ly, pr * 0.80, lx, ly, pr * 1.10);
                 rg.addColorStop(0, 'rgba(255,255,255,0)');
-                rg.addColorStop(0.5, `rgba(255,255,255,${rim})`);
+                rg.addColorStop(0.5, relief(true, bRim));
                 rg.addColorStop(1, 'rgba(255,255,255,0)');
                 ctx.fillStyle = rg;
                 ctx.beginPath(); ctx.arc(lx, ly, pr * 1.10, 0, Math.PI * 2); ctx.fill();
                 if (peak) {
                     const pg = ctx.createRadialGradient(wx, py, 0, wx, py, pr * 0.24);
-                    pg.addColorStop(0, `rgba(255,255,255,${rim * 0.75})`);
+                    pg.addColorStop(0, relief(true, bRim * 0.75));
                     pg.addColorStop(1, 'rgba(255,255,255,0)');
                     ctx.fillStyle = pg;
                     ctx.beginPath(); ctx.arc(wx, py, pr * 0.24, 0, Math.PI * 2); ctx.fill();
@@ -193,6 +242,7 @@ function makePainter(ctx, W, H, rand) {
 
         // Latitudinal cloud/haze banding
         bands({ count, colors, alphaMin = 0.04, alphaMax = 0.12, blur = 10 }) {
+            if (!isColor) { for (let i = 0; i < count * 3; i++) rand(); return; }
             ctx.save();
             ctx.filter = `blur(${blur}px)`;
             for (let i = 0; i < count; i++) {
@@ -238,7 +288,8 @@ function makePainter(ctx, W, H, rand) {
                 ctx.rotate(angle);
                 for (let i = 0; i < linesPerSet; i++) {
                     const off = (i - linesPerSet / 2) * spacing;
-                    ctx.strokeStyle = `rgba(${color},${alpha * (0.4 + rand() * 0.9)})`;
+                    const a = alpha * (0.4 + rand() * 0.9);
+                    ctx.strokeStyle = isColor ? `rgba(${color},${a})` : relief(false, a * 1.6);
                     ctx.lineWidth = 0.6 + rand() * 1.5;
                     ctx.beginPath();
                     ctx.moveTo(-length / 2, off);
@@ -251,6 +302,7 @@ function makePainter(ctx, W, H, rand) {
 
         // A specific named region (Pluto's Tombaugh Regio, Triton's polar cap)
         region({ x, y, rx, ry, color, alpha = 0.5, softness = 0.45, rotate = 0 }) {
+            if (!isColor) return;                // bright ground, not high ground
             const px = x * W, py = y * H, prx = rx * W, pry = ry * H;
             wrapped(px, (wx) => {
                 ctx.save();
@@ -268,6 +320,7 @@ function makePainter(ctx, W, H, rand) {
 
         // Darken or brighten one hemisphere — Iapetus' famous two-tone split
         hemisphere({ center = 0.25, color, alpha = 0.5, feather = 0.22 }) {
+            if (!isColor) return;
             const cx = center * W;
             const half = W * 0.25;
             wrapped(cx, (wx) => {
@@ -282,6 +335,7 @@ function makePainter(ctx, W, H, rand) {
 
         // Bright polar cap on the north (−1) or south (+1) edge
         polarCap({ side = 1, extent = 0.16, color = '255,255,255', alpha = 0.55 }) {
+            if (!isColor) return;
             const y0 = side > 0 ? H * (1 - extent) : 0;
             const g = ctx.createLinearGradient(0, side > 0 ? H : 0, 0, side > 0 ? y0 : H * extent);
             g.addColorStop(0, `rgba(${color},${alpha})`);
@@ -313,6 +367,44 @@ function makePainter(ctx, W, H, rand) {
             }
         },
     };
+}
+
+/**
+ * The Moon, generalised.
+ *
+ * Every airless rocky body here is built from the same four moves, because
+ * that is what actually makes one look real: broad tonal regions laid down
+ * first (dark plains against bright highlands — the tonal *range* is what sells
+ * it), a hint of non-grey colour, craters at every scale on top of the terrain
+ * rather than under it, and fine grain last.
+ *
+ * `light` scales overall brightness, `density` the cratering.
+ */
+function lunarTerrain(p, {
+    light = 1,
+    density = 1,
+    maxR = 24,
+    rays = 0.20,
+    dark = ['96,90,80', '72,68,62', '116,106,90'],
+    bright = ['252,249,242', '236,232,224', '255,253,246'],
+    tint = ['196,170,132', '158,164,178'],
+    contrast = 1,
+} = {}) {
+    const a = (v) => Math.min(0.95, v * contrast);
+    // Big dark plains — the maria equivalent, and the main source of tonal range
+    p.patches({ count: Math.round(22 * density), rMin: 70, rMax: 210,
+        alphaMin: a(0.16), alphaMax: a(0.38), colors: dark });
+    // Bright highlands over and between them
+    p.patches({ count: Math.round(38 * density), rMin: 45, rMax: 150,
+        alphaMin: a(0.32 * light), alphaMax: a(0.62 * light), colors: bright });
+    // A little colour so it is not a greyscale ball
+    p.patches({ count: 18, rMin: 22, rMax: 78, alphaMin: 0.05, alphaMax: 0.14, colors: tint });
+    // Medium-scale mottling — breaks up any remaining flat areas
+    p.patches({ count: 60, rMin: 10, rMax: 40, alphaMin: 0.04, alphaMax: 0.12,
+        colors: [...dark, ...bright] });
+
+    p.cratered({ density: 2.6 * density, rays, floor: a(0.30), rim: a(0.26), maxR });
+    p.grain({ count: 2600, alpha: 0.06 });
 }
 
 // ── Per-body surface profiles ──────────────────────────────────────────────
@@ -358,21 +450,22 @@ const PROFILES = {
         p.grain({ count: 1400, alpha: 0.05 });
     }},
 
-    callisto: { hero: true, base: '#6b6560', paint: (p) => {
+    callisto: { hero: true, base: '#bcb4a8', paint: (p) => {
         // The most heavily cratered surface in the solar system
-        p.patches({ count: 40, rMin: 30, rMax: 140, alphaMin: 0.08, alphaMax: 0.20,
-            colors: ['40,36,34', '90,84,78'] });
-        p.craters({ count: 260, rMin: 1.2, rMax: 16, floor: 0.20, rim: 0.20, rayChance: 0.34 });
-        p.basin({ x: 0.30, y: 0.36, r: 0.075, floor: 0.20, rim: 0.34 });  // Valhalla
-        p.basin({ x: 0.30, y: 0.36, r: 0.130, floor: 0.03, rim: 0.13, peak: false });
-        p.grain({ count: 1800, alpha: 0.06 });
+        lunarTerrain(p, {
+            light: 0.85, density: 1.6, maxR: 20, rays: 0.30, contrast: 1.05,
+            dark: ['72,64,58', '52,46,42', '92,80,66'],
+            bright: ['206,198,186', '184,176,166', '222,212,196'],
+            tint: ['162,132,98', '124,128,138'],
+        });
+        p.basin({ x: 0.30, y: 0.36, r: 0.075, floor: 0.24, rim: 0.36 });    // Valhalla
+        p.basin({ x: 0.30, y: 0.36, r: 0.130, floor: 0.04, rim: 0.16, peak: false });
     }},
 
     // ── Saturn's moons ─────────────────────────────────────────────────────
-    mimas: { hero: true, base: '#c9c6c1', paint: (p) => {
-        p.craters({ count: 190, rMin: 1.2, rMax: 10, floor: 0.20, rim: 0.20 });
-        p.basin({ x: 0.28, y: 0.40, r: 0.10, floor: 0.26, rim: 0.40 });   // Herschel
-        p.grain({ count: 1100, alpha: 0.05 });
+    mimas: { hero: true, base: '#dcd8d2', paint: (p) => {
+        lunarTerrain(p, { light: 1.05, density: 1.1, maxR: 16, rays: 0.24 });
+        p.basin({ x: 0.28, y: 0.40, r: 0.10, floor: 0.32, rim: 0.44 });   // Herschel
     }},
 
     enceladus: { hero: true, base: '#e9f0f7', paint: (p) => {
@@ -390,24 +483,21 @@ const PROFILES = {
         p.grain({ count: 700, alpha: 0.03 });
     }},
 
-    tethys: { base: '#c4c0ba', paint: (p) => {
-        p.craters({ count: 150, rMin: 1.2, rMax: 9, floor: 0.18, rim: 0.18 });
-        p.basin({ x: 0.62, y: 0.44, r: 0.075, floor: 0.20, rim: 0.30 });  // Odysseus
-        p.lineae({ count: 5, color: '90,88,84', widthMin: 2, widthMax: 4,
-            alphaMin: 0.14, alphaMax: 0.24, len: 0.9 });                  // Ithaca Chasma
-        p.grain({ count: 900, alpha: 0.05 });
+    tethys: { base: '#d8d4ce', paint: (p) => {
+        lunarTerrain(p, { light: 1.0, density: 0.9, maxR: 15, rays: 0.20 });
+        p.basin({ x: 0.62, y: 0.44, r: 0.075, floor: 0.26, rim: 0.34 });  // Odysseus
+        p.lineae({ count: 5, color: '86,84,80', widthMin: 2, widthMax: 4,
+            alphaMin: 0.18, alphaMax: 0.30, len: 0.9 });                  // Ithaca Chasma
     }},
 
-    dione: { base: '#bfbab4', paint: (p) => {
-        p.craters({ count: 140, rMin: 1.2, rMax: 8, floor: 0.17, rim: 0.17 });
+    dione: { base: '#d4cfc9', paint: (p) => {
+        lunarTerrain(p, { light: 1.0, density: 0.85, maxR: 14, rays: 0.18 });
         p.lineae({ count: 30, color: '255,255,255', widthMin: 0.8, widthMax: 2.4,
-            alphaMin: 0.12, alphaMax: 0.28, len: 0.45 });                 // wispy ice cliffs
-        p.grain({ count: 900, alpha: 0.05 });
+            alphaMin: 0.14, alphaMax: 0.32, len: 0.45 });                 // wispy ice cliffs
     }},
 
-    rhea: { base: '#c2beb8', paint: (p) => {
-        p.craters({ count: 190, rMin: 1.2, rMax: 10, floor: 0.18, rim: 0.19, rayChance: 0.22 });
-        p.grain({ count: 1000, alpha: 0.05 });
+    rhea: { base: '#d6d2cc', paint: (p) => {
+        lunarTerrain(p, { light: 1.02, density: 1.05, maxR: 16, rays: 0.26 });
     }},
 
     titan: { hero: true, base: '#d9a441', paint: (p) => {
@@ -436,40 +526,43 @@ const PROFILES = {
     }},
 
     // ── Uranian moons ──────────────────────────────────────────────────────
-    miranda: { base: '#c0c0c6', paint: (p) => {
-        p.patches({ count: 20, rMin: 30, rMax: 90, alphaMin: 0.10, alphaMax: 0.22,
-            colors: ['70,70,78', '190,190,200'] });
-        p.grooves({ sets: 16, linesPerSet: 8, color: '60,60,68', alpha: 0.20, spacing: 3 });
-        p.grooves({ sets: 8, linesPerSet: 6, color: '235,235,240', alpha: 0.14, spacing: 3 });
-        p.craters({ count: 70, rMin: 1, rMax: 5, floor: 0.16, rim: 0.14 });
-        p.grain({ count: 800, alpha: 0.05 });
+    miranda: { base: '#d6d6dc', paint: (p) => {
+        lunarTerrain(p, { light: 1.0, density: 0.7, maxR: 11, rays: 0.12 });
+        // Coronae — the stacked ridge sets that make Miranda look assembled
+        p.grooves({ sets: 16, linesPerSet: 8, color: '62,62,70', alpha: 0.24, spacing: 3 });
+        p.grooves({ sets: 8, linesPerSet: 6, color: '240,240,246', alpha: 0.18, spacing: 3 });
     }},
 
-    ariel:   { base: '#c8c9d0', paint: (p) => {
-        p.craters({ count: 110, rMin: 1, rMax: 6, floor: 0.14, rim: 0.15 });
-        p.lineae({ count: 16, color: '90,92,100', widthMin: 1.5, widthMax: 3.5,
-            alphaMin: 0.12, alphaMax: 0.22, len: 0.6 });                   // rift valleys
-        p.grain({ count: 800, alpha: 0.045 });
+    ariel: { base: '#dcdde4', paint: (p) => {
+        lunarTerrain(p, { light: 1.02, density: 0.75, maxR: 12, rays: 0.16 });
+        p.lineae({ count: 16, color: '92,94,102', widthMin: 1.5, widthMax: 3.5,
+            alphaMin: 0.16, alphaMax: 0.28, len: 0.6 });                  // rift valleys
     }},
 
-    umbriel: { base: '#7e8188', paint: (p) => {
-        p.craters({ count: 170, rMin: 1, rMax: 8, floor: 0.18, rim: 0.12 });
-        p.region({ x: 0.42, y: 0.30, rx: 0.035, ry: 0.07, color: '255,255,255', alpha: 0.42 }); // Wunda
-        p.grain({ count: 900, alpha: 0.05 });
+    umbriel: { base: '#b2b5bd', paint: (p) => {
+        // The darkest Uranian moon, and the most uniformly cratered
+        lunarTerrain(p, {
+            light: 0.8, density: 1.2, maxR: 14, rays: 0.08, contrast: 0.85,
+            dark: ['62,64,70', '48,50,56', '78,80,88'],
+            bright: ['170,174,184', '150,154,164', '186,190,200'],
+            tint: ['120,116,124', '104,112,126'],
+        });
+        p.region({ x: 0.42, y: 0.30, rx: 0.035, ry: 0.07, color: '255,255,255', alpha: 0.5 }); // Wunda
     }},
 
-    titania: { base: '#bcbbc2', paint: (p) => {
-        p.craters({ count: 130, rMin: 1, rMax: 7, floor: 0.16, rim: 0.16 });
-        p.lineae({ count: 12, color: '85,85,92', widthMin: 1.5, widthMax: 3,
-            alphaMin: 0.12, alphaMax: 0.22, len: 0.7 });
-        p.grain({ count: 800, alpha: 0.045 });
+    titania: { base: '#d2d1d8', paint: (p) => {
+        lunarTerrain(p, { light: 0.98, density: 0.95, maxR: 14, rays: 0.18 });
+        p.lineae({ count: 12, color: '88,88,96', widthMin: 1.5, widthMax: 3,
+            alphaMin: 0.16, alphaMax: 0.26, len: 0.7 });                  // rift valleys
     }},
 
-    oberon:  { base: '#a8a5ac', paint: (p) => {
-        p.craters({ count: 175, rMin: 1, rMax: 8, floor: 0.19, rim: 0.15, rayChance: 0.18 });
-        p.patches({ count: 12, rMin: 8, rMax: 22, alphaMin: 0.16, alphaMax: 0.30,
-            colors: ['45,35,32'] });                                       // dark crater floors
-        p.grain({ count: 900, alpha: 0.05 });
+    oberon: { base: '#c4c2c8', paint: (p) => {
+        lunarTerrain(p, {
+            light: 0.92, density: 1.15, maxR: 15, rays: 0.22,
+            tint: ['160,132,110', '134,138,152'],
+        });
+        p.patches({ count: 12, rMin: 8, rMax: 22, alphaMin: 0.20, alphaMax: 0.36,
+            colors: ['48,38,34'] });                                      // dark crater floors
     }},
 
     // ── Neptune's moons ────────────────────────────────────────────────────
@@ -489,39 +582,56 @@ const PROFILES = {
         p.grain({ count: 900, alpha: 0.04 });
     }},
 
-    proteus: { base: '#7c8087', paint: (p) => {
-        p.craters({ count: 130, rMin: 1, rMax: 8, floor: 0.20, rim: 0.14 });
-        p.basin({ x: 0.55, y: 0.48, r: 0.09, floor: 0.22, rim: 0.20, peak: false });
-        p.grain({ count: 800, alpha: 0.05 });
+    proteus: { base: '#aeb2ba', paint: (p) => {
+        lunarTerrain(p, {
+            light: 0.85, density: 1.1, maxR: 15, rays: 0.10,
+            dark: ['62,66,72', '48,52,58', '80,84,92'],
+            bright: ['176,180,190', '156,160,172', '196,200,210'],
+            tint: ['126,122,120', '108,116,132'],
+        });
+        p.basin({ x: 0.55, y: 0.48, r: 0.09, floor: 0.28, rim: 0.26, peak: false });
     }},
 
-    nereid:  { base: '#95999f', paint: (p) => {
-        p.craters({ count: 90, rMin: 1, rMax: 6, floor: 0.20, rim: 0.15 });
-        p.grain({ count: 600, alpha: 0.05 });
+    nereid: { base: '#c2c6cd', paint: (p) => {
+        lunarTerrain(p, {
+            light: 0.9, density: 0.9, maxR: 12, rays: 0.14,
+            dark: ['70,74,80', '54,58,64'],
+            bright: ['186,190,198', '166,170,180'],
+            tint: ['132,128,132', '112,120,134'],
+        });
     }},
 
     // ── Mars' moons + Amalthea: small, dark, battered ─────────────────────
-    phobos: { base: '#8a7f74', paint: (p) => {
-        p.craters({ count: 200, rMin: 1, rMax: 9, floor: 0.22, rim: 0.16 });
-        p.basin({ x: 0.30, y: 0.44, r: 0.11, floor: 0.24, rim: 0.26 });    // Stickney
-        p.lineae({ count: 26, color: '55,48,42', widthMin: 0.6, widthMax: 1.6,
-            alphaMin: 0.10, alphaMax: 0.20, len: 0.5 });                   // grooves
-        p.grain({ count: 1000, alpha: 0.06 });
+    phobos: { hero: true, base: '#c6b8a6', paint: (p) => {
+        lunarTerrain(p, {
+            light: 0.85, density: 1.35, maxR: 16, rays: 0.10, contrast: 1.1,
+            dark: ['78,70,62', '58,52,46', '96,84,68'],
+            bright: ['206,196,180', '184,176,162', '220,210,190'],
+            tint: ['166,132,96', '128,124,124'],
+        });
+        p.basin({ x: 0.30, y: 0.44, r: 0.11, floor: 0.30, rim: 0.30 });   // Stickney
+        p.lineae({ count: 26, color: '58,50,44', widthMin: 0.6, widthMax: 1.8,
+            alphaMin: 0.14, alphaMax: 0.26, len: 0.5 });                  // grooves
     }},
 
-    deimos: { base: '#a49a90', paint: (p) => {
-        // Regolith blankets Deimos' craters — softer than Phobos
-        p.patches({ count: 40, rMin: 15, rMax: 60, alphaMin: 0.06, alphaMax: 0.16,
-            colors: ['200,190,180', '90,82,74'] });
-        p.craters({ count: 90, rMin: 1, rMax: 6, floor: 0.13, rim: 0.09 });
-        p.grain({ count: 900, alpha: 0.05 });
+    deimos: { base: '#d0c5b5', paint: (p) => {
+        // Regolith has buried most of Deimos' craters — softer than Phobos
+        lunarTerrain(p, {
+            light: 0.95, density: 0.55, maxR: 11, rays: 0.06, contrast: 0.8,
+            dark: ['88,80,72', '68,62,56', '104,94,80'],
+            bright: ['214,204,190', '194,186,172', '226,216,200'],
+            tint: ['170,140,108', '136,132,130'],
+        });
     }},
 
-    amalthea: { base: '#a35f45', paint: (p) => {
-        p.patches({ count: 30, rMin: 20, rMax: 70, alphaMin: 0.10, alphaMax: 0.24,
-            colors: ['210,90,60', '120,50,35'] });                         // sulfur-stained red
-        p.craters({ count: 120, rMin: 1, rMax: 8, floor: 0.22, rim: 0.14 });
-        p.grain({ count: 900, alpha: 0.06 });
+    amalthea: { base: '#c07a5c', paint: (p) => {
+        // Stained red by sulfur drifting off Io
+        lunarTerrain(p, {
+            light: 0.9, density: 1.2, maxR: 14, rays: 0.10, contrast: 1.1,
+            dark: ['104,44,30', '78,34,24', '124,58,36'],
+            bright: ['226,158,124', '206,136,104', '238,178,142'],
+            tint: ['214,92,60', '150,96,74'],
+        });
     }},
 
     // ── Dwarf planets & asteroids ─────────────────────────────────────────
@@ -537,21 +647,30 @@ const PROFILES = {
         p.grain({ count: 1100, alpha: 0.045 });
     }},
 
-    ceres: { hero: true, base: '#8d8a83', paint: (p) => {
-        p.patches({ count: 34, rMin: 30, rMax: 110, alphaMin: 0.06, alphaMax: 0.16,
-            colors: ['60,58,54', '120,116,110'] });
-        p.craters({ count: 220, rMin: 1.2, rMax: 12, floor: 0.20, rim: 0.18, rayChance: 0.18 });
-        // Occator's bright carbonate faculae
-        p.region({ x: 0.42, y: 0.42, rx: 0.022, ry: 0.045, color: '255,255,250', alpha: 0.85, softness: 0.6 });
-        p.region({ x: 0.46, y: 0.45, rx: 0.012, ry: 0.024, color: '255,255,250', alpha: 0.60, softness: 0.6 });
-        p.grain({ count: 1400, alpha: 0.055 });
+    ceres: { hero: true, base: '#c9c3b4', paint: (p) => {
+        lunarTerrain(p, {
+            light: 0.88, density: 1.3, maxR: 20, rays: 0.20, contrast: 1.05,
+            dark: ['76,72,64', '56,54,50', '98,90,78'],
+            bright: ['206,202,190', '186,182,172', '222,216,202'],
+            tint: ['166,140,104', '128,132,142'],
+        });
+        // Occator's bright carbonate faculae — the one feature everyone knows
+        p.region({ x: 0.42, y: 0.42, rx: 0.022, ry: 0.045, color: '255,255,250', alpha: 0.9, softness: 0.6 });
+        p.region({ x: 0.46, y: 0.45, rx: 0.012, ry: 0.024, color: '255,255,250', alpha: 0.65, softness: 0.6 });
     }},
 
-    pallas: { base: '#6e6c64', paint: (p) => {
-        p.craters({ count: 190, rMin: 1, rMax: 9, floor: 0.22, rim: 0.16 });
-        p.patches({ count: 24, rMin: 20, rMax: 70, alphaMin: 0.08, alphaMax: 0.20,
-            colors: ['45,44,40', '110,108,100'] });
-        p.grain({ count: 1000, alpha: 0.06 });
+    // A dark B-type asteroid. Lifted well above its true 0.15 albedo, or it
+    // renders as an unreadable silhouette this far from the Sun — but kept
+    // greyer and browner than Luna so it still reads as a different kind of rock.
+    pallas: { hero: true, base: '#cec6b4', paint: (p) => {
+        lunarTerrain(p, {
+            light: 0.82, density: 1.15, maxR: 22, rays: 0.22, contrast: 1.15,
+            dark: ['74,68,58', '54,50,44', '96,86,68'],
+            bright: ['214,208,192', '196,188,168', '228,220,198'],
+            tint: ['170,138,96', '132,138,150'],
+        });
+        p.basin({ x: 0.34, y: 0.44, r: 0.085, floor: 0.30, rim: 0.32 });
+        p.basin({ x: 0.72, y: 0.62, r: 0.055, floor: 0.26, rim: 0.28, peak: false });
     }},
 
     haumea: { base: '#d8d6d0', paint: (p) => {
@@ -580,30 +699,60 @@ const PROFILES = {
 
 // Fallback for any body without an explicit profile
 const GENERIC = {
+    // Modelled on the Moon: broad tonal regions first (dark lowland plains
+    // against brighter highlands), then craters at every scale on top, then
+    // fine grain. Order matters — the old version painted craters first and
+    // then washed them out with albedo patches.
     rocky: (p) => {
-        p.patches({ count: 40, rMin: 20, rMax: 80, alphaMin: 0.05, alphaMax: 0.16,
-            colors: ['255,255,255', '0,0,0'] });
-        p.craters({ count: 140, rMin: 1, rMax: 8, floor: 0.18, rim: 0.15 });
-        p.grain({ count: 900, alpha: 0.05 });
+        // Regional terrain. Slightly warm and slightly cool greys rather than
+        // one flat tone; a real rock face is never a single colour.
+        p.patches({ count: 26, rMin: 60, rMax: 190, alphaMin: 0.10, alphaMax: 0.26,
+            colors: ['74,70,64', '58,56,54', '92,86,76'] });          // lowland plains
+        p.patches({ count: 30, rMin: 40, rMax: 140, alphaMin: 0.08, alphaMax: 0.20,
+            colors: ['196,190,178', '176,174,172', '208,198,180'] }); // highlands
+        p.patches({ count: 22, rMin: 20, rMax: 70, alphaMin: 0.05, alphaMax: 0.13,
+            colors: ['150,128,100', '120,124,134'] });                // ochre / bluish cast
+        p.cratered({ density: 1, rays: 0.18, floor: 0.22, rim: 0.18, maxR: 26 });
+        p.grain({ count: 1500, alpha: 0.055 });
     },
     icy: (p) => {
         p.patches({ count: 34, rMin: 40, rMax: 120, alphaMin: 0.04, alphaMax: 0.12,
             colors: ['255,255,255', '190,205,225'] });
         p.lineae({ count: 18, color: '150,170,195', widthMin: 0.6, widthMax: 2,
             alphaMin: 0.06, alphaMax: 0.16, len: 0.6 });
+        p.cratered({ density: 0.35, rays: 0.10, floor: 0.11, rim: 0.11, maxR: 14 });
         p.grain({ count: 700, alpha: 0.035 });
     },
 };
 
 const cache = new Map();
 
+function paintCanvas(id, base, style, W, H, mode) {
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const profile = PROFILES[id];
+    // Re-seeded identically per pass, so the colour and height maps register
+    const painter = makePainter(ctx, W, H, seededRand(id), mode);
+    painter.fill(profile?.base ?? base ?? '#8a8a8a');
+    (profile?.paint ?? GENERIC[style] ?? GENERIC.rocky)(painter);
+    return canvas;
+}
+
 /**
- * Build (or return a cached) CanvasTexture for a body.
+ * Colour map plus a matching height map for bump shading.
+ *
+ * The height map is what gives these surfaces depth: craters actually catch
+ * the light from the direction the Sun is in, instead of being flat discs with
+ * painted-on highlights that stay put as the body rotates.
+ *
  * @param {string} id      body id — selects the profile and seeds the RNG
  * @param {string} base    fallback base colour when the body has no profile
  * @param {'rocky'|'icy'} style  generic style used when there's no profile
+ * @returns {{ map: THREE.CanvasTexture, bumpMap: THREE.CanvasTexture|null, bumpScale: number }}
  */
-export function proceduralTexture(id, base, style = 'rocky') {
+export function proceduralSurface(id, base, style = 'rocky') {
     const key = `${id}|${base}|${style}`;
     if (cache.has(key)) return cache.get(key);
 
@@ -614,20 +763,26 @@ export function proceduralTexture(id, base, style = 'rocky') {
     const W = profile?.hero ? q.heroTextureSize : q.minorTextureSize;
     const H = W / 2;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d');
+    const map = new THREE.CanvasTexture(paintCanvas(id, base, style, W, H, 'color'));
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.anisotropy = 4;
 
-    const painter = makePainter(ctx, W, H, seededRand(id));
-    painter.fill(profile?.base ?? base ?? '#8a8a8a');
-    (profile?.paint ?? GENERIC[style] ?? GENERIC.rocky)(painter);
+    // Relief only pays for itself on surfaces that have any — and it doubles
+    // this body's texture memory, so the smallest tier goes without.
+    let bumpMap = null;
+    if (q.bumpMaps) {
+        bumpMap = new THREE.CanvasTexture(paintCanvas(id, base, style, W, H, 'height'));
+        bumpMap.anisotropy = 2;
+    }
 
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 4;
-    cache.set(key, tex);
-    return tex;
+    const surface = { map, bumpMap, bumpScale: style === 'icy' ? 0.006 : 0.014 };
+    cache.set(key, surface);
+    return surface;
+}
+
+/** Colour map only — for callers that don't shade with relief. */
+export function proceduralTexture(id, base, style = 'rocky') {
+    return proceduralSurface(id, base, style).map;
 }
 
 export function hasProfile(id) {
