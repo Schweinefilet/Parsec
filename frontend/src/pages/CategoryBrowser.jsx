@@ -259,6 +259,7 @@ const CategoryBrowser = () => {
                         <button
                             onClick={scrollToCatalog}
                             aria-label="Scroll down to the object catalog"
+                            inert={(!!id || pageScrolled) || undefined}
                             className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
                             style={{
                                 pointerEvents: id || pageScrolled ? 'none' : 'auto',

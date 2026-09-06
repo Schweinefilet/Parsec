@@ -150,10 +150,16 @@ const AppShell = ({ children }) => {
 
             {/* ── Category bar ──
                 Tabs keep their natural width and the bar scrolls, so labels never
-                compress into each other on narrow screens. */}
+                compress into each other on narrow screens.
+
+                `inert` while hidden: opacity:0 leaves buttons in the tab order,
+                so a keyboard user was tabbing through 13 invisible categories
+                before reaching anything on screen. */}
             <nav
                 ref={navRef}
                 aria-label="Object categories"
+                inert={navHidden || undefined}
+                aria-hidden={navHidden || undefined}
                 className="fixed bottom-0 left-0 right-0 z-50 flex items-stretch transition-all duration-500 ease-in-out no-scrollbar"
                 style={{
                     // Not .glass: at 8% white over bright catalog imagery the
