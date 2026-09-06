@@ -1150,11 +1150,13 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             group.position.set(here.x, here.y, here.z);
             scene.add(group);
 
-            // Outbound track, from the Sun out to the craft
-            const start = here;
+            // Outbound track. Anchored at Earth, not the Sun — these launched
+            // from here, and a line out of the Sun reads as if they were flung
+            // from it. Both ends are updated each frame (Earth moves, and so,
+            // slowly, does the probe).
             const trackGeo = new THREE.BufferGeometry().setFromPoints([
                 new THREE.Vector3(0, 0, 0),
-                new THREE.Vector3(start.x, start.y, start.z),
+                new THREE.Vector3(here.x, here.y, here.z),
             ]);
             const trackMat = new THREE.LineBasicMaterial({
                 color: probe.color, transparent: true, opacity: 0.16, depthWrite: false,
@@ -1747,8 +1749,10 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 // marker rather than a body.
                 const d = camera.position.distanceTo(group.position);
                 group.scale.setScalar(Math.min(1.2, Math.max(0.06, d * 0.0085)));
-                // Stretch the outbound line to keep pace with the craft
+                // Redraw the line from Earth to the craft
                 const arr = track.geometry.attributes.position.array;
+                const home = planetMeshRefs.get('Earth');
+                if (home) { arr[0] = home.position.x; arr[1] = home.position.y; arr[2] = home.position.z; }
                 arr[3] = pp.x; arr[4] = pp.y; arr[5] = pp.z;
                 track.geometry.attributes.position.needsUpdate = true;
             });

@@ -16,6 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.4.3
+
+- The Voyager tracks now run from Earth rather than the Sun. They launched from
+  here, and a line out of the Sun read as if they had been flung from it.
+- Lifted the home hints clear of the time control. The control is bottom-left
+  and the hints are centred, so on a narrower laptop window they collided.
+- On desktop the description and the stats sheet are now independent: focusing
+  an object slides the description down and leaves the stats collapsed, and the
+  description stays put whether or not you expand them. Reading about an object
+  no longer costs you the view of it. Mobile is unchanged — it has one panel,
+  and it still opens fully.
+
 ## 1.4.2
 
 - Removed the offset caption that appeared under the time control while

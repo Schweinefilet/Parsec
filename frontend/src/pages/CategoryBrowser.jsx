@@ -122,6 +122,7 @@ const CategoryBrowser = () => {
     const [pageScrolled, setPageScrolled] = useState(false);
     const [moonHintVisible, setMoonHintVisible] = useState(false);
     const [sheetOpen, setSheetOpen] = useState(false);
+    const [descriptionOpen, setDescriptionOpen] = useState(false);
 
     useEffect(() => {
         const onScroll = () => setPageScrolled(window.scrollY > 40);
@@ -137,22 +138,29 @@ const CategoryBrowser = () => {
         return () => window.removeEventListener('keydown', onKey);
     }, [id, navigate]);
 
-    // Detail panels open themselves once the camera fly-in has settled.
+    // Once the camera fly-in settles, the description slides in on its own.
+    // The stats sheet stays collapsed until asked for — on desktop the two are
+    // independent, so reading the description doesn't cost you the view of the
+    // object. On mobile there is only one panel, and it still opens fully.
     // Spacecraft cards have no fly-in, so they open immediately.
     useEffect(() => {
         setSheetOpen(false);
+        setDescriptionOpen(false);
         setMoonHintVisible(false);
         if (!id) return;
-        if (isSpacecraftCard) { setSheetOpen(true); return; }
+        if (isSpacecraftCard) { setSheetOpen(true); setDescriptionOpen(true); return; }
 
-        const openAt = setTimeout(() => setSheetOpen(true), 1500);
+        const openAt = setTimeout(() => {
+            setDescriptionOpen(true);
+            if (isMobile) setSheetOpen(true);
+        }, 1500);
         const timers = [openAt];
         if (PLANETS_WITH_MOONS.has(id)) {
             timers.push(setTimeout(() => setMoonHintVisible(true), 1700));
             timers.push(setTimeout(() => setMoonHintVisible(false), 9500));
         }
         return () => timers.forEach(clearTimeout);
-    }, [id, isSpacecraftCard]);
+    }, [id, isSpacecraftCard, isMobile]);
 
     // Returning to the top of the page also returns the browser scroll position
     useEffect(() => { if (id) window.scrollTo({ top: 0, behavior: 'instant' }); }, [id]);
@@ -253,7 +261,10 @@ const CategoryBrowser = () => {
                     {/* Home hints */}
                     <div
                         className="absolute inset-x-0 flex flex-col items-center pointer-events-none"
-                        style={{ bottom: isMobile ? 22 : 10, zIndex: 4, gap: 6, padding: '0 16px' }}
+                        // Sits above the time control's band rather than beside
+                        // it: the control is bottom-left and this is centred, so
+                        // on a narrower laptop window the two ran into each other.
+                        style={{ bottom: isMobile ? 22 : 78, zIndex: 4, gap: 6, padding: '0 16px' }}
                     >
                         <p
                             className="transition-opacity duration-700"
@@ -396,7 +407,7 @@ const CategoryBrowser = () => {
                     {!isMobile && object && (
                         <div style={{
                             position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6,
-                            transform: sheetOpen ? 'translateY(0)' : 'translateY(-100%)',
+                            transform: descriptionOpen ? 'translateY(0)' : 'translateY(-100%)',
                             transition: 'transform 0.45s cubic-bezier(0.32,0.72,0,1)',
                         }}>
                             <div style={{ padding: '36px 16px 24px' }}>
