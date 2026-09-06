@@ -6,16 +6,20 @@
 // Moon systems are stylised further: spacing and periods are chosen so a
 // system reads clearly when you focus its planet.
 
+// `au` is the real semi-major axis, `orbitR` the ring it is drawn on. The pair
+// is what defines the scene's radial compression — see sceneRadiusForAU in
+// utils/probeTracks.js, which anything not on a ring (the Voyager tracks) reads
+// so it lands in the same compressed space as the planets it flew past.
 export const PLANETS = [
-    { id: 'mercury', name: 'Mercury', r: 0.68, orbitR: 48,  color: '#b5b5b5' },
-    { id: 'venus',   name: 'Venus',   r: 1.24, orbitR: 72,  color: '#e8cda0' },
-    { id: 'earth',   name: 'Earth',   r: 1.31, orbitR: 96,  color: '#4fa3e0' },
-    { id: 'mars',    name: 'Mars',    r: 0.83, orbitR: 128, color: '#c1440e' },
-    { id: 'jupiter', name: 'Jupiter', r: 4.13, orbitR: 190, color: '#c88b3a' },
-    { id: 'saturn',  name: 'Saturn',  r: 3.56, orbitR: 245, color: '#e4d191' },
-    { id: 'uranus',  name: 'Uranus',  r: 2.25, orbitR: 295, color: '#7de8e8' },
-    { id: 'neptune', name: 'Neptune', r: 2.18, orbitR: 340, color: '#5b7fdb' },
-    { id: 'pluto',   name: 'Pluto',   r: 0.45, orbitR: 410, color: '#d9c3a8' },
+    { id: 'mercury', name: 'Mercury', r: 0.68, orbitR: 48,  au:  0.387, color: '#b5b5b5' },
+    { id: 'venus',   name: 'Venus',   r: 1.24, orbitR: 72,  au:  0.723, color: '#e8cda0' },
+    { id: 'earth',   name: 'Earth',   r: 1.31, orbitR: 96,  au:  1.000, color: '#4fa3e0' },
+    { id: 'mars',    name: 'Mars',    r: 0.83, orbitR: 128, au:  1.523, color: '#c1440e' },
+    { id: 'jupiter', name: 'Jupiter', r: 4.13, orbitR: 190, au:  5.203, color: '#c88b3a' },
+    { id: 'saturn',  name: 'Saturn',  r: 3.56, orbitR: 245, au:  9.537, color: '#e4d191' },
+    { id: 'uranus',  name: 'Uranus',  r: 2.25, orbitR: 295, au: 19.191, color: '#7de8e8' },
+    { id: 'neptune', name: 'Neptune', r: 2.18, orbitR: 340, au: 30.069, color: '#5b7fdb' },
+    { id: 'pluto',   name: 'Pluto',   r: 0.45, orbitR: 410, au: 39.482, color: '#d9c3a8' },
 ];
 
 // Orbital periods in days — used only for sampling the orbit path
@@ -162,21 +166,21 @@ export function isSurfacePainted(id) {
 // stay honest. It is far smaller than the planets' scale: Voyager 1 is 171 AU
 // out, and at the inner system's scale it would sit thousands of units off
 // screen. Same compression the rest of the view uses, just more of it.
-export const PROBE_EPOCH_A = Date.UTC(2026, 0, 1);
-export const PROBE_EPOCH_B = Date.UTC(2031, 0, 1);
-export const PROBE_SCALE = 4.0;
+// Where the compression carries on once there is nothing left to anchor to.
+// Past Pluto the scene has no rings, so this is a framing choice rather than a
+// measurement: it keeps the interstellar probes a little under twice Pluto's
+// ring, which is roughly where the old linear probe scale put them and well
+// inside the camera's reach.
+export const INTERSTELLAR_ANCHOR = { au: 170, orbitR: 680 };
 
 export const PROBES = [
-    {
-        id: 'voyager1', name: 'Voyager 1', color: '#ffd9a0', r: 6, focusDist: 46,
-        a: [-31.83641396068854, -134.6784849020786,  97.44480620314309],
-        b: [-34.00817390450292, -149.0263894391153, 107.8072242760942],
-    },
-    {
-        id: 'voyager2', name: 'Voyager 2', color: '#a8d4ff', r: 6, focusDist: 46,
-        a: [ 39.22753200608659, -103.9915497105585, -87.91865807489688],
-        b: [ 43.66497936520670, -113.8326465813978, -99.84384764825664],
-    },
+    // Position and track both come from data/voyagerTracks.json — the flown
+    // trajectory, sampled from Horizons. The pinned pair of state vectors this
+    // replaced was interpolated linearly, which is fine for a coasting craft,
+    // but it was also in ecliptic coordinates while the rest of the scene runs
+    // on equatorial ones, so both probes sat 23.4° off the plane they belong to.
+    { id: 'voyager1', name: 'Voyager 1', color: '#ffd9a0', r: 6, focusDist: 46 },
+    { id: 'voyager2', name: 'Voyager 2', color: '#a8d4ff', r: 6, focusDist: 46 },
 ];
 
 // Every id the 3D scene actually draws. Objects outside this set — exoplanets,

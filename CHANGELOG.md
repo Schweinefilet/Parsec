@@ -16,6 +16,50 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.5.5
+
+- **The Voyager tracks are the paths the spacecraft actually flew.** They were
+  a straight line from the Sun's direction out to the marker, with the near end
+  redrawn every frame from wherever Earth happens to be — so the launch point
+  wandered a full orbit each year, as though the mission had set off from a
+  different place every few weeks. Both tracks now start where Earth was on
+  their launch day in 1977 and stay there.
+
+  In between they follow the trajectory each craft flew, sampled from JPL
+  Horizons and baked into `data/voyagerTracks.json`. Every bend in them is a
+  real gravity assist. Voyager 2 is the one that did the Grand Tour — Jupiter,
+  Saturn, Uranus, Neptune — and Voyager 1 did not: it traded Uranus and Neptune
+  for a close pass of Titan at Saturn, which threw it up out of the plane of the
+  planets, which is why its track climbs away and never comes back down. The
+  test suite checks both halves of that: each craft passes within a planet's own
+  drawn radius of every planet it used, and Voyager 1 stays over 100 units clear
+  of the two it didn't.
+
+  The geometry is built once and never rewritten. Scrubbing the clock only
+  changes how much of it is drawn, plus the final vertex, which is pinned to
+  the marker so the line always ends exactly at the spacecraft.
+
+- **Both Voyagers were sitting 23.4° off the plane they belong to.** The pinned
+  state vectors they were placed from were in ecliptic coordinates, which is
+  what Horizons returns by default, while the rest of the scene runs on
+  astronomy-engine's equatorial ones. Both are three numbers in AU and both
+  plot without complaint, so nothing looked broken — the spacecraft were just
+  in the wrong direction. Position now comes from the same baked ephemeris as
+  the track, in the frame the scene actually uses.
+
+- **One radial scale for the whole scene.** The planets are drawn on fixed
+  rings — Earth at 96 units, Neptune at 340 rather than the 30× Earth its real
+  distance would ask for — while the probes used their own linear scale, so
+  nothing that travelled between the two could be placed consistently in both.
+  `sceneRadiusForAU` now derives that compression from the planets themselves
+  (a new `au` alongside each `orbitR`), and everything off a ring reads it.
+  Voyager 1's marker barely moves; Voyager 2's sits a little further out than
+  it did, in correct proportion to Voyager 1 for the first time.
+
+- The tracks are drawn brighter than the orbit rings they cross, where before
+  they sat below them. A line with two ends carries nothing you need to look
+  at; this one is the shape of the mission.
+
 ## 1.5.4
 
 - **The ISS tracker now names the country the station is nearest to**, beside

@@ -59,6 +59,8 @@ frontend/src/
                           texture (Io's sulfur, Europa's linea, Pluto's heart)
     spacecraftModels.js   spacecraft built from primitives, no model downloads
     nearestCountry.js     which country the ISS ground point is closest to
+    probeTracks.js        the Voyagers' flown trajectories, and the radial
+                          compression every off-ring position goes through
 ```
 
 ### Performance is a feature here
@@ -85,6 +87,18 @@ guards, with tests that fail if the guards are removed.
 scene maps them as `(x, z, y)` and derives the belt plane from two Mars
 samples so the belts share a plane with the orbit rings. `orbits.test.js`
 pins that ~23.4° tilt, so a frame change can't slip through unnoticed.
+
+**Two coordinate frames that look identical until they don't.**
+`HelioVector` returns J2000 *equatorial*; JPL Horizons hands you J2000
+*ecliptic* unless you ask for `REF_PLANE='FRAME'`. Both are three numbers in
+AU, both plot fine, and mixing them tilts one against the other by 23.4° —
+which is what had happened to the pinned Voyager state vectors, leaving both
+spacecraft sitting well off the plane they belong to with nothing obviously
+wrong on screen. The check that would have caught it is the one
+`probeTracks.test.js` now makes: at a gravity assist the spacecraft and the
+planet are in the same place, so the two have to agree to within a planet's
+drawn radius, and a frame error shows up as a gap of about 77 units instead
+of one.
 
 **React state written from the render loop.** The object labels used to be
 `useState` rebuilt every frame: ~18 elements reconciled and re-laid-out at
@@ -128,6 +142,18 @@ hence the "not to scale" note in the corner.
 
 Moon orbits are stylised: spacing and speeds are chosen so a system is readable
 when you focus its planet, not to scale.
+
+The Voyager tracks are the trajectories the spacecraft actually flew, sampled
+from JPL Horizons and baked into `data/voyagerTracks.json` — every bend in them
+is a real gravity assist. Voyager 2 is the one that did the Grand Tour;
+Voyager 1 traded Uranus and Neptune for a close pass of Titan, which is why its
+track leaves the plane of the planets after Saturn and never returns to it.
+
+Anything not drawn on a ring goes through `sceneRadiusForAU`, which is built
+from the `au`/`orbitR` pair on each planet, so a trajectory running from Earth's
+ring out past Neptune's is squeezed exactly as the rings are and passes through
+the planets it flew by. `probeTracks.test.js` pins that: change a ring radius
+without changing its `au` and it fails.
 
 ### Assets
 

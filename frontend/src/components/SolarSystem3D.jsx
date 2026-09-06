@@ -10,8 +10,9 @@ import {
 import {
     DEG2RAD, ORBIT_EPOCH_MS, ORBIT_BASE_OPACITY, ORBIT_HOVER_OPACITY,
     PLANET_EMISSIVE_INTENSITY, computePlanetPos, buildOrbitPoints, buildOrbitTube,
-    keplerianScenePos, buildKeplerOrbitPoints, eclipticQuaternion, probeScenePos,
+    keplerianScenePos, buildKeplerOrbitPoints, eclipticQuaternion,
 } from '../utils/orbits';
+import { probeScenePos, buildProbeTrack, trackDrawCount } from '../utils/probeTracks';
 import { proceduralSurface } from '../utils/proceduralTextures';
 import { simNow, isLive } from '../utils/simTime';
 import { quality, texturePath, pixelRatioFor, skyAllowed } from '../utils/quality';
@@ -1178,18 +1179,40 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             group.position.set(here.x, here.y, here.z);
             scene.add(group);
 
-            // Outbound track. Anchored at Earth, not the Sun — these launched
-            // from here, and a line out of the Sun reads as if they were flung
-            // from it. Both ends are updated each frame (Earth moves, and so,
-            // slowly, does the probe).
-            const trackGeo = new THREE.BufferGeometry().setFromPoints([
-                new THREE.Vector3(0, 0, 0),
-                new THREE.Vector3(here.x, here.y, here.z),
-            ]);
+            // The path it actually flew, from the baked Horizons ephemeris. It
+            // starts where Earth was on launch day in 1977 and stays there:
+            // this used to be a straight line redrawn from wherever Earth is
+            // today, which made the spacecraft look as though it had set off
+            // from a different place every few weeks.
+            //
+            // Every bend in it is a real gravity assist — Jupiter and Saturn
+            // for both craft, then Uranus and Neptune for Voyager 2, which is
+            // why only its track stays down near the plane of the planets as
+            // far as Neptune while Voyager 1 climbs away after Saturn.
+            //
+            // The geometry is built once and never rewritten. Only how much of
+            // it is drawn moves with the clock, plus the last vertex, which is
+            // pinned to the marker so the line always ends exactly at the craft.
+            const trackPts = buildProbeTrack(probe.id);
+            const trackGeo = new THREE.BufferGeometry();
+            const trackArr = new Float32Array((trackPts.length + 1) * 3);
+            trackPts.forEach((v, i) => {
+                trackArr[i * 3] = v.x; trackArr[i * 3 + 1] = v.y; trackArr[i * 3 + 2] = v.z;
+            });
+            trackGeo.setAttribute('position', new THREE.BufferAttribute(trackArr, 3));
+            trackGeo.setDrawRange(0, 0);
+            // Brighter than the orbit rings it crosses (0.27), where the old
+            // straight line sat at 0.16 and could afford to: a line with two
+            // ends carries nothing you need to see, and this one is the shape
+            // of the mission.
             const trackMat = new THREE.LineBasicMaterial({
-                color: probe.color, transparent: true, opacity: 0.16, depthWrite: false,
+                color: probe.color, transparent: true, opacity: 0.5, depthWrite: false,
             });
             const track = new THREE.Line(trackGeo, trackMat);
+            // The path runs far outside anything else in the scene, so leave it
+            // out of frustum culling rather than have three.js compute a bound
+            // that spans the whole solar system for it.
+            track.frustumCulled = false;
             scene.add(track);
             geos.push(trackGeo); mats.push(trackMat);
 
@@ -1203,7 +1226,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             geos.push(hitGeo); mats.push(hitMat);
 
             planetMeshes.push(core, hitMesh);
-            probeGroups.push({ group, track, probe });
+            probeGroups.push({ group, track, probe, trackCount: trackPts.length });
         });
 
         // ── Moon meshes (MOON_DATA) ────────────────────────────────────────────
@@ -1871,7 +1894,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             });
 
             // ── Probe positions ──────────────────────────────────────────────
-            probeGroups.forEach(({ group, track, probe }) => {
+            probeGroups.forEach(({ group, track, probe, trackCount }) => {
                 const pp = probeScenePos(probe, simTime);
                 group.position.set(pp.x, pp.y, pp.z);
                 // Scale with camera distance so the marker stays legible up
@@ -1882,12 +1905,14 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 // marker rather than a body.
                 const d = camera.position.distanceTo(group.position);
                 group.scale.setScalar(Math.min(1.2, Math.max(0.06, d * 0.0085)));
-                // Redraw the line from Earth to the craft
+                // Show the path as far as the clock has got, and land the last
+                // vertex on the craft. The rest of the geometry never moves —
+                // scrubbing a decade only changes how much of it is drawn.
+                const flown = Math.min(trackCount, trackDrawCount(probe.id, simTime));
                 const arr = track.geometry.attributes.position.array;
-                const home = planetMeshRefs.get('Earth');
-                if (home) { arr[0] = home.position.x; arr[1] = home.position.y; arr[2] = home.position.z; }
-                arr[3] = pp.x; arr[4] = pp.y; arr[5] = pp.z;
+                arr[flown * 3] = pp.x; arr[flown * 3 + 1] = pp.y; arr[flown * 3 + 2] = pp.z;
                 track.geometry.attributes.position.needsUpdate = true;
+                track.geometry.setDrawRange(0, flown > 0 ? flown + 1 : 0);
             });
 
             // ── Halley coma: orient group so local +Z points anti-sunward ─────

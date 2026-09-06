@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 import * as Astronomy from 'astronomy-engine';
-import {
-    ORBITAL_PERIODS, PROBE_EPOCH_A, PROBE_EPOCH_B, PROBE_SCALE,
-} from '../data/solarSystemBodies';
+import { ORBITAL_PERIODS } from '../data/solarSystemBodies';
 
 // Orbit geometry and position maths.
 //
@@ -136,28 +134,6 @@ export function eclipticQuaternion(date = new Date()) {
     return quat;
 }
 
-/**
- * Scene position of an interstellar probe at a given date.
- *
- * Linear between the two pinned Horizons samples — correct for a craft
- * coasting on an escape trajectory — then mapped into scene axes the same way
- * planets are (astronomical z → scene y, y → scene z) and compressed.
- */
-export function probeScenePos(probe, date = new Date(), {
-    epochA = PROBE_EPOCH_A, epochB = PROBE_EPOCH_B, scale = PROBE_SCALE,
-} = {}) {
-    const t = (date.getTime() - epochA) / (epochB - epochA);
-    const x = probe.a[0] + (probe.b[0] - probe.a[0]) * t;
-    const y = probe.a[1] + (probe.b[1] - probe.a[1]) * t;
-    const z = probe.a[2] + (probe.b[2] - probe.a[2]) * t;
-    return { x: x * scale, y: z * scale, z: y * scale };
-}
-
-/** Distance from the Sun in AU at a date — the same model, before scaling. */
-export function probeDistanceAU(probe, date = new Date()) {
-    const t = (date.getTime() - PROBE_EPOCH_A) / (PROBE_EPOCH_B - PROBE_EPOCH_A);
-    const x = probe.a[0] + (probe.b[0] - probe.a[0]) * t;
-    const y = probe.a[1] + (probe.b[1] - probe.a[1]) * t;
-    const z = probe.a[2] + (probe.b[2] - probe.a[2]) * t;
-    return Math.hypot(x, y, z);
-}
+// Probe positions and their flown tracks live in utils/probeTracks.js, which
+// reads the baked Horizons ephemeris rather than interpolating two endpoints.
+export { probeScenePos, probeDistanceAU } from './probeTracks';
