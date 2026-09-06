@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { quality, texturePath, pixelRatioFor, __setTier } from './quality';
+import { quality, texturePath, pixelRatioFor, skyAllowed, __setTier } from './quality';
 
 const TIERS = ['low', 'medium', 'high'];
 
@@ -14,7 +14,8 @@ describe('tier settings', () => {
                 'texturePath', 'maxPixelRatio', 'pixelBudget', 'shadows',
                 'planetSegments', 'moonSegments', 'skySegments',
                 'beltParticles', 'beltLOD', 'beltLODRotate', 'skyTexture',
-                'heroTextureSize', 'minorTextureSize', 'antialias', 'starCount',
+                'heavyModels', 'heroTextureSize', 'minorTextureSize',
+                'antialias', 'starCount',
             ]) {
                 expect(q, `${tier} is missing ${key}`).toHaveProperty(key);
             }
@@ -36,6 +37,12 @@ describe('tier settings', () => {
         expect(low.shadows).toBe(false);
         expect(high.shadows).toBe(true);
         expect(low.beltLOD).toBe(false);
+        // The two multi-megabyte STL bodies are the largest thing a phone would
+        // download, and neither is more than a few pixels across from the home
+        // view — so the bottom tier does without them up front
+        expect(low.heavyModels).toBe(false);
+        expect(med.heavyModels).toBe(true);
+        expect(high.heavyModels).toBe(true);
     });
 
     it('drops the Milky Way sphere on phones and gives desktop the 8K map', () => {
@@ -91,5 +98,34 @@ describe('pixelRatioFor', () => {
     it('handles a zero-sized container without dividing by zero', () => {
         __setTier('high');
         expect(Number.isFinite(withDpr(2, () => pixelRatioFor(0, 0)))).toBe(true);
+    });
+});
+
+describe('skyAllowed', () => {
+    // The tier answers "can this GPU afford the backdrop"; this answers
+    // "is this viewport the right shape for it".
+    const withMedia = (answers, fn) => {
+        const original = window.matchMedia;
+        window.matchMedia = (query) => ({
+            matches: !!answers[query], media: query, onchange: null,
+            addEventListener() {}, removeEventListener() {},
+            addListener() {}, removeListener() {}, dispatchEvent: () => false,
+        });
+        try { return fn(); } finally { window.matchMedia = original; }
+    };
+    const COARSE   = '(pointer: coarse)';
+    const PORTRAIT = '(orientation: portrait)';
+
+    it('drops the Milky Way on a touch device held upright', () => {
+        expect(withMedia({ [COARSE]: true, [PORTRAIT]: true }, skyAllowed)).toBe(false);
+    });
+
+    it('gives it back when the same device is turned sideways', () => {
+        expect(withMedia({ [COARSE]: true, [PORTRAIT]: false }, skyAllowed)).toBe(true);
+    });
+
+    it('leaves a desktop window alone whichever shape it is', () => {
+        expect(withMedia({ [COARSE]: false, [PORTRAIT]: true }, skyAllowed)).toBe(true);
+        expect(withMedia({ [COARSE]: false, [PORTRAIT]: false }, skyAllowed)).toBe(true);
     });
 });

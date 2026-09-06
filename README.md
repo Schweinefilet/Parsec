@@ -69,7 +69,7 @@ device, which came to ~395 MB of GPU texture memory — past what mobile Safari
 will allocate, so iOS dropped textures or killed the tab rather than warning.
 
 If you add a texture, a light, or per-frame work, put it behind a tier setting.
-The numbers worth keeping an eye on: total payload (currently ~7 MB on phones,
+The numbers worth keeping an eye on: total payload (currently ~2.7 MB on phones,
 ~13 MB elsewhere) and canvas pixel count (budgeted, see `pixelRatioFor`).
 
 ### Watch out for
@@ -84,6 +84,18 @@ guards, with tests that fail if the guards are removed.
 scene maps them as `(x, z, y)` and derives the belt plane from two Mars
 samples so the belts share a plane with the orbit rings. `orbits.test.js`
 pins that ~23.4° tilt, so a frame change can't slip through unnoticed.
+
+**React state written from the render loop.** The object labels used to be
+`useState` rebuilt every frame: ~18 elements reconciled and re-laid-out at
+60 Hz, each pass preceded by a `getBoundingClientRect()` that forced a
+synchronous layout. On a desktop that only wastes a budget nothing else was
+using. On a phone it left the main thread no gap between frames, and
+everything that needs one — texture decodes, model parsing, every
+`requestIdleCallback` — waited behind it, which is what made a first load
+take minutes rather than seconds. Labels are now plain DOM nodes moved with a
+composited `transform`; React hears only when the *set* of labels changes.
+Anything that has to move every frame belongs outside React, the same way
+`simTime` does.
 
 ### Time
 
@@ -118,10 +130,16 @@ when you focus its planet, not to scale.
 
 ### Assets
 
-Textures ship at 2K, with a 1K set under `public/textures/1k/` for phones. The
-ISS and Vesta meshes are decimated for the web and load during idle time rather
-than blocking the first frame. Bodies with no photographic map are painted at
-runtime, which costs no download at all.
+Textures ship at 2K, with a 1K set under `public/textures/1k/` for phones.
+Bodies with no photographic map are painted at runtime, which costs no
+download at all.
+
+The ISS (2.8 MB) and Vesta (1.9 MB) meshes are decimated for the web and still
+dominate the payload, so the phone tier (`heavyModels: false`) does not fetch
+them with the scene. Vesta keeps a painted sphere, which is what every other
+small body gets anyway. A sphere is the wrong shape for the ISS, so that model
+is fetched the moment you focus it instead. Everywhere else both load during
+idle time rather than blocking the first frame.
 
 CI enforces a budget on `public/textures`, `public/models` and `dist`. If you
 need to raise it, that should be a deliberate decision rather than a surprise.

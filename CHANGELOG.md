@@ -16,6 +16,40 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.5.3
+
+- **The iPhone first load no longer takes minutes.** Two separate causes, both
+  of which only really hurt on a phone.
+
+  The object labels were React state rebuilt on every frame: ~18 elements
+  reconciled and re-laid-out at 60 Hz, each pass preceded by a
+  `getBoundingClientRect()` — a read that forces a synchronous layout. Measured
+  on a throttled phone profile, that was 360 forced layouts in six seconds, one
+  per frame, for text that had usually moved a fraction of a pixel. A desktop
+  absorbs it. A phone does not: the main thread never went idle, so everything
+  waiting for a gap between frames — texture decodes, model parsing, every
+  `requestIdleCallback` — queued behind it. The labels are now plain DOM nodes
+  the render loop moves with a composited `transform`, and React is told only
+  when the *set* of labels changes, which is when the focus does. Same
+  forced-layout count, measured the same way: zero.
+
+  The other half was payload. Phones were downloading the ISS mesh (2.8 MB) and
+  Vesta's (1.9 MB) with the scene, for two objects that are a few pixels across
+  from the home view — 7.5 MB in total where the rest of the site needs 2.7 MB.
+  Vesta now keeps the painted sphere every other small body gets. A sphere is
+  the wrong shape for the ISS, so that model is fetched the moment you fly to
+  it instead. Halley's nucleus is small enough to keep everywhere, but it waited
+  for no one; it now loads during idle time like the rest.
+
+- **No Milky Way on a phone or tablet held upright.** Phones never had it — a
+  full-screen backdrop is the worst case for a mobile GPU's fill rate, and it is
+  the one thing you are always looking past. Portrait tablets did. A tall narrow
+  window shows a sliver of the map stretched over the full height of the screen,
+  so the band that makes it read as the Milky Way sits off the top and bottom
+  edges: you paid the fill rate for grey fog. Turn the same tablet sideways and
+  it comes back, without a reload. The sphere is built the first time it is
+  actually wanted, so a tablet that starts in portrait never downloads the map.
+
 ## 1.5.2
 
 - Removed the middle-dot (·) separators from the home-view hint text and the

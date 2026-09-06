@@ -14,7 +14,7 @@ import {
 } from '../utils/orbits';
 import { proceduralSurface } from '../utils/proceduralTextures';
 import { simNow, isLive } from '../utils/simTime';
-import { quality, texturePath, pixelRatioFor } from '../utils/quality';
+import { quality, texturePath, pixelRatioFor, skyAllowed } from '../utils/quality';
 import {
     targetOrbitSpeed, stepOrbitSpeed, targetIssSpeed,
     advanceMoonAngle, moonOffset, DEFAULT_ORBIT_SPEED,
@@ -25,8 +25,12 @@ let _exitState = { active: false, cameraPos: null, targetPos: null };
 const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 100vh)' }) => {
     const mountRef  = useRef(null);
     const navigate  = useNavigate();
-    const [objectLabels, setObjectLabels] = useState([]);
+    // Which labels exist, not where they are. The roster changes only when the
+    // focus does; the positions are written straight to the DOM by the render
+    // loop (see "Object labels" below), so a frame costs no React work.
+    const [labelRoster, setLabelRoster] = useState([]);
     const [moonLabelsReady, setMoonLabelsReady] = useState(false);
+    const labelElsRef = useRef(new Map());
 
     const focusedIdRef = useRef(focusedId);
     useLayoutEffect(() => {
@@ -183,31 +187,47 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             sunMat.needsUpdate = true;
         });
 
+        // ── Resource tracking (for cleanup) ────────────────────────────────────
+        const geos     = [sunGeo];
+        const mats     = [sunMat];
+
         // ── Milky Way skysphere ────────────────────────────────────────────────
-        // Skipped entirely on phones (q.skyTexture === null): a full-screen
-        // backdrop is the worst case for a mobile GPU's fill rate, and it is the
-        // one thing you are always looking past. Desktop gets the 8K map.
+        // Two gates decide whether there is one. The tier says phones never get
+        // it (q.skyTexture === null): a full-screen backdrop is the worst case
+        // for a mobile GPU's fill rate, and it is the one thing you are always
+        // looking past. skyAllowed() then drops it for any touch device held
+        // upright — a portrait tablet included — and hands it back when the
+        // same device is turned sideways.
+        //
+        // Built on first use rather than up front, so a tablet that starts in
+        // portrait never spends the download or the texture memory at all.
         let skySphere = null;
-        let skyGeo = null;
-        let skyMat = null;
-        if (q.skyTexture) {
-            skyGeo = new THREE.SphereGeometry(8000, q.skySegments, q.skySegments);
+        const buildSky = () => {
+            if (skySphere || !q.skyTexture || !mounted) return;
+            const skyGeo = new THREE.SphereGeometry(8000, q.skySegments, q.skySegments);
             const skyTex = loader.load('/textures/' + q.skyTexture);
             textures.push(skyTex);
-            skyMat = new THREE.MeshBasicMaterial({
+            const skyMat = new THREE.MeshBasicMaterial({
                 map:         skyTex,
                 side:        THREE.BackSide,
                 depthWrite:  false,
                 transparent: true,
                 opacity:     0.35,
             });
+            geos.push(skyGeo);
+            mats.push(skyMat);
             skySphere = new THREE.Mesh(skyGeo, skyMat);
             scene.add(skySphere);
-        }
-
-        // ── Resource tracking (for cleanup) ────────────────────────────────────
-        const geos     = [sunGeo, skyGeo].filter(Boolean);
-        const mats     = [sunMat, skyMat].filter(Boolean);
+        };
+        const syncSky = () => {
+            if (!q.skyTexture) return;
+            if (!skyAllowed()) { if (skySphere) skySphere.visible = false; return; }
+            buildSky();
+            if (skySphere) skySphere.visible = true;
+        };
+        const orientationMQ = window.matchMedia?.('(orientation: portrait)') ?? null;
+        orientationMQ?.addEventListener('change', syncSky);
+        syncSky();
 
         // Additive glow layers — colors add on top of the scene, building a bright halo
         const GLOW_LAYERS = [
@@ -973,9 +993,14 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             geos.push(geo);
             mats.push(mat);
 
-            // Painted surface. Vesta and Halley are skipped — their STL geometry
-            // carries no UVs, so a map can't apply; their shape does the work.
-            if (!['vesta', 'halley'].includes(body.id)) {
+            // Painted surface. A body that is about to have its sphere replaced
+            // by STL geometry is skipped — that geometry carries no UVs, so a
+            // map can't apply to it and its shape does the work instead. Vesta
+            // only qualifies where its 1.9 MB model is actually loaded; on the
+            // phone tier it stays a sphere, and a sphere with no map is a flat
+            // disc of colour.
+            const keepsSphere = body.id !== 'halley' && !(body.id === 'vesta' && q.heavyModels);
+            if (keepsSphere) {
                 const icy = ['haumea', 'makemake', 'eris'].includes(body.id);
                 const surf = proceduralSurface(body.id, body.color, icy ? 'icy' : 'rocky');
                 textures.push(surf.map);
@@ -988,8 +1013,9 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 }
             }
 
-            // STL model for Vesta
-            if (body.id === 'vesta') {
+            // STL model for Vesta — 1.9 MB, and a couple of pixels across from
+            // the home view, so the phone tier keeps the painted sphere.
+            if (body.id === 'vesta' && q.heavyModels) {
                 whenIdle(() => { if (!mounted) return; new STLLoader().load(
                     '/models/vesta.stl',
                     (stlGeo) => {
@@ -1011,9 +1037,11 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             }
 
             // Elongated STL nucleus for Halley — the Geographos asteroid model has
-            // a similar peanut shape to Halley's imaged nucleus.
+            // a similar peanut shape to Halley's imaged nucleus. Small enough to
+            // ship to every tier, but it waits its turn like the others rather
+            // than competing with the textures that make up the first frame.
             if (body.id === 'halley') {
-                new STLLoader().load(
+                whenIdle(() => { if (!mounted) return; new STLLoader().load(
                     '/models/asteroids/geographos.stl',
                     (stlGeo) => {
                         if (!mounted) { stlGeo.dispose(); return; }
@@ -1028,7 +1056,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                     },
                     undefined,
                     () => {}, // silently keep sphere fallback
-                );
+                ); });
             }
 
             const group = new THREE.Group();
@@ -1182,6 +1210,9 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         let issOrbitMat  = null; // fades in/out with Earth focus
         let issRingMesh  = null; // billboard selection ring at ISS position
         let issRingMat   = null;
+        // Assigned when the ISS mesh is built. The phone tier holds it back and
+        // the animate loop calls it if you actually fly there — see below.
+        let loadIssModel = null;
 
         MOON_DATA.forEach(moon => {
             const parentGroup = planetMeshRefs.get(moon.parent);
@@ -1297,23 +1328,34 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
 
             // ── ISS-specific extras ────────────────────────────────────────────
             if (moon.id === 'iss') {
-                // Replace sphere with STL model
-                whenIdle(() => { if (!mounted) return; new STLLoader().load(
-                    '/models/iss.stl',
-                    (stlGeo) => {
-                        if (!mounted) { stlGeo.dispose(); return; }
-                        stlGeo.computeVertexNormals();
-                        stlGeo.center();
-                        stlGeo.computeBoundingSphere();
-                        const sf = moon.radius / stlGeo.boundingSphere.radius;
-                        stlGeo.scale(sf, sf, sf);
-                        moonMesh.geometry.dispose();
-                        moonMesh.geometry = stlGeo;
-                        geos.push(stlGeo);
-                    },
-                    undefined,
-                    () => {},
-                ); });
+                // Replace sphere with STL model. At 2.8 MB this is the largest
+                // single file the site has, and from the home view the station
+                // is one pixel beside Earth — so the phone tier does not fetch
+                // it up front. A sphere is the wrong shape for the ISS, though,
+                // so unlike Vesta it is not dropped outright: flying to the
+                // station loads it then.
+                let issModelRequested = false;
+                loadIssModel = () => {
+                    if (issModelRequested || !mounted) return;
+                    issModelRequested = true;
+                    new STLLoader().load(
+                        '/models/iss.stl',
+                        (stlGeo) => {
+                            if (!mounted) { stlGeo.dispose(); return; }
+                            stlGeo.computeVertexNormals();
+                            stlGeo.center();
+                            stlGeo.computeBoundingSphere();
+                            const sf = moon.radius / stlGeo.boundingSphere.radius;
+                            stlGeo.scale(sf, sf, sf);
+                            moonMesh.geometry.dispose();
+                            moonMesh.geometry = stlGeo;
+                            geos.push(stlGeo);
+                        },
+                        undefined,
+                        () => {},
+                    );
+                };
+                if (q.heavyModels) whenIdle(() => loadIssModel());
 
                 // Orbital path ring (line loop in Earth's local space, moves with Earth)
                 const incR = moon.inc * Math.PI / 180;
@@ -1445,9 +1487,16 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         renderer.domElement.addEventListener('mousemove', handleMouseMove);
 
         // ── ResizeObserver ─────────────────────────────────────────────────────
+        // Canvas size in CSS pixels, kept current here so the label pass never
+        // has to call getBoundingClientRect() — a read that forces a synchronous
+        // layout, and one the loop used to do on every single frame.
+        let viewW = w;
+        let viewH = h;
         const ro = new ResizeObserver(([entry]) => {
             const { width, height } = entry.contentRect;
             if (!width || !height) return;
+            viewW = width;
+            viewH = height;
             // Re-budget on resize too: rotating a tablet changes the surface
             // area enough to matter.
             renderer.setPixelRatio(pixelRatioFor(width, height));
@@ -1456,6 +1505,87 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             camera.updateProjectionMatrix();
         });
         ro.observe(mount);
+
+        // ── Object labels ──────────────────────────────────────────────────────
+        // The labels are plain DOM nodes that the render loop positions with a
+        // composited transform. They used to be React state rebuilt on every
+        // frame: ~18 elements reconciled and re-laid-out at 60 Hz, each pass
+        // preceded by a getBoundingClientRect() that forced a synchronous
+        // layout. On a desktop that is merely wasteful. On a phone it left the
+        // main thread no gap between frames, which is what turned a first load
+        // into a multi-minute wait — every texture decode, every model parse
+        // and every requestIdleCallback was queued behind the label pass.
+        //
+        // React now hears only about the roster, which changes when the focus
+        // does. A frame writes transforms and nothing else.
+        const LABEL_BANDS = {
+            planet:       { base: 20, range: 8 },
+            'small-body': { base: 12, range: 4 },
+            moon:         { base:  4, range: 4 },
+        };
+        const LABEL_UNBUILT = Symbol('unbuilt');
+        let labelTargets  = [];               // { key, name, kind, object3d }
+        let labelBuiltFor = LABEL_UNBUILT;    // focus id the roster was built for
+        const labelZ      = new Map();        // key → z-index last written
+
+        const buildLabelTargets = (focused) => {
+            const out = [];
+            if (!focused) {
+                // Home view — label every planet
+                planetGroups.forEach(({ group, planet }) => out.push(
+                    { key: `planet:${planet.name}`, name: planet.name, kind: 'planet', object3d: group }));
+                // Small bodies and probes: dimmer, same size as moon labels
+                smallBodyGroups.forEach(({ group, body }) => out.push(
+                    { key: `small:${body.name}`, name: body.name, kind: 'small-body', object3d: group }));
+                probeGroups.forEach(({ group, probe }) => out.push(
+                    { key: `small:${probe.name}`, name: probe.name, kind: 'small-body', object3d: group }));
+                return out;
+            }
+            // Focused on a planet — show its moons only
+            const focusedPlanet = planetGroups.find(({ planet }) => planet.id === focused);
+            if (focusedPlanet) {
+                MOON_DATA.forEach(moon => {
+                    if (moon.parent !== focusedPlanet.planet.name) return;
+                    const mesh = moonMeshRefs.get(moon.name);
+                    if (mesh) out.push(
+                        { key: `moon:${moon.name}`, name: moon.name, kind: 'moon', object3d: mesh });
+                });
+                return out;
+            }
+            // Focused on a moon — label the moon itself
+            const focusedMoon = MOON_DATA.find(m => m.id === focused);
+            const moonMesh = focusedMoon ? moonMeshRefs.get(focusedMoon.name) : null;
+            if (moonMesh) out.push(
+                { key: `moon:${focusedMoon.name}`, name: focusedMoon.name, kind: 'moon', object3d: moonMesh });
+            return out;
+        };
+
+        const _labelProj = new THREE.Vector3();
+        const positionLabels = () => {
+            const els = labelElsRef.current;
+            if (els.size === 0) return;
+            for (const t of labelTargets) {
+                const el = els.get(t.key);
+                if (!el) continue;   // roster changed; its node lands next commit
+                t.object3d.getWorldPosition(_labelProj);
+                _labelProj.project(camera);
+                // Anything off screen is simply not drawn
+                if (_labelProj.z > 1 || Math.abs(_labelProj.x) > 1.05 || Math.abs(_labelProj.y) > 1.05) {
+                    if (el.style.visibility !== 'hidden') el.style.visibility = 'hidden';
+                    continue;
+                }
+                const x = (_labelProj.x + 1) / 2 * viewW;
+                const y = -(_labelProj.y - 1) / 2 * viewH;
+                // A transform rather than left/top: moving a label this way is
+                // composited and costs no layout.
+                el.style.transform = `translate3d(${x + 12}px, ${y}px, 0) translateY(-50%)`;
+                if (el.style.visibility !== 'visible') el.style.visibility = 'visible';
+                // Within a band, closer objects (lower depth) stack higher.
+                const band = LABEL_BANDS[t.kind];
+                const z = band.base + Math.round((1 - _labelProj.z) * band.range * 0.5);
+                if (labelZ.get(t.key) !== z) { labelZ.set(t.key, z); el.style.zIndex = String(z); }
+            }
+        };
 
         // ── Animation loop ─────────────────────────────────────────────────────
         let animId;
@@ -1486,6 +1616,9 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
 
             // ── Detect focus changes ───────────────────────────────────────────
             if (currentFocusedId !== prevFocusedId) {
+                // Where the ISS model was held back to keep the first load small,
+                // this is the moment it is worth fetching: you are on your way.
+                if (currentFocusedId === 'iss') loadIssModel?.();
                 // Restore previous focused planet's orbit + tilt + hitbox scale
                 if (prevFocusedId) {
                     const prevMesh = planetMeshes.find(m => m.userData.id === prevFocusedId);
@@ -1921,64 +2054,16 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             }
 
             // ── Object labels ──────────────────────────────────────────────────
+            // Rebuild the roster only when the focus changes; otherwise just
+            // move the nodes that already exist. See buildLabelTargets above.
             if (mounted) {
-                const rect = renderer.domElement.getBoundingClientRect();
-                const project = (mesh) => {
-                    const wp = new THREE.Vector3();
-                    mesh.getWorldPosition(wp);
-                    const pr = wp.clone().project(camera);
-                    // Clip labels outside the viewport — off-screen absolutely-positioned
-                    // labels would otherwise stretch the document height while zooming.
-                    if (pr.z > 1 || Math.abs(pr.x) > 1.05 || Math.abs(pr.y) > 1.05) return null;
-                    return {
-                        x: (pr.x + 1) / 2 * rect.width,
-                        y: -(pr.y - 1) / 2 * rect.height,
-                        depth: pr.z,
-                    };
-                };
-                const newLabels = [];
-                if (!currentFocusedId) {
-                    // Home view — label every planet
-                    planetGroups.forEach(({ group, planet }) => {
-                        const pos = project(group);
-                        if (pos) newLabels.push({ name: planet.name, kind: 'planet', ...pos });
-                    });
-                    // Small body labels (dimmer, same size as moon labels)
-                    smallBodyGroups.forEach(({ group, body }) => {
-                        const pos = project(group);
-                        if (pos) newLabels.push({ name: body.name, kind: 'small-body', ...pos });
-                    });
-                    probeGroups.forEach(({ group, probe }) => {
-                        const pos = project(group);
-                        if (pos) newLabels.push({ name: probe.name, kind: 'small-body', ...pos });
-                    });
-                } else {
-                    // Focused on a planet — show its moons only
-                    const focusedPlanet = planetGroups.find(({ planet }) => planet.id === currentFocusedId);
-                    if (focusedPlanet) {
-                        MOON_DATA.forEach(moon => {
-                            if (moon.parent !== focusedPlanet.planet.name) return;
-                            const mesh = moonMeshRefs.get(moon.name);
-                            if (!mesh) return;
-                            const pos = project(mesh);
-                            if (pos) newLabels.push({ name: moon.name, kind: 'moon', ...pos });
-                        });
-                    } else {
-                        // Focused on a moon — label the moon itself
-                        const focusedMoon = MOON_DATA.find(m => m.id === currentFocusedId);
-                        if (focusedMoon) {
-                            const mesh = moonMeshRefs.get(focusedMoon.name);
-                            if (mesh) {
-                                const pos = project(mesh);
-                                if (pos) newLabels.push({ name: focusedMoon.name, kind: 'moon', ...pos });
-                            }
-                        }
-                    }
+                if (labelBuiltFor !== currentFocusedId) {
+                    labelBuiltFor = currentFocusedId;
+                    labelTargets  = buildLabelTargets(currentFocusedId);
+                    labelZ.clear();
+                    setLabelRoster(labelTargets.map(({ key, name, kind }) => ({ key, name, kind })));
                 }
-                setObjectLabels(prev => {
-                    if (prev.length === 0 && newLabels.length === 0) return prev;
-                    return newLabels;
-                });
+                positionLabels();
             }
 
             // ── Belt LOD ──────────────────────────────────────────────────────
@@ -2034,6 +2119,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             idleTimers.forEach(cancel => cancel());
             clearInterval(posInterval);
             ro.disconnect();
+            orientationMQ?.removeEventListener('change', syncSky);
             renderer.domElement.removeEventListener('click',     handleClick);
             renderer.domElement.removeEventListener('mousemove', handleMouseMove);
             renderer.domElement.removeEventListener('webglcontextlost',     onContextLost);
@@ -2071,26 +2157,34 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                     *not to scale
                 </div>
 
-                {/* Floating object labels */}
-                {objectLabels.map((label, i) => {
-                    // Planet labels: 20–28. Moon labels: 4–8.
-                    // Within each band, closer objects (lower depth) get higher z.
-                    const isMoon       = label.kind === 'moon';
-                    const isSmallBody  = label.kind === 'small-body';
-                    const base   = isMoon ? 4 : isSmallBody ? 12 : 20;
-                    const range  = isMoon ? 4 : isSmallBody ? 4  : 8;
-                    const zIndex = base + Math.round((1 - label.depth) * range * 0.5);
+                {/* Floating object labels.
+                    Place, z-order and visibility belong to the render loop, so
+                    they are deliberately absent from the style below: React
+                    diffs only what it set itself, and leaving those three out
+                    means a re-render here can never undo the loop's writes.
+                    Planet labels stack 20–28, small bodies 12–16, moons 4–8. */}
+                {labelRoster.map(({ key, name, kind }) => {
+                    const isMoon      = kind === 'moon';
+                    const isSmallBody = kind === 'small-body';
                     return (
-                    <div key={`${label.name}-${i}`} style={{
-                        position: 'absolute',
-                        left: label.x,
-                        top: label.y,
-                        transform: 'translate(12px, -50%)',
-                        pointerEvents: 'none',
-                        zIndex,
-                        opacity: isMoon ? (moonLabelsReady ? 1 : 0) : isSmallBody ? 0.72 : 1,
-                        transition: isMoon ? 'opacity 0.5s ease' : 'none',
-                    }}>
+                    <div
+                        key={key}
+                        ref={(el) => {
+                            if (el) labelElsRef.current.set(key, el);
+                            else labelElsRef.current.delete(key);
+                        }}
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            // Hidden until the loop has projected it somewhere
+                            visibility: 'hidden',
+                            pointerEvents: 'none',
+                            willChange: 'transform',
+                            opacity: isMoon ? (moonLabelsReady ? 1 : 0) : isSmallBody ? 0.72 : 1,
+                            transition: isMoon ? 'opacity 0.5s ease' : 'none',
+                        }}
+                    >
                         <div style={{
                             color: 'rgba(255,255,255,0.92)',
                             fontSize: isMoon || isSmallBody ? 8 : 11,
@@ -2100,7 +2194,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                             textShadow: '0 1px 4px rgba(0,0,0,0.9)',
                             whiteSpace: 'nowrap',
                         }}>
-                            {label.name}
+                            {name}
                         </div>
                     </div>
                     );

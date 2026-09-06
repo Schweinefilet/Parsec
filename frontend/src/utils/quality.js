@@ -50,6 +50,12 @@ const TIERS = {
         // Bump maps double a painted body's texture memory. The phone tier
         // has the least room and the smallest screen to show relief on.
         bumpMaps: false,
+        // The multi-megabyte STL bodies (Vesta 1.9 MB, the ISS 2.8 MB) are a
+        // phone's single largest download and they parse on the main thread.
+        // Neither is more than a few pixels across from the home view, so this
+        // tier goes without: Vesta stays a painted sphere, and the ISS model
+        // loads only if you actually fly to it.
+        heavyModels: false,
         heroTextureSize: 512,    // procedural map resolution for close-up bodies
         minorTextureSize: 256,
         // Kept on: tile-based mobile GPUs resolve MSAA cheaply, and without it
@@ -71,6 +77,7 @@ const TIERS = {
         beltLODRotate: false,    // build the instances once, don't spin them per frame
         skyTexture: 'milky_way.jpg',            // 2K
         bumpMaps: true,
+        heavyModels: true,
         heroTextureSize: 1024,
         minorTextureSize: 512,
         antialias: true,
@@ -92,6 +99,7 @@ const TIERS = {
         // difference between a starfield and a Milky Way.
         skyTexture: '8k/milky_way.jpg',
         bumpMaps: true,
+        heavyModels: true,
         heroTextureSize: 1024,
         minorTextureSize: 512,
         antialias: true,
@@ -113,6 +121,27 @@ export function quality() {
 /** Full URL for a texture, at the resolution this device should load. */
 export function texturePath(file) {
     return quality().texturePath + file;
+}
+
+/**
+ * Whether this viewport should carry the Milky Way backdrop.
+ *
+ * The tier already answers "can this GPU afford it", and phones are told no
+ * outright. This is the second question: a handheld held upright is the one
+ * shape the backdrop suits worst. A tall narrow window shows a sliver of an
+ * equirectangular map stretched over the full height of the screen, so the
+ * band that makes it read as the Milky Way is usually off the top and bottom
+ * edges — you pay the full-screen fill rate for what looks like grey fog.
+ * Turned sideways the same tablet frames the band properly and gets it back.
+ *
+ * Separate from the tier because orientation changes while the page is open,
+ * and the tier is resolved once at startup.
+ */
+export function skyAllowed() {
+    if (typeof window === 'undefined') return true;
+    const coarse   = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+    const portrait = window.matchMedia?.('(orientation: portrait)').matches ?? false;
+    return !(coarse && portrait);
 }
 
 /**
