@@ -58,6 +58,7 @@ frontend/src/
     proceduralTextures.js painted surface maps for bodies with no photographic
                           texture (Io's sulfur, Europa's linea, Pluto's heart)
     spacecraftModels.js   spacecraft built from primitives, no model downloads
+    nearestCountry.js     which country the ISS ground point is closest to
 ```
 
 ### Performance is a feature here
@@ -140,6 +141,19 @@ them with the scene. Vesta keeps a painted sphere, which is what every other
 small body gets anyway. A sphere is the wrong shape for the ISS, so that model
 is fetched the moment you focus it instead. Everywhere else both load during
 idle time rather than blocking the first frame.
+
+`src/data/landPoints.json` is the odd one out: 15,840 coastline and interior
+points sampled from Natural Earth (public domain), which the ISS tracker uses
+to name the nearest country. It is loaded with a dynamic `import()` so it lands
+as its own ~21 KB chunk that only that page fetches. Regenerate it with
+`node scripts/build-land-points.mjs`, which documents the sampling and the
+accuracy it buys.
+
+A reverse-geocoding API cannot answer this question, which is why the table
+exists: the station is over water about seven tenths of the time, and
+wheretheiss.at's own coordinate endpoint returns `"??"` for every point at sea.
+"Nearest" and "over" are different questions, and only the first has an answer
+most of the time.
 
 CI enforces a budget on `public/textures`, `public/models` and `dist`. If you
 need to raise it, that should be a deliberate decision rather than a surprise.

@@ -3,12 +3,19 @@ import { useState, useEffect, useRef } from 'react';
 const ENDPOINT = 'https://api.wheretheiss.at/v1/satellites/25544';
 const POLL_MS = 5000;
 
+// The station goes round in about 92.7 minutes. Keeping that many fixes means
+// the trail grows into a complete orbit if you leave the page open, instead of
+// the twenty-minute stub 240 fixes gave — an arc that short reads as a tail,
+// not as an orbit. It is 1100 objects, which costs nothing worth counting.
+const ORBIT_FIXES = Math.round((92.7 * 60) / (POLL_MS / 1000));
+
 /**
  * Live ISS state vector, polled from wheretheiss.at.
- * Keeps a short trail of recent fixes so the caller can draw a ground track,
- * and reports staleness rather than silently showing a frozen position.
+ * Keeps a trail of recent fixes — latitude, longitude and altitude — so the
+ * caller can draw the path the station has flown, and reports staleness rather
+ * than silently showing a frozen position.
  */
-export function useIssPosition({ trailLength = 240 } = {}) {
+export function useIssPosition({ trailLength = ORBIT_FIXES } = {}) {
     const [state, setState] = useState({
         lat: null, lon: null, altitude: null, velocity: null,
         visibility: null, timestamp: null,
@@ -44,7 +51,9 @@ export function useIssPosition({ trailLength = 240 } = {}) {
                     const last = prev[prev.length - 1];
                     // Skip duplicate fixes; the API updates about once a second
                     if (last && last.lat === lat && last.lon === lon) return prev;
-                    const next = [...prev, { lat, lon }];
+                    // Altitude rides along so the trail can be drawn where the
+                    // station actually was, rather than flattened onto the ground
+                    const next = [...prev, { lat, lon, alt: Number(d.altitude) }];
                     return next.length > trailLength ? next.slice(next.length - trailLength) : next;
                 });
             } catch (err) {

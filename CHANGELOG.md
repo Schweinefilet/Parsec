@@ -16,6 +16,61 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.5.4
+
+- **The ISS tracker now names the country the station is nearest to**, beside
+  the latitude and longitude it already showed, with the distance under it —
+  or "Overhead" when the ground point is inside that country or just off its
+  coast.
+
+  The obvious way to do this is a reverse-geocoding call, and it does not work:
+  the station is over water about seven tenths of the time, and that is exactly
+  when the question is worth asking. wheretheiss.at will answer "which country
+  is at this coordinate" and returns `"??"` for every point at sea. *Nearest*
+  is a different question from *over*, and only the first one usually has an
+  answer, so the site carries the land geometry to answer it itself.
+
+  `src/data/landPoints.json` holds 15,840 points sampled from Natural Earth's
+  coastlines and country interiors — coastlines because they decide the answer
+  from out at sea, interiors so a point in the middle of Kazakhstan reads as
+  Kazakhstan overhead rather than a border a few hundred km away. Checked
+  against the full-resolution polygons over 250 random points in the station's
+  latitude band it names the right country 99% of the time; for points genuinely
+  over land it reports them a mean of 39 km away. Near a land border it can name
+  the neighbour, which is why the readout says "Overhead" rather than a
+  precise-looking small number.
+
+  The table is loaded with a dynamic `import()`, so it is a ~21 KB chunk that
+  only the tracker page fetches — the home view is unchanged, and the main
+  bundle grew by under 1 KB. `scripts/build-land-points.mjs` regenerates it.
+
+- **The trail is the orbit now, not the ground track.** It was drawn on the
+  surface, so it read as a shadow the station cast rather than the path it
+  flew, and it ended below the marker instead of meeting it. Each fix now
+  carries its altitude and is drawn at it, so the trail runs through space and
+  joins the dot exactly, with the drop line showing how far up that is.
+
+  It also keeps an orbit's worth of fixes rather than twenty minutes'. At one
+  fix every five seconds that is 1,112 of them for the station's 92.7-minute
+  period, so leaving the page open draws a whole circuit instead of a short
+  tail. Worth knowing what you are looking at: the globe is drawn in Earth's
+  frame, so each pass comes round west of the last one — the Earth turned
+  underneath — rather than retracing one closed ring.
+
+- **The station on the globe is a green dot now**, not a little modelled body
+  with solar panels. At this globe size it was only a few pixels across, so the
+  model read as a speck with an odd outline rather than as a spacecraft — and
+  being lit by the same sun as the Earth beneath it, it dimmed to nothing
+  whenever the station crossed into night, which is exactly when you are
+  looking for it. The dot ignores the scene lights, so it is the same green
+  wherever the station is. It keeps the halo that makes it findable against the
+  bright day side.
+
+- The drifting starfield backdrop is stashed for now. `StarfieldBg` is still in
+  the tree and unchanged; both call sites are commented out and marked
+  `STASHED StarfieldBg`, so `grep -rn "STASHED StarfieldBg" src` finds the four
+  lines to uncomment.
+
 ## 1.5.3
 
 - **The iPhone first load no longer takes minutes.** Two separate causes, both

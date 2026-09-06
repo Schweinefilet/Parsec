@@ -148,20 +148,16 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
         scene.add(new THREE.Mesh(atmoGeo, atmoMat));
 
         // ── ISS marker ────────────────────────────────────────────────────
+        // A dot, not a model. At this globe size the station was a few pixels
+        // across, so the modelled body and panels read as a speck with an odd
+        // outline rather than as a spacecraft — and being lit by the same sun
+        // as the Earth, it dimmed to nothing over the night side, which is
+        // where you most want to find it. MeshBasicMaterial ignores the lights,
+        // so the dot is the same green wherever the station is.
         const issGroup = new THREE.Group();
-        const bodyGeo = new THREE.BoxGeometry(0.055, 0.02, 0.02);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: '#e8edf2', roughness: 0.4, metalness: 0.7 });
-        issGroup.add(new THREE.Mesh(bodyGeo, bodyMat));
-        const wingGeo = new THREE.BoxGeometry(0.018, 0.004, 0.075);
-        const wingMat = new THREE.MeshStandardMaterial({
-            color: '#2b3f8f', roughness: 0.35, metalness: 0.5,
-            emissive: '#16204a', emissiveIntensity: 0.5,
-        });
-        for (const dx of [-0.02, 0.02]) {
-            const wing = new THREE.Mesh(wingGeo, wingMat);
-            wing.position.x = dx;
-            issGroup.add(wing);
-        }
+        const dotGeo = new THREE.SphereGeometry(0.032, 16, 16);
+        const dotMat = new THREE.MeshBasicMaterial({ color: '#7fe3a0' });
+        issGroup.add(new THREE.Mesh(dotGeo, dotMat));
         // Halo so it stays findable against the bright day side
         const haloGeo = new THREE.SphereGeometry(0.075, 16, 16);
         const haloMat = new THREE.MeshBasicMaterial({
@@ -176,8 +172,15 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
         const dropMat = new THREE.LineBasicMaterial({ color: '#7fe3a0', transparent: true, opacity: 0.45 });
         scene.add(new THREE.Line(dropGeo, dropMat));
 
-        // ── Ground track ──────────────────────────────────────────────────
-        const MAX_TRAIL = 400;
+        // ── Orbital track ─────────────────────────────────────────────────
+        // Drawn at the altitude each fix was taken at, so it is the path the
+        // station flew rather than its shadow on the ground. It meets the dot
+        // exactly, and the drop line below shows how far up that is.
+        //
+        // Note this is the orbit in Earth's frame, which is the frame this
+        // globe is drawn in: successive passes sit west of the last one because
+        // the Earth turned underneath, rather than retracing one closed ring.
+        const MAX_TRAIL = 1200;
         const trackGeo = new THREE.BufferGeometry();
         trackGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_TRAIL * 3), 3));
         trackGeo.setDrawRange(0, 0);
@@ -238,7 +241,10 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
                 const off = points.length - n;
                 const v = new THREE.Vector3();
                 for (let i = 0; i < n; i++) {
-                    toVec3(points[off + i].lat, points[off + i].lon, R * 1.006, v);
+                    const p = points[off + i];
+                    // Fixes recorded before altitude was carried, or a reading
+                    // the API left out, fall back to the station's usual height
+                    toVec3(p.lat, p.lon, R * (1 + (p.alt || 420) * ALT_SCALE), v);
                     arr[i * 3] = v.x; arr[i * 3 + 1] = v.y; arr[i * 3 + 2] = v.z;
                 }
                 trackGeo.attributes.position.needsUpdate = true;
@@ -265,9 +271,6 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
 
             issCurrent.lerp(issTarget, 0.08);
             issGroup.position.copy(issCurrent);
-            // Keep the station tangent to its orbit, panels facing out
-            issGroup.lookAt(0, 0, 0);
-            issGroup.rotateX(Math.PI / 2);
 
             const dp = dropGeo.attributes.position.array;
             dp[0] = issCurrent.x; dp[1] = issCurrent.y; dp[2] = issCurrent.z;
@@ -298,9 +301,9 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
             cancelAnimationFrame(animId);
             controls.dispose();
             ro.disconnect();
-            [geo, atmoGeo, bodyGeo, wingGeo, haloGeo, dropGeo, trackGeo, obsGeo, ...gratGeos]
+            [geo, atmoGeo, dotGeo, haloGeo, dropGeo, trackGeo, obsGeo, ...gratGeos]
                 .forEach(g => g.dispose());
-            [earthMat, atmoMat, bodyMat, wingMat, haloMat, dropMat, trackMat, obsMat, gratMat]
+            [earthMat, atmoMat, dotMat, haloMat, dropMat, trackMat, obsMat, gratMat]
                 .forEach(m => m.dispose());
             loaded.forEach(t => t.dispose());
             if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);

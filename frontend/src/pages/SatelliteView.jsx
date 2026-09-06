@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, MapPin, Crosshair, Sun, Moon } from 'lucide-react';
-import StarfieldBg from '../components/StarfieldBg';
+// STASHED StarfieldBg — uncomment this and the <StarfieldBg /> below to restore it.
+// import StarfieldBg from '../components/StarfieldBg';
 import IssGlobe from '../components/IssGlobe';
 import { useIssPosition } from '../hooks/useIssPosition';
+import { useNearestCountry } from '../hooks/useNearestCountry';
 
 const ISS_NORAD = 25544;
 const EARTH_R_KM = 6371;
@@ -73,9 +75,19 @@ const SatelliteView = () => {
     const secondsAgo = iss.timestamp ? Math.max(0, Math.round((Date.now() - iss.timestamp) / 1000)) : null;
     const isDaylight = iss.visibility === 'daylight';
 
+    // Nearest land, which is a different question from what it is over: the
+    // station is at sea roughly seven tenths of the time.
+    const nearest = useNearestCountry(iss.lat, iss.lon);
+    // The table samples land every degree or so, so a reading under ~75 km
+    // means the ground point is inside that country or just off its coast —
+    // either way "overhead" is the honest word for it, and a precise-looking
+    // "12 km away" would not be.
+    const overhead = nearest != null && nearest.km < 75;
+
     return (
         <>
-            <StarfieldBg canvasId="starfield-satellites" />
+            {/* STASHED StarfieldBg — restore with its import at the top of this file.
+                <StarfieldBg canvasId="starfield-satellites" /> */}
 
             <div style={{ position: 'relative', zIndex: 1, minHeight: 'var(--app-vh, 100vh)', paddingTop: 64 }}>
                 <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 16px 40px' }}>
@@ -189,6 +201,16 @@ const SatelliteView = () => {
                         <Stat label="Latitude" value={fmtCoord(iss.lat, 'N', 'S')} />
                         <Stat label="Longitude" value={fmtCoord(iss.lon, 'E', 'W')} />
                         <Stat
+                            label="Nearest country"
+                            value={nearest?.name ?? '—'}
+                            sub={
+                                nearest == null ? null
+                                : overhead ? 'Overhead'
+                                : `${Math.round(nearest.km).toLocaleString()} km away`
+                            }
+                            accent={overhead ? '#6ee7a0' : undefined}
+                        />
+                        <Stat
                             label="Altitude"
                             value={iss.altitude != null ? `${iss.altitude.toFixed(0)} km` : '—'}
                         />
@@ -256,7 +278,8 @@ const SatelliteView = () => {
                     </div>
 
                     <p style={{ marginTop: 14, fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center' }}>
-                        Position data from wheretheiss.at · Terminator computed from the current sub-solar point
+                        Position data from wheretheiss.at · Terminator computed from the current sub-solar point ·
+                        Nearest country measured against Natural Earth coastlines
                     </p>
                 </div>
             </div>

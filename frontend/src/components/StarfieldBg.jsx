@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { quality } from '../utils/quality';
 
+// STASHED — nothing renders this at the moment. Both call sites, in
+// pages/CategoryBrowser.jsx and pages/SatelliteView.jsx, are commented out and
+// marked "STASHED StarfieldBg"; uncomment the import and the element in each to
+// bring it back. Kept here deliberately rather than deleted.
+//
 // Sparse drifting starfield painted behind everything. Density scales with
 // viewport area so phones don't get a dense mesh in a narrow column, and the
 // whole layer freezes for anyone who asks for reduced motion.

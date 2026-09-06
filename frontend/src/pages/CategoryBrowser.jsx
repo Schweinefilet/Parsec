@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate, useMatch } from 'react-router-dom';
 import { ChevronDown, ChevronLeft, ArrowUpRight } from 'lucide-react';
-import StarfieldBg from '../components/StarfieldBg';
+// STASHED StarfieldBg — uncomment this and the <StarfieldBg /> below to restore it.
+// import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
 import SpaceDataStrip from '../components/SpaceDataStrip';
 import ObjectCard from '../components/ObjectCard';
@@ -208,7 +209,8 @@ const CategoryBrowser = () => {
 
     return (
         <>
-            <StarfieldBg canvasId="starfield-browser" />
+            {/* STASHED StarfieldBg — restore with its import at the top of this file.
+                <StarfieldBg canvasId="starfield-browser" /> */}
 
             {/* The page's document heading. Visually hidden on the home view —
                 the solar system itself is the title — but present for search
