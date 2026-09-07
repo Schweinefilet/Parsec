@@ -16,6 +16,24 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.6.1
+
+- **Every orbit path in the scene now behaves the same way.** The Voyager
+  tracks were the exception: permanently coloured, at their own opacity, and
+  the only paths that did not answer to the pointer at all. They are white and
+  faint like the planets' rings now, and hovering the spacecraft brightens the
+  track and turns it the craft's colour — the same opacity change the rings
+  have always had, driven by the same code rather than a second path beside it.
+
+- **A hovered orbit ring picks up a little of its planet's colour.** Half
+  strength, so Saturn's ring reads as Saturn's without becoming a second gold
+  object next to the planet. The Voyager tracks go the whole way to their
+  colour instead, since out there is nothing beside them to compete with.
+
+- Focusing an object now hides the Voyager tracks along with every other orbit
+  path, which is the consistency that was asked for, and clears any hover tint
+  left behind on the way in.
+
 ## 1.6.0
 
 - **The tracker is a satellite tracker now, not an ISS page with two extra

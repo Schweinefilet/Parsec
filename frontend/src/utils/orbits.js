@@ -12,6 +12,10 @@ import { ORBITAL_PERIODS } from '../data/solarSystemBodies';
 export const ORBIT_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
 export const ORBIT_BASE_OPACITY = 0.27;
 export const ORBIT_HOVER_OPACITY = 0.86;
+// How far a hovered orbit ring moves from white toward the body's own colour.
+// Half: enough to say "this ring belongs to that planet" without the ring
+// turning into a second coloured object competing with the planet itself.
+export const ORBIT_HOVER_TINT = 0.5;
 export const ORBIT_TUBE_RADIUS = 0.28;
 export const PLANET_EMISSIVE_INTENSITY = 0.08;
 

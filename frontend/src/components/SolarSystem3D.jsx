@@ -8,7 +8,7 @@ import {
     MOON_DATA, SMALL_BODIES, PROBES,
 } from '../data/solarSystemBodies';
 import {
-    DEG2RAD, ORBIT_EPOCH_MS, ORBIT_BASE_OPACITY, ORBIT_HOVER_OPACITY,
+    DEG2RAD, ORBIT_EPOCH_MS, ORBIT_BASE_OPACITY, ORBIT_HOVER_OPACITY, ORBIT_HOVER_TINT,
     PLANET_EMISSIVE_INTENSITY, computePlanetPos, buildOrbitPoints, buildOrbitTube,
     keplerianScenePos, buildKeplerOrbitPoints, eclipticQuaternion,
 } from '../utils/orbits';
@@ -154,6 +154,35 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.28));
 
+        // ── How an orbit path reads at rest and under the pointer ─────────────
+        // Every path in the scene goes through these two, so the planets'
+        // rings, the small bodies' ellipses and the Voyagers' flight tracks
+        // cannot drift apart: white and faint until you point at something,
+        // then brighter and carrying that body's own colour.
+        //
+        // The colour each one moves to is decided when it is built and kept in
+        // userData, because how far it goes differs by kind — a planet ring
+        // takes a half-strength tint, which reads as "this ring is Saturn's"
+        // without turning the ring into a second yellow object next to Saturn,
+        // while a Voyager track goes the whole way to the craft's own colour,
+        // since there is no body beside it to compete with.
+        const ORBIT_WHITE = new THREE.Color(0xffffff);
+        const orbitTint = (hex, amount = ORBIT_HOVER_TINT) =>
+            new THREE.Color(0xffffff).lerp(new THREE.Color(hex), amount);
+
+        const orbitAtRest = (orbit) => {
+            if (!orbit) return;
+            orbit.material.opacity = focusedIdRef.current
+                ? 0
+                : (orbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY);
+            orbit.material.color.copy(orbit.userData.baseColor ?? ORBIT_WHITE);
+        };
+        const orbitHovered = (orbit) => {
+            if (!orbit || focusedIdRef.current) return;
+            orbit.material.opacity = orbit.userData.hoverOpacity ?? ORBIT_HOVER_OPACITY;
+            if (orbit.userData.hoverColor) orbit.material.color.copy(orbit.userData.hoverColor);
+        };
+
         // ── Shared loader + texture list (declared early for sun texture) ──────
         const loader   = new THREE.TextureLoader();
         const textures = [];
@@ -297,7 +326,10 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             const orbitGeo = buildOrbitTube(buildOrbitPoints(planet.name, planet.orbitR));
             const orbitMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: ORBIT_BASE_OPACITY, depthWrite: false });
             const orbitLine = new THREE.Mesh(orbitGeo, orbitMat);
-            orbitLine.userData = { baseOpacity: ORBIT_BASE_OPACITY, hoverOpacity: ORBIT_HOVER_OPACITY };
+            orbitLine.userData = {
+                baseOpacity: ORBIT_BASE_OPACITY, hoverOpacity: ORBIT_HOVER_OPACITY,
+                baseColor: ORBIT_WHITE, hoverColor: orbitTint(planet.color),
+            };
 
             scene.add(orbitLine);
             geos.push(orbitGeo);
@@ -988,7 +1020,10 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 opacity: ORBIT_BASE_OPACITY * 0.8, depthWrite: false,
             });
             const orbitLine = new THREE.Mesh(orbitGeo, orbitMat);
-            orbitLine.userData = { baseOpacity: ORBIT_BASE_OPACITY * 0.8, hoverOpacity: ORBIT_HOVER_OPACITY };
+            orbitLine.userData = {
+                baseOpacity: ORBIT_BASE_OPACITY * 0.8, hoverOpacity: ORBIT_HOVER_OPACITY,
+                baseColor: ORBIT_WHITE, hoverColor: orbitTint(body.color),
+            };
             scene.add(orbitLine);
             geos.push(orbitGeo);
             mats.push(orbitMat);
@@ -1181,7 +1216,10 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             const coreGeo = new THREE.SphereGeometry(1.0, 12, 12);
             const coreMat = new THREE.MeshBasicMaterial({ color: probe.color });
             const core = new THREE.Mesh(coreGeo, coreMat);
-            core.userData = { id: probe.id, name: probe.name };
+            // orbitLine is filled in below, once the track exists — the hover
+            // handler reads it off whatever it hits, so a probe joins the same
+            // machinery the planets use rather than needing its own.
+            core.userData = { id: probe.id, name: probe.name, orbitLine: null };
             group.add(core);
             geos.push(coreGeo); mats.push(coreMat);
 
@@ -1222,14 +1260,22 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             });
             trackGeo.setAttribute('position', new THREE.BufferAttribute(trackArr, 3));
             trackGeo.setDrawRange(0, 0);
-            // Brighter than the orbit rings it crosses (0.27), where the old
-            // straight line sat at 0.16 and could afford to: a line with two
-            // ends carries nothing you need to see, and this one is the shape
-            // of the mission.
+            // Drawn like every other orbit path: white and faint until you
+            // point at the craft, then bright and in its own colour. It used to
+            // sit permanently coloured at its own opacity, which made it the
+            // one path in the scene that did not answer to the pointer.
             const trackMat = new THREE.LineBasicMaterial({
-                color: probe.color, transparent: true, opacity: 0.5, depthWrite: false,
+                color: 0xffffff, transparent: true,
+                opacity: ORBIT_BASE_OPACITY, depthWrite: false,
             });
             const track = new THREE.Line(trackGeo, trackMat);
+            track.userData = {
+                baseOpacity: ORBIT_BASE_OPACITY, hoverOpacity: ORBIT_HOVER_OPACITY,
+                baseColor: ORBIT_WHITE,
+                // All the way to the craft's colour, not the half-tint a planet
+                // ring takes — out here there is no body beside it to compete.
+                hoverColor: orbitTint(probe.color, 1),
+            };
             // The path runs far outside anything else in the scene, so leave it
             // out of frustum culling rather than have three.js compute a bound
             // that spans the whole solar system for it.
@@ -1242,7 +1288,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             const hitGeo = new THREE.SphereGeometry(16, 8, 8);
             const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
             const hitMesh = new THREE.Mesh(hitGeo, hitMat);
-            hitMesh.userData = { id: probe.id, name: probe.name };
+            hitMesh.userData = { id: probe.id, name: probe.name, orbitLine: track };
+            core.userData.orbitLine = track;
             group.add(hitMesh);
             geos.push(hitGeo); mats.push(hitMat);
 
@@ -1501,12 +1548,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 const orbit    = hitMesh.userData.orbitLine;
 
                 if (orbit !== activeOrbit) {
-                    if (activeOrbit) {
-                        activeOrbit.material.opacity = focusedIdRef.current ? 0 : (activeOrbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY);
-                    }
-                    if (orbit && !focusedIdRef.current) {
-                        orbit.material.opacity = orbit.userData.hoverOpacity ?? ORBIT_HOVER_OPACITY;
-                    }
+                    orbitAtRest(activeOrbit);
+                    orbitHovered(orbit);
                     activeOrbit = orbit ?? null;
                 }
 
@@ -1518,7 +1561,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 if (!focusedIdRef.current) targetAutoRotateSpeed = 0;
             } else {
                 if (activeOrbit) {
-                    activeOrbit.material.opacity = focusedIdRef.current ? 0 : (activeOrbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY);
+                    orbitAtRest(activeOrbit);
                     activeOrbit = null;
                 }
                 renderer.domElement.style.cursor = '';
@@ -1671,10 +1714,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                     }
                     // Restore ALL orbit rings when exiting any focused state
                     planetMeshes.forEach(m => {
-                        if (m.userData.orbitLine) {
-                            const base = m.userData.orbitLine.userData.baseOpacity;
-                            m.userData.orbitLine.material.opacity = base ?? ORBIT_BASE_OPACITY;
-                        }
+                        orbitAtRest(m.userData.orbitLine);
                     });
                     // Restore all hitboxes to full inflated size
                     PLANETS.forEach(p => {
@@ -1698,12 +1738,10 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                         const tilt = AXIAL_TILT_DEG[newMesh.userData.name];
                         tiltTargets.set(newMesh.uuid, tilt !== undefined ? tilt * Math.PI / 180 : 0);
                     }
-                    // Hide ALL orbit rings in the scene when any planet is focused
-                    planetMeshes.forEach(m => {
-                        if (m.userData.orbitLine) {
-                            m.userData.orbitLine.material.opacity = 0;
-                        }
-                    });
+                    // Hide ALL orbit paths in the scene when anything is focused.
+                    // orbitAtRest reads the focus itself, so this also clears any
+                    // hover tint left on a ring the pointer was over.
+                    planetMeshes.forEach(m => orbitAtRest(m.userData.orbitLine));
                     // Shrink all hitboxes to 1× visual radius when anything is focused
                     PLANETS.forEach(p => {
                         const hb = planetHitboxRefs.get(p.name);
