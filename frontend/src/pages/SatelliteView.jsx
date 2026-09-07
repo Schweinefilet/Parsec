@@ -6,6 +6,8 @@ import { ChevronLeft, MapPin, Crosshair, Sun, Moon } from 'lucide-react';
 import IssGlobe from '../components/IssGlobe';
 import { useIssPosition } from '../hooks/useIssPosition';
 import { useNearestCountry } from '../hooks/useNearestCountry';
+import { useTrackedSatellites } from '../hooks/useTrackedSatellites';
+import { ISS_COLOR } from '../data/trackedSatellites';
 
 const ISS_NORAD = 25544;
 const EARTH_R_KM = 6371;
@@ -78,6 +80,9 @@ const SatelliteView = () => {
     // Nearest land, which is a different question from what it is over: the
     // station is at sea roughly seven tenths of the time.
     const nearest = useNearestCountry(iss.lat, iss.lon);
+
+    // Tiangong and Hubble, propagated locally from current orbital elements
+    const others = useTrackedSatellites();
     // The table samples land every degree or so, so a reading under ~75 km
     // means the ground point is inside that country or just off its coast —
     // either way "overhead" is the honest word for it, and a precise-looking
@@ -148,6 +153,7 @@ const SatelliteView = () => {
                         <IssGlobe
                             lat={iss.lat} lon={iss.lon} altitude={iss.altitude}
                             trail={iss.trail} follow={follow} observer={observer}
+                            others={others}
                         />
 
                         {iss.loading && (
@@ -181,12 +187,36 @@ const SatelliteView = () => {
                             </button>
                         </div>
 
-                        <p style={{
-                            position: 'absolute', bottom: 10, left: 14, margin: 0,
-                            fontSize: 10, color: 'rgba(255,255,255,0.35)', pointerEvents: 'none',
+                        {/* Which dot is which. The ISS is always listed; the
+                            others appear as their elements arrive, so a failed
+                            fetch reads as one fewer entry rather than a dot on
+                            the globe nobody can identify. */}
+                        <div style={{
+                            position: 'absolute', bottom: 10, left: 14,
+                            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 14px',
+                            pointerEvents: 'none',
                         }}>
-                            Drag to rotate · Scroll to zoom
-                        </p>
+                            {[{ id: 'iss', name: 'ISS', color: ISS_COLOR, altitude: iss.altitude },
+                              ...others].map(sat => (
+                                <span key={sat.id} className="flex items-center gap-1.5"
+                                    style={{ fontSize: 10, color: 'rgba(255,255,255,0.62)' }}>
+                                    <span style={{
+                                        width: 7, height: 7, borderRadius: 999,
+                                        background: sat.color, flexShrink: 0,
+                                        boxShadow: `0 0 6px ${sat.color}`,
+                                    }} />
+                                    {sat.name}
+                                    {sat.altitude != null && (
+                                        <span style={{ color: 'rgba(255,255,255,0.34)' }}>
+                                            {sat.altitude.toFixed(0)} km
+                                        </span>
+                                    )}
+                                </span>
+                            ))}
+                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.30)' }}>
+                                Drag to rotate · Scroll to zoom
+                            </span>
+                        </div>
                     </div>
 
                     {/* ── Telemetry ── */}
@@ -278,7 +308,8 @@ const SatelliteView = () => {
                     </div>
 
                     <p style={{ marginTop: 14, fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center' }}>
-                        Position data from wheretheiss.at · Terminator computed from the current sub-solar point ·
+                        ISS position from wheretheiss.at · Tiangong and Hubble propagated from CelesTrak orbital elements ·
+                        Terminator computed from the current sub-solar point ·
                         Nearest country measured against Natural Earth coastlines
                     </p>
                 </div>

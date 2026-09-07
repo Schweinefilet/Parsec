@@ -36,7 +36,7 @@ function subsolar(date) {
  * Live 3D Earth with the ISS in orbit above it, its ground track, and a real
  * day/night terminator driven by the current sub-solar point.
  */
-const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null }) => {
+const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null, others = [] }) => {
     const mountRef = useRef(null);
     const api = useRef({});
 
@@ -167,6 +167,31 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
         issGroup.add(new THREE.Mesh(haloGeo, haloMat));
         scene.add(issGroup);
 
+        // ── Other spacecraft ──────────────────────────────────────────────
+        // Same dot, in each one's own colour, at its own altitude. Built on
+        // demand and kept in a map by id, so the set can change — an element
+        // fetch that failed simply never appears.
+        const otherMarkers = new Map();
+        const otherGeos = [];
+        const otherMats = [];
+        const makeMarker = (color) => {
+            const group = new THREE.Group();
+            const dotGeo = new THREE.SphereGeometry(0.026, 12, 12);
+            const dotMat = new THREE.MeshBasicMaterial({ color });
+            group.add(new THREE.Mesh(dotGeo, dotMat));
+            const hGeo = new THREE.SphereGeometry(0.06, 12, 12);
+            const hMat = new THREE.MeshBasicMaterial({
+                color, transparent: true, opacity: 0.32,
+                blending: THREE.AdditiveBlending, depthWrite: false,
+            });
+            group.add(new THREE.Mesh(hGeo, hMat));
+            group.visible = false;
+            scene.add(group);
+            otherGeos.push(dotGeo, hGeo);
+            otherMats.push(dotMat, hMat);
+            return group;
+        };
+
         // Line from the station down to its sub-satellite point
         const dropGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
         const dropMat = new THREE.LineBasicMaterial({ color: '#7fe3a0', transparent: true, opacity: 0.45 });
@@ -255,6 +280,19 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
                 toVec3(o.lat, o.lon, R * 1.01, obsMesh.position);
                 obsMesh.visible = true;
             },
+            setOthers(list) {
+                const seen = new Set();
+                for (const sat of list ?? []) {
+                    if (sat.lat == null || sat.lon == null) continue;
+                    seen.add(sat.id);
+                    let marker = otherMarkers.get(sat.id);
+                    if (!marker) { marker = makeMarker(sat.color); otherMarkers.set(sat.id, marker); }
+                    toVec3(sat.lat, sat.lon, R * (1 + (sat.altitude ?? 420) * ALT_SCALE), marker.position);
+                    marker.visible = true;
+                }
+                // Anything that dropped out of the list stops being drawn
+                for (const [id, marker] of otherMarkers) if (!seen.has(id)) marker.visible = false;
+            },
             setFollow(v) { api.current.follow = v; if (v) userDriving = false; },
             follow: true,
         };
@@ -301,9 +339,9 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
             cancelAnimationFrame(animId);
             controls.dispose();
             ro.disconnect();
-            [geo, atmoGeo, dotGeo, haloGeo, dropGeo, trackGeo, obsGeo, ...gratGeos]
+            [geo, atmoGeo, dotGeo, haloGeo, dropGeo, trackGeo, obsGeo, ...gratGeos, ...otherGeos]
                 .forEach(g => g.dispose());
-            [earthMat, atmoMat, dotMat, haloMat, dropMat, trackMat, obsMat, gratMat]
+            [earthMat, atmoMat, dotMat, haloMat, dropMat, trackMat, obsMat, gratMat, ...otherMats]
                 .forEach(m => m.dispose());
             loaded.forEach(t => t.dispose());
             if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
@@ -317,6 +355,7 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null })
     }, [lat, lon, altitude]);
 
     useEffect(() => { api.current.setTrail?.(trail ?? []); }, [trail]);
+    useEffect(() => { api.current.setOthers?.(others); }, [others]);
     useEffect(() => { api.current.setObserver?.(observer); }, [observer]);
     useEffect(() => { api.current.setFollow?.(follow); }, [follow]);
 

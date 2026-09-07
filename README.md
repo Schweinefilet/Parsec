@@ -62,6 +62,7 @@ frontend/src/
     probeTracks.js        the Voyagers' flown trajectories, and the radial
                           compression every off-ring position goes through
     useNearViewport.js    gate expensive loads on approaching the viewport
+    useTrackedSatellites.js  Tiangong and Hubble, propagated from TLEs
 ```
 
 ### Performance is a feature here
@@ -102,6 +103,17 @@ screen below the 3D scene, and its cards carry megapixel photographs — seven o
 them, 30 MB of decoded pixels, were being fetched during the scene's first
 seconds for cards nobody had scrolled to. `useNearViewport` gates the `<img>`
 on an IntersectionObserver instead, so the margin is ours.
+
+**A "where is it now" API you can call from a browser is rarer than it looks.**
+Adding Tiangong and Hubble to the tracker took three attempts. wheretheiss.at,
+which the ISS uses, serves exactly one satellite — everything else 404s. N2YO
+covers the whole catalog and answers `curl` happily, but sends no
+`Access-Control-Allow-Origin`, so a browser will not read the response, and on
+a static site its key would ship in the bundle with a quota anyone could spend.
+What works is doing the sum here: CelesTrak serves current TLEs with CORS and
+no key, and SGP4 turns one into a position. Checked against the live ISS fix it
+lands within half a kilometre, and against N2YO for all three within about
+seven — which at 7.6 km/s is well under a second of clock difference.
 
 **Two coordinate frames that look identical until they don't.**
 `HelioVector` returns J2000 *equatorial*; JPL Horizons hands you J2000

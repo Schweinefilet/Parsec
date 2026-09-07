@@ -16,6 +16,33 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.5.7
+
+- **The tracker follows Tiangong and Hubble as well as the ISS**, each a dot in
+  its own colour at its own altitude, with a legend under the globe naming them
+  and their heights.
+
+  Getting their positions was the whole job. wheretheiss.at, which the ISS
+  already uses, turns out to serve exactly one satellite — ask it for anything
+  else and it returns 404. N2YO covers the full catalog and answers `curl`
+  quite happily, but sends no `Access-Control-Allow-Origin` header, so a browser
+  refuses to read the reply; and on a static site its key would sit in the
+  public bundle with an hourly quota anyone could spend.
+
+  So the arithmetic happens here instead. CelesTrak serves current orbital
+  elements with CORS headers and no key at all, and SGP4 — the propagator those
+  elements are defined against — turns a set into a position. Propagating the
+  ISS's own elements this way lands within half a kilometre of the live
+  wheretheiss.at fix and 30 m in altitude, which is unsurprising, since that
+  service is doing the same sum; checked against N2YO, all three agree to about
+  seven kilometres, which at 7.6 km/s is under a second of clock difference.
+
+  It costs one request per satellite every six hours rather than one per tick,
+  so positions are recomputed every second rather than every five, and the
+  propagator arrives as its own 11.5 KB chunk that only this page fetches. The
+  ISS keeps its own feed: it is what the page is built around, and that feed
+  reports sunlight and footprint, which elements alone do not give you.
+
 ## 1.5.6
 
 - **The scene no longer hitches for the first minute on a phone.** It was not
