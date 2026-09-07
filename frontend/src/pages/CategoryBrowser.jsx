@@ -307,13 +307,13 @@ const CategoryBrowser = () => {
                         than beside it: the control is bottom-left and this is
                         centred, so on a narrower laptop window the two ran into
                         each other. On a phone the scale toggle stacks above the
-                        catalog pill as well, so the hint clears both — and it
-                        rides 16px higher than it used to, to keep its distance
-                        from the view controls after those moved up. */}
+                        catalog pill as well, so the hint clears both — and on
+                        a phone it rides higher still, because there the view
+                        controls stack above the pill rather than beside it. */}
                     <p
                         className="absolute inset-x-0 transition-opacity duration-700 pointer-events-none"
                         style={{
-                            bottom: isMobile ? 128 : 120,
+                            bottom: isMobile ? 128 : 104,
                             zIndex: 4,
                             padding: '0 16px',
                             opacity: id || hasInteracted3D ? 0 : 1,
@@ -346,17 +346,25 @@ const CategoryBrowser = () => {
                             are about how the scene behaves rather than what is
                             in it, and neither can share the bottom row: the
                             time control is anchored there and reaches across. */}
-                        {/* 23px, not 8: the expanded time control is anchored
-                            bottom-left and its right edge lands at a fixed
-                            535px, so on anything narrower than about 1440 it
-                            ran through this row. Clearing it vertically rather
-                            than widening the breakpoint fixes it at every size
-                            — including the one the breakpoint cannot reach,
-                            where the timeline starts collapsed and the person
-                            opens it anyway. The hint above moves up to match. */}
-                        <div style={{
+                        {/* On the same row as the catalog pill, off its right
+                            side. The pill itself stays exactly centred — it was
+                            deliberately aligned with the time control in 1.5.2 —
+                            so these hang off it rather than joining a shared row
+                            that would shunt it sideways.
+                            Right, not left: the expanded time control is anchored
+                            bottom-left and its right edge lands at a fixed 535px
+                            whatever the window, so anything sharing this row on
+                            the left runs straight through it.
+                            A phone has no room beside the pill for two more
+                            pills, so there they stay stacked above it, clear of
+                            the time control by 23px. */}
+                        <div style={isMobile ? {
                             position: 'absolute', bottom: '100%', marginBottom: 23,
                             left: '50%', transform: 'translateX(-50%)',
+                            display: 'flex', alignItems: 'center', gap: 8,
+                        } : {
+                            position: 'absolute', left: '100%', marginLeft: 8,
+                            top: '50%', transform: 'translateY(-50%)',
                             display: 'flex', alignItems: 'center', gap: 8,
                         }}>
                         <button
