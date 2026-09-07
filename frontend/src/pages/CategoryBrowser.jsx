@@ -572,7 +572,15 @@ const CategoryBrowser = () => {
                             style={{
                                 position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 12,
                                 pointerEvents: 'auto',
-                                transform: sheetOpen ? 'translateY(0)' : 'translateY(calc(100% - 74px))',
+                                // 84 on desktop, not 74: the chevron button is
+                                // about 84px tall, so the old peek clipped its
+                                // lower arrow and sat the pair lower than they
+                                // needed to be. Mobile keeps 74 — its handle is
+                                // a 4px grab bar, and raising it would only show
+                                // more sheet.
+                                transform: sheetOpen
+                                    ? 'translateY(0)'
+                                    : `translateY(calc(100% - ${isMobile ? 74 : 84}px))`,
                                 transition: 'transform 0.45s cubic-bezier(0.32,0.72,0,1)',
                             }}
                         >
