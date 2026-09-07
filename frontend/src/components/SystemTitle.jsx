@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { SYSTEMS, systemById } from '../data/systems';
+import { useI18n } from '../i18n';
 
 /**
  * The name of the system you are looking at, over the top of the scene.
@@ -27,6 +28,7 @@ import { SYSTEMS, systemById } from '../data/systems';
  * lingers after you have started is in the way of what you started doing.
  */
 const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }) => {
+    const { t } = useI18n();
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
     const wrapRef = useRef(null);
@@ -93,7 +95,7 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }
                     onClick={() => setOpen(v => !v)}
                     aria-haspopup="listbox"
                     aria-expanded={open}
-                    aria-label={`${current.name} — choose another system`}
+                    aria-label={t('system.choose', { name: t(current.nameKey) })}
                     className="flex items-center gap-3 focus-ring rounded-2xl"
                     style={{
                         background: 'none', border: 'none', padding: '2px 8px',
@@ -101,7 +103,7 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }
                         pointerEvents: hidden ? 'none' : 'auto',
                     }}
                 >
-                    <h2 style={nameStyle}>{current.name}</h2>
+                    <h2 style={nameStyle}>{t(current.nameKey)}</h2>
                     <ChevronDown
                         aria-hidden="true"
                         style={{
@@ -113,7 +115,7 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }
                     />
                 </button>
             ) : (
-                <h2 style={nameStyle}>{current.name}</h2>
+                <h2 style={nameStyle}>{t(current.nameKey)}</h2>
             )}
 
             {hint && (
@@ -137,11 +139,11 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }
             {hasChoice && open && (
                 <div
                     role="listbox"
-                    aria-label="Systems"
+                    aria-label={t('system.listLabel')}
                     className="glass"
                     style={{
                         marginTop: 12, padding: 6, minWidth: 260,
-                        borderRadius: 18, textAlign: 'left',
+                        borderRadius: 18, textAlign: 'start',
                         pointerEvents: 'auto',
                     }}
                 >
@@ -153,7 +155,7 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }
                             onClick={() => { setOpen(false); navigate(s.to); }}
                             className="w-full focus-ring"
                             style={{
-                                display: 'block', textAlign: 'left', cursor: 'pointer',
+                                display: 'block', textAlign: 'start', cursor: 'pointer',
                                 padding: '10px 12px', borderRadius: 13, border: 'none',
                                 background: s.id === current.id ? 'rgba(255,255,255,0.08)' : 'none',
                             }}
@@ -162,11 +164,11 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }
                                 display: 'block', fontSize: '0.95rem', fontWeight: 700,
                                 color: s.id === current.id ? '#fff' : 'rgba(255,255,255,0.85)',
                             }}>
-                                {s.name}
+                                {t(s.nameKey)}
                             </span>
-                            {s.blurb && (
+                            {s.blurbKey && (
                                 <span style={{ display: 'block', marginTop: 2, fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>
-                                    {s.blurb}
+                                    {t(s.blurbKey)}
                                 </span>
                             )}
                         </button>

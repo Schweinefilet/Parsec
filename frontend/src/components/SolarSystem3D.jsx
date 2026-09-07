@@ -27,6 +27,7 @@ import {
     targetOrbitSpeed, stepOrbitSpeed, targetIssSpeed,
     advanceMoonAngle, moonOffset, DEFAULT_ORBIT_SPEED,
 } from '../utils/orbitalMotion';
+import { useI18n } from '../i18n';
 
 let _exitState = { active: false, cameraPos: null, targetPos: null };
 
@@ -34,8 +35,15 @@ const SolarSystem3D = ({
     focusedId, focusOffsetY = 0, height = 'var(--app-vh, 100vh)', initialCamera = null,
     autoRotate = true,
 }) => {
+    const { t, bodyName } = useI18n();
     const mountRef  = useRef(null);
     const navigate  = useNavigate();
+    // The scene is built once inside an effect with an empty dependency list —
+    // it must never be torn down and rebuilt for a language change — so the one
+    // string it writes imperatively comes through a ref rather than a closure
+    // over the first render's translator.
+    const canvasLabelRef = useRef('');
+    canvasLabelRef.current = t('scene.canvas');
     // Which labels exist, not where they are. The roster changes only when the
     // focus does; the positions are written straight to the DOM by the render
     // loop (see "Object labels" below), so a frame costs no React work.
@@ -106,8 +114,7 @@ const SolarSystem3D = ({
         renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
         mount.appendChild(renderer.domElement);
         renderer.domElement.setAttribute('role', 'img');
-        renderer.domElement.setAttribute('aria-label',
-            'Interactive 3D solar system. Drag to orbit, scroll to zoom, click an object to explore it.');
+        renderer.domElement.setAttribute('aria-label', canvasLabelRef.current);
 
         // Mobile GPUs reclaim contexts under memory pressure. Without these the
         // canvas silently freezes on whatever frame it died on, with no way back
@@ -2772,7 +2779,7 @@ const SolarSystem3D = ({
                 <div style={{
                     position: 'absolute',
                     bottom: '14px',
-                    right: '16px',
+                    insetInlineEnd: '16px',
                     pointerEvents: 'none',
                     color: 'rgba(255,255,255,0.28)',
                     fontSize: '10px',
@@ -2781,11 +2788,9 @@ const SolarSystem3D = ({
                     textShadow: '0 1px 3px rgba(0,0,0,0.8)',
                     zIndex: 2,
                     maxWidth: 220,
-                    textAlign: 'right',
+                    textAlign: 'end',
                 }}>
-                    {trueScale
-                        ? '*distances to scale — bodies enlarged, or you would see nothing'
-                        : '*not to scale'}
+                    {t(trueScale ? 'scene.distancesToScale' : 'scene.notToScale')}
                 </div>
 
                 {/* Floating object labels.
@@ -2825,7 +2830,7 @@ const SolarSystem3D = ({
                             textShadow: '0 1px 4px rgba(0,0,0,0.9)',
                             whiteSpace: 'nowrap',
                         }}>
-                            {name}
+                            {bodyName(name)}
                         </div>
                     </div>
                     );

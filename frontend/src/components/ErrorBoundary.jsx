@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { useI18n } from '../i18n';
 
 /**
  * Top-level safety net. Without it, one thrown render — a lost WebGL context on
@@ -39,11 +40,10 @@ class ErrorBoundary extends Component {
                 }}
             >
                 <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>
-                    Something went wrong
+                    {this.props.strings.title}
                 </h1>
                 <p style={{ color: 'rgba(255,255,255,0.62)', maxWidth: 460, lineHeight: 1.6, margin: 0 }}>
-                    The 3D view failed to render. This is usually a graphics problem on
-                    the device rather than anything you did — reloading normally fixes it.
+                    {this.props.strings.body}
                 </p>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
                     <button
@@ -55,7 +55,7 @@ class ErrorBoundary extends Component {
                             color: '#fff', fontWeight: 700, fontSize: '0.85rem',
                         }}
                     >
-                        Reload
+                        {this.props.strings.reload}
                     </button>
                     <button
                         onClick={() => { window.location.href = '/'; }}
@@ -66,7 +66,7 @@ class ErrorBoundary extends Component {
                             color: 'rgba(255,255,255,0.75)', fontWeight: 700, fontSize: '0.85rem',
                         }}
                     >
-                        Back to the solar system
+                        {this.props.strings.backHome}
                     </button>
                 </div>
             </div>
@@ -74,4 +74,26 @@ class ErrorBoundary extends Component {
     }
 }
 
-export default ErrorBoundary;
+/**
+ * The strings, fetched by a function component and handed down.
+ *
+ * An error boundary has to be a class — there is no hook equivalent of
+ * getDerivedStateFromError — and a class cannot call useI18n. This wrapper is
+ * the seam. It also means the boundary itself keeps no dependency on the
+ * translator, so a failure inside i18n still renders an apology in English.
+ */
+const LocalizedErrorBoundary = ({ children }) => {
+    const { t } = useI18n();
+    return (
+        <ErrorBoundary strings={{
+            title: t('error.title'),
+            body: t('error.body'),
+            reload: t('error.reload'),
+            backHome: t('error.backHome'),
+        }}>
+            {children}
+        </ErrorBoundary>
+    );
+};
+
+export default LocalizedErrorBoundary;

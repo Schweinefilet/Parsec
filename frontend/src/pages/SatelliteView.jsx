@@ -6,6 +6,7 @@ import LiveFeed from '../components/LiveFeed';
 import { useSatelliteTracking } from '../hooks/useSatelliteTracking';
 import { useNearestCountry } from '../hooks/useNearestCountry';
 import { SATELLITES, DEFAULT_SATELLITE, satelliteById } from '../data/trackedSatellites';
+import { useI18n } from '../i18n';
 
 const EARTH_R_KM = 6371;
 
@@ -22,12 +23,12 @@ function haversine(a, b) {
 const fmtCoord = (v, pos, neg) =>
     v == null ? '—' : `${Math.abs(v).toFixed(2)}° ${v >= 0 ? pos : neg}`;
 
-const fmtAge = (date) => {
+const fmtAge = (date, t) => {
     if (!date) return null;
     const hours = (Date.now() - date.getTime()) / 3600000;
-    if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min old`;
-    if (hours < 48) return `${Math.round(hours)} h old`;
-    return `${Math.round(hours / 24)} days old`;
+    if (hours < 1) return t('tracker.ageMinutes', { n: Math.max(1, Math.round(hours * 60)) });
+    if (hours < 48) return t('tracker.ageHours', { n: Math.round(hours) });
+    return t('tracker.ageDays', { n: Math.round(hours / 24) });
 };
 
 const Stat = ({ label, value, sub, accent }) => (
@@ -55,6 +56,7 @@ const Stat = ({ label, value, sub, accent }) => (
  * colour it is drawn in on the globe, so there is nothing to cross-reference.
  */
 const SatelliteChip = ({ def, fix, selected, onSelect }) => {
+    const { t, bodyName, num } = useI18n();
     const live = !!fix;
     return (
         <button
@@ -63,7 +65,7 @@ const SatelliteChip = ({ def, fix, selected, onSelect }) => {
             aria-pressed={selected}
             className="flex items-center gap-2 rounded-full focus-ring flex-shrink-0"
             style={{
-                padding: '7px 14px 7px 11px',
+                paddingBlock: 7, paddingInlineStart: 11, paddingInlineEnd: 14,
                 background: selected ? `rgba(${hexToRgb(def.color)},0.16)` : 'rgba(255,255,255,0.05)',
                 border: `1px solid ${selected ? `rgba(${hexToRgb(def.color)},0.42)` : 'rgba(255,255,255,0.12)'}`,
                 cursor: 'pointer',
@@ -80,10 +82,10 @@ const SatelliteChip = ({ def, fix, selected, onSelect }) => {
                 fontSize: '0.8rem', fontWeight: 700,
                 color: selected ? '#fff' : 'rgba(255,255,255,0.72)',
             }}>
-                {def.shortName}
+                {bodyName(def.shortName)}
             </span>
-            <span style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
-                {live ? `${fix.altitude.toFixed(0)} km` : '—'}
+            <span className="num-run" style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
+                {live ? t('tracker.km', { km: num(Math.round(fix.altitude)) }) : '—'}
             </span>
         </button>
     );
@@ -96,6 +98,7 @@ function hexToRgb(hex) {
 }
 
 const SatelliteView = () => {
+    const { t, bodyName, num } = useI18n();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -120,11 +123,11 @@ const SatelliteView = () => {
     }, []);
 
     const locate = () => {
-        if (!navigator.geolocation) { setGeoError('Not supported by this browser'); return; }
+        if (!navigator.geolocation) { setGeoError(t('tracker.geoUnsupported')); return; }
         setGeoError(null);
         navigator.geolocation.getCurrentPosition(
             (p) => setObserver({ lat: p.coords.latitude, lon: p.coords.longitude }),
-            (err) => setGeoError(err.code === 1 ? 'Permission denied' : 'Could not get location'),
+            (err) => setGeoError(t(err.code === 1 ? 'tracker.geoDenied' : 'tracker.geoFailed')),
             { timeout: 10000, maximumAge: 60000 },
         );
     };
@@ -141,10 +144,12 @@ const SatelliteView = () => {
     const inRange = distanceKm != null && selected?.footprintKm != null
         && distanceKm < selected.footprintKm;
 
-    const elementsAge = fmtAge(selected?.elementsEpoch);
-    const statusLabel = status === 'error' ? 'No elements'
-        : status === 'loading' ? 'Loading'
-        : status === 'partial' ? 'Partial' : 'Live';
+    const elementsAge = fmtAge(selected?.elementsEpoch, t);
+    const statusLabel = t(status === 'error' ? 'tracker.statusError'
+        : status === 'loading' ? 'tracker.statusLoading'
+        : status === 'partial' ? 'tracker.statusPartial' : 'tracker.statusLive');
+    // The compass letters double as the hemisphere suffix on a coordinate.
+    const N = t('sky.north'), S = t('sky.south'), E = t('sky.east'), W = t('sky.west');
     const statusOk = status === 'ready';
 
     return (
@@ -156,7 +161,7 @@ const SatelliteView = () => {
                     <div className="flex items-center gap-3 mb-4">
                         <button
                             onClick={() => navigate(-1)}
-                            aria-label="Go back"
+                            aria-label={t('tracker.back')}
                             className="flex items-center justify-center rounded-xl focus-ring"
                             style={{
                                 width: 36, height: 36, flexShrink: 0,
@@ -169,15 +174,16 @@ const SatelliteView = () => {
                         </button>
                         <div style={{ minWidth: 0 }}>
                             <h1 style={{ margin: 0, fontSize: 'clamp(1.15rem, 3vw, 1.6rem)', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
-                                Satellite Tracker
+                                {t('tracker.title')}
                             </h1>
                             <p style={{ margin: '1px 0 0', fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                                {def.name} · NORAD {def.norad}
+                                {t('tracker.subtitle', { name: bodyName(def.shortName), norad: def.norad })}
                             </p>
                         </div>
                         <span
-                            className="ml-auto flex items-center gap-1.5 flex-shrink-0"
+                            className="flex items-center gap-1.5 flex-shrink-0"
                             style={{
+                                marginInlineStart: 'auto',
                                 fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
                                 textTransform: 'uppercase', padding: '5px 10px', borderRadius: 999,
                                 background: status === 'error' ? 'rgba(255,90,80,0.14)'
@@ -203,7 +209,7 @@ const SatelliteView = () => {
                         className="flex items-center gap-2 mb-3"
                         style={{ overflowX: 'auto', paddingBottom: 2 }}
                         role="group"
-                        aria-label="Choose a spacecraft to follow"
+                        aria-label={t('tracker.choose')}
                     >
                         {SATELLITES.map(s => (
                             <SatelliteChip
@@ -241,14 +247,12 @@ const SatelliteView = () => {
                                 alignItems: 'center', justifyContent: 'center',
                                 color: 'var(--text-tertiary)', fontSize: '0.85rem', pointerEvents: 'none',
                             }}>
-                                {status === 'error'
-                                    ? 'Could not reach the orbital element service.'
-                                    : 'Fetching orbital elements…'}
+                                {t(status === 'error' ? 'tracker.unreachable' : 'tracker.fetching')}
                             </div>
                         )}
 
                         {/* Overlay controls */}
-                        <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 8 }}>
+                        <div style={{ position: 'absolute', top: 12, insetInlineEnd: 12, display: 'flex', gap: 8 }}>
                             <button
                                 onClick={() => setFollow(f => !f)}
                                 aria-pressed={follow}
@@ -265,15 +269,17 @@ const SatelliteView = () => {
                                 }}
                             >
                                 <Crosshair style={{ width: 12, height: 12 }} />
-                                {follow ? `Following ${def.shortName}` : 'Free look'}
+                                {follow
+                                    ? t('tracker.following', { name: bodyName(def.shortName) })
+                                    : t('tracker.freeLook')}
                             </button>
                         </div>
 
                         <p style={{
-                            position: 'absolute', bottom: 10, left: 14, margin: 0,
+                            position: 'absolute', bottom: 10, insetInlineStart: 14, margin: 0,
                             fontSize: 10, color: 'rgba(255,255,255,0.35)', pointerEvents: 'none',
                         }}>
-                            Orbit shown for {def.shortName}, one revolution · Drag to rotate · Scroll to zoom
+                            {t('tracker.orbitCaption', { name: bodyName(def.shortName) })}
                         </p>
                     </div>
 
@@ -286,51 +292,55 @@ const SatelliteView = () => {
                             gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
                         }}
                     >
-                        <Stat label="Latitude" value={fmtCoord(selected?.lat, 'N', 'S')} />
-                        <Stat label="Longitude" value={fmtCoord(selected?.lon, 'E', 'W')} />
+                        <Stat label={t('tracker.latitude')} value={fmtCoord(selected?.lat, N, S)} />
+                        <Stat label={t('tracker.longitude')} value={fmtCoord(selected?.lon, E, W)} />
                         <Stat
-                            label="Nearest country"
+                            label={t('tracker.nearestCountry')}
                             value={nearest?.name ?? '—'}
                             sub={
                                 nearest == null ? null
-                                : overhead ? 'Overhead'
-                                : `${Math.round(nearest.km).toLocaleString()} km away`
+                                : overhead ? t('tracker.overhead')
+                                : t('tracker.kmAway', { km: num(Math.round(nearest.km)) })
                             }
                             accent={overhead ? '#6ee7a0' : undefined}
                         />
                         <Stat
-                            label="Altitude"
-                            value={selected ? `${selected.altitude.toFixed(0)} km` : '—'}
-                            sub={selected ? `sees ${Math.round(selected.footprintKm).toLocaleString()} km to the horizon` : null}
+                            label={t('tracker.altitude')}
+                            value={selected ? t('tracker.km', { km: num(Math.round(selected.altitude)) }) : '—'}
+                            sub={selected
+                                ? t('tracker.horizon', { km: num(Math.round(selected.footprintKm)) }) : null}
                         />
                         <Stat
-                            label="Speed"
-                            value={selected?.velocity != null ? `${selected.velocity.toFixed(2)} km/s` : '—'}
+                            label={t('tracker.speed')}
+                            value={selected?.velocity != null
+                                ? t('tracker.kmPerSec', { v: selected.velocity.toFixed(2) }) : '—'}
                             sub={selected?.velocity != null
-                                ? `${Math.round(selected.velocity * 3600).toLocaleString()} km/h` : null}
+                                ? t('tracker.kmPerHour', { v: num(Math.round(selected.velocity * 3600)) }) : null}
                         />
                         <Stat
-                            label="Sunlight"
+                            label={t('tracker.sunlight')}
                             value={
                                 <span className="flex items-center gap-1.5">
                                     {selected?.sunlit
                                         ? <Sun style={{ width: 15, height: 15 }} />
                                         : <Moon style={{ width: 15, height: 15 }} />}
-                                    {selected == null ? '—' : selected.sunlit ? 'Daylight' : 'Eclipsed'}
+                                    {selected == null ? '—'
+                                        : t(selected.sunlit ? 'tracker.daylight' : 'tracker.eclipsed')}
                                 </span>
                             }
                             accent={selected?.sunlit ? '#ffd166' : '#9db4ff'}
                         />
                         <Stat
-                            label="Orbital period"
-                            value={selected?.periodMinutes ? `${selected.periodMinutes.toFixed(1)} min` : '—'}
+                            label={t('tracker.period')}
+                            value={selected?.periodMinutes
+                                ? t('tracker.minutes', { n: selected.periodMinutes.toFixed(1) }) : '—'}
                             sub={selected?.periodMinutes
-                                ? `${(1440 / selected.periodMinutes).toFixed(1)} orbits a day` : null}
+                                ? t('tracker.orbitsPerDay', { n: (1440 / selected.periodMinutes).toFixed(1) }) : null}
                         />
                         <Stat
-                            label="Elements"
+                            label={t('tracker.elements')}
                             value={elementsAge ?? '—'}
-                            sub="CelesTrak, refreshed 6-hourly"
+                            sub={t('tracker.elementsSource')}
                         />
                     </div>
 
@@ -342,21 +352,26 @@ const SatelliteView = () => {
                         <div className="flex flex-wrap items-center justify-between gap-4">
                             <div style={{ minWidth: 0 }}>
                                 <p style={{ margin: 0, fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
-                                    Distance from you
+                                    {t('tracker.distanceFromYou')}
                                 </p>
                                 {observer ? (
                                     <>
-                                        <p style={{ margin: '3px 0 0', fontSize: '1.35rem', fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
-                                            {distanceKm != null ? `${Math.round(distanceKm).toLocaleString()} km` : '—'}
+                                        <p className="num-run" style={{ margin: '3px 0 0', fontSize: '1.35rem', fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+                                            {distanceKm != null
+                                                ? t('tracker.km', { km: num(Math.round(distanceKm)) }) : '—'}
                                         </p>
                                         <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-tertiary)' }}>
-                                            Ground distance to {def.shortName} from {fmtCoord(observer.lat, 'N', 'S')}, {fmtCoord(observer.lon, 'E', 'W')}
-                                            {inRange && ' · above your horizon now'}
+                                            {t('tracker.groundDistance', {
+                                                name: bodyName(def.shortName),
+                                                lat: fmtCoord(observer.lat, N, S),
+                                                lon: fmtCoord(observer.lon, E, W),
+                                            })}
+                                            {inRange && t('tracker.aboveHorizon')}
                                         </p>
                                     </>
                                 ) : (
                                     <p style={{ margin: '3px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                        {geoError ?? `Share your location to see how far away ${def.shortName} is.`}
+                                        {geoError ?? t('tracker.shareLocation', { name: bodyName(def.shortName) })}
                                     </p>
                                 )}
                             </div>
@@ -371,7 +386,7 @@ const SatelliteView = () => {
                                         color: 'rgba(255,255,255,0.85)', cursor: 'pointer',
                                     }}
                                 >
-                                    About {def.shortName}
+                                    {t('tracker.about', { name: bodyName(def.shortName) })}
                                     <ArrowUpRight style={{ width: 14, height: 14 }} />
                                 </button>
                                 <button
@@ -385,16 +400,14 @@ const SatelliteView = () => {
                                     }}
                                 >
                                     <MapPin style={{ width: 15, height: 15 }} />
-                                    {observer ? 'Update location' : 'Use my location'}
+                                    {t(observer ? 'tracker.updateLocation' : 'tracker.useLocation')}
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     <p style={{ marginTop: 14, fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center' }}>
-                        Positions propagated with SGP4 from CelesTrak orbital elements ·
-                        Terminator computed from the current sub-solar point ·
-                        Nearest country measured against Natural Earth coastlines
+                        {t('tracker.footnote')}
                     </p>
                 </div>
             </div>

@@ -6,12 +6,14 @@ import {
     Link2, Check,
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
+import LanguagePicker from './LanguagePicker';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { CATEGORY_TABS } from '../data/objectCatalog';
 import { buildShareUrl, getCameraSnapshot } from '../utils/shareView';
 import { simDate } from '../utils/simTime';
 import { isTrueScale } from '../utils/scaleMode';
 import { subscribeLogo } from '../utils/assetLoading';
+import { useI18n } from '../i18n';
 
 // Icon per category id. Kept beside the tab list rather than duplicating the
 // list itself — CATEGORY_TABS in the catalog is the single source of truth, so
@@ -33,6 +35,7 @@ const TAB_ICONS = {
 };
 
 const AppShell = ({ children }) => {
+    const { t, category } = useI18n();
     const [searchParams, setSearchParams] = useSearchParams();
     const match = useMatch('/object/:id');
     const focusedId = match?.params?.id;
@@ -122,7 +125,7 @@ const AppShell = ({ children }) => {
             className="min-h-screen text-white flex flex-col"
             style={{ paddingBottom: navHidden ? 0 : 68, transition: 'padding-bottom 500ms ease' }}
         >
-            <a href="#catalog" className="skip-link">Skip to catalog</a>
+            <a href="#catalog" className="skip-link">{t('app.skipToCatalog')}</a>
 
             {/* ── Floating header ── */}
             {/* Once the page scrolls, the ticker and cards pass beneath this
@@ -144,7 +147,7 @@ const AppShell = ({ children }) => {
                 <Link
                     to="/"
                     data-app-logo
-                    aria-label="P4RSEC — home"
+                    aria-label={t('app.home')}
                     className="flex items-center gap-2 flex-shrink-0 focus-ring rounded-lg"
                     style={{
                         color: 'rgba(255,255,255,0.92)', pointerEvents: 'auto',
@@ -159,17 +162,18 @@ const AppShell = ({ children }) => {
                         run of letters as a substituted A rather than as a typo,
                         and it matches the uppercase labels the rest of the
                         interface already uses. */}
-                    <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
-                        P4RSEC
+                    <span data-latin style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
+                        {t('app.name')}
                     </span>
                 </Link>
 
                 <div ref={searchRef} className="flex items-center gap-2" style={{ pointerEvents: 'auto' }}>
+                    {!searchOpen && <LanguagePicker />}
                     {!searchOpen && (
                         <button
                             onClick={share}
-                            title="Copy a link to this view"
-                            aria-label="Copy a link to this view"
+                            title={copied ? t('nav.copied') : t('nav.copyLink')}
+                            aria-label={t('nav.copyLink')}
                             className="flex items-center justify-center rounded-xl transition-all focus-ring"
                             style={{
                                 width: 36, height: 36, flexShrink: 0,
@@ -189,8 +193,8 @@ const AppShell = ({ children }) => {
                     {!searchOpen && (
                         <Link
                             to="/tonight"
-                            title="What's up tonight from where you are"
-                            aria-label="What's up tonight"
+                            title={t('nav.tonightTitle')}
+                            aria-label={t('nav.tonight')}
                             className="flex items-center justify-center rounded-xl transition-all focus-ring"
                             style={{
                                 width: 36, height: 36, flexShrink: 0,
@@ -207,8 +211,8 @@ const AppShell = ({ children }) => {
                     {!searchOpen && (
                         <Link
                             to="/compare"
-                            title="Compare two bodies at true relative size"
-                            aria-label="Compare two bodies"
+                            title={t('nav.compareTitle')}
+                            aria-label={t('nav.compare')}
                             className="flex items-center justify-center rounded-xl transition-all focus-ring"
                             style={{
                                 width: 36, height: 36, flexShrink: 0,
@@ -229,9 +233,9 @@ const AppShell = ({ children }) => {
                     )}
                     <button
                         onClick={() => setSearchOpen(v => !v)}
-                        aria-label={searchOpen ? 'Close search' : 'Search objects'}
+                        aria-label={searchOpen ? t('nav.searchClose') : t('nav.search')}
                         aria-expanded={searchOpen}
-                        title="Search (⌘K)"
+                        title={t('nav.searchShortcut')}
                         className="flex items-center justify-center rounded-xl transition-all focus-ring"
                         style={{
                             width: 36, height: 36, flexShrink: 0,
@@ -259,7 +263,7 @@ const AppShell = ({ children }) => {
                 before reaching anything on screen. */}
             <nav
                 ref={navRef}
-                aria-label="Object categories"
+                aria-label={t('nav.categories')}
                 inert={navHidden || undefined}
                 aria-hidden={navHidden || undefined}
                 className="fixed bottom-0 left-0 right-0 z-50 flex transition-all duration-500 ease-in-out no-scrollbar"
@@ -289,7 +293,9 @@ const AppShell = ({ children }) => {
                     is why this looked fine on one machine and left-packed on
                     another. */}
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: 2, margin: '0 auto', flex: '0 0 auto' }}>
-                {CATEGORY_TABS.map(({ id, label }) => {
+                {CATEGORY_TABS.map((tab) => {
+                    const { id } = tab;
+                    const { label } = category(tab);
                     const Icon = TAB_ICONS[id] ?? CircleDot;
                     const isActive = activeTab === id;
                     return (

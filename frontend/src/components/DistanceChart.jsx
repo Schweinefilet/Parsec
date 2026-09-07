@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useCallback } from 'react';
+import { useI18n } from '../i18n';
 
 // Distance-over-time chart drawn as inline SVG. Replaces a financial charting
 // library that was ported in from another project — a single smoothed series
@@ -26,10 +27,10 @@ function smoothPath(pts) {
     return d;
 }
 
-const fmtDate = (unixSec) =>
-    new Date(unixSec * 1000).toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
-
 const DistanceChart = ({ data, color = '#ffffff', unit = 'AU', ariaLabel }) => {
+    const { t, date: fmtFullDate, num } = useI18n();
+    const fmtDate = (unixSec) =>
+        fmtFullDate(new Date(unixSec * 1000), { month: 'short', year: '2-digit' });
     const svgRef = useRef(null);
     const [hover, setHover] = useState(null);
     const gradId = useRef(`dcg-${Math.random().toString(36).slice(2, 9)}`).current;
@@ -75,7 +76,7 @@ const DistanceChart = ({ data, color = '#ffffff', unit = 'AU', ariaLabel }) => {
         return (
             <div className="flex items-center justify-center"
                 style={{ height: 200, color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
-                Not enough data to chart.
+                {t('stats.notEnoughData')}
             </div>
         );
     }
@@ -93,7 +94,9 @@ const DistanceChart = ({ data, color = '#ffffff', unit = 'AU', ariaLabel }) => {
                 preserveAspectRatio="none"
                 style={{ width: '100%', height: 200, display: 'block', touchAction: 'pan-y' }}
                 role="img"
-                aria-label={ariaLabel ?? `Distance over time, ranging from ${lo.toFixed(2)} to ${hi.toFixed(2)} ${unit}`}
+                aria-label={ariaLabel ?? t('stats.distanceAria', {
+                    from: lo.toFixed(2), to: hi.toFixed(2), unit,
+                })}
                 onMouseMove={onMove}
                 onMouseLeave={() => setHover(null)}
                 onTouchStart={onMove}
@@ -163,7 +166,7 @@ const DistanceChart = ({ data, color = '#ffffff', unit = 'AU', ariaLabel }) => {
             <div
                 aria-live="polite"
                 style={{
-                    position: 'absolute', top: 0, right: 0,
+                    position: 'absolute', top: 0, insetInlineEnd: 0,
                     padding: '2px 8px', borderRadius: 8,
                     background: 'rgba(0,0,0,0.55)',
                     border: '1px solid rgba(255,255,255,0.12)',
@@ -174,14 +177,13 @@ const DistanceChart = ({ data, color = '#ffffff', unit = 'AU', ariaLabel }) => {
                 }}
             >
                 <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>
-                    {hover ? hover.value.toFixed(3) : '—'}
+                    {hover ? num(hover.value, { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : '—'}
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, marginLeft: 4 }}>
+                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, marginInlineStart: 4 }}>
                     {unit}
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, marginLeft: 8 }}>
-                    {hover ? new Date(hover.time * 1000).toLocaleDateString(undefined,
-                        { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, marginInlineStart: 8 }}>
+                    {hover ? fmtFullDate(new Date(hover.time * 1000)) : ''}
                 </span>
             </div>
         </div>

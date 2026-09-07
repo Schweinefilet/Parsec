@@ -7,12 +7,15 @@
 // reveal only the thing you are already looking at is a dead control, which is
 // why the affordance waits for something to choose rather than shipping empty.
 
+// Names are keys rather than text: this list is data, and a system's name is
+// one of the things that has to change with the language. The second entry
+// here brings its own pair of keys with it.
 export const SYSTEMS = [
     {
         id: 'sol',
-        name: 'The Solar System',
+        nameKey: 'system.name',
         // Shown under the name in the dropdown, once there is a dropdown.
-        blurb: 'One star, eight planets, and everything caught around them',
+        blurbKey: 'system.blurb',
         to: '/',
     },
 ];

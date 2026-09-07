@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { heliocentricDistanceAU } from '../hooks/useHorizons';
-import { moonPhaseDays, moonPhaseName, computeDistanceSeries, fmtKm, fmtDays } from './astroFormatters';
+import { moonPhaseDays, moonPhaseKey, computeDistanceSeries, fmtKm, fmtDays } from './astroFormatters';
 import { proceduralTexture, hasProfile } from './proceduralTextures';
 import { buildSpacecraft, hasSpacecraftModel } from './spacecraftModels';
 import { OBJECTS } from '../data/objectCatalog';
@@ -49,7 +49,7 @@ describe('astro formatters', () => {
 
     it('names a phase for every point in the cycle', () => {
         for (let d = 0; d < 29.5; d += 0.25) {
-            expect(moonPhaseName(d)).toBeTruthy();
+            expect(moonPhaseKey(d)).toMatch(/^moonPhase\./);
         }
     });
 

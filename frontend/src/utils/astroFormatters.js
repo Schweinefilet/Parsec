@@ -52,16 +52,24 @@ export const moonPhaseDays = (date = new Date()) => {
     return ((elapsed % lunarCycle) + lunarCycle) % lunarCycle;
 };
 
-export const moonPhaseName = (phaseDays) => {
+/**
+ * Which phase, as a translation key rather than as English.
+ *
+ * The name of a moon phase is one of the oldest pieces of vocabulary any
+ * language has, and none of them are the English words with a dictionary
+ * applied — Arabic's المحاق and البدر are their own terms. So this returns
+ * what the phase *is* and lets the locale say it.
+ */
+export const moonPhaseKey = (phaseDays) => {
     const f = phaseDays / 29.53;
-    if (f < 0.025 || f > 0.975) return 'New Moon';
-    if (f < 0.25)  return 'Waxing Crescent';
-    if (f < 0.275) return 'First Quarter';
-    if (f < 0.5)   return 'Waxing Gibbous';
-    if (f < 0.525) return 'Full Moon';
-    if (f < 0.75)  return 'Waning Gibbous';
-    if (f < 0.775) return 'Last Quarter';
-    return 'Waning Crescent';
+    if (f < 0.025 || f > 0.975) return 'moonPhase.new';
+    if (f < 0.25)  return 'moonPhase.waxingCrescent';
+    if (f < 0.275) return 'moonPhase.firstQuarter';
+    if (f < 0.5)   return 'moonPhase.waxingGibbous';
+    if (f < 0.525) return 'moonPhase.full';
+    if (f < 0.75)  return 'moonPhase.waningGibbous';
+    if (f < 0.775) return 'moonPhase.lastQuarter';
+    return 'moonPhase.waningCrescent';
 };
 
 // Compute simplified distance-from-Earth time series for a solar system body.

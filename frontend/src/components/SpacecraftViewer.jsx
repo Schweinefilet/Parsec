@@ -5,13 +5,19 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildSpacecraft } from '../utils/spacecraftModels';
 import { useReducedMotion } from '../hooks/useMediaQuery';
 import { quality, pixelRatioFor } from '../utils/quality';
+import { useI18n } from '../i18n';
 
 // Craft we ship a real mesh for; everything else is assembled from primitives.
 const STL_MODELS = { iss: '/models/iss.stl' };
 
 const SpacecraftViewer = ({ spacecraftId }) => {
+    const { t } = useI18n();
     const mountRef = useRef(null);
     const reduceMotion = useReducedMotion();
+    // Same reason as the solar system's canvas: the viewer is rebuilt only
+    // when the craft changes, so its one written string comes through a ref.
+    const labelRef = useRef('');
+    labelRef.current = t('spacecraft.modelAria');
 
     useEffect(() => {
         const mount = mountRef.current;
@@ -29,7 +35,7 @@ const SpacecraftViewer = ({ spacecraftId }) => {
         renderer.setClearColor(0x000000, 0);
         mount.appendChild(renderer.domElement);
         renderer.domElement.setAttribute('role', 'img');
-        renderer.domElement.setAttribute('aria-label', 'Interactive 3D model — drag to rotate');
+        renderer.domElement.setAttribute('aria-label', labelRef.current);
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(42, w / h, 0.01, 1000);

@@ -4,6 +4,7 @@ import DistanceChart from './DistanceChart';
 import { computeDistanceSeries } from '../utils/astroFormatters';
 import { CATEGORY_ACCENT } from '../data/categoryStyles';
 import { isSurfacePainted } from '../data/solarSystemBodies';
+import { useI18n } from '../i18n';
 
 // Distance chart is stashed for now — flip this back to true to restore it.
 // Everything it needs (DistanceChart, the series builder, the range picker)
@@ -28,10 +29,12 @@ class ChartBoundary extends Component {
     static getDerivedStateFromError() { return { failed: true }; }
     render() {
         if (this.state.failed) {
+            // A class component cannot call a hook, so the one string it needs
+            // arrives as a prop from the caller that can.
             return (
                 <div className="flex items-center justify-center p-6 text-center"
                     style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
-                    Chart could not be rendered.
+                    {this.props.message}
                 </div>
             );
         }
@@ -44,7 +47,9 @@ class ChartBoundary extends Component {
  * desktop overlay panel and inside the mobile bottom sheet, so both surfaces
  * stay in sync by construction.
  */
-const ObjectDetailBody = ({ object, showDescription = true }) => {
+const ObjectDetailBody = ({ object: source, showDescription = true }) => {
+    const { t, object: localize } = useI18n();
+    const object = localize(source);
     const [range, setRange] = useState('1y');
 
     const chart = useMemo(() => {
@@ -71,8 +76,8 @@ const ObjectDetailBody = ({ object, showDescription = true }) => {
             }
             return {
                 points,
-                title: isEarth ? 'Distance from Sun' : 'Distance from Earth',
-                subtitle: `Astronomical Units (AU) — eccentricity e = ${isEarth ? '0.0167' : '0.0549'}`,
+                title: t(isEarth ? 'stats.distanceFromSun' : 'stats.distanceFromEarth'),
+                subtitle: t('stats.chartUnits', { e: isEarth ? '0.0167' : '0.0549' }),
             };
         }
 
@@ -80,12 +85,12 @@ const ObjectDetailBody = ({ object, showDescription = true }) => {
             points: computeDistanceSeries(
                 object.orbital.a, object.orbital.period, days, object.orbital.phase ?? 0,
             ).filter(p => p.time <= nowSec),
-            title: 'Distance from Earth',
+            title: t('stats.distanceFromEarth'),
             subtitle: object.orbital.e != null
-                ? `Astronomical Units (AU) — eccentricity e = ${object.orbital.e.toFixed(3)}`
-                : 'Astronomical Units (AU) — circular orbit approximation',
+                ? t('stats.chartUnits', { e: object.orbital.e.toFixed(3) })
+                : t('stats.chartUnitsCircular'),
         };
-    }, [object, range]);
+    }, [object, range, t]);
 
     if (!object) return null;
     const accent = CATEGORY_ACCENT[object.category]?.rgb ?? '255,255,255';
@@ -110,8 +115,7 @@ const ObjectDetailBody = ({ object, showDescription = true }) => {
                     fontSize: '0.66rem', lineHeight: 1.5,
                     color: 'var(--text-tertiary)',
                 }}>
-                    No global photographic map exists for {object.shortName ?? object.name}.
-                    Its surface here is a rendering based on known features, not a photograph.
+                    {t('stats.painted', { name: object.shortName ?? object.name })}
                 </p>
             )}
 
@@ -126,7 +130,7 @@ const ObjectDetailBody = ({ object, showDescription = true }) => {
                                 {chart.subtitle}
                             </p>
                         </div>
-                        <div className="glass-pill" role="group" aria-label="Chart time range">
+                        <div className="glass-pill" role="group" aria-label={t('stats.chartRange')}>
                             {TIME_RANGES.map(r => (
                                 <button
                                     key={r.key}
@@ -147,11 +151,13 @@ const ObjectDetailBody = ({ object, showDescription = true }) => {
                             ))}
                         </div>
                     </div>
-                    <ChartBoundary>
+                    <ChartBoundary message={t('stats.chartFailed')}>
                         <DistanceChart
                             data={chart.points}
                             color={`rgb(${accent})`}
-                            ariaLabel={`${chart.title} for ${object.name} over the last ${range}`}
+                            ariaLabel={t('stats.chartAria', {
+                                title: chart.title, name: object.name, range,
+                            })}
                         />
                     </ChartBoundary>
                 </div>

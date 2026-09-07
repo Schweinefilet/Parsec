@@ -40,7 +40,11 @@ export const SATELLITES = [
         live: {
             provider: 'youtube',
             id: 'awQzjn72bI0',
+            // The English text is the fallback; the key is what actually gets
+            // drawn, so a feed added later can bring its own pair.
             title: 'Live high-definition views from the Space Station',
+            titleKey: 'feed.issTitle',
+            captionKey: 'feed.issCaption',
             source: 'NASA',
             // Where to send people when the id above stops being the stream.
             channelUrl: 'https://www.youtube.com/@NASA/streams',

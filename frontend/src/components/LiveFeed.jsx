@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Play, ArrowUpRight, VideoOff } from 'lucide-react';
+import { useI18n } from '../i18n';
 
 /**
  * The live video from a tracked satellite, where there is one.
@@ -14,6 +15,7 @@ import { Play, ArrowUpRight, VideoOff } from 'lucide-react';
  * tracking cookies until playback actually starts.
  */
 const LiveFeed = ({ satellite }) => {
+    const { t, bodyName } = useI18n();
     const [playing, setPlaying] = useState(false);
     const live = satellite?.live;
 
@@ -24,11 +26,11 @@ const LiveFeed = ({ satellite }) => {
             <div className="glass" style={{ marginTop: 16, padding: '14px 20px' }}>
                 <p className="flex items-center gap-2" style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
                     <VideoOff style={{ width: 14, height: 14, flexShrink: 0 }} aria-hidden="true" />
-                    No public live video from {satellite?.shortName ?? 'this satellite'}.
-                    {satellite?.id === 'hubble' || satellite?.id === 'chandra'
-                        ? ' It is a telescope pointed away from Earth, and it does not return video —'
-                          + ' its images are assembled from long exposures after the fact.'
-                        : ' Only the Space Station carries cameras with a continuous public downlink.'}
+                    {t('feed.none', {
+                        name: bodyName(satellite?.shortName ?? satellite?.name ?? ''),
+                    })}
+                    {t(satellite?.id === 'hubble' || satellite?.id === 'chandra'
+                        ? 'feed.noneTelescope' : 'feed.noneOther')}
                 </p>
             </div>
         );
@@ -42,10 +44,10 @@ const LiveFeed = ({ satellite }) => {
             <div className="flex flex-wrap items-baseline justify-between gap-3" style={{ marginBottom: 12 }}>
                 <div style={{ minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
-                        Live view
+                        {t('feed.title')}
                     </p>
                     <p style={{ margin: '3px 0 0', fontSize: '0.95rem', fontWeight: 700, color: '#fff' }}>
-                        {live.title}
+                        {live.titleKey ? t(live.titleKey) : live.title}
                     </p>
                 </div>
                 <a
@@ -55,7 +57,7 @@ const LiveFeed = ({ satellite }) => {
                     className="flex items-center gap-1.5 focus-ring rounded-lg"
                     style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', padding: '2px 4px' }}
                 >
-                    {live.source} on YouTube
+                    {t('feed.onYouTube', { source: live.source })}
                     <ArrowUpRight style={{ width: 12, height: 12 }} aria-hidden="true" />
                 </a>
             </div>
@@ -96,19 +98,17 @@ const LiveFeed = ({ satellite }) => {
                             <Play style={{ width: 22, height: 22, color: '#fff', marginLeft: 3 }} aria-hidden="true" />
                         </span>
                         <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>
-                            Play the live feed
+                            {t('feed.play')}
                         </span>
                         <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', maxWidth: 300, textAlign: 'center' }}>
-                            Loads from YouTube when you press it, not before
+                            {t('feed.lazy')}
                         </span>
                     </button>
                 )}
             </div>
 
             <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--text-tertiary)' }}>
-                External cameras on the Harmony module · the picture cuts to blue
-                when the Station passes into orbital night, and drops during
-                handovers between relay satellites
+                {live.captionKey ? t(live.captionKey) : null}
             </p>
         </div>
     );

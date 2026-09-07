@@ -20,14 +20,19 @@ import { useIsMobile } from '../hooks/useMediaQuery';
 import { isTrueScale, toggleTrueScale, subscribeScale, setTrueScale as setSceneScale } from '../utils/scaleMode';
 import { decodeView } from '../utils/shareView';
 import { setOffsetDays } from '../utils/simTime';
+import { useI18n } from '../i18n';
 
+// The arrows point from the first letter of the alphabet to the last, so in a
+// right-to-left interface they point the other way — and the alphabet named is
+// the reader's own, not the Latin one.
 const SORT_OPTIONS = [
-    { value: 'default', label: 'Default Order' },
-    { value: 'name_az', label: 'Name A → Z' },
-    { value: 'name_za', label: 'Name Z → A' },
+    { value: 'default', key: 'catalog.sortDefault' },
+    { value: 'name_az', key: 'catalog.sortAZ' },
+    { value: 'name_za', key: 'catalog.sortZA' },
 ];
 
 const SortDropdown = ({ value, onChange }) => {
+    const { t } = useI18n();
     const [open, setOpen] = useState(false);
     const selected = SORT_OPTIONS.find(o => o.value === value);
 
@@ -47,26 +52,30 @@ const SortDropdown = ({ value, onChange }) => {
                 className="flex items-center gap-1.5 text-sm"
                 style={{ color: 'var(--text-secondary)' }}
             >
-                Sort:{' '}
+                {t('catalog.sort')}{' '}
                 <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {selected?.label}
+                    {selected && t(selected.key)}
                 </span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
-                <div className="glass absolute right-0 top-full mt-1 w-44 z-20 py-1 overflow-hidden" role="listbox">
+                <div className="glass absolute top-full mt-1 w-44 z-20 py-1 overflow-hidden"
+                    style={{ insetInlineEnd: 0 }} role="listbox">
                     {SORT_OPTIONS.map(opt => (
                         <button
                             key={opt.value}
                             role="option"
                             aria-selected={opt.value === value}
                             onClick={() => { onChange(opt.value); setOpen(false); }}
-                            className="w-full text-left px-4 py-2 text-sm"
-                            style={opt.value === value
-                                ? { color: '#fff', background: 'rgba(255,255,255,0.12)' }
-                                : { color: 'var(--text-secondary)' }}
+                            className="w-full px-4 py-2 text-sm"
+                            style={{
+                                textAlign: 'start',
+                                ...(opt.value === value
+                                    ? { color: '#fff', background: 'rgba(255,255,255,0.12)' }
+                                    : { color: 'var(--text-secondary)' }),
+                            }}
                         >
-                            {opt.label}
+                            {t(opt.key)}
                         </button>
                     ))}
                 </div>
@@ -76,6 +85,7 @@ const SortDropdown = ({ value, onChange }) => {
 };
 
 const LiveDistanceRow = ({ spacecraftId }) => {
+    const { t } = useI18n();
     const { distanceAU } = useHorizons(spacecraftId);
     if (distanceAU == null) return null;
     const km = distanceAU * 149597870.7;
@@ -83,17 +93,21 @@ const LiveDistanceRow = ({ spacecraftId }) => {
     return (
         <div className="glass p-5">
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
-                Distance from the Sun
+                {t('spacecraft.distanceFromSun')}
             </p>
-            <p className="text-lg font-bold mt-1 text-white" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <p className="text-lg font-bold mt-1 text-white num-run" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {distanceAU.toFixed(2)}{' '}
-                <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>AU</span>
+                <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    {t('spacecraft.au')}
+                </span>
             </p>
             <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                {(km / 1e9).toFixed(2)} billion km · light takes {lightHours.toFixed(1)} hours to reach us
+                {t('spacecraft.lightDelay', {
+                    km: (km / 1e9).toFixed(2), hours: lightHours.toFixed(1),
+                })}
             </p>
             <p className="text-[10px] mt-2" style={{ color: 'rgba(255,255,255,0.28)' }}>
-                Extrapolated from JPL Horizons state vectors
+                {t('spacecraft.horizonsNote')}
             </p>
         </div>
     );
@@ -107,6 +121,7 @@ const SPACECRAFT_CATEGORIES = new Set(['space-stations', 'space-telescopes', 'de
 const SHOW_SPACECRAFT_VIEWER = false;
 
 const CategoryBrowser = () => {
+    const { t, intl, object: localize, category: localizeCategory } = useI18n();
     const match = useMatch('/object/:id');
     const id = match?.params?.id;
     const navigate = useNavigate();
@@ -115,7 +130,8 @@ const CategoryBrowser = () => {
     const [sortBy, setSortBy] = useState('default');
     const isMobile = useIsMobile();
 
-    const object = useMemo(() => (id ? getObjectById(id) : null), [id]);
+    const object = useMemo(
+        () => (id ? localize(getObjectById(id)) : null), [id, localize]);
 
     // Whether the scene has a body to fly to. Exoplanets, deep-sky targets,
     // near-Earth asteroids and most spacecraft have none — asking the category
@@ -202,13 +218,16 @@ const CategoryBrowser = () => {
         };
     }, [id]);
 
-    const currentCategory = CATEGORY_TABS.find(t => t.id === activeTab) ?? CATEGORY_TABS[0];
+    const currentCategory = localizeCategory(
+        CATEGORY_TABS.find(tab => tab.id === activeTab) ?? CATEGORY_TABS[0]);
     const objects = getObjectsByCategory(currentCategory.id);
-    const sorted = useMemo(() => [...objects].sort((a, b) => {
-        if (sortBy === 'name_az') return a.name.localeCompare(b.name);
-        if (sortBy === 'name_za') return b.name.localeCompare(a.name);
+    // Sorted on the translated names with the reader's own collation — an
+    // alphabetical list of English names is not alphabetical in Arabic.
+    const sorted = useMemo(() => objects.map(localize).sort((a, b) => {
+        if (sortBy === 'name_az') return a.name.localeCompare(b.name, intl);
+        if (sortBy === 'name_za') return b.name.localeCompare(a.name, intl);
         return 0;
-    }), [objects, sortBy]);
+    }), [objects, sortBy, localize, intl]);
 
     const physicalRows = object?.stats?.find(s => s.section === 'Physical')?.rows ?? [];
     const scrollToCatalog = useCallback(() => {
@@ -250,7 +269,7 @@ const CategoryBrowser = () => {
                     position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
                     overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
                 }}>
-                    P4RSEC — an interactive 3D atlas of the solar system
+                    {t('app.srTitle')}
                 </h1>
             )}
 
@@ -265,7 +284,20 @@ const CategoryBrowser = () => {
                     system behind it fades back and stops taking input. */}
                 <div
                     className="relative"
-                    style={{ width: '100vw', marginLeft: 'calc(-50vw + 50%)' }}
+                    // Full bleed out of the centred <main>. Both margins, not
+                    // just the left one: with a width and a single margin set,
+                    // the box is over-constrained, and CSS resolves that by
+                    // discarding the *end* margin — which is the right one in a
+                    // left-to-right page and the left one in a right-to-left
+                    // page. Setting only margin-left therefore worked in
+                    // English and slid the whole scene 80px off the left edge
+                    // in Arabic. Two equal margins are not over-constrained at
+                    // all, and land it correctly either way.
+                    style={{
+                        width: '100vw',
+                        marginLeft: 'calc(-50vw + 50%)',
+                        marginRight: 'calc(-50vw + 50%)',
+                    }}
                     onPointerDown={() => setHasInteracted3D(true)}
                     onWheel={() => setHasInteracted3D(true)}
                 >
@@ -297,9 +329,7 @@ const CategoryBrowser = () => {
                         currentId={DEFAULT_SYSTEM}
                         compact={isMobile}
                         hidden={!!id || pageScrolled || hasInteracted3D}
-                        hint={isMobile
-                            ? 'Drag to orbit, pinch to zoom, tap to explore'
-                            : 'Drag to orbit, scroll to zoom, click any object to explore'}
+                        hint={t(isMobile ? 'scene.hintMobile' : 'scene.hintDesktop')}
                     />
 
                     {/* Imagery stands in for objects the scene cannot place */}
@@ -366,10 +396,8 @@ const CategoryBrowser = () => {
                         <button
                             onClick={() => setAutoRotate(v => !v)}
                             aria-pressed={!autoRotate}
-                            aria-label={autoRotate ? 'Stop the camera drifting' : 'Let the camera drift again'}
-                            title={autoRotate
-                                ? 'The view drifts slowly — press to hold it still'
-                                : 'The view is held still — press to let it drift'}
+                            aria-label={t(autoRotate ? 'scene.driftingAria' : 'scene.heldStillAria')}
+                            title={t(autoRotate ? 'scene.driftingTitle' : 'scene.heldStillTitle')}
                             inert={(!!id || pageScrolled) || undefined}
                             className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
                             style={{
@@ -388,17 +416,13 @@ const CategoryBrowser = () => {
                             {autoRotate
                                 ? <Orbit style={{ width: 13, height: 13 }} />
                                 : <Pause style={{ width: 13, height: 13 }} />}
-                            {autoRotate ? 'Drifting' : 'Held still'}
+                            {t(autoRotate ? 'scene.drifting' : 'scene.heldStill')}
                         </button>
                         <button
                             onClick={toggleTrueScale}
                             aria-pressed={trueScale}
-                            aria-label={trueScale
-                                ? 'Switch back to the compressed layout'
-                                : 'Show true distances between the planets'}
-                            title={trueScale
-                                ? 'Showing real distances — switch back to the compressed layout'
-                                : 'Distances are compressed to fit — switch to the real ones'}
+                            aria-label={t(trueScale ? 'scene.compressedAria' : 'scene.trueScaleAria')}
+                            title={t(trueScale ? 'scene.trueScaleTitle' : 'scene.compressedTitle')}
                             inert={(!!id || pageScrolled) || undefined}
                             className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
                             style={{
@@ -423,12 +447,12 @@ const CategoryBrowser = () => {
                                 one setting with two values rather than as a
                                 verb one way and a noun the other. "To scale"
                                 was also ambiguous about which state it meant. */}
-                            {trueScale ? 'True distances' : 'Compressed distances'}
+                            {t(trueScale ? 'scene.trueDistances' : 'scene.compressedDistances')}
                         </button>
                         </div>
                         <button
                             onClick={scrollToCatalog}
-                            aria-label="Scroll down to the object catalog"
+                            aria-label={t('scene.scrollToCatalog')}
                             inert={(!!id || pageScrolled) || undefined}
                             className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
                             style={{
@@ -447,7 +471,7 @@ const CategoryBrowser = () => {
                                 cursor: 'pointer',
                             }}
                         >
-                            Explore the catalog
+                            {t('scene.exploreCatalog')}
                             <ChevronDown style={{ width: 14, height: 14 }} />
                         </button>
                         </div>
@@ -457,11 +481,11 @@ const CategoryBrowser = () => {
                     {id && (
                         <button
                             onClick={() => navigate('/')}
-                            aria-label="Back to solar system"
-                            title="Back to solar system (Esc)"
+                            aria-label={t('scene.back')}
+                            title={t('scene.backTitle')}
                             className="absolute flex items-center justify-center rounded-xl animate-fade-in focus-ring"
                             style={{
-                                top: 68, left: 20, zIndex: 20,
+                                top: 68, insetInlineStart: 20, zIndex: 20,
                                 width: 38, height: 38,
                                 background: 'rgba(0,0,0,0.45)',
                                 border: '1px solid rgba(255,255,255,0.16)',
@@ -486,8 +510,8 @@ const CategoryBrowser = () => {
                                 transitionDelay: id ? '700ms' : '0ms',
                             }}
                         >
-                            <div className="flex flex-col gap-8 md:gap-14 items-end text-right"
-                                style={{ maxWidth: '32%', textShadow: '0 2px 6px rgba(0,0,0,0.95)' }}>
+                            <div className="flex flex-col gap-8 md:gap-14 items-end"
+                                style={{ maxWidth: '32%', textAlign: 'end', textShadow: '0 2px 6px rgba(0,0,0,0.95)' }}>
                                 <div>
                                     <h1 className="font-extrabold tracking-tight leading-none text-white"
                                         style={{ fontSize: 'clamp(1.2rem, 3.6vw, 2.2rem)' }}>
@@ -505,7 +529,7 @@ const CategoryBrowser = () => {
                                                 fontSize: '0.6rem', fontWeight: 600,
                                                 letterSpacing: '0.05em', marginTop: 10,
                                             }}>
-                                            Click a moon to explore it
+                                            {t('scene.clickMoon')}
                                         </p>
                                     )}
                                 </div>
@@ -523,8 +547,8 @@ const CategoryBrowser = () => {
 
                             <div className="flex-1" />
 
-                            <div className="flex flex-col gap-8 md:gap-14 items-start text-left"
-                                style={{ maxWidth: '32%', textShadow: '0 2px 6px rgba(0,0,0,0.95)' }}>
+                            <div className="flex flex-col gap-8 md:gap-14 items-start"
+                                style={{ maxWidth: '32%', textAlign: 'start', textShadow: '0 2px 6px rgba(0,0,0,0.95)' }}>
                                 <div>
                                     <p className="font-extrabold text-white/90" style={{ fontSize: 'clamp(0.76rem, 2.2vw, 1rem)' }}>
                                         {object.keyStatValue}
@@ -587,7 +611,7 @@ const CategoryBrowser = () => {
                             <button
                                 onClick={() => setSheetOpen(v => !v)}
                                 aria-expanded={sheetOpen}
-                                aria-label={sheetOpen ? 'Hide details' : 'Show details'}
+                                aria-label={t(sheetOpen ? 'scene.hideDetails' : 'scene.showDetails')}
                                 style={{
                                     display: 'flex', flexDirection: 'column', alignItems: 'center',
                                     width: '100%', background: 'none', border: 'none',
@@ -657,24 +681,26 @@ const CategoryBrowser = () => {
                                             <div className="glass p-5">
                                                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                                                     <div>
-                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Launch Year</p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{t('spacecraft.launchYear')}</p>
                                                         <p className="font-bold text-white">{object.launchYear}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Status</p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{t('spacecraft.status')}</p>
                                                         <span className="text-xs font-bold px-2 py-0.5 rounded-lg" style={{
                                                             background: object.currentStatus === 'active' ? 'rgba(80,200,120,0.15)' : 'rgba(140,140,140,0.15)',
                                                             color: object.currentStatus === 'active' ? '#50e090' : 'rgba(200,200,200,0.7)',
                                                         }}>
-                                                            {object.currentStatus?.toUpperCase()}
+                                                            {t(object.currentStatus === 'active'
+                                                                ? 'spacecraft.statusActive'
+                                                                : 'spacecraft.statusInactive')}
                                                         </span>
                                                     </div>
                                                     <div className="col-span-2">
-                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Operator</p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{t('spacecraft.operator')}</p>
                                                         <p className="font-bold text-white text-sm">{object.operator}</p>
                                                     </div>
                                                     <div className="col-span-2">
-                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Location / Altitude</p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{t('spacecraft.locationAltitude')}</p>
                                                         <p className="font-bold text-white text-sm">{object.altitude}</p>
                                                     </div>
                                                 </div>
@@ -697,7 +723,7 @@ const CategoryBrowser = () => {
                                                 cursor: 'pointer',
                                             }}
                                         >
-                                            Track the ISS live
+                                            {t('spacecraft.trackIss')}
                                             <ArrowUpRight style={{ width: 16, height: 16 }} />
                                         </button>
                                     )}
@@ -714,7 +740,10 @@ const CategoryBrowser = () => {
                 <div
                     className="transition-all duration-500 ease-in-out"
                     style={{
-                        width: '100vw', marginLeft: 'calc(-50vw + 50%)',
+                        // Both margins — see the note on the scene above.
+                        width: '100vw',
+                        marginLeft: 'calc(-50vw + 50%)',
+                        marginRight: 'calc(-50vw + 50%)',
                         opacity: id ? 0 : 1,
                         maxHeight: id ? 0 : 100,
                         overflow: 'hidden',
@@ -742,7 +771,7 @@ const CategoryBrowser = () => {
                                 {currentCategory.label}
                             </h2>
                             <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                                {currentCategory.description} &mdash; {objects.length} object{objects.length === 1 ? '' : 's'}
+                                {currentCategory.description} &mdash; {t('catalog.count', { count: objects.length })}
                             </p>
                         </div>
                         <SortDropdown value={sortBy} onChange={setSortBy} />
@@ -752,7 +781,7 @@ const CategoryBrowser = () => {
                         {sorted.map(obj => <ObjectCard key={obj.id} object={obj} />)}
                         {sorted.length === 0 && (
                             <div className="col-span-full py-16 text-center" style={{ color: 'var(--text-tertiary)' }}>
-                                No objects in this category yet.
+                                {t('catalog.empty')}
                             </div>
                         )}
                     </div>

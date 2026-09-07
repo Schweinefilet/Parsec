@@ -16,6 +16,97 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.0
+
+- **The atlas speaks Arabic.** The whole interface, and the whole catalog:
+  seventy object names, thirty-six types, a hundred and seventy-five stat
+  labels, seventy descriptions, and the eight hundred stat values underneath
+  them. Names follow what Arabic astronomy already calls these things rather
+  than transliterating the English — عطارد, الزهرة, المريخ, المشتري, زحل have
+  had Arabic names for a thousand years, and Andromeda is المرأة المسلسلة.
+  Bodies named in the last two centuries have no Arabic name to find and are
+  transliterated, which is what Arabic-language astronomy writing does with
+  them too. Catalogue designations stay in Latin: TRAPPIST-1e and NGC 5195 are
+  identifiers, and rendering an identifier in Arabic script destroys the only
+  thing it is for.
+
+  The page flips to right-to-left with it. That is mostly free — flex rows
+  reverse, text aligns to the start edge, the bidi algorithm handles a Latin
+  designation inside an Arabic sentence — and the rest is the part that is not:
+
+  - **Letter-spacing is switched off.** Arabic is a joined script, and tracking
+    inserts gaps *between joined letters*, which does not read as airy but as
+    a word coming apart. The wordmark opts back in, because P4RSEC is Latin
+    whatever surrounds it.
+  - **Signed numbers are isolated.** "−180 to 430 °C" draws as "180−" in a
+    right-to-left paragraph: the bidi algorithm calls a minus sign neutral, so
+    it resolves to the right of its digits. Every signed figure is now wrapped
+    in the Unicode isolate characters that exist for this.
+  - **The full-bleed scene got its second margin.** `width: 100vw` with only a
+    `margin-left` is over-constrained, and CSS resolves that by discarding the
+    *end* margin — the right one in English, the left one in Arabic. It worked
+    in one language and slid the entire 3D view eighty pixels off the edge in
+    the other.
+  - **The sky panorama and the telemetry ticker stay left-to-right.** They are
+    pictures of physical space, not writing; north stays where north is.
+
+- **Counted nouns agree with their numbers.** Arabic uses five plural
+  categories where English uses two: one day is يوم, two is the dual يومان,
+  three to ten take the plural أيام, eleven to ninety-nine take يومًا, and
+  every decimal — "87.97 days" — takes a sixth form again. None of that is
+  reachable by appending an s, so every counted noun goes through
+  `Intl.PluralRules`. The same machinery covers the time scrubber's "3 days
+  ago" and the sky calendar's countdown.
+
+- **Word order belongs to the language.** Anywhere a sentence carries two
+  slots it is one key with two placeholders, not two fragments concatenated:
+  English writes "3 days ago" and Arabic writes "قبل ٣ أيام", and a template
+  that hard-codes the English order silently exports it to everywhere else.
+  Dates are reordered the same way — "April 13, 2029" reads "13 أبريل 2029".
+
+- **Compass points are spelled out rather than abbreviated.** English builds
+  "NNE" from three initials; Arabic cannot, because شمال and شرق both begin
+  with ش, so a letter compass would be ambiguous in exactly the situation it
+  exists for — telling someone which way to turn.
+
+- **Figures stay in Western digits.** Arabic has two digit sets in live use,
+  and CLDR's default for `ar` is Arabic-Indic. This atlas sets Western anyway,
+  for reasons specific to what is on the screen: the catalog's values carry
+  Unicode superscripts (1.989 × 10³⁰ kg) with no Arabic-Indic equivalent, so a
+  switch would set half of every mass in one digit set and half in the other,
+  and Arabic-language scientific writing overwhelmingly uses Western figures.
+  One line in `locales/index.js` revisits the decision.
+
+- **Search still answers to the English name.** Someone reading the Arabic
+  interface knows the planet as Jupiter about as often as المشتري — it is what
+  the literature and half of school science use — so both names are scored,
+  and results are ordered with the reader's own collation rather than by byte.
+
+- **Languages load on demand.** Arabic is 27 KB gzipped of strings and catalog,
+  and an English reader should not download it to be told it exists. Each
+  locale is its own chunk; the main bundle dropped from 211 KB to 186 KB
+  gzipped, and it stays there however many languages follow. English is the
+  one exception, because it is the fallback behind every missing key.
+
+- **Nothing is drawn until the chosen language is in hand.** The alternative is
+  a page that renders in English and repaints in Arabic a moment later, right
+  side to left side. English is bundled, so this costs the common case nothing.
+
+- **No i18n library.** What was needed is key lookup, one interpolation form
+  and CLDR plural categories. `Intl.PluralRules` is already in every browser
+  this site requires and the rest is a hundred lines; react-i18next is forty
+  kilobytes to reach the same place, on a page that spends its budget on
+  textures.
+
+  Coverage is a test rather than a promise: every key, every object name and
+  description, every type, stat label, section and category is asserted
+  present in each language, placeholders are checked to match across
+  languages, and a sweep over all eight hundred stat values fails on any
+  English prose that survived translation. That last one is what catches the
+  value nobody thought about.
+
+---
+
 ## 2.1.3
 
 - **The tracker's follow button says what is actually happening.** Dragging or

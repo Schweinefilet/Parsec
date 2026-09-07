@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, X, CornerDownLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { OBJECTS } from '../data/objectCatalog';
+import { useI18n } from '../i18n';
 
 // Shown before the user types anything — a way in for people who don't yet
 // know what to look for. (The previous build computed this list but never
@@ -23,14 +24,25 @@ const ALIASES = {
     luna_: '',
 };
 
-function score(obj, q) {
-    const name = obj.name.toLowerCase();
-    const type = obj.type.toLowerCase();
+/**
+ * How well one object matches what was typed.
+ *
+ * Two names are tried, not one: the name in the reader's language and the
+ * English name the object also has. Someone reading the Arabic interface still
+ * knows the planet as "Jupiter" as often as "المشتري" — the English names are
+ * what the literature, the search engines and half of school science use — and
+ * a search that only matched the translated name would answer "nothing found"
+ * to a perfectly good query. `local` wins ties, because it is what the results
+ * list is about to show them.
+ */
+function score(obj, q, local) {
+    const names = [local.toLowerCase(), obj.name.toLowerCase()];
+    const type = local === obj.name ? obj.type.toLowerCase() : '';
     const alias = (ALIASES[obj.id] ?? '').toLowerCase();
-    if (name === q) return 100;
-    if (name.startsWith(q)) return 80;
+    if (names.includes(q)) return 100;
+    if (names.some(n => n.startsWith(q))) return 80;
     if (alias.split(' ').some(a => a && a.startsWith(q))) return 70;
-    if (name.includes(q)) return 55;
+    if (names.some(n => n.includes(q))) return 55;
     if (alias.includes(q)) return 45;
     if (type.includes(q)) return 30;
     if (obj.category.includes(q)) return 20;
@@ -38,6 +50,7 @@ function score(obj, q) {
 }
 
 const ObjectSearch = ({ onClose, autoFocus }) => {
+    const { t, intl, object: localize, categoryBadge } = useI18n();
     const [query, setQuery] = useState('');
     const [open, setOpen] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
@@ -53,14 +66,18 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
 
     const results = useMemo(() => {
         const q = query.trim().toLowerCase();
-        if (!q) return POPULAR;
+        if (!q) return POPULAR.map(localize);
         return OBJECTS
-            .map(o => ({ o, s: score(o, q) }))
+            .map(o => ({ o: localize(o), src: o }))
+            .map(x => ({ ...x, s: score(x.src, q, x.o.name) }))
             .filter(x => x.s > 0)
-            .sort((a, b) => b.s - a.s || a.o.name.localeCompare(b.o.name))
+            // Ordered with the reader's own collation: Arabic does not sort
+            // the way a byte comparison does, and neither does English once
+            // there are diacritics in a name.
+            .sort((a, b) => b.s - a.s || a.o.name.localeCompare(b.o.name, intl))
             .slice(0, 8)
             .map(x => x.o);
-    }, [query]);
+    }, [query, localize, intl]);
 
     useEffect(() => { setActiveIndex(-1); setOpen(true); }, [query]);
 
@@ -108,8 +125,8 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                     aria-expanded={showList}
                     aria-controls="object-search-list"
                     aria-autocomplete="list"
-                    aria-label="Search objects"
-                    placeholder="Search planets, moons, galaxies…"
+                    aria-label={t('search.label')}
+                    placeholder={t('search.placeholder')}
                     className="glass-input glass-input-search"
                     value={query}
                     onChange={e => setQuery(e.target.value)}
@@ -119,17 +136,17 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                     spellCheck="false"
                 />
                 <Search
-                    className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-                    style={{ color: 'var(--text-tertiary)' }}
+                    className="absolute top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
+                    style={{ insetInlineStart: 12, color: 'var(--text-tertiary)' }}
                     aria-hidden="true"
                 />
                 {query && (
                     <button
                         type="button"
                         onClick={() => { setQuery(''); inputRef.current?.focus(); }}
-                        aria-label="Clear search"
-                        className="absolute right-3 top-1/2 -translate-y-1/2"
-                        style={{ color: 'var(--text-tertiary)', cursor: 'pointer' }}
+                        aria-label={t('search.clear')}
+                        className="absolute top-1/2 -translate-y-1/2"
+                        style={{ insetInlineEnd: 12, color: 'var(--text-tertiary)', cursor: 'pointer' }}
                     >
                         <X className="h-4 w-4" />
                     </button>
@@ -156,13 +173,13 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                             fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
                             textTransform: 'uppercase', color: 'rgba(255,255,255,0.32)',
                         }}>
-                            Popular
+                            {t('search.popular')}
                         </p>
                     )}
 
                     {noMatches ? (
                         <p style={{ margin: 0, padding: '14px', fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
-                            Nothing matches “{query.trim()}”.
+                            {t('search.noMatches', { query: query.trim() })}
                         </p>
                     ) : results.map((obj, i) => (
                         <button
@@ -171,15 +188,16 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                             aria-selected={i === activeIndex}
                             onMouseDown={(e) => { e.preventDefault(); go(obj.id); }}
                             onMouseEnter={() => setActiveIndex(i)}
-                            className="w-full flex items-center justify-between gap-2 px-4 py-2 text-left"
+                            className="w-full flex items-center justify-between gap-2 px-4 py-2"
                             style={{
+                                textAlign: 'start',
                                 background: i === activeIndex ? 'rgba(255,255,255,0.09)' : 'transparent',
                                 cursor: 'pointer',
                             }}
                         >
                             <span style={{ minWidth: 0 }}>
                                 <span className="font-bold text-sm text-white">{obj.name}</span>
-                                <span className="text-xs ml-2" style={{ color: 'var(--text-tertiary)' }}>
+                                <span className="text-xs" style={{ marginInlineStart: 8, color: 'var(--text-tertiary)' }}>
                                     {obj.type}
                                 </span>
                             </span>
@@ -190,7 +208,7 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                                     className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0"
                                     style={{ border: '1px solid rgba(255,255,255,0.18)', color: 'var(--text-tertiary)' }}
                                 >
-                                    {obj.category.replace(/-/g, ' ')}
+                                    {categoryBadge(obj.category)}
                                 </span>
                             )}
                         </button>

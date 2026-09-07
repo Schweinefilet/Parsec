@@ -1,4 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
+import { useI18n } from '../i18n';
 
 const SUPER_MAP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
 const SUPER_RE = /([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/;
@@ -17,7 +18,9 @@ function withSuperscripts(value) {
     );
 }
 
-const ObjectStatsPanel = ({ object }) => {
+const ObjectStatsPanel = ({ object: source }) => {
+    const { t, object: localize } = useI18n();
+    const object = localize(source);
     const sections = Array.isArray(object?.stats) ? object.stats : [];
     const [activeSection, setActiveSection] = useState(sections[0]?.section ?? '');
 
@@ -29,7 +32,7 @@ const ObjectStatsPanel = ({ object }) => {
     if (sections.length === 0) {
         return (
             <div className="glass p-6" style={{ color: 'var(--text-tertiary)', fontSize: '0.875rem' }}>
-                No stats available.
+                {t('stats.none')}
             </div>
         );
     }
@@ -40,7 +43,7 @@ const ObjectStatsPanel = ({ object }) => {
 
     return (
         <div className="glass flex flex-col overflow-hidden" style={{ borderRadius: 'var(--radius-card)' }}>
-            <div className="flex px-4 pt-3 gap-1" role="tablist" aria-label={`${object?.name ?? 'Object'} statistics`}>
+            <div className="flex px-4 pt-3 gap-1" role="tablist" aria-label={t('stats.aria', { name: object?.name ?? t('stats.object') })}>
                 {sections.map(s => {
                     const selected = current.section === s.section;
                     return (
@@ -54,7 +57,7 @@ const ObjectStatsPanel = ({ object }) => {
                                 ? { background: 'rgba(255,255,255,0.15)', color: '#fff' }
                                 : { color: 'rgba(255,255,255,0.45)' }}
                         >
-                            {s.section}
+                            {s.sectionLabel ?? s.section}
                         </button>
                     );
                 })}
@@ -67,16 +70,19 @@ const ObjectStatsPanel = ({ object }) => {
                 style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${dense ? 132 : 180}px, 1fr))` }}
                 role="tabpanel"
             >
-                {current.rows.map(({ label, value }) => (
+                {current.rows.map(({ label, value, labelText, valueText }) => (
                     <div key={label} className="p-3">
                         <div
                             className="text-[10px] font-semibold uppercase tracking-wider mb-1"
                             style={{ color: 'var(--text-tertiary)' }}
                         >
-                            {label}
+                            {labelText ?? label}
                         </div>
-                        <div className="text-sm font-bold leading-snug" style={{ color: 'var(--text-primary)' }}>
-                            {withSuperscripts(value)}
+                        {/* A number and its unit are one run: isolated, so a
+                            neighbouring right-to-left word cannot drag the
+                            minus sign to the far end of "−180 to 430 °C". */}
+                        <div className="text-sm font-bold leading-snug num-run" style={{ color: 'var(--text-primary)' }}>
+                            {withSuperscripts(valueText ?? value)}
                         </div>
                     </div>
                 ))}

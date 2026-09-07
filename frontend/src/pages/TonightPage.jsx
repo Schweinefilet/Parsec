@@ -5,22 +5,15 @@ import {
     Orbit, Sparkles, Telescope, CalendarDays,
 } from 'lucide-react';
 import { useObserverLocation } from '../hooks/useObserverLocation';
-import { skyView, VISIBILITY_LABEL } from '../utils/skyPositions';
+import { skyView, VISIBILITY_KEY } from '../utils/skyPositions';
 import { findEvents, whenWords, daysUntil, RANK } from '../utils/skyEvents';
 import { PLANETS } from '../data/solarSystemBodies';
+import { useI18n } from '../i18n';
 
 const BODY_COLOR = {
     luna: '#d8d8e0',
     ...Object.fromEntries(PLANETS.map(p => [p.id, p.color])),
 };
-
-const fmtTime = (d) => d
-    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : null;
-
-const fmtDate = (d) => d.toLocaleDateString([], {
-    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
-});
 
 const EVENT_ICON = {
     'solar-eclipse': Sun,
@@ -45,6 +38,11 @@ const RANK_STYLE = {
  * at opposition in April tells you less than watching it line up.
  */
 const EventRow = ({ event, now, onJump }) => {
+    const { t, date, time } = useI18n();
+    const fmtDate = (d) => date(d, {
+        weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+    });
+    const fmtTime = (d) => (d ? time(d) : null);
     const Icon = EVENT_ICON[event.kind] ?? CalendarDays;
     const style = RANK_STYLE[event.rank] ?? RANK_STYLE[RANK.routine];
     const soon = daysUntil(event.at, now) < 14;
@@ -73,7 +71,7 @@ const EventRow = ({ event, now, onJump }) => {
                         fontSize: '0.72rem', fontWeight: 700, color: soon ? style.color : 'var(--text-tertiary)',
                         whiteSpace: 'nowrap',
                     }}>
-                        {whenWords(event.at, now)}
+                        {whenWords(event.at, now, t)}
                     </span>
                 </span>
                 <span style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: 2 }}>
@@ -88,13 +86,13 @@ const EventRow = ({ event, now, onJump }) => {
                 onClick={() => onJump(event)}
                 className="flex items-center gap-1.5 rounded-lg font-bold focus-ring flex-shrink-0"
                 style={{
-                    marginLeft: 'auto', padding: '7px 11px', fontSize: '0.74rem',
+                    marginInlineStart: 'auto', padding: '7px 11px', fontSize: '0.74rem',
                     background: 'rgba(255,255,255,0.06)',
                     border: '1px solid rgba(255,255,255,0.13)',
                     color: 'rgba(255,255,255,0.85)', cursor: 'pointer', whiteSpace: 'nowrap',
                 }}
             >
-                Set the clock to it
+                {t('tonight.setClock')}
                 <ArrowUpRight style={{ width: 13, height: 13 }} />
             </button>
         </div>
@@ -111,6 +109,7 @@ const EventRow = ({ event, now, onJump }) => {
  * x-coordinate and a y-coordinate.
  */
 const SkyPanorama = ({ bodies }) => {
+    const { t, bodyName } = useI18n();
     const W = 720, H = 240, GROUND = 210;
     const x = (az) => (az / 360) * W;
     const y = (alt) => GROUND - (Math.max(0, alt) / 90) * (GROUND - 22);
@@ -147,11 +146,14 @@ const SkyPanorama = ({ bodies }) => {
     const up = placed;
 
     return (
-        <div style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+        // Not mirrored in a right-to-left layout. This is a picture of the
+        // horizon, and north stays where north is; the Arabic labels inside
+        // read correctly on their own.
+        <div className="ltr-figure" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
             <svg
                 viewBox={`0 0 ${W} ${H}`}
                 role="img"
-                aria-label={`Sky chart: ${up.length} bodies above the horizon`}
+                aria-label={t('tonight.skyAria', { count: up.length })}
                 style={{ width: '100%', minWidth: 560, display: 'block' }}
             >
                 {/* Altitude guides at 30° and 60° */}
@@ -168,13 +170,14 @@ const SkyPanorama = ({ bodies }) => {
                 <rect x={0} y={GROUND} width={W} height={H - GROUND} fill="rgba(255,255,255,0.04)" />
 
                 {/* Which way you are facing */}
-                {[['N', 0], ['E', 90], ['S', 180], ['W', 270], ['N', 360]].map(([label, az], i) => (
+                {[['sky.north', 0], ['sky.east', 90], ['sky.south', 180],
+                  ['sky.west', 270], ['sky.north', 360]].map(([key, az], i) => (
                     <g key={i}>
                         <line x1={x(az)} x2={x(az)} y1={22} y2={GROUND}
                             stroke="rgba(255,255,255,0.07)" />
                         <text x={x(az)} y={H - 8} fill="rgba(255,255,255,0.5)" fontSize={11}
                             fontWeight="700" textAnchor={i === 0 ? 'start' : i === 4 ? 'end' : 'middle'}>
-                            {label}
+                            {t(key)}
                         </text>
                     </g>
                 ))}
@@ -195,7 +198,7 @@ const SkyPanorama = ({ bodies }) => {
                                 x={b.cx} y={b.ly} fill="rgba(255,255,255,0.9)"
                                 fontSize={11} fontWeight="700" textAnchor="middle"
                             >
-                                {b.name}
+                                {bodyName(b.name)}
                             </text>
                         </g>
                     );
@@ -206,6 +209,8 @@ const SkyPanorama = ({ bodies }) => {
 };
 
 const TonightPage = () => {
+    const { t, bodyName, time, num } = useI18n();
+    const fmtTime = (d) => (d ? time(d) : null);
     const navigate = useNavigate();
     const { location, error, asking, request, forget } = useObserverLocation();
 
@@ -236,12 +241,15 @@ const TonightPage = () => {
     // nothing until you hand over your position has earned nothing.
     const dayKey = now.toDateString();
     const events = useMemo(
-        () => findEvents(location, { from: new Date(), days: 365, limit: 12 }),
+        () => findEvents(location, {
+            from: new Date(), days: 365, limit: 12,
+            t, name: bodyName, num,
+        }),
         // dayKey is the whole point of the dependency list here: it is what
         // holds the result steady across the minute tick and lets it go at
         // midnight. The rule cannot see that because the value is not read.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [location, dayKey],
+        [location, dayKey, t, bodyName, num],
     );
 
     /** Put the solar system at that instant. */
@@ -257,11 +265,11 @@ const TonightPage = () => {
         <div className="glass" style={{ marginTop: 16, padding: '4px 20px 16px' }}>
             <div className="flex flex-wrap items-baseline gap-x-3">
                 <p style={{ margin: '14px 0 2px', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
-                    Coming up
+                    {t('tonight.comingUp')}
                 </p>
                 <p style={{ margin: '14px 0 2px', fontSize: 11, color: 'var(--text-tertiary)' }}>
-                    the next year, most notable first
-                    {!location && ' · a solar eclipse needs your location to know if it reaches you'}
+                    {t('tonight.comingUpNote')}
+                    {!location && t('tonight.comingUpNoLocation')}
                 </p>
             </div>
             {imminent && (
@@ -274,7 +282,7 @@ const TonightPage = () => {
                     }}
                 >
                     <span style={{ fontSize: '0.82rem', fontWeight: 700, color: RANK_STYLE[imminent.rank].color }}>
-                        {imminent.title} {whenWords(imminent.at, now)}
+                        {imminent.title} {whenWords(imminent.at, now, t)}
                     </span>
                     <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                         {imminent.detail}
@@ -283,7 +291,7 @@ const TonightPage = () => {
             )}
             {events.length === 0 ? (
                 <p style={{ margin: '12px 0 4px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    Nothing found in the next year.
+                    {t('tonight.noEvents')}
                 </p>
             ) : events.map(e => (
                 <EventRow key={e.id} event={e} now={now} onJump={jumpTo} />
@@ -299,7 +307,7 @@ const TonightPage = () => {
                 <div className="flex items-center gap-3 mb-4">
                     <button
                         onClick={() => navigate(-1)}
-                        aria-label="Go back"
+                        aria-label={t('tonight.back')}
                         className="flex items-center justify-center rounded-xl focus-ring"
                         style={{
                             width: 36, height: 36, flexShrink: 0,
@@ -312,18 +320,23 @@ const TonightPage = () => {
                     </button>
                     <div style={{ minWidth: 0 }}>
                         <h1 style={{ margin: 0, fontSize: 'clamp(1.15rem, 3vw, 1.6rem)', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
-                            What&rsquo;s up tonight
+                            {t('tonight.title')}
                         </h1>
                         <p style={{ margin: '1px 0 0', fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
                             {location
-                                ? `From ${Math.abs(location.lat).toFixed(2)}°${location.lat >= 0 ? 'N' : 'S'}, ${Math.abs(location.lon).toFixed(2)}°${location.lon >= 0 ? 'E' : 'W'} · ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                                : 'The planets above you, and which way to look'}
+                                ? t('tonight.from', {
+                                    lat: `${Math.abs(location.lat).toFixed(2)}°${t(location.lat >= 0 ? 'sky.north' : 'sky.south')}`,
+                                    lon: `${Math.abs(location.lon).toFixed(2)}°${t(location.lon >= 0 ? 'sky.east' : 'sky.west')}`,
+                                    time: fmtTime(now),
+                                })
+                                : t('tonight.subtitle')}
                         </p>
                     </div>
                     {view && (
                         <span
-                            className="ml-auto flex items-center gap-1.5 flex-shrink-0"
+                            className="flex items-center gap-1.5 flex-shrink-0"
                             style={{
+                                marginInlineStart: 'auto',
                                 fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
                                 textTransform: 'uppercase', padding: '5px 10px', borderRadius: 999,
                                 background: view.twilight.dark ? 'rgba(120,140,255,0.14)' : 'rgba(255,200,60,0.14)',
@@ -334,7 +347,7 @@ const TonightPage = () => {
                             {view.twilight.dark
                                 ? <MoonIcon style={{ width: 12, height: 12 }} />
                                 : <Sun style={{ width: 12, height: 12 }} />}
-                            {view.twilight.label}
+                            {t(view.twilight.labelKey)}
                         </span>
                     )}
                 </div>
@@ -343,12 +356,10 @@ const TonightPage = () => {
                     <div className="glass" style={{ padding: 28, textAlign: 'center' }}>
                         <Eye style={{ width: 26, height: 26, color: 'var(--accent)', margin: '0 auto 10px' }} />
                         <p style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#fff' }}>
-                            Where are you standing?
+                            {t('tonight.askTitle')}
                         </p>
                         <p style={{ margin: '6px auto 0', maxWidth: 460, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                            Which planets are above your horizon depends entirely on where you are.
-                            Your location stays in this browser — the sky is worked out on your device,
-                            and nothing is sent anywhere.
+                            {t('tonight.askBody')}
                         </p>
                         {error && (
                             <p style={{ margin: '10px 0 0', fontSize: '0.8rem', color: '#ff8a80' }}>{error}</p>
@@ -366,7 +377,7 @@ const TonightPage = () => {
                             }}
                         >
                             <MapPin style={{ width: 15, height: 15 }} />
-                            {asking ? 'Asking…' : 'Use my location'}
+                            {t(asking ? 'tonight.asking' : 'tonight.useLocation')}
                         </button>
                     </div>
                 ) : null}
@@ -380,10 +391,9 @@ const TonightPage = () => {
                             <SkyPanorama bodies={view.bodies} />
                             <p style={{ margin: '4px 12px 6px', fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center' }}>
                                 {upNow.length === 0
-                                    ? 'Nothing above your horizon right now'
-                                    : `${upNow.length} above the horizon · the bar is the view all the way round, from north back to north`}
-                                {!view.twilight.dark && upNow.length > 0
-                                    && ' · the sky is still too bright for the fainter ones'}
+                                    ? t('tonight.nothingUp')
+                                    : t('tonight.countUp', { count: upNow.length })}
+                                {!view.twilight.dark && upNow.length > 0 && t('tonight.tooBright')}
                             </p>
                         </div>
 
@@ -391,7 +401,7 @@ const TonightPage = () => {
                         {upNow.length > 0 && (
                             <div className="glass" style={{ marginTop: 16, padding: '4px 20px 14px' }}>
                                 <p style={{ margin: '14px 0 2px', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
-                                    Above the horizon
+                                    {t('tonight.aboveHorizon')}
                                 </p>
                                 {upNow.map(b => (
                                     <button
@@ -399,7 +409,7 @@ const TonightPage = () => {
                                         onClick={() => navigate(`/object/${b.id}`)}
                                         className="w-full flex flex-wrap items-baseline gap-x-3 gap-y-1 focus-ring"
                                         style={{
-                                            padding: '11px 0', textAlign: 'left', cursor: 'pointer',
+                                            padding: '11px 0', textAlign: 'start', cursor: 'pointer',
                                             background: 'none', border: 'none',
                                             borderTop: '1px solid rgba(255,255,255,0.06)',
                                         }}
@@ -410,22 +420,25 @@ const TonightPage = () => {
                                             boxShadow: `0 0 8px ${BODY_COLOR[b.id] ?? '#fff'}`,
                                         }} />
                                         <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', minWidth: 74 }}>
-                                            {b.name}
+                                            {bodyName(b.name)}
                                         </span>
                                         <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                            Look <strong style={{ color: '#fff' }}>{b.compass}</strong>, {b.where}
-                                            {' '}<span style={{ color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
-                                                ({b.altitude.toFixed(0)}° up)
+                                            {t('tonight.lookAt', {
+                                                compass: t('sky.compass')[b.compass],
+                                                where: t(b.whereKey),
+                                            })}
+                                            {' '}<span className="num-run" style={{ color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
+                                                {t('tonight.degreesUp', { deg: b.altitude.toFixed(0) })}
                                             </span>
                                         </span>
-                                        <span className="ml-auto flex items-center gap-3 flex-shrink-0">
+                                        <span className="flex items-center gap-3 flex-shrink-0" style={{ marginInlineStart: 'auto' }}>
                                             {b.id === 'luna' && b.illuminated != null && (
                                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
-                                                    {Math.round(b.illuminated * 100)}% lit
+                                                    {t('tonight.lit', { pct: Math.round(b.illuminated * 100) })}
                                                 </span>
                                             )}
                                             <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
-                                                mag {b.magnitude?.toFixed(1) ?? '—'}
+                                                {t('tonight.mag', { m: b.magnitude?.toFixed(1) ?? '—' })}
                                             </span>
                                             <span style={{
                                                 fontSize: '0.68rem', fontWeight: 700, padding: '3px 8px', borderRadius: 999,
@@ -434,11 +447,11 @@ const TonightPage = () => {
                                                 color: b.visibility === 'naked-eye' ? '#6ee7a0' : 'var(--text-secondary)',
                                                 whiteSpace: 'nowrap',
                                             }}>
-                                                {VISIBILITY_LABEL[b.visibility]}
+                                                {t(VISIBILITY_KEY[b.visibility])}
                                             </span>
                                             {b.eventAt && (
                                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
-                                                    sets {fmtTime(b.eventAt)}
+                                                    {t('tonight.sets', { time: fmtTime(b.eventAt) })}
                                                 </span>
                                             )}
                                         </span>
@@ -451,7 +464,7 @@ const TonightPage = () => {
                         {below.length > 0 && (
                             <div className="glass" style={{ marginTop: 16, padding: '4px 20px 14px' }}>
                                 <p style={{ margin: '14px 0 2px', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
-                                    Below the horizon
+                                    {t('tonight.belowHorizon')}
                                 </p>
                                 {below.map(b => (
                                     <div
@@ -460,10 +473,12 @@ const TonightPage = () => {
                                         style={{ padding: '9px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}
                                     >
                                         <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)', minWidth: 74 }}>
-                                            {b.name}
+                                            {bodyName(b.name)}
                                         </span>
-                                        <span className="ml-auto" style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
-                                            {b.eventAt ? `rises ${fmtTime(b.eventAt)}` : 'not up today'}
+                                        <span style={{ marginInlineStart: 'auto', fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
+                                            {b.eventAt
+                                                ? t('tonight.rises', { time: fmtTime(b.eventAt) })
+                                                : t('tonight.notUpToday')}
                                         </span>
                                     </div>
                                 ))}
@@ -484,7 +499,7 @@ const TonightPage = () => {
                                 }}
                             >
                                 <MapPin style={{ width: 14, height: 14 }} />
-                                Update location
+                                {t('tonight.updateLocation')}
                             </button>
                             <button
                                 onClick={forget}
@@ -495,7 +510,7 @@ const TonightPage = () => {
                                     color: 'var(--text-tertiary)', cursor: 'pointer',
                                 }}
                             >
-                                Forget it
+                                {t('tonight.forget')}
                             </button>
                             <button
                                 onClick={() => navigate('/satellites')}
@@ -507,14 +522,13 @@ const TonightPage = () => {
                                     color: 'rgba(255,255,255,0.85)', cursor: 'pointer',
                                 }}
                             >
-                                Track a satellite
+                                {t('tonight.trackSatellite')}
                                 <ArrowUpRight style={{ width: 14, height: 14 }} />
                             </button>
                         </div>
 
                         <p style={{ marginTop: 14, fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center' }}>
-                            Positions computed on your device from your latitude and longitude ·
-                            Altitudes include atmospheric refraction · Magnitudes are current, not average
+                            {t('tonight.footnote')}
                         </p>
                     </>
                 )}

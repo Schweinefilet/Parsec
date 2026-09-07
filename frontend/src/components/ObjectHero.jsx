@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { objectImage } from '../data/objectImages';
 import { FallbackArt } from './ObjectCard';
+import { useI18n } from '../i18n';
 
 /**
  * The visual subject for objects the 3D scene cannot show.
@@ -10,7 +11,9 @@ import { FallbackArt } from './ObjectCard';
  * This puts the curated photograph where the planet would have been — or the
  * generated cover art, for the dozen objects NASA has no usable image of.
  */
-const ObjectHero = ({ object, compact = false }) => {
+const ObjectHero = ({ object: source, compact = false }) => {
+    const { t, object: localize } = useI18n();
+    const object = localize(source);
     const src = objectImage(object.id);
     const [failed, setFailed] = useState(false);
     const [loaded, setLoaded] = useState(false);
@@ -35,7 +38,7 @@ const ObjectHero = ({ object, compact = false }) => {
                 <>
                     <img
                         src={src}
-                        alt={`${object.name} — ${object.type}`}
+                        alt={t('catalog.cardAria', { name: object.name, type: object.type })}
                         onLoad={() => setLoaded(true)}
                         onError={() => setFailed(true)}
                         style={{
@@ -48,14 +51,14 @@ const ObjectHero = ({ object, compact = false }) => {
                     />
                     <span
                         style={{
-                            position: 'absolute', right: 10, bottom: 8,
+                            position: 'absolute', insetInlineEnd: 10, bottom: 8,
                             fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
                             color: 'rgba(255,255,255,0.45)',
                             textShadow: '0 1px 4px rgba(0,0,0,0.9)',
                             pointerEvents: 'none',
                         }}
                     >
-                        NASA
+                        {t('catalog.credit')}
                     </span>
                 </>
             ) : (

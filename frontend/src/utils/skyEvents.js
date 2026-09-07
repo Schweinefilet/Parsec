@@ -1,4 +1,5 @@
 import * as Astronomy from 'astronomy-engine';
+import { makeTranslator } from '../i18n/translate';
 
 // What is worth going outside for, between now and a year from now.
 //
@@ -45,20 +46,30 @@ const INNER = ['Mercury', 'Venus'];
 // delivers. Not computed — a shower is a date in the calendar, not a solution
 // to an equation — but they are among the few sky events most people have
 // actually heard of, so leaving them out would be strange.
+// `id` is the stable identifier the event ids are built from; `key` is what
+// the shower is called, which Arabic has its own names for — the Perseids are
+// البرشاويات, after the constellation, not a transliteration of the English.
 const SHOWERS = [
-    { name: 'Quadrantids', month: 1, day: 3, zhr: 110 },
-    { name: 'Lyrids', month: 4, day: 22, zhr: 18 },
-    { name: 'Eta Aquariids', month: 5, day: 6, zhr: 50 },
-    { name: 'Perseids', month: 8, day: 12, zhr: 100 },
-    { name: 'Orionids', month: 10, day: 21, zhr: 20 },
-    { name: 'Leonids', month: 11, day: 17, zhr: 15 },
-    { name: 'Geminids', month: 12, day: 14, zhr: 150 },
-    { name: 'Ursids', month: 12, day: 22, zhr: 10 },
+    { id: 'Quadrantids', key: 'events.showerQuadrantids', month: 1, day: 3, zhr: 110 },
+    { id: 'Lyrids', key: 'events.showerLyrids', month: 4, day: 22, zhr: 18 },
+    { id: 'Eta Aquariids', key: 'events.showerEtaAquariids', month: 5, day: 6, zhr: 50 },
+    { id: 'Perseids', key: 'events.showerPerseids', month: 8, day: 12, zhr: 100 },
+    { id: 'Orionids', key: 'events.showerOrionids', month: 10, day: 21, zhr: 20 },
+    { id: 'Leonids', key: 'events.showerLeonids', month: 11, day: 17, zhr: 15 },
+    { id: 'Geminids', key: 'events.showerGeminids', month: 12, day: 14, zhr: 150 },
+    { id: 'Ursids', key: 'events.showerUrsids', month: 12, day: 22, zhr: 10 },
 ];
 
-const ECLIPSE_WORD = {
-    total: 'Total', annular: 'Annular', partial: 'Partial', penumbral: 'Penumbral',
+const ECLIPSE_KEY = {
+    total: 'events.eclipseTotal', annular: 'events.eclipseAnnular',
+    partial: 'events.eclipsePartial', penumbral: 'events.eclipsePenumbral',
 };
+
+// The calendar is a pure function over a window and is called from a memo, not
+// from a component, so the words come in rather than out of a hook. English is
+// the default so a caller that does not care — every test here — needs to pass
+// nothing.
+const EN = makeTranslator('en');
 
 const at = (d) => (d instanceof Date ? d : d?.date ?? null);
 
@@ -68,7 +79,11 @@ const at = (d) => (d instanceof Date ? d : d?.date ?? null);
  * @param {{lat:number, lon:number}|null} where  the observer, for anything
  *        that depends on standing somewhere — chiefly solar eclipses
  */
-export function findEvents(where = null, { from = new Date(), days = 365, limit = 40 } = {}) {
+export function findEvents(where = null, {
+    from = new Date(), days = 365, limit = 40,
+    /** The translator, and how to say a planet's name. */
+    t = EN, name = (body) => body, num = (n) => n.toLocaleString(),
+} = {}) {
     const until = new Date(from.getTime() + days * DAY_MS);
     const events = [];
     const push = (e) => { if (e.at && e.at >= from) events.push(e); };
@@ -88,10 +103,12 @@ export function findEvents(where = null, { from = new Date(), days = 365, limit 
                     kind: 'solar-eclipse',
                     rank: RANK.headline,
                     at: when,
-                    title: `${ECLIPSE_WORD[found.kind] ?? 'Solar'} eclipse of the Sun`,
+                    title: t('events.solarEclipse', {
+                        kind: t(ECLIPSE_KEY[found.kind] ?? 'events.solarEclipseGeneric'),
+                    }),
                     detail: pct > 0
-                        ? `${pct}% of the Sun covered from where you are`
-                        : 'Visible from your location',
+                        ? t('events.solarObscured', { pct })
+                        : t('events.solarVisible'),
                 });
             }
         } catch { /* a location the search cannot resolve is not a crash */ }
@@ -110,10 +127,10 @@ export function findEvents(where = null, { from = new Date(), days = 365, limit 
                 kind: 'lunar-eclipse',
                 rank: notable ? RANK.headline : RANK.routine,
                 at: when,
-                title: `${ECLIPSE_WORD[e.kind] ?? ''} lunar eclipse`.trim(),
-                detail: notable
-                    ? 'The Moon passes through Earth’s shadow — visible wherever it is up'
-                    : 'A faint shading of the Moon, easy to miss',
+                title: t('events.lunarEclipse', {
+                    kind: ECLIPSE_KEY[e.kind] ? t(ECLIPSE_KEY[e.kind]) : '',
+                }).replace(/\s{2,}/g, ' ').trim(),
+                detail: t(notable ? 'events.lunarEclipseDetail' : 'events.lunarEclipseFaint'),
             });
             e = Astronomy.NextLunarEclipse(e.peak);
         }
@@ -136,9 +153,9 @@ export function findEvents(where = null, { from = new Date(), days = 365, limit 
                 rank: naked ? RANK.headline : RANK.notable,
                 at: when,
                 body,
-                title: `${body} at opposition`,
-                detail: `Opposite the Sun — ${body} rises at sunset, sets at sunrise, and is at its `
-                    + `brightest${naked ? '' : ', though still needs binoculars'}`,
+                title: t('events.opposition', { body: name(body) }),
+                detail: t(naked ? 'events.oppositionDetail' : 'events.oppositionDetailFaint',
+                    { body: name(body) }),
             });
         } catch { /* skip this body */ }
     }
@@ -155,9 +172,14 @@ export function findEvents(where = null, { from = new Date(), days = 365, limit 
                     rank: RANK.notable,
                     at: when,
                     body,
-                    title: `${body} at greatest ${e.visibility} elongation`,
-                    detail: `${e.elongation.toFixed(0)}° from the Sun — as far from the glare as it gets, `
-                        + `${e.visibility === 'morning' ? 'before dawn' : 'after sunset'}`,
+                    title: t('events.elongation', {
+                        body: name(body),
+                        visibility: t(e.visibility === 'morning' ? 'events.morning' : 'events.evening'),
+                    }),
+                    detail: t('events.elongationDetail', {
+                        deg: e.elongation.toFixed(0),
+                        when: t(e.visibility === 'morning' ? 'events.beforeDawn' : 'events.afterSunset'),
+                    }),
                 });
                 e = Astronomy.SearchMaxElongation(body, new Date(when.getTime() + DAY_MS));
             }
@@ -198,13 +220,11 @@ export function findEvents(where = null, { from = new Date(), days = 365, limit 
                     kind: isFull ? 'full-moon' : 'new-moon',
                     rank: near ? RANK.notable : RANK.routine,
                     at: when,
-                    title: near ? 'Supermoon' : isFull ? 'Full moon' : 'New moon',
+                    title: t(near ? 'events.supermoon'
+                        : isFull ? 'events.fullMoon' : 'events.newMoon'),
                     detail: near
-                        ? `Full moon at perigee, ${Math.round(near.km).toLocaleString()} km away — `
-                          + 'about 7% wider than an average full moon'
-                        : isFull
-                            ? 'Up all night, and bright enough to wash out everything faint'
-                            : 'No moon in the sky — the darkest nights of the month',
+                        ? t('events.supermoonDetail', { km: num(Math.round(near.km)) })
+                        : t(isFull ? 'events.fullMoonDetail' : 'events.newMoonDetail'),
                 });
             }
             q = Astronomy.NextMoonQuarter(q);
@@ -217,12 +237,12 @@ export function findEvents(where = null, { from = new Date(), days = 365, limit 
             const when = new Date(Date.UTC(year, s.month - 1, s.day, 2));
             if (!within(when) || when < from) continue;
             push({
-                id: `shower-${s.name}-${year}`,
+                id: `shower-${s.id}-${year}`,
                 kind: 'meteor-shower',
                 rank: s.zhr >= 80 ? RANK.notable : RANK.routine,
                 at: when,
-                title: `${s.name} peak`,
-                detail: `Up to about ${s.zhr} an hour under a dark sky with the Moon out of the way`,
+                title: t('events.showerPeak', { name: t(s.key) }),
+                detail: t('events.showerDetail', { zhr: s.zhr }),
             });
         }
     }
@@ -243,13 +263,13 @@ export function daysUntil(when, from = new Date()) {
 }
 
 /** "in 3 days", "tomorrow", "in 4 months" — a countdown people read. */
-export function whenWords(when, from = new Date()) {
+export function whenWords(when, from = new Date(), t = EN) {
     const d = daysUntil(when, from);
-    if (d < 0) return 'passed';
-    if (d < 1) return 'today';
-    if (d < 2) return 'tomorrow';
-    if (d < 14) return `in ${Math.round(d)} days`;
-    if (d < 60) return `in ${Math.round(d / 7)} weeks`;
-    if (d < 400) return `in ${Math.round(d / 30.44)} months`;
-    return `in ${(d / 365.25).toFixed(1)} years`;
+    if (d < 0) return t('events.passed');
+    if (d < 1) return t('events.today');
+    if (d < 2) return t('events.tomorrow');
+    if (d < 14) return t('events.inDays', { count: Math.round(d) });
+    if (d < 60) return t('events.inWeeks', { count: Math.round(d / 7) });
+    if (d < 400) return t('events.inMonths', { count: Math.round(d / 30.44) });
+    return t('events.inYears', { count: Number((d / 365.25).toFixed(1)) });
 }

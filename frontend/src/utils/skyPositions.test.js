@@ -1,25 +1,31 @@
 import { describe, it, expect } from 'vitest';
 import {
-    skyView, compassPoint, twilightPhase, visibilityFor, altitudeWords, SKY_BODIES,
+    skyView, compassIndex, twilightPhase, visibilityFor, altitudeKey, SKY_BODIES,
 } from './skyPositions';
+
+// The compass is sixteen points; these are the four cardinals and two
+// intercardinals by index, which is what the module returns now. The words
+// belong to the locale — see the note on compassIndex.
+const N = 0, NE = 2, E = 4, SE = 6, S = 8, SW = 10, W = 12;
 
 const LONDON = { lat: 51.48, lon: -0.13 };
 const at = (iso) => new Date(iso);
 
-describe('compassPoint', () => {
+describe('compassIndex', () => {
     it('names the cardinals and the points between', () => {
-        expect(compassPoint(0)).toBe('N');
-        expect(compassPoint(90)).toBe('E');
-        expect(compassPoint(180)).toBe('S');
-        expect(compassPoint(270)).toBe('W');
-        expect(compassPoint(45)).toBe('NE');
-        expect(compassPoint(225)).toBe('SW');
+        expect(compassIndex(0)).toBe(N);
+        expect(compassIndex(90)).toBe(E);
+        expect(compassIndex(180)).toBe(S);
+        expect(compassIndex(270)).toBe(W);
+        expect(compassIndex(45)).toBe(NE);
+        expect(compassIndex(225)).toBe(SW);
+        expect(compassIndex(135)).toBe(SE);
     });
 
     it('wraps rather than falling off the end', () => {
-        expect(compassPoint(359)).toBe('N');
-        expect(compassPoint(360)).toBe('N');
-        expect(compassPoint(-90)).toBe('W');
+        expect(compassIndex(359)).toBe(N);
+        expect(compassIndex(360)).toBe(N);
+        expect(compassIndex(-90)).toBe(W);
     });
 });
 
@@ -49,13 +55,13 @@ describe('visibilityFor', () => {
     });
 });
 
-describe('altitudeWords', () => {
+describe('altitudeKey', () => {
     it('says where to look rather than quoting degrees', () => {
-        expect(altitudeWords(-5)).toMatch(/below/);
-        expect(altitudeWords(5)).toMatch(/just above/);
-        expect(altitudeWords(20)).toBe('low');
-        expect(altitudeWords(45)).toBe('high');
-        expect(altitudeWords(80)).toMatch(/overhead/);
+        expect(altitudeKey(-5)).toBe('sky.altBelow');
+        expect(altitudeKey(5)).toBe('sky.altJustAbove');
+        expect(altitudeKey(20)).toBe('sky.altLow');
+        expect(altitudeKey(45)).toBe('sky.altHigh');
+        expect(altitudeKey(80)).toBe('sky.altOverhead');
     });
 });
 
@@ -69,7 +75,7 @@ describe('skyView', () => {
             expect(b.azimuth, b.name).toBeGreaterThanOrEqual(0);
             expect(b.azimuth, b.name).toBeLessThan(360);
             expect(b.up, b.name).toBe(b.altitude > 0);
-            expect(b.compass, b.name).toBe(compassPoint(b.azimuth));
+            expect(b.compass, b.name).toBe(compassIndex(b.azimuth));
         }
     });
 
@@ -91,7 +97,7 @@ describe('skyView', () => {
         const { sun } = skyView({ lat: 0, lon: 0 }, at('2026-06-21T12:00:00Z'));
         expect(sun.altitude).toBeGreaterThan(64);
         expect(sun.altitude).toBeLessThan(69);
-        expect(compassPoint(sun.azimuth)).toBe('N');
+        expect(compassIndex(sun.azimuth)).toBe(N);
     });
 
     it('knows the Sun does not set in an Arctic summer, or rise in winter', () => {

@@ -5,6 +5,7 @@ import { OBJECTS, CATEGORY_TABS, getObjectById } from '../data/objectCatalog';
 import { radiusKm, isComparable, volumeRatio } from '../utils/objectSize';
 import { objectImage } from '../data/objectImages';
 import { accentOf } from '../data/categoryStyles';
+import { useI18n } from '../i18n';
 
 const DEFAULT_A = 'jupiter';
 const DEFAULT_B = 'earth';
@@ -13,31 +14,34 @@ const DEFAULT_B = 'earth';
 // largest first inside each group — which is the order you want when the
 // question is how big something is.
 const COMPARABLE = OBJECTS.filter(isComparable);
+// The tabs are kept as ids here and translated at render, so the groups do not
+// have to be rebuilt when the language changes.
 const GROUPS = CATEGORY_TABS
     .map(tab => ({
-        label: tab.label,
+        tab,
         items: COMPARABLE
             .filter(o => o.category === tab.id)
             .sort((a, b) => radiusKm(b) - radiusKm(a)),
     }))
     .filter(g => g.items.length > 0);
 
-const fmtKm = (km) => {
-    if (km >= 10) return `${Math.round(km).toLocaleString()} km`;
-    if (km >= 1) return `${km.toFixed(1)} km`;
-    if (km >= 0.001) return `${Math.round(km * 1000).toLocaleString()} m`;
-    return `${(km * 100000).toFixed(0)} cm`;
+/** A width, in whichever unit keeps it legible. */
+const makeFmtKm = (t, num) => (km) => {
+    if (km >= 10) return t('compare.km', { n: num(Math.round(km)) });
+    if (km >= 1) return t('compare.km', { n: km.toFixed(1) });
+    if (km >= 0.001) return t('compare.m', { n: num(Math.round(km * 1000)) });
+    return t('compare.cm', { n: (km * 100000).toFixed(0) });
 };
 
 /** 11.2 rather than 11.20, but 1.08 rather than 1.1 — significance, not places. */
-const fmtRatio = (n) => {
-    if (n >= 1000) return Math.round(n).toLocaleString();
+const makeFmtRatio = (num) => (n) => {
+    if (n >= 1000) return num(Math.round(n));
     if (n >= 100) return n.toFixed(0);
     if (n >= 10) return n.toFixed(1);
     return n.toFixed(2);
 };
 
-const ObjectPicker = ({ value, onChange, label }) => (
+const ObjectPicker = ({ value, onChange, label, groups, fmtKm, localize, t }) => (
     <label style={{ display: 'block', minWidth: 0, flex: '1 1 200px' }}>
         <span style={{
             display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
@@ -56,13 +60,16 @@ const ObjectPicker = ({ value, onChange, label }) => (
                 appearance: 'none',
             }}
         >
-            {GROUPS.map(g => (
-                <optgroup key={g.label} label={g.label} style={{ background: '#0b0d12' }}>
-                    {g.items.map(o => (
-                        <option key={o.id} value={o.id} style={{ background: '#0b0d12' }}>
-                            {o.name} — {fmtKm(radiusKm(o) * 2)} across
-                        </option>
-                    ))}
+            {groups.map(g => (
+                <optgroup key={g.id} label={g.label} style={{ background: '#0b0d12' }}>
+                    {g.items.map(src => {
+                        const o = localize(src);
+                        return (
+                            <option key={o.id} value={o.id} style={{ background: '#0b0d12' }}>
+                                {t('compare.option', { name: o.name, size: fmtKm(radiusKm(src) * 2) })}
+                            </option>
+                        );
+                    })}
                 </optgroup>
             ))}
         </select>
@@ -76,7 +83,9 @@ const ObjectPicker = ({ value, onChange, label }) => (
  * always comes out at `maxPx` and the smaller lands wherever it truly falls —
  * which for Ceres beside the Sun is under a pixel, and that is the answer.
  */
-const BodyDisc = ({ object, fraction, maxPx }) => {
+const BodyDisc = ({ object, fraction, maxPx, fmtKm }) => {
+    const { t, object: localize } = useI18n();
+    const named = localize(object);
     const px = Math.max(1, fraction * maxPx);
     const photo = objectImage(object.id);
     const accent = accentOf(object.category);
@@ -100,9 +109,9 @@ const BodyDisc = ({ object, fraction, maxPx }) => {
                 />
             </div>
             <div style={{ textAlign: 'center', minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#fff' }}>{object.name}</p>
+                <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#fff' }}>{named.name}</p>
                 <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
-                    {fmtKm(radiusKm(object) * 2)} across
+                    {t('compare.across', { size: fmtKm(radiusKm(object) * 2) })}
                 </p>
             </div>
         </div>
@@ -117,7 +126,16 @@ function buildRows(a, b) {
         const rows = [];
         for (const rowA of secA.rows) {
             const rowB = secB?.rows.find(r => r.label === rowA.label);
-            if (rowB) rows.push({ label: rowA.label, a: rowA.value, b: rowB.value });
+            // Matched on the English label, shown with the translated value —
+            // which is why localizeObject keeps `label` and adds `valueText`
+            // beside it rather than overwriting.
+            if (rowB) {
+                rows.push({
+                    label: rowA.label,
+                    a: rowA.valueText ?? rowA.value,
+                    b: rowB.valueText ?? rowB.value,
+                });
+            }
         }
         if (rows.length) sections.push({ section: secA.section, rows });
     }
@@ -146,6 +164,12 @@ function useMeasuredWidth(ref) {
 }
 
 const ComparePage = () => {
+    const { t, num, object: localize, category, statLabel, sectionLabel } = useI18n();
+    const fmtKm = useMemo(() => makeFmtKm(t, num), [t, num]);
+    const fmtRatio = useMemo(() => makeFmtRatio(num), [num]);
+    const groups = useMemo(
+        () => GROUPS.map(g => ({ ...g, id: g.tab.id, label: category(g.tab).label })),
+        [category]);
     const navigate = useNavigate();
     const [params, setParams] = useSearchParams();
 
@@ -169,7 +193,7 @@ const ComparePage = () => {
     // equatorial radius overstates them by a noticeable margin.
     const volume = volumeRatio(bigger, smaller);
 
-    const sections = useMemo(() => buildRows(a, b), [a, b]);
+    const sections = useMemo(() => buildRows(localize(a), localize(b)), [a, b, localize]);
 
     // Both discs plus the gap have to fit the card, and the smaller one's share
     // depends on the pair — Titan beside Saturn asks for almost nothing, Mercury
@@ -203,21 +227,22 @@ const ComparePage = () => {
                     </button>
                     <div style={{ minWidth: 0 }}>
                         <h1 style={{ margin: 0, fontSize: 'clamp(1.15rem, 3vw, 1.6rem)', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
-                            Compare
+                            {t('compare.title')}
                         </h1>
                         <p style={{ margin: '1px 0 0', fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                            Two bodies at true relative size
+                            {t('compare.subtitle')}
                         </p>
                     </div>
                 </div>
 
                 {/* ── Pickers ── */}
                 <div className="glass flex flex-wrap items-end gap-3" style={{ padding: 16 }}>
-                    <ObjectPicker label="First" value={idA} onChange={(v) => set(v, idB)} />
+                    <ObjectPicker label={t('compare.first')} value={idA} onChange={(v) => set(v, idB)}
+                        groups={groups} fmtKm={fmtKm} localize={localize} t={t} />
                     <button
                         onClick={() => set(idB, idA)}
-                        aria-label="Swap the two objects"
-                        title="Swap"
+                        aria-label={t('compare.swap')}
+                        title={t('compare.swapTitle')}
                         className="flex items-center justify-center rounded-xl focus-ring flex-shrink-0"
                         style={{
                             width: 40, height: 40, marginBottom: 1,
@@ -228,7 +253,8 @@ const ComparePage = () => {
                     >
                         <ArrowLeftRight style={{ width: 16, height: 16 }} />
                     </button>
-                    <ObjectPicker label="Second" value={idB} onChange={(v) => set(idA, v)} />
+                    <ObjectPicker label={t('compare.second')} value={idB} onChange={(v) => set(idA, v)}
+                        groups={groups} fmtKm={fmtKm} localize={localize} t={t} />
                 </div>
 
                 {/* ── To scale ── */}
@@ -239,8 +265,8 @@ const ComparePage = () => {
                         style={{ gap, flexWrap: 'nowrap', minHeight: 120 }}
                     >
                         {maxPx > 0 && <>
-                            <BodyDisc object={a} fraction={rA / Math.max(rA, rB)} maxPx={maxPx} />
-                            <BodyDisc object={b} fraction={rB / Math.max(rA, rB)} maxPx={maxPx} />
+                            <BodyDisc object={a} fraction={rA / Math.max(rA, rB)} maxPx={maxPx} fmtKm={fmtKm} />
+                            <BodyDisc object={b} fraction={rB / Math.max(rA, rB)} maxPx={maxPx} fmtKm={fmtKm} />
                         </>}
                     </div>
 
@@ -248,22 +274,33 @@ const ComparePage = () => {
                         margin: '22px 0 0', textAlign: 'center',
                         fontSize: 'clamp(1rem, 2.4vw, 1.3rem)', fontWeight: 700, color: '#fff',
                     }}>
+                        {/* One sentence, one key: splitting it into fragments
+                            around the highlighted number would fix the English
+                            word order for every language that does not share
+                            it. The emphasis is lost; the sentence is not. */}
                         {ratio < 1.005
-                            ? <>{a.name} and {b.name} are the same size</>
-                            : <>{bigger.name} is <span style={{ color: 'var(--accent)' }}>{fmtRatio(ratio)}×</span> wider than {smaller.name}</>}
+                            ? t('compare.sameSize', {
+                                a: localize(a).name, b: localize(b).name })
+                            : t('compare.widerThan', {
+                                bigger: localize(bigger).name,
+                                smaller: localize(smaller).name,
+                                ratio: fmtRatio(ratio),
+                            })}
                     </p>
                     {ratio >= 1.005 && volume != null && (
                         <p style={{ margin: '6px 0 0', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                            {volume < 2
-                                // "1.26 Mercurys would fit inside Ganymede" is
-                                // both bad grammar and a strange way to picture
-                                // it when the answer is barely more than one.
-                                ? <>{bigger.name} has {fmtRatio(volume)}× the volume of {smaller.name}</>
-                                : <>{fmtRatio(volume)} {smaller.name}s would fit inside {bigger.name}</>}
+                            {/* "1.26 Mercurys would fit inside Ganymede" is both
+                                bad grammar and a strange way to picture it when
+                                the answer is barely more than one. */}
+                            {t(volume < 2 ? 'compare.volumeSmall' : 'compare.volumeMany', {
+                                bigger: localize(bigger).name,
+                                smaller: localize(smaller).name,
+                                ratio: fmtRatio(volume),
+                            })}
                         </p>
                     )}
                     <p style={{ margin: '10px 0 0', textAlign: 'center', fontSize: 11, color: 'var(--text-tertiary)' }}>
-                        Drawn to scale — unlike the solar system view, nothing here is compressed
+                        {t('compare.note')}
                     </p>
                 </div>
 
@@ -276,7 +313,7 @@ const ComparePage = () => {
                                     margin: '0 0 6px', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
                                     textTransform: 'uppercase', color: 'var(--text-tertiary)',
                                 }}>
-                                    {sec.section}
+                                    {sectionLabel(sec.section)}
                                 </p>
                                 {sec.rows.map(row => (
                                     <div
@@ -288,13 +325,13 @@ const ComparePage = () => {
                                             borderTop: '1px solid rgba(255,255,255,0.06)',
                                         }}
                                     >
-                                        <span style={{ fontSize: '0.85rem', color: '#fff', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                        <span className="num-run" style={{ fontSize: '0.85rem', color: '#fff', textAlign: 'end', fontVariantNumeric: 'tabular-nums' }}>
                                             {row.a}
                                         </span>
                                         <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                            {row.label}
+                                            {statLabel(row.label)}
                                         </span>
-                                        <span style={{ fontSize: '0.85rem', color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+                                        <span className="num-run" style={{ fontSize: '0.85rem', color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
                                             {row.b}
                                         </span>
                                     </div>
@@ -317,7 +354,7 @@ const ComparePage = () => {
                                 color: 'rgba(255,255,255,0.85)', cursor: 'pointer',
                             }}
                         >
-                            About {o.name}
+                            {t('compare.about', { name: localize(o).name })}
                             <ArrowUpRight style={{ width: 14, height: 14 }} />
                         </button>
                     ))}

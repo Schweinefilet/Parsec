@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { moonPhaseDays, moonPhaseName } from '../utils/astroFormatters';
+import { moonPhaseDays, moonPhaseKey } from '../utils/astroFormatters';
 
 const NASA_API_KEY = import.meta.env.VITE_NASA_API_KEY || (() => {
     console.warn('[useSpaceStrip] VITE_NASA_API_KEY not set — using DEMO_KEY');
@@ -24,14 +24,17 @@ const FALLBACKS = {
     neo_week:  '~25',
 };
 
+// Labels and units are keys; the value is a measurement, and a measurement is
+// the same in every language. `valueKey` is for the two cells whose value is a
+// word rather than a number — the moon phase, and "Unavailable".
 const INITIAL_CELLS = [
-    { key: 'iss_lat',    label: 'ISS LAT',    value: FALLBACKS.iss_lat  },
-    { key: 'iss_lon',    label: 'ISS LON',    value: FALLBACKS.iss_lon  },
-    { key: 'iss_alt',    label: 'ISS ALT',    value: '~408',   unit: 'km'    },
-    { key: 'iss_speed',  label: 'ISS SPEED',  value: '7.66',   unit: 'km/s'  },
-    { key: 'neo_week',   label: 'NEO/WEEK',   value: FALLBACKS.neo_week, unit: 'objects' },
-    { key: 'moon_phase', label: 'MOON',       value: moonPhaseName(moonPhaseDays())       },
-    { key: 'sol_wind',   label: 'SOL WIND',   value: '~450',   unit: 'km/s'  },
+    { key: 'iss_lat',    label: 'ticker.issLat',     value: FALLBACKS.iss_lat  },
+    { key: 'iss_lon',    label: 'ticker.issLon',     value: FALLBACKS.iss_lon  },
+    { key: 'iss_alt',    label: 'ticker.issAlt',     value: '~408', unit: 'ticker.km' },
+    { key: 'iss_speed',  label: 'ticker.issSpeed',   value: '7.66', unit: 'ticker.kmPerSec' },
+    { key: 'neo_week',   label: 'ticker.neoWeek',    value: FALLBACKS.neo_week, unit: 'ticker.objects' },
+    { key: 'moon_phase', label: 'ticker.moon',       valueKey: moonPhaseKey(moonPhaseDays()) },
+    { key: 'sol_wind',   label: 'ticker.solarWind',  value: '~450', unit: 'ticker.kmPerSec' },
 ];
 
 function todayISO()     { return new Date().toISOString().slice(0, 10); }
@@ -94,7 +97,11 @@ export function useSpaceStrip() {
 
     const updateCell = (key, value, unit) =>
         setCells(prev =>
-            prev.map(c => c.key === key ? { ...c, value, ...(unit !== undefined ? { unit } : {}) } : c)
+            prev.map(c => c.key === key
+                // A cell that has just been given a measurement is no longer a
+                // cell whose value is a word, so the key goes with it.
+                ? { ...c, value, valueKey: undefined, ...(unit !== undefined ? { unit } : {}) }
+                : c)
         );
 
     const fetchIss = async (signal) => {
@@ -110,11 +117,11 @@ export function useSpaceStrip() {
                 updateCell('iss_lon', `${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'}`);
             }
             if (Number.isFinite(Number(d.altitude))) {
-                updateCell('iss_alt', Number(d.altitude).toFixed(0), 'km');
+                updateCell('iss_alt', Number(d.altitude).toFixed(0), 'ticker.km');
             }
             if (Number.isFinite(Number(d.velocity))) {
                 // API reports km/h; the strip shows km/s
-                updateCell('iss_speed', (Number(d.velocity) / 3600).toFixed(2), 'km/s');
+                updateCell('iss_speed', (Number(d.velocity) / 3600).toFixed(2), 'ticker.kmPerSec');
             }
         } catch (err) {
             if (err.name === 'AbortError') return;
@@ -135,16 +142,21 @@ export function useSpaceStrip() {
                 const d = await fetchNeoWithBackoff(url, controller.signal);
                 if (!mountedRef.current) return;
                 const count = d?.element_count;
-                if (Number.isFinite(count)) updateCell('neo_week', String(count), 'objects');
+                if (Number.isFinite(count)) updateCell('neo_week', String(count), 'ticker.objects');
             } catch (err) {
                 if (err.name === 'AbortError') return;
                 console.warn('[SpaceStrip] NEO fetch failed after retries:', err.message);
-                if (mountedRef.current) updateCell('neo_week', 'Unavailable', '');
+                if (mountedRef.current) {
+                    setCells(prev => prev.map(c => c.key === 'neo_week'
+                        ? { ...c, value: undefined, valueKey: 'ticker.unavailable', unit: undefined }
+                        : c));
+                }
             }
         });
     };
 
-    const updateMoon = () => updateCell('moon_phase', moonPhaseName(moonPhaseDays()));
+    const updateMoon = () => setCells(prev => prev.map(c => c.key === 'moon_phase'
+        ? { ...c, valueKey: moonPhaseKey(moonPhaseDays()) } : c));
 
     useEffect(() => {
         mountedRef.current = true;

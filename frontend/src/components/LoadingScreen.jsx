@@ -4,6 +4,7 @@ import {
     subscribeAssets, assetsEverReady, holdLogo, releaseLogo,
 } from '../utils/assetLoading';
 import { useReducedMotion } from '../hooks/useMediaQuery';
+import { useI18n } from '../i18n';
 
 // However slow the scene is, the screen never outstays this. A loading screen
 // that will not go away is worse than the black canvas it was hiding: a texture
@@ -40,7 +41,7 @@ const HERO_RISE = 58;
  * the flying copy so the colour change can be an opacity cross-fade; keeping
  * them one component is what stops the two from drifting apart.
  */
-const Mark = ({ iconColor, textColor, style }) => (
+const Mark = ({ iconColor, textColor, style, name }) => (
     <span
         className="flex items-center gap-2"
         style={{
@@ -50,8 +51,10 @@ const Mark = ({ iconColor, textColor, style }) => (
         }}
     >
         <Telescope className="h-5 w-5" aria-hidden="true" style={{ color: iconColor }} />
-        <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
-            P4RSEC
+        {/* Latin whatever the page language, and its tracking is the whole
+            look of it — see the [data-latin] rule in index.css. */}
+        <span data-latin style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
+            {name}
         </span>
     </span>
 );
@@ -65,6 +68,7 @@ const Mark = ({ iconColor, textColor, style }) => (
  * own tells you nothing about whether anything is actually happening.
  */
 const LoadingScreen = () => {
+    const { t, assetLabel } = useI18n();
     // Once per page load, not once per visit to the scene. Navigating to the
     // tracker and back rebuilds the scene, and covering it again for textures
     // the browser already has would be a loading screen for no loading.
@@ -109,17 +113,17 @@ const LoadingScreen = () => {
 
     useEffect(() => {
         if (suppressed) return undefined;
-        const t = setTimeout(() => setExpired(true), FAILSAFE_MS);
-        return () => clearTimeout(t);
+        const timer = setTimeout(() => setExpired(true), FAILSAFE_MS);
+        return () => clearTimeout(timer);
     }, [suppressed]);
 
     // performance.now() is measured from the navigation, so this is three
     // seconds of page rather than three seconds of component.
     useEffect(() => {
         if (suppressed || minElapsed) return undefined;
-        const t = setTimeout(() => setMinElapsed(true),
+        const timer = setTimeout(() => setMinElapsed(true),
             Math.max(0, MIN_ON_SCREEN_MS - performance.now()));
-        return () => clearTimeout(t);
+        return () => clearTimeout(timer);
     }, [suppressed, minElapsed]);
 
     // The failsafe is not held back by the minimum — it is longer than it
@@ -132,11 +136,11 @@ const LoadingScreen = () => {
     // layer for the rest of the session.
     useEffect(() => {
         if (!finished || suppressed) return undefined;
-        const t = setTimeout(() => {
+        const timer = setTimeout(() => {
             releaseLogo();
             setGone(true);
         }, flightMs + 40);
-        return () => clearTimeout(t);
+        return () => clearTimeout(timer);
     }, [finished, suppressed, flightMs]);
 
     const total = assets?.total ?? 0;
@@ -205,7 +209,9 @@ const LoadingScreen = () => {
                         letterSpacing: '0.14em', textTransform: 'uppercase',
                         color: 'rgba(255,255,255,0.42)', fontVariantNumeric: 'tabular-nums',
                     }}>
-                        {finished ? 'Ready' : total ? `Loading ${loaded} of ${total}` : 'Starting up'}
+                        {finished ? t('loading.ready')
+                            : total ? t('loading.progress', { loaded, total })
+                            : t('loading.starting')}
                     </p>
 
                     {/* What those numbers are. A fixed-height block, so the
@@ -230,9 +236,13 @@ const LoadingScreen = () => {
                                         : item.done ? 'rgba(255,255,255,0.28)' : '#ffd166',
                                 }} />
                                 <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {item.name}
+                                    {assetLabel(item.name)}
                                 </span>
-                                {item.failed && <span style={{ fontSize: 10, color: '#ff8a80' }}>skipped</span>}
+                                {item.failed && (
+                                    <span style={{ fontSize: 10, color: '#ff8a80' }}>
+                                        {t('loading.skipped')}
+                                    </span>
+                                )}
                             </span>
                         ))}
                     </div>
@@ -268,12 +278,14 @@ const LoadingScreen = () => {
                     {/* The one that stays: the header's own colours, so what is
                         left standing at the end is what the header draws. */}
                     <Mark
+                        name={t('app.name')}
                         iconColor="var(--accent)"
                         textColor="rgba(255,255,255,0.92)"
                     />
                     {/* The one that goes: gold, over the top, faded out across
                         the flight. */}
                     <Mark
+                        name={t('app.name')}
                         iconColor="#ffd166"
                         textColor="#fff"
                         style={{

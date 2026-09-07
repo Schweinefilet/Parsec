@@ -21,13 +21,18 @@ export const SKY_BODIES = [
     { body: 'Neptune', id: 'neptune', name: 'Neptune' },
 ];
 
-const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
-    'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-
-/** Azimuth in degrees to a 16-point compass name. */
-export function compassPoint(azimuth) {
+/**
+ * Azimuth in degrees to one of the sixteen compass points, as an index.
+ *
+ * An index rather than a name, because the names are not composable across
+ * languages: English builds "NNE" from three initials, and Arabic cannot —
+ * شمال and شرق both begin with ش, so a letter compass would be ambiguous in
+ * exactly the situation it exists for, which is telling someone which way to
+ * turn. Each locale spells all sixteen out; see `sky.compass`.
+ */
+export function compassIndex(azimuth) {
     const a = ((azimuth % 360) + 360) % 360;
-    return COMPASS[Math.round(a / 22.5) % 16];
+    return Math.round(a / 22.5) % 16;
 }
 
 /**
@@ -39,11 +44,11 @@ export function compassPoint(azimuth) {
  * daylight if you know where to look — but faint ones do.
  */
 export function twilightPhase(sunAltitude) {
-    if (sunAltitude > -0.833) return { phase: 'day', label: 'Daylight', dark: false };
-    if (sunAltitude > -6) return { phase: 'civil', label: 'Civil twilight', dark: false };
-    if (sunAltitude > -12) return { phase: 'nautical', label: 'Nautical twilight', dark: false };
-    if (sunAltitude > -18) return { phase: 'astronomical', label: 'Astronomical twilight', dark: true };
-    return { phase: 'night', label: 'Night', dark: true };
+    if (sunAltitude > -0.833) return { phase: 'day', labelKey: 'sky.twilightDay', dark: false };
+    if (sunAltitude > -6) return { phase: 'civil', labelKey: 'sky.twilightCivil', dark: false };
+    if (sunAltitude > -12) return { phase: 'nautical', labelKey: 'sky.twilightNautical', dark: false };
+    if (sunAltitude > -18) return { phase: 'astronomical', labelKey: 'sky.twilightAstronomical', dark: true };
+    return { phase: 'night', labelKey: 'sky.twilightNight', dark: true };
 }
 
 /**
@@ -61,21 +66,21 @@ export function visibilityFor(magnitude) {
     return 'telescope';
 }
 
-export const VISIBILITY_LABEL = {
-    'naked-eye': 'Naked eye',
-    'dark-sky': 'Naked eye, dark sky',
-    binoculars: 'Binoculars',
-    telescope: 'Telescope',
-    unknown: '—',
+export const VISIBILITY_KEY = {
+    'naked-eye': 'sky.visibilityNakedEye',
+    'dark-sky': 'sky.visibilityDarkSky',
+    binoculars: 'sky.visibilityBinoculars',
+    telescope: 'sky.visibilityTelescope',
+    unknown: 'sky.visibilityUnknown',
 };
 
 /** Plain words for an altitude, because degrees are not how people look up. */
-export function altitudeWords(altitude) {
-    if (altitude < 0) return 'below the horizon';
-    if (altitude < 10) return 'just above the horizon';
-    if (altitude < 30) return 'low';
-    if (altitude < 60) return 'high';
-    return 'nearly overhead';
+export function altitudeKey(altitude) {
+    if (altitude < 0) return 'sky.altBelow';
+    if (altitude < 10) return 'sky.altJustAbove';
+    if (altitude < 30) return 'sky.altLow';
+    if (altitude < 60) return 'sky.altHigh';
+    return 'sky.altOverhead';
 }
 
 function riseSet(body, observer, date, up) {
@@ -119,12 +124,12 @@ export function skyView(where, date = new Date()) {
             ...entry,
             altitude: hz.altitude,
             azimuth: hz.azimuth,
-            compass: compassPoint(hz.azimuth),
+            compass: compassIndex(hz.azimuth),
             magnitude,
             illuminated,
             up,
             visibility: visibilityFor(magnitude),
-            where: altitudeWords(hz.altitude),
+            whereKey: altitudeKey(hz.altitude),
             // For something up, when it goes; for something down, when it comes
             eventAt: riseSet(entry.body, observer, date, up),
         };

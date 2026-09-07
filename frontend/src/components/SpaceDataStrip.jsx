@@ -1,10 +1,11 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useSpaceStrip } from '../hooks/useSpaceStrip';
+import { useI18n } from '../i18n';
 
 const SCROLL_SPEED = 0.45;
 
 const SpaceCell = ({ label, value, unit }) => (
-    <div className="flex items-center gap-3 px-4 py-2 border-r border-white/10 flex-shrink-0">
+    <div className="flex items-center gap-3 px-4 py-2 border-e border-white/10 flex-shrink-0">
         <span
             className="text-[11px] font-bold uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
@@ -44,6 +45,7 @@ const SpaceCell = ({ label, value, unit }) => (
  * covering the visible window at every point in the cycle, on any screen.
  */
 const SpaceDataStrip = () => {
+    const { t } = useI18n();
     const cells = useSpaceStrip();
     const containerRef = useRef(null);
     const trackRef = useRef(null);
@@ -130,22 +132,22 @@ const SpaceDataStrip = () => {
     return (
         <div
             ref={containerRef}
-            className="glass overflow-hidden select-none"
+            className="glass overflow-hidden select-none ltr-figure"
             style={{ padding: '4px 0', cursor: 'grab', borderRadius: 'var(--radius-card)' }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
-            aria-label="Live space telemetry"
+            aria-label={t('ticker.aria')}
         >
             <div ref={trackRef} className="flex" style={{ willChange: 'transform' }}>
                 {Array.from({ length: copies }, (_, copy) =>
                     cells.map(cell => (
                         <SpaceCell
                             key={`${cell.key}-${copy}`}
-                            label={cell.label}
-                            value={cell.value}
-                            unit={cell.unit}
+                            label={t(cell.label)}
+                            value={cell.valueKey ? t(cell.valueKey) : cell.value}
+                            unit={cell.unit ? t(cell.unit) : undefined}
                             // Every copy past the first is decoration for the loop
                             aria-hidden={copy === 0 ? undefined : true}
                         />

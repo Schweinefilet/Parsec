@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { objectImage } from '../data/objectImages';
 import { accentOf } from '../data/categoryStyles';
 import { useNearViewport } from '../hooks/useNearViewport';
+import { useI18n } from '../i18n';
 
 /**
  * Generated cover art for the objects NASA has no usable photograph of —
@@ -54,7 +55,9 @@ export const FallbackArt = ({ object }) => {
     );
 };
 
-const ObjectCard = ({ object }) => {
+const ObjectCard = ({ object: source }) => {
+    const { t, object: localize, categoryBadge } = useI18n();
+    const object = localize(source);
     const navigate = useNavigate();
     const src = objectImage(object.id);
     const [failed, setFailed] = useState(false);
@@ -77,7 +80,7 @@ const ObjectCard = ({ object }) => {
             type="button"
             onClick={() => navigate(`/object/${object.id}`)}
             className="object-card group"
-            aria-label={`${object.name} — ${object.type}`}
+            aria-label={t('catalog.cardAria', { name: object.name, type: object.type })}
             style={{
                 position: 'relative',
                 display: 'flex',
@@ -85,7 +88,7 @@ const ObjectCard = ({ object }) => {
                 justifyContent: 'space-between',
                 width: '100%',
                 minHeight: 148,
-                textAlign: 'left',
+                textAlign: 'start',
                 overflow: 'hidden',
                 borderRadius: 'var(--radius-card)',
                 border: '1px solid var(--glass-border)',
@@ -147,12 +150,12 @@ const ObjectCard = ({ object }) => {
                         textTransform: 'uppercase',
                     }}
                 >
-                    {object.category.replace(/-/g, ' ')}
+                    {categoryBadge(object.category)}
                 </span>
             </div>
 
             <div style={{ position: 'relative', zIndex: 1, padding: '0 16px 16px', marginTop: 12 }}>
-                <p style={{ color: '#fff', fontSize: '1.05rem', fontWeight: 700, margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                <p className="num-run" style={{ color: '#fff', fontSize: '1.05rem', fontWeight: 700, margin: 0, fontVariantNumeric: 'tabular-nums' }}>
                     {object.keyStatValue}
                 </p>
                 <p style={{ color: 'rgba(255,255,255,0.48)', fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '1px 0 0' }}>
@@ -160,7 +163,7 @@ const ObjectCard = ({ object }) => {
                 </p>
                 {object.secondaryStatValue && (
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 7 }}>
-                        <span style={{ color: 'rgba(255,255,255,0.70)', fontSize: '0.74rem', fontWeight: 500 }}>
+                        <span className="num-run" style={{ color: 'rgba(255,255,255,0.70)', fontSize: '0.74rem', fontWeight: 500 }}>
                             {object.secondaryStatValue}
                         </span>
                         <span style={{ color: 'rgba(255,255,255,0.42)', fontSize: '0.58rem', letterSpacing: '0.07em', textTransform: 'uppercase' }}>

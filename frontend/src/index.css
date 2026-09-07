@@ -319,3 +319,66 @@ body {
   background: #dce8ff;
   border: 1px solid rgba(0,0,0,0.4);
 }
+
+/* ── Right-to-left ───────────────────────────────────────────── */
+/* `dir` is set on <html> by the i18n provider. Most of the layout follows on
+   its own — flex rows reverse, text aligns to the start edge, and the bidi
+   algorithm handles a Latin designation sitting inside an Arabic sentence.
+   What follows is the part that does not come free. */
+
+/* Arabic is a joined script, and letter-spacing inserts gaps *between joined
+   letters*, which does not look airy — it looks broken, like a word coming
+   apart. The interface leans on tracking for its small uppercase labels, all
+   of it set inline, so this has to be !important to reach those. The wordmark
+   opts back in: P4RSEC is Latin whatever language surrounds it, and its
+   tracking is the whole look of it. */
+:root[lang="ar"] *:not([data-latin]):not([data-latin] *) {
+  letter-spacing: normal !important;
+}
+
+/* Arabic sets taller than Latin at the same size — the diacritics and the
+   descenders need the room — and it is set here rather than per component so
+   nothing has to remember. */
+:root[lang="ar"] {
+  line-height: 1.7;
+}
+
+/* -apple-system resolves to SF Arabic on Apple platforms and Segoe UI on
+   Windows, both of which are correct. The rest is for everything else. */
+:root[lang="ar"] * {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Arabic', 'Segoe UI',
+               'Noto Sans Arabic', 'Geeza Pro', Tahoma, 'Arial', sans-serif;
+}
+
+/* Logical, so it hides off whichever edge the reading starts at. */
+.skip-link {
+  inset-inline-start: -9999px;
+  left: auto;
+}
+.skip-link:focus {
+  inset-inline-start: 0;
+  left: auto;
+}
+
+/* The magnifying glass and the clear button sit at the two ends of the field,
+   and which end each is at depends on the direction. */
+.glass-input-search {
+  padding-inline: 2.25rem 2rem !important;
+}
+
+/* Things that are a picture of physical space rather than a piece of writing.
+   A horizon panorama runs north-east-south-west whichever language names
+   them, and a scrolling ticker's mechanics are a signed translateX; mirroring
+   either would be mirroring the world, not the layout. Arabic text inside
+   still reads correctly — a right-to-left run inside a left-to-right box is
+   exactly what the bidi algorithm is for. */
+.ltr-figure {
+  direction: ltr;
+}
+
+/* A number with a unit is a single unbreakable run. Isolating it stops a
+   neighbouring Arabic word from dragging a leading minus sign or a trailing
+   unit to the wrong end of it — "−180 to 430 °C" is the case that breaks. */
+.num-run {
+  unicode-bidi: isolate;
+}
