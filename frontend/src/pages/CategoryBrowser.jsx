@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate, useMatch } from 'react-router-dom';
-import { ChevronDown, ChevronLeft, ArrowUpRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler } from 'lucide-react';
 // STASHED StarfieldBg — uncomment this and the <StarfieldBg /> below to restore it.
 // import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
@@ -14,6 +14,7 @@ import { CATEGORY_TABS, getObjectsByCategory, getObjectById } from '../data/obje
 import { hasSceneBody } from '../data/solarSystemBodies';
 import { useHorizons } from '../hooks/useHorizons';
 import { useIsMobile } from '../hooks/useMediaQuery';
+import { isTrueScale, toggleTrueScale, subscribeScale } from '../utils/scaleMode';
 
 const SORT_OPTIONS = [
     { value: 'default', label: 'Default Order' },
@@ -121,6 +122,10 @@ const CategoryBrowser = () => {
 
     // ── UI state ───────────────────────────────────────────────────────────
     const [hasInteracted3D, setHasInteracted3D] = useState(false);
+    // The scene owns the layout and reads it every frame; this is only so the
+    // button can show which way it is set.
+    const [trueScale, setTrueScaleUI] = useState(isTrueScale);
+    useEffect(() => subscribeScale(() => setTrueScaleUI(isTrueScale())), []);
     const [pageScrolled, setPageScrolled] = useState(false);
     const [moonHintVisible, setMoonHintVisible] = useState(false);
     const [sheetOpen, setSheetOpen] = useState(false);
@@ -283,11 +288,12 @@ const CategoryBrowser = () => {
                     {/* Home hint text — sits above the time control's band rather
                         than beside it: the control is bottom-left and this is
                         centred, so on a narrower laptop window the two ran into
-                        each other. */}
+                        each other. On a phone the scale toggle stacks above the
+                        catalog pill as well, so the hint clears both. */}
                     <p
                         className="absolute inset-x-0 transition-opacity duration-700 pointer-events-none"
                         style={{
-                            bottom: isMobile ? 74 : 82,
+                            bottom: isMobile ? 112 : 82,
                             zIndex: 4,
                             padding: '0 16px',
                             opacity: id || hasInteracted3D ? 0 : 1,
@@ -311,6 +317,49 @@ const CategoryBrowser = () => {
                         className="absolute inset-x-0 flex justify-center pointer-events-none"
                         style={{ bottom: isMobile ? 12 : 18, zIndex: 4, padding: '0 16px' }}
                     >
+                        {/* The pill stays exactly centred — it was deliberately
+                            aligned with the time control in 1.5.2 — so the
+                            scale toggle hangs off its left rather than joining
+                            the row and shunting it sideways. */}
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <button
+                            onClick={toggleTrueScale}
+                            aria-pressed={trueScale}
+                            aria-label={trueScale
+                                ? 'Switch back to the compressed layout'
+                                : 'Show true distances between the planets'}
+                            title={trueScale
+                                ? 'Back to the compressed layout'
+                                : 'Spread the planets out to their real distances'}
+                            inert={(!!id || pageScrolled) || undefined}
+                            className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
+                            style={{
+                                pointerEvents: id || pageScrolled ? 'none' : 'auto',
+                                opacity: id || pageScrolled ? 0 : 1,
+                                background: trueScale ? 'rgba(255,209,102,0.16)' : 'rgba(0,0,0,0.42)',
+                                border: `1px solid ${trueScale ? 'rgba(255,209,102,0.34)' : 'rgba(255,255,255,0.16)'}`,
+                                backdropFilter: 'blur(14px)',
+                                WebkitBackdropFilter: 'blur(14px)',
+                                color: trueScale ? '#ffd166' : 'rgba(255,255,255,0.78)',
+                                padding: '7px 15px',
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: '0.1em',
+                                textTransform: 'uppercase',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                                position: 'absolute',
+                                // Left of the pill on a desktop. On a phone
+                                // there is no room there — that is where the
+                                // time control sits — so it goes above it.
+                                ...(isMobile
+                                    ? { bottom: '100%', marginBottom: 8, left: '50%', transform: 'translateX(-50%)' }
+                                    : { right: '100%', marginRight: 10 }),
+                            }}
+                        >
+                            <Ruler style={{ width: 13, height: 13 }} />
+                            {trueScale ? 'True distances' : 'To scale'}
+                        </button>
                         <button
                             onClick={scrollToCatalog}
                             aria-label="Scroll down to the object catalog"
@@ -335,6 +384,7 @@ const CategoryBrowser = () => {
                             Explore the catalog
                             <ChevronDown style={{ width: 14, height: 14 }} />
                         </button>
+                        </div>
                     </div>
 
                     {/* Back to solar system */}

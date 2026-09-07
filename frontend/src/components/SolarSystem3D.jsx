@@ -9,12 +9,15 @@ import {
 } from '../data/solarSystemBodies';
 import {
     DEG2RAD, ORBIT_EPOCH_MS, ORBIT_BASE_OPACITY, ORBIT_HOVER_OPACITY, ORBIT_HOVER_TINT,
-    PLANET_EMISSIVE_INTENSITY, computePlanetPos, buildOrbitPoints, buildOrbitTube,
+    PLANET_EMISSIVE_INTENSITY, ORBIT_TUBE_RADIUS, computePlanetPos, buildOrbitPoints, buildOrbitTube,
     keplerianScenePos, buildKeplerOrbitPoints, eclipticQuaternion,
 } from '../utils/orbits';
 import { probeScenePos, buildProbeTrack, trackDrawCount } from '../utils/probeTracks';
 import { proceduralSurface } from '../utils/proceduralTextures';
 import { simNow, isLive } from '../utils/simTime';
+import {
+    scaleProgress, radialFactor, AU_UNITS, isScaleSettling, subscribeScale, isTrueScale,
+} from '../utils/scaleMode';
 import { quality, texturePath, pixelRatioFor, skyAllowed } from '../utils/quality';
 import {
     targetOrbitSpeed, stepOrbitSpeed, targetIssSpeed,
@@ -30,6 +33,12 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
     // focus does; the positions are written straight to the DOM by the render
     // loop (see "Object labels" below), so a frame costs no React work.
     const [labelRoster, setLabelRoster] = useState([]);
+    // Only the caption needs this in React; the scene reads the layout itself
+    // isTrueScale, not the animation: subscribeScale fires when a transition
+    // *starts*, at which point the progress still reads the layout being left.
+    // Asking the progress meant the caption latched on and never came back.
+    const [trueScale, setTrueScale] = useState(isTrueScale);
+    useEffect(() => subscribeScale(() => setTrueScale(isTrueScale())), []);
     const [moonLabelsReady, setMoonLabelsReady] = useState(false);
     const labelElsRef = useRef(new Map());
 
@@ -323,12 +332,17 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             const pbr = PLANET_PBR[planet.name] ?? { roughness: 0.8, metalness: 0.05 };
 
             // Orbit path sampled from HelioVector — same source as planet positions
-            const orbitGeo = buildOrbitTube(buildOrbitPoints(planet.name, planet.orbitR));
+            const orbitPoints = buildOrbitPoints(planet.name, planet.orbitR);
+            const orbitGeo = buildOrbitTube(orbitPoints);
             const orbitMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: ORBIT_BASE_OPACITY, depthWrite: false });
             const orbitLine = new THREE.Mesh(orbitGeo, orbitMat);
             orbitLine.userData = {
                 baseOpacity: ORBIT_BASE_OPACITY, hoverOpacity: ORBIT_HOVER_OPACITY,
                 baseColor: ORBIT_WHITE, hoverColor: orbitTint(planet.color),
+                // Kept so the ring can be rebuilt at another radius. Scaling
+                // the mesh is exact for the path and wrong for the tube around
+                // it — at Pluto's factor a 0.28 line becomes 2.59 units thick.
+                rebuild: { points: orbitPoints, tube: ORBIT_TUBE_RADIUS, segments: 256 },
             };
 
             scene.add(orbitLine);
@@ -726,7 +740,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             planetHitboxRefs.set(planet.name, pHitMesh);
 
             planetMeshRefs.set(planet.name, group);
-            planetGroups.push({ group, planet });
+            planetGroups.push({ group, planet, orbitLine });
         });
 
         // ── Belt orientation ───────────────────────────────────────────────────
@@ -969,6 +983,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                     abMesh.instanceMatrix.needsUpdate = true;
                     scene.add(abMesh);
                     abLODGroups.push({ mesh: abMesh, positions: abPositions, scales: abScales, def });
+                    abMesh.userData.belt = 'asteroid';
                     beltLODInstances.push(abMesh);
 
                     // KB InstancedMesh
@@ -997,8 +1012,15 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                     kbMesh.instanceMatrix.needsUpdate = true;
                     scene.add(kbMesh);
                     kbLODGroups.push({ mesh: kbMesh, positions: kbPositions, scales: kbScales, def });
+                    kbMesh.userData.belt = 'kuiper';
                     beltLODInstances.push(kbMesh);
                 });
+                // These meshes arrive whenever their STLs finish downloading,
+                // which may be long after a layout change has come and gone.
+                // Forcing the next frame to re-apply the layout places them,
+                // rather than leaving them at compressed radii while the
+                // particle clouds they replace are already hidden.
+                lastScaleT = -1;
             }).catch(err => console.warn('Belt LOD STL load failed:', err));
         }
 
@@ -1014,7 +1036,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             // Orbit ring — true keplerian ellipse, thinner tube than planets
             const orbitPts = buildKeplerOrbitPoints(body.el, body.scale, body.isComet ? 512 : 360)
                 .map(pt => pt.applyQuaternion(beltQuat));
-            const orbitGeo = buildOrbitTube(orbitPts, 0.18, body.isComet ? 512 : 256);
+            const orbitSegments = body.isComet ? 512 : 256;
+            const orbitGeo = buildOrbitTube(orbitPts, 0.18, orbitSegments);
             const orbitMat = new THREE.MeshBasicMaterial({
                 color: 0xffffff, transparent: true,
                 opacity: ORBIT_BASE_OPACITY * 0.8, depthWrite: false,
@@ -1023,6 +1046,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             orbitLine.userData = {
                 baseOpacity: ORBIT_BASE_OPACITY * 0.8, hoverOpacity: ORBIT_HOVER_OPACITY,
                 baseColor: ORBIT_WHITE, hoverColor: orbitTint(body.color),
+                rebuild: { points: orbitPts, tube: 0.18, segments: orbitSegments },
             };
             scene.add(orbitLine);
             geos.push(orbitGeo);
@@ -1199,7 +1223,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             smallBodyHitRefs.set(body.id, hitMesh);
             smallBodyHitRadii.set(body.id, hitR);
 
-            smallBodyGroups.push({ group, body });
+            smallBodyGroups.push({ group, body, orbitLine });
         });
 
 
@@ -1487,9 +1511,15 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         // imperceptible when a year takes a year. Once the clock is scrubbing,
         // though, the planets are the whole point, so the animate loop takes
         // over (see updatePlanetPositions below).
-        const updatePlanetPositions = (date) => {
+        // Every position in the scene is a direction times a radius, so moving
+        // between the compressed layout and true distances is a matter of which
+        // radius — no geometry is rebuilt for it, and a body, its orbit ring and
+        // its share of a belt all travel together because they share the factor.
+        const planetFactor = (planet, t) => radialFactor(planet.orbitR, planet.au, t);
+
+        const updatePlanetPositions = (date, t = scaleProgress()) => {
             planetGroups.forEach(({ group, planet }) => {
-                const p = computePlanetPos(planet.name, planet.orbitR, date);
+                const p = computePlanetPos(planet.name, planet.orbitR * planetFactor(planet, t), date);
                 group.position.set(p.x, p.y, p.z);
             });
         };
@@ -1648,9 +1678,18 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         };
 
         const _labelProj = new THREE.Vector3();
+        // Where labels have already landed this pass. Two bodies can be a pixel
+        // apart on screen — a conjunction, or the whole inner system once
+        // distances are true — and stacked text reads as breakage rather than
+        // as the point. The roster is ordered planets, then small bodies, then
+        // probes, so dropping the later one keeps the more important name.
+        const labelSpots = [];
+        const LABEL_CLEAR_X = 46;
+        const LABEL_CLEAR_Y = 13;
         const positionLabels = () => {
             const els = labelElsRef.current;
             if (els.size === 0) return;
+            labelSpots.length = 0;
             for (const t of labelTargets) {
                 const el = els.get(t.key);
                 if (!el) continue;   // roster changed; its node lands next commit
@@ -1663,6 +1702,22 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 }
                 const x = (_labelProj.x + 1) / 2 * viewW;
                 const y = -(_labelProj.y - 1) / 2 * viewH;
+                // Only in the home view. Focused on a planet the labels are
+                // its moons, which are close together by nature and are the
+                // thing being looked at — dropping Deimos because it is near
+                // Phobos would be throwing away the answer.
+                let crowded = false;
+                if (!focusedIdRef.current) for (const spot of labelSpots) {
+                    if (Math.abs(spot.x - x) < LABEL_CLEAR_X && Math.abs(spot.y - y) < LABEL_CLEAR_Y) {
+                        crowded = true;
+                        break;
+                    }
+                }
+                if (crowded) {
+                    if (el.style.visibility !== 'hidden') el.style.visibility = 'hidden';
+                    continue;
+                }
+                labelSpots.push({ x, y });
                 // A transform rather than left/top: moving a label this way is
                 // composited and costs no layout.
                 el.style.transform = `translate3d(${x + 12}px, ${y}px, 0) translateY(-50%)`;
@@ -1677,6 +1732,106 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         // ── Animation loop ─────────────────────────────────────────────────────
         let animId;
         let frameCount = 0;
+        // -1 so the first frame always applies the layout, whichever it is
+        let lastScaleT = -1;
+        // The belts as first laid out, so every remap starts from the original
+        // radii rather than compounding rounding through the previous one.
+        const abBase = abParticles?.geometry.attributes.position.array.slice() ?? null;
+        const kbBase = kbParticles?.geometry.attributes.position.array.slice() ?? null;
+
+        /**
+         * A belt maps a band of AU onto a band of scene units affinely, so
+         * moving it to true distances is per-particle: read the radius it was
+         * placed at, recover the AU it stood for, and put it where that AU is.
+         */
+        const beltAU = (r, inner, outer, auInner, auOuter) =>
+            auInner + ((r - inner) / (outer - inner)) * (auOuter - auInner);
+
+        const beltFactorAt = (r, inner, outer, auInner, auOuter, t) => {
+            if (!(r > 0)) return 1;
+            const trueR = beltAU(r, inner, outer, auInner, auOuter) * AU_UNITS;
+            return (r + (trueR - r) * t) / r;
+        };
+
+        const remapBelt = (points, base, inner, outer, auInner, auOuter, t) => {
+            if (!points || !base) return;
+            const arr = points.geometry.attributes.position.array;
+            for (let i = 0; i < base.length; i += 3) {
+                const x = base[i], y = base[i + 1], z = base[i + 2];
+                const f = beltFactorAt(Math.hypot(x, y, z), inner, outer, auInner, auOuter, t);
+                arr[i] = x * f; arr[i + 1] = y * f; arr[i + 2] = z * f;
+            }
+            points.geometry.attributes.position.needsUpdate = true;
+            points.geometry.computeBoundingSphere();
+        };
+
+        // What the LOD rocks are standing at, read by the belt spin
+        const beltLayout = { t: 0 };
+        // The layout the rings currently stand at; null while they are hidden.
+        let ringsBuiltAt = 0;
+
+        /** Instanced belt rocks: orbits move, rocks keep the size they were. */
+        const placeBeltInstances = (t = beltLayout.t) => {
+            beltLayout.t = t;
+            const place = (groups, anglesKey, sizeKey, inner, outer, auInner, auOuter) => {
+                groups.forEach(({ mesh, positions, scales, def }) => {
+                    const angles = mesh.userData[anglesKey];
+                    for (let i = 0; i < positions.length; i++) {
+                        const p = positions[i];
+                        const f = beltFactorAt(p.length(), inner, outer, auInner, auOuter, t);
+                        lodDummy.position.copy(p).multiplyScalar(f);
+                        if (angles) lodDummy.rotation.set(angles[i].ax, angles[i].ay, angles[i].az);
+                        // Not scaled by f: a Kuiper boulder drawn nine times
+                        // larger would be wider than Neptune.
+                        lodDummy.scale.setScalar(def[sizeKey] * scales[i]);
+                        lodDummy.updateMatrix();
+                        mesh.setMatrixAt(i, lodDummy.matrix);
+                    }
+                    mesh.instanceMatrix.needsUpdate = true;
+                });
+            };
+            place(abLODGroups, 'abAngles', 'abSize', AB_INNER, AB_OUTER, 2.2, 3.2);
+            place(kbLODGroups, 'kbAngles', 'kbSize', KB_INNER, KB_OUTER, 30, 50);
+        };
+
+        const allRings = () => [
+            ...planetGroups.map(g => g.orbitLine),
+            ...smallBodyGroups.map(g => g.orbitLine),
+        ].filter(Boolean);
+
+        const ringsVisible = (on) => allRings().forEach(r => { r.visible = on; });
+
+        /**
+         * Rebuild every orbit ring at the radius the layout has settled on.
+         *
+         * Rebuilt from the points it was first built from rather than resampled
+         * from the ephemeris — the shape has not changed, only how far out it
+         * sits, and resampling nine planets would be two thousand ephemeris
+         * calls for a picture that is identical.
+         */
+        const rebuildRings = (t) => {
+            const scaled = new THREE.Vector3();
+            const redo = (ring, factor) => {
+                const spec = ring?.userData.rebuild;
+                if (!spec) return;
+                const pts = spec.points.map(p => scaled.copy(p).multiplyScalar(factor).clone());
+                const next = buildOrbitTube(pts, spec.tube, spec.segments);
+                ring.geometry.dispose();
+                ring.geometry = next;
+                ring.visible = true;
+            };
+            planetGroups.forEach(({ planet, orbitLine }) => redo(orbitLine, planetFactor(planet, t)));
+            smallBodyGroups.forEach(({ body, orbitLine }) =>
+                redo(orbitLine, 1 + (AU_UNITS / body.scale - 1) * t));
+        };
+        const rebuildProbeTrack = (track, probe, t) => {
+            const pts = buildProbeTrack(probe.id, t);
+            const arr = track.geometry.attributes.position.array;
+            for (let i = 0; i < pts.length; i++) {
+                arr[i * 3] = pts[i].x; arr[i * 3 + 1] = pts[i].y; arr[i * 3 + 2] = pts[i].z;
+            }
+            track.geometry.attributes.position.needsUpdate = true;
+        };
         let prevNowDays = null;
         let scrubBase = null;   // live→scrub handover, see the moon block
         let meshRotSpeed = 0.002;
@@ -1700,6 +1855,69 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             if (scrubbing && frameCount % 2 === 0) updatePlanetPositions(simTime);
             const nowDays = (simMs - ORBIT_EPOCH_MS) / 86400000;
             const currentFocusedId = focusedIdRef.current;
+
+            // ── Compressed layout ⇄ true distances ─────────────────────────
+            // Read once per frame and shared by everything radial below.
+            const scaleT = scaleProgress();
+            const settling = isScaleSettling();
+            if (scaleT !== lastScaleT) {
+                lastScaleT = scaleT;
+                updatePlanetPositions(simTime, scaleT);
+
+                // Belts. A single factor cannot do this: the belts were laid
+                // out affinely — 2.2–3.2 AU onto 134–158 units — so scaling
+                // about the origin would put the asteroid belt at 2.48–2.92 AU
+                // and call it to scale. Each particle is remapped through its
+                // own radius instead, which is a couple of thousand multiplies
+                // on the frames the layout is actually moving.
+                remapBelt(abParticles, abBase, AB_INNER, AB_OUTER, 2.2, 3.2, scaleT);
+                remapBelt(kbParticles, kbBase, KB_INNER, KB_OUTER, 30, 50, scaleT);
+                // The LOD rocks are instanced meshes, so scaling the object
+                // would enlarge the rocks along with their orbits — a Kuiper
+                // boulder bigger than Neptune. Move the instances instead.
+                placeBeltInstances(scaleT);
+
+                // Out here the compression was never uniform, so the tracks are
+                // rewritten rather than scaled — 45 points, once per change.
+                probeGroups.forEach(({ track, probe }) => rebuildProbeTrack(track, probe, scaleT));
+
+            }
+
+            // True distances put Pluto at 3,790 units where the compressed
+            // layout had it at 410, so the camera has to be allowed out that
+            // far and the far plane has to follow. Keyed on the layout rather
+            // than on the transition: these have to be right on a fresh mount
+            // with true distances already on — navigating to /compare and back
+            // does exactly that — and maxDistance has to lead the pull-out
+            // below, or controls.update clamps the camera every frame and it
+            // never gets far enough to see what moved.
+            controls.maxDistance = 1200 + (6000 - 1200) * scaleT;
+            const wantFar = 10000 + (30000 - 10000) * scaleT;
+            if (Math.abs(camera.far - wantFar) > 50) {
+                camera.far = wantFar;
+                camera.updateProjectionMatrix();
+            }
+
+            // Rings are tubes: scaling one fattens the tube with the path, so
+            // they are hidden while the planets move and rebuilt at the radius
+            // they came to rest at. Comparing against the radius they were
+            // last built at, rather than against a "did it change" flag, is
+            // what makes a fresh mount in true distances come out right.
+            if (settling) {
+                if (ringsBuiltAt !== null) { ringsVisible(false); ringsBuiltAt = null; }
+            } else if (ringsBuiltAt !== scaleT) {
+                rebuildRings(scaleT);
+                ringsBuiltAt = scaleT;
+            }
+
+            // While the layout is moving, ease the camera to a distance that
+            // frames it. Watching Neptune leave is the whole point, and you
+            // cannot watch it from inside Earth's orbit.
+            if (isScaleSettling()) {
+                const want = 580 + (3400 - 580) * scaleT;
+                const d = camera.position.length();
+                camera.position.setLength(d + (want - d) * 0.06);
+            }
 
             // ── Detect focus changes ───────────────────────────────────────────
             if (currentFocusedId !== prevFocusedId) {
@@ -1947,14 +2165,17 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
 
             // ── Small body positions (updated every frame; orbits are slow) ───
             smallBodyGroups.forEach(({ group, body }) => {
-                const rawP = keplerianScenePos(body.el, body.scale, simTime);
+                // body.scale is already scene units per AU for this body, so
+                // true distances are simply AU_UNITS instead.
+                const f = 1 + (AU_UNITS / body.scale - 1) * scaleT;
+                const rawP = keplerianScenePos(body.el, body.scale * f, simTime);
                 const pv   = new THREE.Vector3(rawP.x, rawP.y, rawP.z).applyQuaternion(beltQuat);
                 group.position.set(pv.x, pv.y, pv.z);
             });
 
             // ── Probe positions ──────────────────────────────────────────────
             probeGroups.forEach(({ group, track, probe, trackCount }) => {
-                const pp = probeScenePos(probe, simTime);
+                const pp = probeScenePos(probe, simTime, scaleT);
                 group.position.set(pp.x, pp.y, pp.z);
                 // Scale with camera distance so the marker stays legible up
                 // close, but cap it: pure constant-angular-size means the world
@@ -2159,13 +2380,18 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             if (kbLODGroups.length > 0 && kbParticles) kbParticles.visible = false;
 
             if (q.beltLODRotate && frameCount % 3 === 0) {
-                const spin = (groups, anglesKey, sizeKey) => {
+                const spin = (groups, anglesKey, sizeKey, inner, outer, auInner, auOuter) => {
                     groups.forEach(({ mesh, positions, scales, def }) => {
                         const angles = mesh.userData[anglesKey];
                         for (let i = 0; i < positions.length; i++) {
                             const a = angles[i];
                             a.ax += a.sx * 3; a.ay += a.sy * 3; a.az += a.sz * 3;
-                            lodDummy.position.copy(positions[i]);
+                            // Through the layout the rocks are standing at —
+                            // rebuilding from the unscaled position would snap
+                            // the belt back inside Jupiter every third frame.
+                            const p = positions[i];
+                            const f = beltFactorAt(p.length(), inner, outer, auInner, auOuter, beltLayout.t);
+                            lodDummy.position.copy(p).multiplyScalar(f);
                             lodDummy.rotation.set(a.ax, a.ay, a.az);
                             lodDummy.scale.setScalar(def[sizeKey] * scales[i]);
                             lodDummy.updateMatrix();
@@ -2174,8 +2400,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                         mesh.instanceMatrix.needsUpdate = true;
                     });
                 };
-                spin(abLODGroups, 'abAngles', 'abSize');
-                spin(kbLODGroups, 'kbAngles', 'kbSize');
+                spin(abLODGroups, 'abAngles', 'abSize', AB_INNER, AB_OUTER, 2.2, 3.2);
+                spin(kbLODGroups, 'kbAngles', 'kbSize', KB_INNER, KB_OUTER, 30, 50);
             }
 
             uploadSomeTextures();
@@ -2216,6 +2442,10 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
             mats.forEach(m => m.dispose());
             textures.forEach(t => t.dispose());
             beltLODInstances.forEach(m => { m.geometry.dispose(); scene.remove(m); });
+            // Rings may be carrying geometry built after mount, which is not
+            // the one `geos` collected. Disposing an already-disposed geometry
+            // is a no-op, so covering both is cheaper than tracking swaps.
+            allRings().forEach(r => r.geometry.dispose());
             renderer.dispose();
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2227,7 +2457,10 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 ref={mountRef}
                 style={{ width: '100%', height, position: 'relative', overflow: 'hidden' }}
             >
-                {/* Not-to-scale disclaimer */}
+                {/* What the view is and is not honest about. In the compressed
+                    layout that is an apology; in true distances it is a
+                    distinction, because the distances become real and the
+                    bodies stay drawn far too large to be seen otherwise. */}
                 <div style={{
                     position: 'absolute',
                     bottom: '14px',
@@ -2239,8 +2472,12 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                     letterSpacing: '0.04em',
                     textShadow: '0 1px 3px rgba(0,0,0,0.8)',
                     zIndex: 2,
+                    maxWidth: 220,
+                    textAlign: 'right',
                 }}>
-                    *not to scale
+                    {trueScale
+                        ? '*distances to scale — bodies enlarged, or you would see nothing'
+                        : '*not to scale'}
                 </div>
 
                 {/* Floating object labels.

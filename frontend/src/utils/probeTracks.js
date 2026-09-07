@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PLANETS, INTERSTELLAR_ANCHOR } from '../data/solarSystemBodies';
+import { AU_UNITS, scaleProgress } from './scaleMode';
 import TRACKS from '../data/voyagerTracks.json';
 
 // Where the Voyagers are, and where they have been.
@@ -33,7 +34,16 @@ const ANCHORS = [
  * without throwing the outer ones off screen, and it continues at the last
  * segment's rate beyond the final anchor rather than stopping.
  */
-export function sceneRadiusForAU(au) {
+export function sceneRadiusForAU(au, progress = scaleProgress()) {
+    const compressed = compressedRadiusForAU(au);
+    if (!progress) return compressed;
+    // Out here the compression was never a single factor, so the true-distance
+    // radius is computed from scratch and blended, rather than scaling the
+    // compressed one by something that would only be right at one distance.
+    return compressed + (au * AU_UNITS - compressed) * progress;
+}
+
+function compressedRadiusForAU(au) {
     if (!(au > 0)) return 0;
     if (au <= ANCHORS[0][0]) return (au / ANCHORS[0][0]) * ANCHORS[0][1];
     for (let i = 1; i < ANCHORS.length; i++) {
@@ -48,10 +58,10 @@ export function sceneRadiusForAU(au) {
 }
 
 /** Astronomical axes → scene axes, the same swap computePlanetPos applies. */
-function toScene(x, y, z, out = {}) {
+function toScene(x, y, z, out = {}, progress = undefined) {
     const r = Math.hypot(x, y, z);
     if (r === 0) { out.x = out.y = out.z = 0; return out; }
-    const s = sceneRadiusForAU(r) / r;
+    const s = sceneRadiusForAU(r, progress) / r;
     out.x = x * s;
     out.y = z * s;
     out.z = y * s;
@@ -96,10 +106,10 @@ export function probeVectorAU(probeId, date = new Date()) {
 }
 
 /** Scene position of a probe at a date. */
-export function probeScenePos(probe, date = new Date()) {
+export function probeScenePos(probe, date = new Date(), progress = undefined) {
     const v = probeVectorAU(probe.id, date);
     if (!v) return { x: 0, y: 0, z: 0 };
-    return toScene(v.x, v.y, v.z);
+    return toScene(v.x, v.y, v.z, {}, progress);
 }
 
 /** Distance from the Sun in AU at a date. */
@@ -115,12 +125,12 @@ export function probeDistanceAU(probe, date = new Date()) {
  * caller draws as much of it as the simulated clock has reached — see
  * trackDrawCount — and puts the marker at the end.
  */
-export function buildProbeTrack(probeId) {
+export function buildProbeTrack(probeId, progress = undefined) {
     const track = TRACKS[probeId];
     if (!track) return [];
     const out = {};
     return track.points.map(([, x, y, z]) => {
-        toScene(x, y, z, out);
+        toScene(x, y, z, out, progress);
         return new THREE.Vector3(out.x, out.y, out.z);
     });
 }

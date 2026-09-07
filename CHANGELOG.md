@@ -16,6 +16,40 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 2.0.0
+
+- **True distances.** A toggle beside the way in to the catalog spreads the
+  solar system out to its real proportions and eases the camera back to watch
+  it happen. Earth's ring stays where it is and everything beyond it leaves:
+  Jupiter from 190 units to 500, Neptune from 340 to 2,887, Pluto to 3,790. The
+  inner planets collapse into a knot around the Sun that you cannot pick apart
+  without zooming in, which is the honest picture and the whole point.
+
+  The corner has said "*not to scale" since the beginning. It now says which
+  half is true — distances are, and the bodies are still drawn far too large,
+  because at true scale Earth is four thousandths of a unit across and there
+  would be nothing on screen at all. That is worth stating rather than
+  demonstrating.
+
+  It costs no geometry. Every position in the scene was already a direction
+  times a radius, so switching layouts is a matter of which radius, and a body,
+  its orbit ring and its share of a belt move together because they share the
+  factor.
+
+- Three things do not follow from one multiplication, and getting them wrong
+  was visible: an orbit ring is a tube, and scaling it fattens the tube along
+  with the path — 0.28 units to 2.59 at Pluto's factor — so rings are rebuilt
+  at the radius they settle on; the belts' instanced rocks are moved rather
+  than scaled, or a Kuiper boulder ends up wider than Neptune; and the belts
+  map AU onto scene units affinely, so each particle is remapped through its
+  own radius rather than by one factor that would have quietly put the asteroid
+  belt at 2.48–2.92 AU while the caption claimed it was to scale.
+
+- Labels in the home view now stand aside rather than stacking when two bodies
+  land on the same pixel — which true distances make routine, since half the
+  planets end up inside one knot. Moons are exempt: focused on a planet they
+  are close together by nature and are the thing being looked at.
+
 ## 1.8.0
 
 - **What's up tonight.** `/tonight` asks where you are and answers the question

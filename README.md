@@ -63,6 +63,7 @@ frontend/src/
                           compression every off-ring position goes through
     objectSize.js         the catalog's prose sizes as numbers, for comparing
     skyPositions.js       altitude and azimuth from where the viewer is standing
+    scaleMode.js          compressed layout ⇄ true distances, and the transition
     useNearViewport.js    gate expensive loads on approaching the viewport
     useSatelliteTracking.js  every tracked spacecraft, propagated from TLEs
 ```
@@ -206,6 +207,31 @@ from the `au`/`orbitR` pair on each planet, so a trajectory running from Earth's
 ring out past Neptune's is squeezed exactly as the rings are and passes through
 the planets it flew by. `probeTracks.test.js` pins that: change a ring radius
 without changing its `au` and it fails.
+
+### Scale
+
+Every position in the scene is a direction times a radius, which is what makes
+`/` able to show true distances at all: switching layouts is a matter of which
+radius, and a body, its orbit ring and its share of a belt travel together
+because they share the factor. Nothing is resampled from the ephemeris for it.
+
+Three things do *not* follow from a single multiply, and each is handled where
+it is described in `SolarSystem3D.jsx`:
+
+- **Orbit rings are tubes.** Scaling one is exact for the path and wrong for
+  the tube around it — at Pluto's factor a 0.28-unit line becomes 2.59 units
+  thick. They are hidden while the planets move and rebuilt at the radius they
+  came to rest at, from the points they were first built from.
+- **Belt LOD rocks are instanced meshes.** Scaling the object enlarges the
+  rocks with their orbits, which puts Kuiper boulders wider than Neptune on
+  screen. The instances are moved instead; their sizes are left alone.
+- **The belts map AU onto units affinely**, not proportionally, so no single
+  factor can express them. Each particle is remapped through its own radius.
+
+Only distances become true. Bodies keep their drawn sizes, because at true
+scale Earth is four thousandths of a unit across and the view would be empty —
+a fact better said in words than demonstrated, which is what the corner caption
+now does instead of apologising.
 
 ### What's up tonight
 
