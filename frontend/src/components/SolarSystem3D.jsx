@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import {
     PLANETS, PLANET_PBR, AXIAL_TILT_DEG, PLANET_TEXTURES, MOON_TEXTURES,
     MOON_DATA, SMALL_BODIES, PROBES,
 } from '../data/solarSystemBodies';
 import {
     DEG2RAD, ORBIT_EPOCH_MS, ORBIT_BASE_OPACITY, ORBIT_HOVER_OPACITY, ORBIT_HOVER_TINT,
-    PLANET_EMISSIVE_INTENSITY, ORBIT_TUBE_RADIUS, computePlanetPos, buildOrbitPoints, buildOrbitTube,
+    PLANET_EMISSIVE_INTENSITY, computePlanetPos, buildOrbitPoints,
     keplerianScenePos, buildKeplerOrbitPoints, eclipticQuaternion,
 } from '../utils/orbits';
 import { probeScenePos, buildProbeTrack, trackDrawCount } from '../utils/probeTracks';
@@ -173,6 +176,45 @@ const SolarSystem3D = ({
         scene.add(coronaLight);
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.28));
+
+        // ── Orbit paths ───────────────────────────────────────────────────────
+        // Drawn as pixel-width lines rather than tubes. A tube has a radius in
+        // scene units, so how thick it looks depends on how far away the camera
+        // is — fine at one camera distance, and at the six-times-further one
+        // true distances asks for, a 0.28-unit tube renders about a tenth of a
+        // pixel wide and disappears. The Voyager tracks stayed visible through
+        // all of it precisely because they were plain lines.
+        //
+        // Line2 takes its width in pixels, so a ring is the same weight at any
+        // zoom and in either layout. It also makes scaling a ring exact again —
+        // there is no tube to fatten with the path — and it costs a good deal
+        // less: 512 triangles against a tube's 4,096, on sixteen rings.
+        // Pixel widths. A shade heavier than the tubes read at the compressed
+        // camera distance, because the point is to stay findable when the
+        // camera is a long way out.
+        const ORBIT_LINE_PX = 1.7;
+        const orbitLines = [];
+        // LineMaterial needs the drawing buffer size to turn a pixel width into
+        // clip space; a stale one makes every ring the wrong thickness.
+        const _lineRes = new THREE.Vector2(1, 1);
+        const makeOrbitPath = (points, { width, color, opacity, closed = true }) => {
+            const flat = [];
+            for (const p of points) flat.push(p.x, p.y, p.z);
+            // Line2 does not close a loop itself; repeat the first point
+            if (closed && points.length) flat.push(points[0].x, points[0].y, points[0].z);
+            const geometry = new LineGeometry();
+            geometry.setPositions(flat);
+            const material = new LineMaterial({
+                color, linewidth: width, transparent: true, opacity,
+                depthWrite: false, resolution: _lineRes,
+            });
+            const line = new Line2(geometry, material);
+            // Its bounds are computed from instance attributes, and a ring that
+            // spans the outer solar system is never worth culling anyway.
+            line.frustumCulled = false;
+            orbitLines.push(line);
+            return line;
+        };
 
         // ── How an orbit path reads at rest and under the pointer ─────────────
         // Every path in the scene goes through these two, so the planets'
@@ -344,17 +386,15 @@ const SolarSystem3D = ({
 
             // Orbit path sampled from HelioVector — same source as planet positions
             const orbitPoints = buildOrbitPoints(planet.name, planet.orbitR);
-            const orbitGeo = buildOrbitTube(orbitPoints);
-            const orbitMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: ORBIT_BASE_OPACITY, depthWrite: false });
-            const orbitLine = new THREE.Mesh(orbitGeo, orbitMat);
+            const orbitLine = makeOrbitPath(orbitPoints, {
+                width: ORBIT_LINE_PX, color: 0xffffff, opacity: ORBIT_BASE_OPACITY,
+            });
             orbitLine.userData = {
                 baseOpacity: ORBIT_BASE_OPACITY, hoverOpacity: ORBIT_HOVER_OPACITY,
                 baseColor: ORBIT_WHITE, hoverColor: orbitTint(planet.color),
-                // Kept so the ring can be rebuilt at another radius. Scaling
-                // the mesh is exact for the path and wrong for the tube around
-                // it — at Pluto's factor a 0.28 line becomes 2.59 units thick.
-                rebuild: { points: orbitPoints, tube: ORBIT_TUBE_RADIUS, segments: 256 },
             };
+            const orbitGeo = orbitLine.geometry;
+            const orbitMat = orbitLine.material;
 
             scene.add(orbitLine);
             geos.push(orbitGeo);
@@ -1047,18 +1087,17 @@ const SolarSystem3D = ({
             // Orbit ring — true keplerian ellipse, thinner tube than planets
             const orbitPts = buildKeplerOrbitPoints(body.el, body.scale, body.isComet ? 512 : 360)
                 .map(pt => pt.applyQuaternion(beltQuat));
-            const orbitSegments = body.isComet ? 512 : 256;
-            const orbitGeo = buildOrbitTube(orbitPts, 0.18, orbitSegments);
-            const orbitMat = new THREE.MeshBasicMaterial({
-                color: 0xffffff, transparent: true,
-                opacity: ORBIT_BASE_OPACITY * 0.8, depthWrite: false,
+
+            const orbitLine = makeOrbitPath(orbitPts, {
+                width: ORBIT_LINE_PX * 0.85, color: 0xffffff,
+                opacity: ORBIT_BASE_OPACITY * 0.8,
             });
-            const orbitLine = new THREE.Mesh(orbitGeo, orbitMat);
             orbitLine.userData = {
                 baseOpacity: ORBIT_BASE_OPACITY * 0.8, hoverOpacity: ORBIT_HOVER_OPACITY,
                 baseColor: ORBIT_WHITE, hoverColor: orbitTint(body.color),
-                rebuild: { points: orbitPts, tube: 0.18, segments: orbitSegments },
             };
+            const orbitGeo = orbitLine.geometry;
+            const orbitMat = orbitLine.material;
             scene.add(orbitLine);
             geos.push(orbitGeo);
             mats.push(orbitMat);
@@ -1620,11 +1659,13 @@ const SolarSystem3D = ({
         // layout, and one the loop used to do on every single frame.
         let viewW = w;
         let viewH = h;
+        renderer.getDrawingBufferSize(_lineRes);
         const ro = new ResizeObserver(([entry]) => {
             const { width, height } = entry.contentRect;
             if (!width || !height) return;
             viewW = width;
             viewH = height;
+            renderer.getDrawingBufferSize(_lineRes);
             // Re-budget on resize too: rotating a tablet changes the surface
             // area enough to matter.
             renderer.setPixelRatio(pixelRatioFor(width, height));
@@ -1810,8 +1851,6 @@ const SolarSystem3D = ({
 
         // What the LOD rocks are standing at, read by the belt spin
         const beltLayout = { t: 0 };
-        // The layout the rings currently stand at; null while they are hidden.
-        let ringsBuiltAt = 0;
 
         /** Instanced belt rocks: orbits move, rocks keep the size they were. */
         const placeBeltInstances = (t = beltLayout.t) => {
@@ -1837,36 +1876,6 @@ const SolarSystem3D = ({
             place(kbLODGroups, 'kbAngles', 'kbSize', KB_INNER, KB_OUTER, 30, 50);
         };
 
-        const allRings = () => [
-            ...planetGroups.map(g => g.orbitLine),
-            ...smallBodyGroups.map(g => g.orbitLine),
-        ].filter(Boolean);
-
-        const ringsVisible = (on) => allRings().forEach(r => { r.visible = on; });
-
-        /**
-         * Rebuild every orbit ring at the radius the layout has settled on.
-         *
-         * Rebuilt from the points it was first built from rather than resampled
-         * from the ephemeris — the shape has not changed, only how far out it
-         * sits, and resampling nine planets would be two thousand ephemeris
-         * calls for a picture that is identical.
-         */
-        const rebuildRings = (t) => {
-            const scaled = new THREE.Vector3();
-            const redo = (ring, factor) => {
-                const spec = ring?.userData.rebuild;
-                if (!spec) return;
-                const pts = spec.points.map(p => scaled.copy(p).multiplyScalar(factor).clone());
-                const next = buildOrbitTube(pts, spec.tube, spec.segments);
-                ring.geometry.dispose();
-                ring.geometry = next;
-                ring.visible = true;
-            };
-            planetGroups.forEach(({ planet, orbitLine }) => redo(orbitLine, planetFactor(planet, t)));
-            smallBodyGroups.forEach(({ body, orbitLine }) =>
-                redo(orbitLine, 1 + (AU_UNITS / body.scale - 1) * t));
-        };
         const rebuildProbeTrack = (track, probe, t) => {
             const pts = buildProbeTrack(probe.id, t);
             const arr = track.geometry.attributes.position.array;
@@ -1902,7 +1911,6 @@ const SolarSystem3D = ({
             // ── Compressed layout ⇄ true distances ─────────────────────────
             // Read once per frame and shared by everything radial below.
             const scaleT = scaleProgress();
-            const settling = isScaleSettling();
             if (scaleT !== lastScaleT) {
                 lastScaleT = scaleT;
                 updatePlanetPositions(simTime, scaleT);
@@ -1924,6 +1932,16 @@ const SolarSystem3D = ({
                 // rewritten rather than scaled — 45 points, once per change.
                 probeGroups.forEach(({ track, probe }) => rebuildProbeTrack(track, probe, scaleT));
 
+                // Scaling a ring is exact now that its width is in pixels —
+                // there is no tube around the path to fatten with it — so the
+                // hide-and-rebuild the tubes needed is gone entirely.
+                planetGroups.forEach(({ planet, orbitLine }) => {
+                    if (orbitLine) orbitLine.scale.setScalar(planetFactor(planet, scaleT));
+                });
+                smallBodyGroups.forEach(({ body, orbitLine }) => {
+                    if (orbitLine) orbitLine.scale.setScalar(1 + (AU_UNITS / body.scale - 1) * scaleT);
+                });
+
             }
 
             // True distances put Pluto at 3,790 units where the compressed
@@ -1941,17 +1959,6 @@ const SolarSystem3D = ({
                 camera.updateProjectionMatrix();
             }
 
-            // Rings are tubes: scaling one fattens the tube with the path, so
-            // they are hidden while the planets move and rebuilt at the radius
-            // they came to rest at. Comparing against the radius they were
-            // last built at, rather than against a "did it change" flag, is
-            // what makes a fresh mount in true distances come out right.
-            if (settling) {
-                if (ringsBuiltAt !== null) { ringsVisible(false); ringsBuiltAt = null; }
-            } else if (ringsBuiltAt !== scaleT) {
-                rebuildRings(scaleT);
-                ringsBuiltAt = scaleT;
-            }
 
             // While the layout is moving, ease the camera to a distance that
             // frames it. Watching Neptune leave is the whole point, and you
@@ -2507,10 +2514,7 @@ const SolarSystem3D = ({
             mats.forEach(m => m.dispose());
             textures.forEach(t => t.dispose());
             beltLODInstances.forEach(m => { m.geometry.dispose(); scene.remove(m); });
-            // Rings may be carrying geometry built after mount, which is not
-            // the one `geos` collected. Disposing an already-disposed geometry
-            // is a no-op, so covering both is cheaper than tracking swaps.
-            allRings().forEach(r => r.geometry.dispose());
+            orbitLines.forEach(l => { l.geometry.dispose(); l.material.dispose(); });
             renderer.dispose();
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps

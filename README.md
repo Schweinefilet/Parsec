@@ -235,6 +235,23 @@ not drift after you send it. Anything malformed is discarded rather than
 applied; links get truncated and hand-edited, and the failure mode of trusting
 one is a camera inside the Sun.
 
+### Orbit paths are pixels, not tubes
+
+Orbit rings are `Line2` from three.js's examples, whose width is in **pixels**.
+They used to be `TubeGeometry`, which has a radius in scene units — so how thick
+a ring looked depended entirely on how far away the camera was. That was
+survivable at one camera distance, and at the six-times-further one true
+distances asks for, a 0.28-unit tube renders about a tenth of a pixel wide and
+vanishes. The Voyager tracks stayed visible throughout precisely because they
+were plain lines.
+
+Pixel width also makes scaling a ring exact — there is no tube to fatten with
+the path, which is what the 2.0.0 rebuild machinery existed to work around, now
+deleted — and costs a good deal less: 512 triangles per ring against a tube's
+4,096. `LineMaterial` needs the drawing buffer size to convert pixels to clip
+space, so it is updated with the renderer; a stale one makes every ring the
+wrong thickness.
+
 ### Scale
 
 Every position in the scene is a direction times a radius, which is what makes
@@ -242,13 +259,9 @@ Every position in the scene is a direction times a radius, which is what makes
 radius, and a body, its orbit ring and its share of a belt travel together
 because they share the factor. Nothing is resampled from the ephemeris for it.
 
-Three things do *not* follow from a single multiply, and each is handled where
-it is described in `SolarSystem3D.jsx`:
+Two things do *not* follow from a single multiply, and each is handled where it
+is described in `SolarSystem3D.jsx`:
 
-- **Orbit rings are tubes.** Scaling one is exact for the path and wrong for
-  the tube around it — at Pluto's factor a 0.28-unit line becomes 2.59 units
-  thick. They are hidden while the planets move and rebuilt at the radius they
-  came to rest at, from the points they were first built from.
 - **Belt LOD rocks are instanced meshes.** Scaling the object enlarges the
   rocks with their orbits, which puts Kuiper boulders wider than Neptune on
   screen. The instances are moved instead; their sizes are left alone.

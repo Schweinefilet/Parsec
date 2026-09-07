@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 2.1.2
+
+- **Orbit paths stay visible in true distances.** They were `TubeGeometry`,
+  whose thickness is measured in scene units, so how heavy a ring looked
+  depended entirely on where the camera was. At the six-times-further distance
+  true distances asks for, a 0.28-unit tube renders about a tenth of a pixel
+  wide and disappears. The Voyager tracks stayed visible through all of it
+  because they were plain lines — which was the clue.
+
+  The rings are now pixel-width lines, so one is the same weight at any zoom
+  and in either layout. Three side effects, all good: scaling a ring is exact
+  again, since there is no tube around the path to fatten with it; the whole
+  hide-and-rebuild dance 2.0.0 needed to work around that is deleted; and a
+  ring costs 512 triangles where a tube cost 4,096, which on sixteen of them is
+  the sort of saving that matters on a phone.
+
 ## 2.1.1
 
 - **Focusing a planet or the Sun no longer parks the camera on its nose.**
