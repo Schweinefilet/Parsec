@@ -1079,8 +1079,15 @@ const SolarSystem3D = ({
             };
 
             const loader = new STLLoader();
+            // lod/, not the full-resolution files beside them. The belt puts
+            // 2,400 of these on screen at once, a pixel or two across, and at
+            // full resolution that was 16.7 million triangles a frame — 97.5%
+            // of everything the scene drew, and enough to hold a desktop at
+            // exactly half its refresh rate for as long as the page was open.
+            // The decimated set is 919,520. The originals stay where they are
+            // because three of them are also named bodies you can fly to.
             const loadSTL = (key) => new Promise((resolve, reject) => {
-                loader.load(`/models/asteroids/${key}.stl`,
+                loader.load(`/models/asteroids/lod/${key}.stl`,
                     geo => resolve(geo),
                     undefined,
                     err => reject(err)

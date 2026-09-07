@@ -10,17 +10,23 @@ import { useReducedMotion } from '../hooks/useMediaQuery';
 // that 404s, a request that hangs behind a captive portal, a tab throttled in
 // the background with no frames to count — none of those should trap anyone.
 const FAILSAFE_MS = 9000;
+// And it always stays for at least this long, measured from the navigation
+// rather than from this component mounting — off a warm cache the scene is
+// ready in well under a second, and a screen that appears and vanishes reads
+// as a flicker rather than as an opening.
+const MIN_ON_SCREEN_MS = 3000;
 
 // The handoff. The wordmark leads and the rest gets out of its way: the list
 // and the bar go first, the black lifts underneath it, and the logo arrives
 // last, into the header's own position.
 const DETAIL_FADE_MS = 240;   // the bar and the asset names
-const FLIGHT_MS = 820;        // centre → header
+const FLIGHT_MS = 950;        // centre → header
 const BACKDROP_MS = 620;      // black → transparent, started under the flight
 const BACKDROP_DELAY_MS = 140;
-// Decisive push, long settle. An overshoot would read as bounce, which is the
-// wrong note for something arriving at its permanent home.
-const FLIGHT_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+// Ease in and ease out — it gathers itself, travels, and sets down, rather
+// than leaving at full speed. No overshoot: bounce is the wrong note for
+// something arriving at its permanent home.
+const FLIGHT_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)';
 
 // How much larger the wordmark is while loading. It is rendered at the header's
 // exact size and scaled up, rather than rendered large and scaled down, so the
@@ -28,6 +34,27 @@ const FLIGHT_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 const HERO_SCALE = 1.9;
 // Sits above centre, leaving the bar and the names the space below it.
 const HERO_RISE = 58;
+
+/**
+ * The wordmark itself, at the header's exact size. Two of these are stacked in
+ * the flying copy so the colour change can be an opacity cross-fade; keeping
+ * them one component is what stops the two from drifting apart.
+ */
+const Mark = ({ iconColor, textColor, style }) => (
+    <span
+        className="flex items-center gap-2"
+        style={{
+            color: textColor,
+            textShadow: '0 1px 8px rgba(0,0,0,0.9)',
+            ...style,
+        }}
+    >
+        <Telescope className="h-5 w-5" aria-hidden="true" style={{ color: iconColor }} />
+        <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
+            P4RSEC
+        </span>
+    </span>
+);
 
 /**
  * What the scene is fetching, while it fetches it — then the wordmark flies to
@@ -44,6 +71,8 @@ const LoadingScreen = () => {
     const [suppressed] = useState(() => assetsEverReady());
     const [assets, setAssets] = useState(null);
     const [expired, setExpired] = useState(false);
+    const [minElapsed, setMinElapsed] = useState(
+        () => performance.now() >= MIN_ON_SCREEN_MS);
     const [gone, setGone] = useState(false);
     // Where the header's wordmark is. Null until measured, which is also the
     // signal to fall back to a plain centred layout.
@@ -84,7 +113,18 @@ const LoadingScreen = () => {
         return () => clearTimeout(t);
     }, [suppressed]);
 
-    const finished = expired || !!assets?.done;
+    // performance.now() is measured from the navigation, so this is three
+    // seconds of page rather than three seconds of component.
+    useEffect(() => {
+        if (suppressed || minElapsed) return undefined;
+        const t = setTimeout(() => setMinElapsed(true),
+            Math.max(0, MIN_ON_SCREEN_MS - performance.now()));
+        return () => clearTimeout(t);
+    }, [suppressed, minElapsed]);
+
+    // The failsafe is not held back by the minimum — it is longer than it
+    // anyway, and it exists for the case where nothing else will fire.
+    const finished = expired || (!!assets?.done && minElapsed);
     const flightMs = reduceMotion ? 0 : FLIGHT_MS;
 
     // Hand the wordmark back at the moment the flight lands, and only then stop
@@ -207,33 +247,42 @@ const LoadingScreen = () => {
                 <div
                     ref={flyingRef}
                     aria-hidden="true"
-                    className="flex items-center gap-2"
                     style={{
                         position: 'fixed', zIndex: 201, pointerEvents: 'none',
                         left: home.left, top: home.top, height: home.height,
                         transformOrigin: 'center center',
                         transform: finished ? 'none' : heroTransform,
-                        // Gold while it is the only thing on screen, the
-                        // header's white by the time it gets there.
-                        color: finished ? 'rgba(255,255,255,0.92)' : '#fff',
-                        textShadow: '0 1px 8px rgba(0,0,0,0.9)',
+                        // Transform only. Colour was animated here before and
+                        // it is a paint property — it cannot run on the
+                        // compositor, so every frame of the flight forced a
+                        // repaint on a main thread that is busy building the
+                        // scene, which is exactly when it could least afford
+                        // one. The gold-to-white change is now two stacked
+                        // copies cross-fading on opacity, which composites.
                         transition: finished
-                            ? `transform ${flightMs}ms ${FLIGHT_EASE}, color ${flightMs}ms ease`
+                            ? `transform ${flightMs}ms ${FLIGHT_EASE}`
                             : 'none',
                         willChange: 'transform',
                     }}
                 >
-                    <Telescope
-                        className="h-5 w-5"
-                        aria-hidden="true"
+                    {/* The one that stays: the header's own colours, so what is
+                        left standing at the end is what the header draws. */}
+                    <Mark
+                        iconColor="var(--accent)"
+                        textColor="rgba(255,255,255,0.92)"
+                    />
+                    {/* The one that goes: gold, over the top, faded out across
+                        the flight. */}
+                    <Mark
+                        iconColor="#ffd166"
+                        textColor="#fff"
                         style={{
-                            color: finished ? 'var(--accent)' : '#ffd166',
-                            transition: finished ? `color ${flightMs}ms ease` : 'none',
+                            position: 'absolute', inset: 0,
+                            opacity: finished ? 0 : 1,
+                            transition: finished ? `opacity ${flightMs}ms ease` : 'none',
+                            willChange: 'opacity',
                         }}
                     />
-                    <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
-                        P4RSEC
-                    </span>
                 </div>
             )}
         </>
