@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { PLANETS, INTERSTELLAR_ANCHOR } from '../data/solarSystemBodies';
 import { AU_UNITS, scaleProgress } from './scaleMode';
-import TRACKS from '../data/voyagerTracks.json';
+import TRACKS from '../data/probeTracks.json';
 
 // Where the Voyagers are, and where they have been.
 //
 // Both answers come from one baked ephemeris — the trajectory each spacecraft
-// actually flew, sampled from JPL Horizons (see scripts/build-voyager-tracks.mjs).
+// actually flew, sampled from JPL Horizons (see scripts/build-probe-tracks.mjs).
 // The marker is simply the point on the track at today's date, so the two can
 // never disagree with each other.
 //

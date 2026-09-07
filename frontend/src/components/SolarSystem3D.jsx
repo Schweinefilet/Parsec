@@ -112,10 +112,10 @@ const SolarSystem3D = ({
         const onContextLost = (e) => {
             e.preventDefault();               // required for restore to ever fire
             cancelAnimationFrame(animId);
-            console.warn('[Parsec] WebGL context lost — pausing render loop');
+            console.warn('[P4RSEC] WebGL context lost — pausing render loop');
         };
         const onContextRestored = () => {
-            console.warn('[Parsec] WebGL context restored');
+            console.warn('[P4RSEC] WebGL context restored');
             if (mounted) animate();
         };
         renderer.domElement.addEventListener('webglcontextlost', onContextLost);
@@ -295,10 +295,24 @@ const SolarSystem3D = ({
 
         const orbitAtRest = (orbit) => {
             if (!orbit) return;
-            orbit.material.opacity = focusedIdRef.current
-                ? 0
+            const focused = focusedIdRef.current;
+            // Focusing clears the paths out of the way, with one exception: a
+            // probe's track is the thing worth looking at when you are looking
+            // at the probe. Voyager 1 focused is otherwise a dot in an empty
+            // field, with the fifty years that got it there switched off.
+            const mine = !!focused && orbit.userData.ownerId === focused;
+            const keep = mine && orbit.userData.keepOnFocus;
+            if (focused && !keep) {
+                orbit.material.opacity = 0;
+                orbit.material.color.copy(orbit.userData.baseColor ?? ORBIT_WHITE);
+                return;
+            }
+            orbit.material.opacity = keep
+                ? (orbit.userData.hoverOpacity ?? ORBIT_HOVER_OPACITY)
                 : (orbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY);
-            orbit.material.color.copy(orbit.userData.baseColor ?? ORBIT_WHITE);
+            orbit.material.color.copy(
+                keep ? (orbit.userData.hoverColor ?? ORBIT_WHITE)
+                     : (orbit.userData.baseColor ?? ORBIT_WHITE));
         };
         const orbitHovered = (orbit) => {
             if (!orbit || focusedIdRef.current) return;
@@ -1413,6 +1427,9 @@ const SolarSystem3D = ({
                 // All the way to the craft's colour, not the half-tint a planet
                 // ring takes — out here there is no body beside it to compete.
                 hoverColor: orbitTint(probe.color, 1),
+                // Which probe this belongs to, so focusing that probe keeps it.
+                ownerId: probe.id,
+                keepOnFocus: true,
             };
             // The path runs far outside anything else in the scene, so leave it
             // out of frustum culling rather than have three.js compute a bound
@@ -1886,6 +1903,8 @@ const SolarSystem3D = ({
         let animId;
         let frameCount = 0;
         const _shareSpherical = new THREE.Spherical();
+        // Reference for lifting the probe-focus camera off the Sun line.
+        const PROBE_LIFT_AXIS = new THREE.Vector3(0, 1, 0);
         // -1 so the first frame always applies the layout, whichever it is
         let lastScaleT = -1;
         // What the rings were last built for.
@@ -2148,6 +2167,15 @@ const SolarSystem3D = ({
                         const dist = baseDist * (camera.aspect < 1
                             ? Math.min(2.0, Math.pow(1 / camera.aspect, 0.8))
                             : 1);
+                        // Normally the user's azimuth is kept, which is right
+                        // for a planet: whichever side you approached from is
+                        // the side you meant. A probe is tens of AU out with
+                        // nothing around it, and that rule lands the camera
+                        // beside it looking further out — at empty sky. Put it
+                        // beyond the probe instead, on the far side from the
+                        // Sun, so the whole system it left is in the shot
+                        // behind it with its own track running back into it.
+                        const isProbe = PROBES.some(b => b.id === currentFocusedId);
                         const TILT   = 30 * Math.PI / 180; // 30° above equatorial = looking 30° down
                         const startCamPos = pendingFocusCamPos ?? camera.position;
                         pendingFocusCamPos = null;
@@ -2155,11 +2183,42 @@ const SolarSystem3D = ({
                         const az     = Math.atan2(diff.x, diff.z); // maintain user's azimuth
                         focusStartCamPos.copy(startCamPos);
                         focusStartTarget.copy(controls.target);
-                        focusEndCamPos.set(
-                            planetPos.x + dist * Math.cos(TILT) * Math.sin(az),
-                            planetPos.y + dist * Math.sin(TILT),
-                            planetPos.z + dist * Math.cos(TILT) * Math.cos(az)
-                        );
+                        if (isProbe) {
+                            // A probe is tens of AU out with nothing around it,
+                            // so keeping the user's azimuth lands the camera
+                            // beside it looking further out, at empty sky. Sit
+                            // beyond it on the far side from the Sun instead,
+                            // and the system it left is in the shot behind it
+                            // with its own track running back into it.
+                            //
+                            // Along the probe's actual position vector, not its
+                            // compass bearing: the scene is equatorial and the
+                            // probes are near the ecliptic, so 23.4° of where
+                            // they are lives in Y. Matching only the bearing
+                            // left the Sun far enough off axis to fall out of
+                            // frame, which is the whole thing this is for.
+                            const outward = planetPos.clone().normalize();
+                            // Lift off that exact line, so the marker is not
+                            // sitting on top of the Sun it is being shown with.
+                            const side = new THREE.Vector3()
+                                .crossVectors(outward, PROBE_LIFT_AXIS);
+                            if (side.lengthSq() < 1e-8) side.set(1, 0, 0);
+                            const lift = new THREE.Vector3()
+                                .crossVectors(side.normalize(), outward).normalize();
+                            // 12°, not 30: at 30 the Sun sits outside the 22.5°
+                            // half-angle of a 45° field and drops off the top.
+                            const probeTilt = 12 * Math.PI / 180;
+                            focusEndCamPos.copy(planetPos).addScaledVector(
+                                outward.multiplyScalar(Math.cos(probeTilt))
+                                    .addScaledVector(lift, Math.sin(probeTilt)),
+                                dist);
+                        } else {
+                            focusEndCamPos.set(
+                                planetPos.x + dist * Math.cos(TILT) * Math.sin(az),
+                                planetPos.y + dist * Math.sin(TILT),
+                                planetPos.z + dist * Math.cos(TILT) * Math.cos(az)
+                            );
+                        }
                         focusProgress  = 0;
                         focusAnimating = true;
                     }

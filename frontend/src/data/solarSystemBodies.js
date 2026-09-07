@@ -174,13 +174,16 @@ export function isSurfacePainted(id) {
 export const INTERSTELLAR_ANCHOR = { au: 170, orbitR: 680 };
 
 export const PROBES = [
-    // Position and track both come from data/voyagerTracks.json — the flown
+    // Position and track both come from data/probeTracks.json — the flown
     // trajectory, sampled from Horizons. The pinned pair of state vectors this
     // replaced was interpolated linearly, which is fine for a coasting craft,
     // but it was also in ecliptic coordinates while the rest of the scene runs
     // on equatorial ones, so both probes sat 23.4° off the plane they belong to.
     { id: 'voyager1', name: 'Voyager 1', color: '#ffd9a0', r: 6, focusDist: 46 },
     { id: 'voyager2', name: 'Voyager 2', color: '#a8d4ff', r: 6, focusDist: 46 },
+    // One assist, at Jupiter, and a coast ever since — Pluto and Arrokoth were
+    // arrivals rather than turns, so its track barely bends after 2007.
+    { id: 'new-horizons', name: 'New Horizons', color: '#9fe6b8', r: 6, focusDist: 46 },
 ];
 
 // Every id the 3D scene actually draws. Objects outside this set — exoplanets,

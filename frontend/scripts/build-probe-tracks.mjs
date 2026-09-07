@@ -1,13 +1,17 @@
-// Regenerates src/data/voyagerTracks.json — the flight paths drawn for Voyager
-// 1 and 2.  Run with:  node scripts/build-voyager-tracks.mjs
+// Regenerates src/data/probeTracks.json — the flight paths drawn for the deep
+// space probes.  Run with:  node scripts/build-probe-tracks.mjs
 //
 // These are the trajectories the spacecraft actually flew, sampled from JPL
 // Horizons, not a curve fitted to their endpoints. Every bend in them is a real
-// gravity assist: Jupiter and Saturn for both, then Uranus and Neptune for
-// Voyager 2 alone. Voyager 1 is often said to have done the full Grand Tour and
-// did not — it was aimed at a close pass of Titan at Saturn, which was worth
-// more than Uranus and threw it up out of the ecliptic, which is why its track
-// leaves the plane of the planets and never comes back to it.
+// gravity assist: Jupiter and Saturn for both Voyagers, then Uranus and Neptune
+// for Voyager 2 alone. Voyager 1 is often said to have done the full Grand Tour
+// and did not — it was aimed at a close pass of Titan at Saturn, which was
+// worth more than Uranus and threw it up out of the ecliptic, which is why its
+// track leaves the plane of the planets and never comes back to it.
+//
+// New Horizons took one assist, at Jupiter, and everything after it is a
+// coast: Pluto in 2015 and Arrokoth in 2019 were arrivals, not turns, so its
+// path is nearly a straight line from Jupiter outwards.
 //
 // REF_PLANE='FRAME' matters. Horizons defaults to ecliptic coordinates, but the
 // scene is built on astronomy-engine's HelioVector, which returns J2000
@@ -40,6 +44,15 @@ const PROBES = [
         passes: [
             { start: '1977-08-21', stop: '1990-06-01', step: '2d' },   // the full Grand Tour
             { start: '1990-06-01', stop: '2035-01-01', step: '100d' },
+        ],
+    },
+    {
+        id: 'new-horizons', command: '-98',
+        passes: [
+            { start: '2006-01-20', stop: '2007-06-01', step: '2d' },   // launch, Jupiter
+            { start: '2007-06-01', stop: '2015-01-01', step: '30d' },  // the long coast
+            { start: '2015-01-01', stop: '2019-06-01', step: '5d' },   // Pluto, then Arrokoth
+            { start: '2019-06-01', stop: '2035-01-01', step: '100d' },
         ],
     },
 ];
@@ -148,7 +161,7 @@ for (const probe of PROBES) {
     console.log(`  → ${merged.length} samples thinned to ${thinned.length}`);
 }
 
-const dest = resolve(here, '../src/data/voyagerTracks.json');
+const dest = resolve(here, '../src/data/probeTracks.json');
 const json = JSON.stringify(out);
 writeFileSync(dest, json);
 console.log(`${(json.length / 1024).toFixed(1)} KB → ${dest}`);

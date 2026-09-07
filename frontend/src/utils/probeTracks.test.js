@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import * as Astronomy from 'astronomy-engine';
 import { PLANETS } from '../data/solarSystemBodies';
 import { computePlanetPos } from './orbits';
 import {
@@ -6,7 +7,7 @@ import {
     buildProbeTrack, trackDrawCount, hasTrack,
 } from './probeTracks';
 import { heliocentricDistanceAU } from '../hooks/useHorizons';
-import TRACKS from '../data/voyagerTracks.json';
+import TRACKS from '../data/probeTracks.json';
 
 const ring = (id) => PLANETS.find(p => p.id === id);
 const gap = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
@@ -19,6 +20,13 @@ const ENCOUNTERS = {
     voyager1: [['Jupiter', '1979-03-05'], ['Saturn', '1980-11-12']],
     voyager2: [['Jupiter', '1979-07-09'], ['Saturn', '1981-08-25'],
                ['Uranus',  '1986-01-24'], ['Neptune', '1989-08-25']],
+    // Jupiter was its only assist. Pluto is checked separately, below, and
+    // not here: this test compares scene positions, and the scene puts a
+    // planet on its own drawn ring while it maps a probe's true radius
+    // through the shared compression. For a near-circular orbit those agree;
+    // for Pluto, which was at 32.9 AU against a 39.5 AU semi-major axis in
+    // 2015, they are 21 units apart before the probe is even considered.
+    'new-horizons': [['Jupiter', '2007-02-28']],
 };
 
 describe('sceneRadiusForAU', () => {
@@ -46,10 +54,13 @@ describe('sceneRadiusForAU', () => {
 });
 
 describe('Voyager tracks', () => {
-    it('has a flown path for both craft', () => {
+    it('has a flown path for every probe drawn, and none for anything else', () => {
         expect(hasTrack('voyager1')).toBe(true);
         expect(hasTrack('voyager2')).toBe(true);
-        expect(hasTrack('new-horizons')).toBe(false);
+        expect(hasTrack('new-horizons')).toBe(true);
+        // The guard that matters: a probe with no ephemeris must not get a
+        // line drawn from nothing.
+        expect(hasTrack('parker')).toBe(false);
     });
 
     it('starts where Earth was on launch day, not where Earth is now', () => {
@@ -84,6 +95,23 @@ describe('Voyager tracks', () => {
                 expect(g, `${id} at ${planet}`).toBeLessThan(body.r);
             }
         }
+    });
+
+    it('reaches Pluto on the day it did', () => {
+        // In AU, against Pluto's real position, rather than in scene units —
+        // see the note on ENCOUNTERS. The flyby itself was 12,500 km; what is
+        // being checked here is that the baked path arrives at the right place
+        // on the right day, to within what a 26-point decimation can hold.
+        const t = TRACKS['new-horizons'];
+        const days = (Date.parse('2015-07-14') - t.launch) / 86400000;
+        let i = 0;
+        while (i < t.points.length - 2 && t.points[i + 1][0] < days) i++;
+        const [d0, x0, y0, z0] = t.points[i];
+        const [d1, x1, y1, z1] = t.points[i + 1];
+        const f = (days - d0) / (d1 - d0);
+        const p = [x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, z0 + (z1 - z0) * f];
+        const v = Astronomy.HelioVector('Pluto', at('2015-07-14'));
+        expect(Math.hypot(p[0] - v.x, p[1] - v.y, p[2] - v.z)).toBeLessThan(0.1);
     });
 
     it('keeps Voyager 1 away from Uranus and Neptune, which it never visited', () => {

@@ -33,6 +33,15 @@ export const SATELLITES = [
         color: '#ff8f6b',
     },
     {
+        id: 'chandra',
+        norad: 25867,              // CXO
+        name: 'Chandra X-ray Observatory',
+        shortName: 'Chandra',
+        catalogId: 'chandra',
+        group: 'science',
+        color: '#8fd8ff',
+    },
+    {
         id: 'hubble',
         norad: 20580,
         name: 'Hubble Space Telescope',

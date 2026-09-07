@@ -136,12 +136,20 @@ const AppShell = ({ children }) => {
             >
                 <Link
                     to="/"
-                    className="flex items-center gap-2 font-bold text-lg flex-shrink-0 focus-ring rounded-lg"
+                    aria-label="P4RSEC — home"
+                    className="flex items-center gap-2 flex-shrink-0 focus-ring rounded-lg"
                     style={{ color: 'rgba(255,255,255,0.92)', pointerEvents: 'auto', textShadow: '0 1px 8px rgba(0,0,0,0.9)' }}
                     onClick={() => window.scrollTo({ top: 0, behavior: 'instant' })}
                 >
                     <Telescope className="h-5 w-5" style={{ color: 'var(--accent)' }} aria-hidden="true" />
-                    <span>Parsec</span>
+                    {/* Set in caps with the tracking opened up. Lowercase
+                        "p4rsec" reads as a handle; in caps the 4 sits in the
+                        run of letters as a substituted A rather than as a typo,
+                        and it matches the uppercase labels the rest of the
+                        interface already uses. */}
+                    <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
+                        P4RSEC
+                    </span>
                 </Link>
 
                 <div ref={searchRef} className="flex items-center gap-2" style={{ pointerEvents: 'auto' }}>

@@ -1,4 +1,4 @@
-// Static seed catalog for all Parsec objects
+// Static seed catalog for all P4RSEC objects
 // orbital: { a (AU), period (days), phase (radians) } — used to compute distance-from-Earth series
 
 export const CATEGORY_TABS = [

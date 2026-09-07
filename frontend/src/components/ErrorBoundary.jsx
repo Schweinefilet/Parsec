@@ -16,7 +16,7 @@ class ErrorBoundary extends Component {
     }
 
     componentDidCatch(error, info) {
-        console.error('[Parsec] Unhandled error:', error, info?.componentStack);
+        console.error('[P4RSEC] Unhandled error:', error, info?.componentStack);
     }
 
     render() {
