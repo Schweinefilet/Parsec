@@ -4,6 +4,8 @@ import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause } from 'luc
 // STASHED StarfieldBg — uncomment this and the <StarfieldBg /> below to restore it.
 // import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
+import SystemTitle from '../components/SystemTitle';
+import { DEFAULT_SYSTEM } from '../data/systems';
 import SpaceDataStrip from '../components/SpaceDataStrip';
 import ObjectCard from '../components/ObjectCard';
 import ObjectDetailBody from '../components/ObjectDetailBody';
@@ -279,6 +281,21 @@ const CategoryBrowser = () => {
                         />
                     </div>
 
+                    {/* Which system you are looking at. A heading today and a
+                        dropdown the moment data/systems.js has a second entry.
+                        It goes when a card opens or the catalog is scrolled to:
+                        by then you are reading about one object, not deciding
+                        which system to be in. */}
+                    <SystemTitle
+                        currentId={DEFAULT_SYSTEM}
+                        compact={isMobile}
+                        hidden={!!id || pageScrolled}
+                        hint={isMobile
+                            ? 'Drag to orbit, pinch to zoom, tap to explore'
+                            : 'Drag to orbit, scroll to zoom, click any object to explore'}
+                        hintHidden={!!id || hasInteracted3D}
+                    />
+
                     {/* Imagery stands in for objects the scene cannot place */}
                     {object && !inScene && (
                         <div
@@ -303,33 +320,6 @@ const CategoryBrowser = () => {
                         on a focused mobile view, where the sheet takes that space. */}
                     <TimeControl hidden={(isMobile && !!id) || (!!id && !inScene)} />
 
-                    {/* Home hint text — sits above the time control's band rather
-                        than beside it: the control is bottom-left and this is
-                        centred, so on a narrower laptop window the two ran into
-                        each other. On a phone the scale toggle stacks above the
-                        catalog pill as well, so the hint clears both — and on
-                        a phone it rides higher still, because there the view
-                        controls stack above the pill rather than beside it. */}
-                    <p
-                        className="absolute inset-x-0 transition-opacity duration-700 pointer-events-none"
-                        style={{
-                            bottom: isMobile ? 128 : 104,
-                            zIndex: 4,
-                            padding: '0 16px',
-                            opacity: id || hasInteracted3D ? 0 : 1,
-                            color: 'rgba(255,255,255,0.58)',
-                            fontSize: isMobile ? 10 : 11,
-                            fontWeight: 600,
-                            letterSpacing: '0.07em',
-                            textShadow: '0 1px 6px rgba(0,0,0,0.9)',
-                            textAlign: 'center',
-                            margin: 0,
-                        }}
-                    >
-                        {isMobile
-                            ? 'Drag to orbit, pinch to zoom, tap to explore'
-                            : 'Drag to orbit, scroll to zoom, click any object to explore'}
-                    </p>
 
                     {/* Catalog entry point — kept on the same row as the time
                         control rather than stacked above it. */}
