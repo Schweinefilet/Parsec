@@ -307,11 +307,13 @@ const CategoryBrowser = () => {
                         than beside it: the control is bottom-left and this is
                         centred, so on a narrower laptop window the two ran into
                         each other. On a phone the scale toggle stacks above the
-                        catalog pill as well, so the hint clears both. */}
+                        catalog pill as well, so the hint clears both — and it
+                        rides 16px higher than it used to, to keep its distance
+                        from the view controls after those moved up. */}
                     <p
                         className="absolute inset-x-0 transition-opacity duration-700 pointer-events-none"
                         style={{
-                            bottom: isMobile ? 112 : 104,
+                            bottom: isMobile ? 128 : 120,
                             zIndex: 4,
                             padding: '0 16px',
                             opacity: id || hasInteracted3D ? 0 : 1,
@@ -344,8 +346,16 @@ const CategoryBrowser = () => {
                             are about how the scene behaves rather than what is
                             in it, and neither can share the bottom row: the
                             time control is anchored there and reaches across. */}
+                        {/* 23px, not 8: the expanded time control is anchored
+                            bottom-left and its right edge lands at a fixed
+                            535px, so on anything narrower than about 1440 it
+                            ran through this row. Clearing it vertically rather
+                            than widening the breakpoint fixes it at every size
+                            — including the one the breakpoint cannot reach,
+                            where the timeline starts collapsed and the person
+                            opens it anyway. The hint above moves up to match. */}
                         <div style={{
-                            position: 'absolute', bottom: '100%', marginBottom: 8,
+                            position: 'absolute', bottom: '100%', marginBottom: 23,
                             left: '50%', transform: 'translateX(-50%)',
                             display: 'flex', alignItems: 'center', gap: 8,
                         }}>
