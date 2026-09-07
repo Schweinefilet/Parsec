@@ -62,6 +62,7 @@ frontend/src/
     probeTracks.js        the Voyagers' flown trajectories, and the radial
                           compression every off-ring position goes through
     objectSize.js         the catalog's prose sizes as numbers, for comparing
+    skyPositions.js       altitude and azimuth from where the viewer is standing
     useNearViewport.js    gate expensive loads on approaching the viewport
     useSatelliteTracking.js  every tracked spacecraft, propagated from TLEs
 ```
@@ -205,6 +206,24 @@ from the `au`/`orbitR` pair on each planet, so a trajectory running from Earth's
 ring out past Neptune's is squeezed exactly as the rings are and passes through
 the planets it flew by. `probeTracks.test.js` pins that: change a ring radius
 without changing its `au` and it fails.
+
+### What's up tonight
+
+`/tonight` answers the question you ask outdoors rather than the one the rest of
+the site answers: not where a planet is in the solar system, but whether it is
+above *your* horizon, how high, and which way to face. Same ephemeris, different
+frame — `Astronomy.Horizon` turns a position and an observer into an altitude
+and an azimuth, and `skyPositions.js` is arranged around that one call.
+
+The chart is a panorama rather than the traditional round star map, because the
+question is not "what does the sky look like" but "which way do I turn and how
+far up", and laid out flat the answer is a pair of coordinates.
+
+The location is kept in `localStorage`, rounded to two decimals. A page whose
+point is "come back tomorrow night" cannot ask permission every time, and the
+sky does not change measurably across the kilometre that rounding costs — so
+the rest of a GPS fix is precision with no use and no business being stored.
+Nothing is sent anywhere; the positions are computed on the device.
 
 ### Compare
 

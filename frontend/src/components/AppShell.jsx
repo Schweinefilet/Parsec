@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams, useMatch } from 'react-router-dom';
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
-    Crosshair, Sparkles, Satellite, Aperture, Radio, Archive, Scale,
+    Crosshair, Sparkles, Satellite, Aperture, Radio, Archive, Scale, Eye as EyeIcon,
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
 import { useIsMobile } from '../hooks/useMediaQuery';
@@ -120,6 +120,24 @@ const AppShell = ({ children }) => {
                 </Link>
 
                 <div ref={searchRef} className="flex items-center gap-2" style={{ pointerEvents: 'auto' }}>
+                    {!searchOpen && (
+                        <Link
+                            to="/tonight"
+                            title="What's up tonight from where you are"
+                            aria-label="What's up tonight"
+                            className="flex items-center justify-center rounded-xl transition-all focus-ring"
+                            style={{
+                                width: 36, height: 36, flexShrink: 0,
+                                background: 'rgba(0,0,0,0.42)',
+                                border: '1px solid rgba(255,255,255,0.16)',
+                                color: 'rgba(255,255,255,0.85)',
+                                backdropFilter: 'blur(14px)',
+                                WebkitBackdropFilter: 'blur(14px)',
+                            }}
+                        >
+                            <EyeIcon className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                    )}
                     {!searchOpen && (
                         <Link
                             to="/compare"

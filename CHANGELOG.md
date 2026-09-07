@@ -16,6 +16,33 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.8.0
+
+- **What's up tonight.** `/tonight` asks where you are and answers the question
+  you actually ask outdoors: which planets are above your horizon right now,
+  how high, and which way to face. Each one gets a compass point, an altitude
+  in plain words and in degrees, its current magnitude, whether that is a
+  naked-eye, binocular or telescope proposition, and when it sets. Anything
+  below the horizon is listed with the time it comes up.
+
+  Above that is the sky drawn as a panorama — north at both ends, the horizon
+  along the bottom, straight up at the top. A round star chart is the
+  traditional shape and the wrong one here: the question is not what the sky
+  looks like, it is which way to turn and how far up, and laid out flat that is
+  an x and a y. Two planets close together is the interesting case rather than
+  the awkward one, so labels that would collide step clear and keep a leader
+  line back to their dot.
+
+  The site already knew where everything was; this is the same ephemeris asked
+  from the ground rather than from the Sun.
+
+- **Your location is remembered, and stays on your device.** A page whose point
+  is "come back tomorrow night" cannot ask permission every time. It is kept in
+  this browser, rounded to two decimals — the sky does not change measurably
+  across a kilometre, so the rest of a GPS fix is precision with no use and no
+  business being stored — and nothing is sent anywhere. There is a button to
+  forget it.
+
 ## 1.7.0
 
 - **Compare two bodies at true relative size.** `/compare` puts any two objects
