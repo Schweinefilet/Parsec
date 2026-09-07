@@ -1777,8 +1777,16 @@ const SolarSystem3D = ({
         const ro = new ResizeObserver(([entry]) => {
             const { width, height } = entry.contentRect;
             if (!width || !height) return;
+            // A change of a pixel or two is not worth a reallocation. Mobile
+            // Safari collapses and expands its URL bar as you scroll, and the
+            // viewport height animates the whole way, so this fires repeatedly
+            // for a change nobody can see — and setSize() reallocates the
+            // drawing buffer and its depth attachment every time, which on a
+            // phone GPU stalls the pipeline. Labels still track the exact size.
+            const resized = Math.abs(width - viewW) > 2 || Math.abs(height - viewH) > 2;
             viewW = width;
             viewH = height;
+            if (!resized) return;
             // Re-budget on resize too: rotating a tablet changes the surface
             // area enough to matter.
             renderer.setPixelRatio(pixelRatioFor(width, height));
