@@ -44,12 +44,17 @@ export function targetOrbitSpeed({ hoveredMoonId, focusedMoon, focusedPlanet, mo
  * Snaps rather than eases when the focused planet changed and the new target is
  * slower, so switching focus doesn't bleed the previous planet's high speed.
  */
-export function stepOrbitSpeed(current, target, { planetFocusChanged = false } = {}) {
+export function stepOrbitSpeed(current, target,
+    { planetFocusChanged = false, frameScale = 1 } = {}) {
     // Never let a non-finite value enter or leave this function
     if (!Number.isFinite(target)) target = DEFAULT_ORBIT_SPEED;
     if (!Number.isFinite(current)) return target;
     if (planetFocusChanged && target < current) return target;
-    return current + (target - current) * SMOOTHING;
+    // SMOOTHING is a fraction of the remaining distance per 60fps frame, so it
+    // has to be re-based on how long this frame actually was. Defaulting to 1
+    // keeps every existing caller, and every test, on the old behaviour.
+    const f = frameScale === 1 ? SMOOTHING : 1 - Math.pow(1 - SMOOTHING, frameScale);
+    return current + (target - current) * f;
 }
 
 /** Target speed for the ISS, which reacts immediately rather than easing from ~78k. */

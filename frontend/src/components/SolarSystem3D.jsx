@@ -141,7 +141,7 @@ const SolarSystem3D = ({
         let prevFocusedId          = null;
         let prevFocusedPlanetName  = null;
         let exitPhase      = 0; // 0=normal  1=pull-back  2=fly-to-sun
-        let exitFrames     = 0;
+        let exitSeconds    = 0;
         let targetAutoRotateSpeed = 0.11; // smoothly updated on hover
         // How much of the idle motion is running, 1 down to 0. One factor for
         // both axes: "held still" has to mean still, and the drift is a spin
@@ -168,7 +168,7 @@ const SolarSystem3D = ({
             camera.position.copy(_exitState.cameraPos);
             controls.target.copy(_exitState.targetPos);
             exitPhase      = 1;
-            exitFrames     = 0;
+            exitSeconds    = 0;
             prevFocusedId  = '__restored__'; // truthy — lets phase detection work correctly
             _exitState.active = false;
         }
@@ -2036,6 +2036,13 @@ const SolarSystem3D = ({
             // The same delta as a multiple of a 60fps frame, for the per-frame
             // steps below that were written against that assumption.
             const frameScale = deltaSec * 60;
+            // Every eased value in this loop was written as "move this fraction
+            // of the remaining distance each frame", which is only a fixed
+            // speed if frames are a fixed length. Over n frames that covers
+            // 1-(1-f)^n, so this is that identity solved for however much of a
+            // 60fps frame actually elapsed. On a 240Hz display the untouched
+            // version ran every animation four times too fast.
+            const ease = (perFrame) => 1 - Math.pow(1 - perFrame, frameScale);
             // Two frames after the last texture lands, not the moment it lands:
             // arriving and being on screen are different things here, since the
             // upload to the GPU is spread a couple per frame. Dismissing on
@@ -2128,7 +2135,7 @@ const SolarSystem3D = ({
             if (isScaleSettling()) {
                 const want = 580 + (3400 - 580) * scaleT;
                 const d = camera.position.length();
-                camera.position.setLength(d + (want - d) * 0.06);
+                camera.position.setLength(d + (want - d) * ease(0.06));
             }
 
             // ── Detect focus changes ───────────────────────────────────────────
@@ -2282,7 +2289,7 @@ const SolarSystem3D = ({
                 // Trigger cinematic zoom-out when going focused → home
                 if (prevFocusedId && !currentFocusedId) {
                     exitPhase  = 1;
-                    exitFrames = 0;
+                    exitSeconds = 0;
                 }
                 setMoonLabelsReady(false);
                 prevFocusedId  = currentFocusedId;
@@ -2301,7 +2308,7 @@ const SolarSystem3D = ({
                 hoveredMoonId, focusedMoon, focusedPlanet, moons: MOON_DATA,
             });
             const planetFocusChanged = currentFocusedPlanetName !== prevFocusedPlanetName;
-            liveOrbitSpeed = stepOrbitSpeed(liveOrbitSpeed, speedTarget, { planetFocusChanged });
+            liveOrbitSpeed = stepOrbitSpeed(liveOrbitSpeed, speedTarget, { planetFocusChanged, frameScale });
             prevFocusedPlanetName = currentFocusedPlanetName;
             const MOON_SPEED = liveOrbitSpeed;
 
@@ -2407,7 +2414,7 @@ const SolarSystem3D = ({
 
             if (issOrbitMat) {
                 const tgt = (earthFocused || issFocused) ? 0.35 : 0;
-                issOrbitMat.opacity += (tgt - issOrbitMat.opacity) * 0.08;
+                issOrbitMat.opacity += (tgt - issOrbitMat.opacity) * ease(0.08);
             }
             if (issRingMesh && issRingMat) {
                 const issMesh = moonMeshRefs.get('ISS');
@@ -2416,7 +2423,7 @@ const SolarSystem3D = ({
                     issRingMesh.quaternion.copy(camera.quaternion);
                 }
                 const tgt = issFocused ? 0 : issHovered ? 0.92 : earthFocused ? 0.42 : 0;
-                issRingMat.opacity += (tgt - issRingMat.opacity) * 0.1;
+                issRingMat.opacity += (tgt - issRingMat.opacity) * ease(0.1);
             }
 
             // ── Small body positions (updated every frame; orbits are slow) ───
@@ -2465,15 +2472,15 @@ const SolarSystem3D = ({
 
             // ── Self-rotation ──────────────────────────────────────────────────
             const targetRotSpeed = moonFocused ? 0.00008 : 0.002;
-            meshRotSpeed += (targetRotSpeed - meshRotSpeed) * 0.03;
-            sunMesh.rotation.y      += 0.0008;
-            if (skySphere) skySphere.rotation.y += 0.00002;
+            meshRotSpeed += (targetRotSpeed - meshRotSpeed) * ease(0.03);
+            sunMesh.rotation.y      += 0.0008 * frameScale;
+            if (skySphere) skySphere.rotation.y += 0.00002 * frameScale;
             planetMeshes.forEach(m => {
                 // Halley holds still while focused. Its nucleus is an irregular
                 // lump and the tails are fixed anti-sunward, so spinning it just
                 // makes the shape wobble under a static tail.
                 if (!(m.userData.id === 'halley' && currentFocusedId === 'halley')) {
-                    m.rotation.y += meshRotSpeed;
+                    m.rotation.y += meshRotSpeed * frameScale;
                 }
                 // Smoothly lerp axial tilt instead of snapping (avoids surface-texture jump)
                 const targetZ = tiltTargets.get(m.uuid);
@@ -2483,11 +2490,11 @@ const SolarSystem3D = ({
                         m.rotation.z = targetZ;
                         tiltTargets.delete(m.uuid);
                     } else {
-                        m.rotation.z += diff * 0.04;
+                        m.rotation.z += diff * ease(0.04);
                     }
                 }
             });
-            moonMeshRefs.forEach(m => { m.rotation.y += meshRotSpeed; });
+            moonMeshRefs.forEach(m => { m.rotation.y += meshRotSpeed * frameScale; });
 
             // ── Earth day/night shader: update sun direction each frame ──────────
             if (earthMesh && earthShaderMat) {
@@ -2543,7 +2550,7 @@ const SolarSystem3D = ({
                         controls.target.copy(targetPos);
                     }
                 } else {
-                    controls.target.lerp(targetPos, 0.08);
+                    controls.target.lerp(targetPos, ease(0.08));
                 }
                 controls.autoRotate = false;
 
@@ -2552,24 +2559,25 @@ const SolarSystem3D = ({
                 camera.near = 1;
                 camera.updateProjectionMatrix();
                 // Phase 1: constant-velocity pull-back from the planet (50 frames ≈ 0.8s)
-                exitFrames++;
+                exitSeconds += deltaSec;
                 if (!isInteracting) {
                     const currentDist = camera.position.distanceTo(controls.target);
                     const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
                     // Move camera 6 units further from planet every frame — always outward,
                     // never snaps back regardless of starting distance.
-                    camera.position.copy(controls.target).addScaledVector(dir, currentDist + 6);
+                    camera.position.copy(controls.target)
+                        .addScaledVector(dir, currentDist + 6 * frameScale);
                 }
-                if (exitFrames >= 50) exitPhase = 2;
+                if (exitSeconds >= 50 / 60) exitPhase = 2;
                 controls.autoRotate = false;
 
             } else if (exitPhase === 2) {
                 // Phase 2: smoothly fly camera back toward the sun
                 const defaultTarget = new THREE.Vector3(0, 0, 0);
-                controls.target.lerp(defaultTarget, 0.04);
+                controls.target.lerp(defaultTarget, ease(0.04));
                 if (!isInteracting) {
                     const currentDistance = camera.position.distanceTo(controls.target);
-                    const nextDistance = THREE.MathUtils.lerp(currentDistance, 556, 0.04);
+                    const nextDistance = THREE.MathUtils.lerp(currentDistance, 556, ease(0.04));
                     const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
                     camera.position.copy(controls.target).addScaledVector(dir, nextDistance);
                 }
@@ -2582,7 +2590,7 @@ const SolarSystem3D = ({
             } else {
                 // Normal home state — let the user zoom freely; only nudge the slow vertical drift
                 const defaultTarget = new THREE.Vector3(0, 0, 0);
-                controls.target.lerp(defaultTarget, 0.08);
+                controls.target.lerp(defaultTarget, ease(0.08));
                 if (!isInteracting && driftEase > 0) {
                     // Sine wave on the vertical axis → diagonal orbit (bottom-left to top-right feel)
                     controls.rotateUp(
@@ -2594,12 +2602,12 @@ const SolarSystem3D = ({
             // Eased rather than cut, so stopping looks like the scene coming
             // to rest. Snapped to zero at the tail, because a lerp only ever
             // approaches it and "almost still" is not what the button says.
-            driftEase = THREE.MathUtils.lerp(driftEase, autoRotateRef.current ? 1 : 0, 0.05 * frameScale);
+            driftEase = THREE.MathUtils.lerp(driftEase, autoRotateRef.current ? 1 : 0, ease(0.05));
             if (!autoRotateRef.current && driftEase < 0.002) driftEase = 0;
 
             // Smoothly lerp autoRotateSpeed toward target (hover deceleration / re-acceleration).
             controls.autoRotateSpeed = THREE.MathUtils.lerp(
-                controls.autoRotateSpeed, targetAutoRotateSpeed * driftEase, 0.05 * frameScale);
+                controls.autoRotateSpeed, targetAutoRotateSpeed * driftEase, ease(0.05));
 
             // With no argument OrbitControls assumes 1/60s has passed, so the
             // drift ran at whatever rate the display did — half speed on the
@@ -2610,7 +2618,10 @@ const SolarSystem3D = ({
 
             // Override camera position + lookAt AFTER controls.update()
             if (focusAnimating && targetMesh && !isInteracting) {
-                focusProgress = Math.min(1, focusProgress + 0.014); // ~72 frames ≈ 1.2s
+                // 1.2 seconds, in seconds — it used to be 72 frames, which is
+                // 1.2s at 60Hz, 0.6s at 120 and 0.3s on a 240Hz display, where
+                // flying to a planet stopped reading as travel at all.
+                focusProgress = Math.min(1, focusProgress + deltaSec / 1.2);
                 // Cubic ease-in-out: slow start → accelerates → gentle brake
                 const t = focusProgress < 0.5
                     ? 4 * focusProgress * focusProgress * focusProgress
@@ -2658,7 +2669,12 @@ const SolarSystem3D = ({
                         const angles = mesh.userData[anglesKey];
                         for (let i = 0; i < positions.length; i++) {
                             const a = angles[i];
-                            a.ax += a.sx * 3; a.ay += a.sy * 3; a.az += a.sz * 3;
+                            // times three because this runs every third frame,
+                            // times the frame length because a frame is not one.
+                            const spinStep = 3 * frameScale;
+                            a.ax += a.sx * spinStep;
+                            a.ay += a.sy * spinStep;
+                            a.az += a.sz * spinStep;
                             // Through the layout the rocks are standing at —
                             // rebuilding from the unscaled position would snap
                             // the belt back inside Jupiter every third frame.
