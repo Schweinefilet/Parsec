@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Pause, Rewind, FastForward, RotateCcw, Clock } from 'lucide-react';
+import { Play, Pause, Rewind, FastForward, RotateCcw, Clock, ChevronsLeft } from 'lucide-react';
 import {
     RATES, RANGE_DAYS, simDate, getRate, isPaused, isLive,
     setRate, togglePaused, resetToNow, setOffsetDays, offsetDays, subscribe,
 } from '../utils/simTime';
-import { useIsMobile } from '../hooks/useMediaQuery';
+import { useIsMobile, useHasRoomForTimeline } from '../hooks/useMediaQuery';
 
 const fmtDate = (d) => d.toLocaleDateString(undefined, {
     day: 'numeric', month: 'short', year: 'numeric',
@@ -37,8 +37,13 @@ const btn = (active) => ({
  */
 const TimeControl = ({ hidden }) => {
     const isMobile = useIsMobile();
+    const roomy = useHasRoomForTimeline();
     const [, force] = useState(0);
-    const [open, setOpen] = useState(false);
+    // Open where there is room for it. Expanded, this is around 500px of
+    // control anchored bottom-left, and on anything narrower than a roomy
+    // desktop it reaches the middle of the screen and sits on top of what is
+    // centred there. Below that width it opens on request instead.
+    const [open, setOpen] = useState(() => roomy);
     const dragRef = useRef(false);
 
     // Repaint the readout a few times a second; the scene doesn't wait on this
@@ -75,7 +80,9 @@ const TimeControl = ({ hidden }) => {
             ? 'real time'
             : (rate < 0 ? '−' : '') + (RATES.find(r => r.value === Math.abs(rate))?.short ?? '');
 
-    const compact = isMobile && !open;
+    // Collapsible everywhere. It is a wide control sitting across the bottom of
+    // the scene, and sometimes you want to look at the scene.
+    const compact = !open;
 
     return (
         <div
@@ -176,15 +183,14 @@ const TimeControl = ({ hidden }) => {
                             <RotateCcw style={{ width: 14, height: 14 }} />
                         </button>
 
-                        {isMobile && (
-                            <button
-                                onClick={() => setOpen(false)}
-                                style={{ ...btn(false), width: 24 }}
-                                aria-label="Close time controls"
-                            >
-                                <span style={{ fontSize: 15, lineHeight: 1 }}>×</span>
-                            </button>
-                        )}
+                        <button
+                            onClick={() => setOpen(false)}
+                            style={{ ...btn(false), width: 26 }}
+                            aria-label="Collapse time controls"
+                            title="Collapse"
+                        >
+                            <ChevronsLeft style={{ width: 15, height: 15 }} />
+                        </button>
                     </>
                 )}
             </div>

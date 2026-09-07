@@ -22,4 +22,7 @@ export function useMediaQuery(query) {
 }
 
 export const useIsMobile = () => useMediaQuery('(max-width: 767px)');
+// Wide enough for the expanded time control to sit at bottom-left without
+// reaching the centred controls. Below this it opens on request instead.
+export const useHasRoomForTimeline = () => useMediaQuery('(min-width: 1280px)');
 export const useReducedMotion = () => useMediaQuery('(prefers-reduced-motion: reduce)');

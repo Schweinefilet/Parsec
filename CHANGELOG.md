@@ -16,6 +16,24 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 2.0.1
+
+- **The scale toggle is no longer buried under the time control.** It sat on
+  the same row, to the left of the catalog pill, which is where the expanded
+  time control reaches at ordinary window widths — around 500px of control
+  anchored bottom-left, against a pill centred at half the viewport. It stacks
+  above the pill now, on every screen, where nothing else is competing for the
+  space.
+
+  The same measurement showed the time control had been overlapping the catalog
+  pill too, on anything under about 1,280px, since well before this. It now
+  opens expanded only where there is room for it and starts folded otherwise.
+
+- **The time control collapses on any screen**, not just a phone. Collapsed it
+  is a small pill showing the date, or "Live"; expanded it is the scrubber. It
+  is a wide thing lying across the bottom of the scene, and sometimes you want
+  to look at the scene.
+
 ## 2.0.0
 
 - **True distances.** A toggle beside the way in to the catalog spreads the

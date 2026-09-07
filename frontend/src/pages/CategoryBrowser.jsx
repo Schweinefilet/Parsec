@@ -293,7 +293,7 @@ const CategoryBrowser = () => {
                     <p
                         className="absolute inset-x-0 transition-opacity duration-700 pointer-events-none"
                         style={{
-                            bottom: isMobile ? 112 : 82,
+                            bottom: isMobile ? 112 : 104,
                             zIndex: 4,
                             padding: '0 16px',
                             opacity: id || hasInteracted3D ? 0 : 1,
@@ -349,12 +349,15 @@ const CategoryBrowser = () => {
                                 cursor: 'pointer',
                                 whiteSpace: 'nowrap',
                                 position: 'absolute',
-                                // Left of the pill on a desktop. On a phone
-                                // there is no room there — that is where the
-                                // time control sits — so it goes above it.
-                                ...(isMobile
-                                    ? { bottom: '100%', marginBottom: 8, left: '50%', transform: 'translateX(-50%)' }
-                                    : { right: '100%', marginRight: 10 }),
+                                // Above the pill, not beside it. The time
+                                // control is a wide thing anchored bottom-left
+                                // and it reaches far enough across at ordinary
+                                // window widths to bury anything sharing that
+                                // row — which is exactly what it did.
+                                bottom: '100%',
+                                marginBottom: 8,
+                                left: '50%',
+                                transform: 'translateX(-50%)',
                             }}
                         >
                             <Ruler style={{ width: 13, height: 13 }} />
