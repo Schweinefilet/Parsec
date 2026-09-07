@@ -21,6 +21,9 @@ import {
 } from '../utils/scaleMode';
 import { quality, texturePath, pixelRatioFor, skyAllowed } from '../utils/quality';
 import {
+    assetStarted, assetFinished, assetsSceneReady, __resetAssets,
+} from '../utils/assetLoading';
+import {
     targetOrbitSpeed, stepOrbitSpeed, targetIssSpeed,
     advanceMoonAngle, moonOffset, DEFAULT_ORBIT_SPEED,
 } from '../utils/orbitalMotion';
@@ -321,7 +324,25 @@ const SolarSystem3D = ({
         };
 
         // ── Shared loader + texture list (declared early for sun texture) ──────
-        const loader   = new THREE.TextureLoader();
+        // One manager behind every texture, so the loading screen is reporting
+        // what the scene is actually fetching rather than a list kept in step
+        // by hand. The STL asteroid models are deliberately not on it: they are
+        // fetched when the browser is idle, long after the scene is usable, and
+        // holding the screen up for them would be reporting a wait that is not
+        // happening.
+        __resetAssets();
+        const loadingManager = new THREE.LoadingManager();
+        // itemStart, not onStart. onStart fires once for the first item of a
+        // batch and never again, so hooking it reported "0 of 1" for a scene
+        // fetching fourteen textures. itemStart is the per-item call the
+        // manager makes on every request.
+        const managerItemStart = loadingManager.itemStart.bind(loadingManager);
+        loadingManager.itemStart = (url) => { assetStarted(url); managerItemStart(url); };
+        loadingManager.onProgress = (url) => assetFinished(url);
+        loadingManager.onError = (url) => assetFinished(url, true);
+        let texturesDrained = false;
+        loadingManager.onLoad = () => { texturesDrained = true; };
+        const loader   = new THREE.TextureLoader(loadingManager);
         const textures = [];
 
         // A texture only reaches the GPU the first time something using it is
@@ -1902,6 +1923,7 @@ const SolarSystem3D = ({
         // ── Animation loop ─────────────────────────────────────────────────────
         let animId;
         let frameCount = 0;
+        let sceneReadySent = false;
         const _shareSpherical = new THREE.Spherical();
         // Reference for lifting the probe-focus camera off the Sun line.
         const PROBE_LIFT_AXIS = new THREE.Vector3(0, 1, 0);
@@ -1988,6 +2010,14 @@ const SolarSystem3D = ({
         const animate = () => {
             animId = requestAnimationFrame(animate);
             frameCount++;
+            // Two frames after the last texture lands, not the moment it lands:
+            // arriving and being on screen are different things here, since the
+            // upload to the GPU is spread a couple per frame. Dismissing on
+            // arrival shows the black canvas the screen was covering.
+            if (!sceneReadySent && texturesDrained && frameCount > 2) {
+                sceneReadySent = true;
+                assetsSceneReady();
+            }
             const simMs   = simNow();
             const simTime = new Date(simMs);
             // "Scrubbing" is any state where the simulated clock has parted from

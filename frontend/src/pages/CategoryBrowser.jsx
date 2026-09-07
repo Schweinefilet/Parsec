@@ -5,6 +5,7 @@ import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause } from 'luc
 // import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
 import SystemTitle from '../components/SystemTitle';
+import LoadingScreen from '../components/LoadingScreen';
 import { DEFAULT_SYSTEM } from '../data/systems';
 import SpaceDataStrip from '../components/SpaceDataStrip';
 import ObjectCard from '../components/ObjectCard';
@@ -232,6 +233,11 @@ const CategoryBrowser = () => {
 
     return (
         <>
+            {/* Over everything, and only on the page that owns the scene: the
+                tracker and the sky pages load no textures, so a screen waiting
+                on them there would be waiting on nothing. */}
+            <LoadingScreen />
+
             {/* STASHED StarfieldBg — restore with its import at the top of this file.
                 <StarfieldBg canvasId="starfield-browser" /> */}
 
