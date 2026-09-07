@@ -2199,7 +2199,7 @@ const SolarSystem3D = ({
                         const baseDist = newMesh.userData.id === 'sun' ? 62
                                      : newMesh.userData.id === 'iss' ? 0.3
                                      // Back off further for Halley so coma + tails frame the shot
-                                     : newMesh.userData.id === 'halley' ? 7
+                                     : newMesh.userData.id === 'halley' ? 14
                                      : focusDef?.focusDist
                                      ?? (isTinyBody ? Math.max(radius * 5.5, 0.5)
                                                     : radius * 4.5 + 3);
