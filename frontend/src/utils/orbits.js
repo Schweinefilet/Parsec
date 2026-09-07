@@ -50,9 +50,13 @@ export function buildOrbitPoints(name, orbitR) {
     return pts;
 }
 
-export function buildOrbitTube(points, tubeRadius = ORBIT_TUBE_RADIUS, segments = 256) {
+// Six sides rather than eight. A ring is drawn a couple of pixels wide, so
+// the cross-section is never resolved — what six costs instead is a width
+// that wanders by about 13% as the tube twists, against 8%, and what it buys
+// is a quarter off the build, which is paid on a frame the camera is moving.
+export function buildOrbitTube(points, tubeRadius = ORBIT_TUBE_RADIUS, segments = 256, radial = 6) {
     const curve = new THREE.CatmullRomCurve3(points, true);
-    return new THREE.TubeGeometry(curve, segments, tubeRadius, 8, true);
+    return new THREE.TubeGeometry(curve, segments, tubeRadius, radial, true);
 }
 
 // ── Keplerian orbit helpers ────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate, useMatch } from 'react-router-dom';
-import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause } from 'lucide-react';
 // STASHED StarfieldBg — uncomment this and the <StarfieldBg /> below to restore it.
 // import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
@@ -126,6 +126,8 @@ const CategoryBrowser = () => {
     const [hasInteracted3D, setHasInteracted3D] = useState(false);
     // The scene owns the layout and reads it every frame; this is only so the
     // button can show which way it is set.
+    // The scene drifts slowly by default; this holds it still.
+    const [autoRotate, setAutoRotate] = useState(true);
     const [trueScale, setTrueScaleUI] = useState(isTrueScale);
     useEffect(() => subscribeScale(() => setTrueScaleUI(isTrueScale())), []);
 
@@ -273,6 +275,7 @@ const CategoryBrowser = () => {
                             focusOffsetY={focusOffsetY}
                             height={sceneHeight}
                             initialCamera={sharedView.camera}
+                            autoRotate={autoRotate}
                         />
                     </div>
 
@@ -337,6 +340,42 @@ const CategoryBrowser = () => {
                             scale toggle hangs off its left rather than joining
                             the row and shunting it sideways. */}
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        {/* View controls, in a row above the centred pill. Both
+                            are about how the scene behaves rather than what is
+                            in it, and neither can share the bottom row: the
+                            time control is anchored there and reaches across. */}
+                        <div style={{
+                            position: 'absolute', bottom: '100%', marginBottom: 8,
+                            left: '50%', transform: 'translateX(-50%)',
+                            display: 'flex', alignItems: 'center', gap: 8,
+                        }}>
+                        <button
+                            onClick={() => setAutoRotate(v => !v)}
+                            aria-pressed={!autoRotate}
+                            aria-label={autoRotate ? 'Stop the camera drifting' : 'Let the camera drift again'}
+                            title={autoRotate
+                                ? 'The view drifts slowly — press to hold it still'
+                                : 'The view is held still — press to let it drift'}
+                            inert={(!!id || pageScrolled) || undefined}
+                            className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
+                            style={{
+                                pointerEvents: id || pageScrolled ? 'none' : 'auto',
+                                opacity: id || pageScrolled ? 0 : 1,
+                                background: autoRotate ? 'rgba(0,0,0,0.42)' : 'rgba(255,209,102,0.16)',
+                                border: `1px solid ${autoRotate ? 'rgba(255,255,255,0.16)' : 'rgba(255,209,102,0.34)'}`,
+                                backdropFilter: 'blur(14px)',
+                                WebkitBackdropFilter: 'blur(14px)',
+                                color: autoRotate ? 'rgba(255,255,255,0.78)' : '#ffd166',
+                                padding: '7px 15px', fontSize: 10, fontWeight: 700,
+                                letterSpacing: '0.1em', textTransform: 'uppercase',
+                                cursor: 'pointer', whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {autoRotate
+                                ? <Orbit style={{ width: 13, height: 13 }} />
+                                : <Pause style={{ width: 13, height: 13 }} />}
+                            {autoRotate ? 'Drifting' : 'Held still'}
+                        </button>
                         <button
                             onClick={toggleTrueScale}
                             aria-pressed={trueScale}
@@ -363,16 +402,6 @@ const CategoryBrowser = () => {
                                 textTransform: 'uppercase',
                                 cursor: 'pointer',
                                 whiteSpace: 'nowrap',
-                                position: 'absolute',
-                                // Above the pill, not beside it. The time
-                                // control is a wide thing anchored bottom-left
-                                // and it reaches far enough across at ordinary
-                                // window widths to bury anything sharing that
-                                // row — which is exactly what it did.
-                                bottom: '100%',
-                                marginBottom: 8,
-                                left: '50%',
-                                transform: 'translateX(-50%)',
                             }}
                         >
                             <Ruler style={{ width: 13, height: 13 }} />
@@ -382,6 +411,7 @@ const CategoryBrowser = () => {
                                 was also ambiguous about which state it meant. */}
                             {trueScale ? 'True distances' : 'Compressed distances'}
                         </button>
+                        </div>
                         <button
                             onClick={scrollToCatalog}
                             aria-label="Scroll down to the object catalog"

@@ -3,16 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
-import { Line2 } from 'three/examples/jsm/lines/Line2.js';
-import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
-import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import {
     PLANETS, PLANET_PBR, AXIAL_TILT_DEG, PLANET_TEXTURES, MOON_TEXTURES,
     MOON_DATA, SMALL_BODIES, PROBES,
 } from '../data/solarSystemBodies';
 import {
     DEG2RAD, ORBIT_EPOCH_MS, ORBIT_BASE_OPACITY, ORBIT_HOVER_OPACITY, ORBIT_HOVER_TINT,
-    PLANET_EMISSIVE_INTENSITY, computePlanetPos, buildOrbitPoints,
+    PLANET_EMISSIVE_INTENSITY, computePlanetPos, buildOrbitPoints, buildOrbitTube,
     keplerianScenePos, buildKeplerOrbitPoints, eclipticQuaternion,
 } from '../utils/orbits';
 import { probeScenePos, buildProbeTrack, trackDrawCount } from '../utils/probeTracks';
@@ -32,6 +29,7 @@ let _exitState = { active: false, cameraPos: null, targetPos: null };
 
 const SolarSystem3D = ({
     focusedId, focusOffsetY = 0, height = 'var(--app-vh, 100vh)', initialCamera = null,
+    autoRotate = true,
 }) => {
     const mountRef  = useRef(null);
     const navigate  = useNavigate();
@@ -55,6 +53,11 @@ const SolarSystem3D = ({
 
     // Fraction of the viewport height to lift the focused body by, so a panel
     // covering the lower screen (mobile sheet) never sits on top of it.
+    // The scene drifts by itself unless told not to. Held in a ref because the
+    // render loop reads it every frame and the scene effect must not re-run.
+    const autoRotateRef = useRef(autoRotate);
+    useLayoutEffect(() => { autoRotateRef.current = autoRotate; }, [autoRotate]);
+
     const focusOffsetRef = useRef(focusOffsetY);
     useLayoutEffect(() => {
         focusOffsetRef.current = focusOffsetY;
@@ -185,35 +188,93 @@ const SolarSystem3D = ({
         // pixel wide and disappears. The Voyager tracks stayed visible through
         // all of it precisely because they were plain lines.
         //
-        // Line2 takes its width in pixels, so a ring is the same weight at any
-        // zoom and in either layout. It also makes scaling a ring exact again —
-        // there is no tube to fatten with the path — and it costs a good deal
-        // less: 512 triangles against a tube's 4,096, on sixteen rings.
-        // Pixel widths. A shade heavier than the tubes read at the compressed
-        // camera distance, because the point is to stay findable when the
-        // camera is a long way out.
-        const ORBIT_LINE_PX = 1.7;
+        // Line2 fixes that — its width is in pixels, so a ring holds its
+        // weight at any camera distance — but it draws each segment as a
+        // screen-space quad, and a thin translucent one is either hard-edged
+        // or, with alphaToCoverage on, dithered into beads at 27% opacity.
+        // Neither reads as cleanly as a tube, which is ordinary geometry the
+        // renderer anti-aliases for free.
+        //
+        // So the tubes stay, and the width problem is solved by rebuilding
+        // them: a ring's tube radius is set from how far the camera is, so
+        // its width on screen stays put whatever the zoom or the layout. The
+        // distance is quantised to octaves, which puts about nine rebuilds
+        // across the whole range from a planet's surface to the Kuiper belt
+        // rather than one per frame of a scroll — the apparent width wanders
+        // between 0.71x and 1.41x of target in exchange, which is invisible.
+        //
+        // Scaling was the tempting shortcut and it does not work: scaling a
+        // tube fattens the tube along with the path. That was the 2.0.0 bug,
+        // where each ring scaled by its own radial factor and left Mercury's
+        // at 0.217 units against Pluto's 2.59.
+        //
+        // The planets lead the hierarchy: their rings are the spine of the
+        // picture, and the dwarf planets, asteroids and comets crossing them
+        // are context. Everything used to be drawn at nearly the same weight,
+        // which made the inner system a thicket.
+        const TUBE_REF_DIST = 600;       // roughly the distance the scene opens at
+        const PLANET_TUBE = 0.42;        // tube radius at TUBE_REF_DIST
+        const MINOR_TUBE = 0.18;
+        const MINOR_OPACITY = 0.45;      // of the planets' opacity
+
+        /** Tube radius multiplier for a camera distance, quantised to octaves. */
+        const tubeWeight = (dist) =>
+            2 ** Math.round(Math.log2(Math.max(dist, 1) / TUBE_REF_DIST));
+
         const orbitLines = [];
-        // LineMaterial needs the drawing buffer size to turn a pixel width into
-        // clip space; a stale one makes every ring the wrong thickness.
-        const _lineRes = new THREE.Vector2(1, 1);
-        const makeOrbitPath = (points, { width, color, opacity, closed = true }) => {
-            const flat = [];
-            for (const p of points) flat.push(p.x, p.y, p.z);
-            // Line2 does not close a loop itself; repeat the first point
-            if (closed && points.length) flat.push(points[0].x, points[0].y, points[0].z);
-            const geometry = new LineGeometry();
-            geometry.setPositions(flat);
-            const material = new LineMaterial({
-                color, linewidth: width, transparent: true, opacity,
-                depthWrite: false, resolution: _lineRes,
+        // How to rebuild each ring, kept beside the mesh rather than in its
+        // userData: every caller assigns userData wholesale for the hover
+        // state, and a spec stored there is silently wiped by the next line.
+        // That is not a hypothetical — it is how the rings stopped rebuilding
+        // the first time, and nothing about it is visible at the assignment.
+        const ringSpecs = new WeakMap();
+        const makeOrbitPath = (points, { tube, segments, color, opacity }) => {
+            const geometry = buildOrbitTube(points, tube, segments);
+            const material = new THREE.MeshBasicMaterial({
+                color, transparent: true, opacity, depthWrite: false,
             });
-            const line = new Line2(geometry, material);
-            // Its bounds are computed from instance attributes, and a ring that
-            // spans the outer solar system is never worth culling anyway.
-            line.frustumCulled = false;
-            orbitLines.push(line);
-            return line;
+            const mesh = new THREE.Mesh(geometry, material);
+            ringSpecs.set(mesh, { points, tube, segments, scaledAt: 1, scaled: points });
+            orbitLines.push(mesh);
+            return mesh;
+        };
+
+        // Rebuilding sixteen tubes at once costs about 15 ms — one dropped
+        // frame here, and several times that on a phone, four times over the
+        // course of a long zoom. So they are queued and drained a few per
+        // frame instead: the same work, spread thin enough to disappear. A
+        // ring keeps its old width for the few frames before its turn comes,
+        // which at these widths is not a thing you can see.
+        const RINGS_PER_FRAME = 2;
+        let ringQueue = [];
+        const _tubeScratch = new THREE.Vector3();
+
+        /** Queue every ring for a rebuild at a layout and a camera weight. */
+        const queueRings = (t, weight) => {
+            ringQueue = [];
+            const add = (ring, factor) => { if (ring) ringQueue.push([ring, factor, weight]); };
+            planetGroups.forEach(({ planet, orbitLine }) => add(orbitLine, planetFactor(planet, t)));
+            smallBodyGroups.forEach(({ body, orbitLine }) =>
+                add(orbitLine, 1 + (AU_UNITS / body.scale - 1) * t));
+        };
+
+        const drainRingQueue = () => {
+            for (let i = 0; i < RINGS_PER_FRAME && ringQueue.length; i++) {
+                const [ring, factor, weight] = ringQueue.shift();
+                const spec = ringSpecs.get(ring);
+                if (!spec) continue;
+                // Only the camera moves most of the time, so the radial remap
+                // is cached and an octave change costs the tube alone.
+                if (spec.scaledAt !== factor) {
+                    spec.scaled = spec.points.map(
+                        pt => _tubeScratch.copy(pt).multiplyScalar(factor).clone());
+                    spec.scaledAt = factor;
+                }
+                const next = buildOrbitTube(spec.scaled, spec.tube * weight, spec.segments);
+                ring.geometry.dispose();
+                ring.geometry = next;
+                ring.visible = true;
+            }
         };
 
         // ── How an orbit path reads at rest and under the pointer ─────────────
@@ -387,7 +448,8 @@ const SolarSystem3D = ({
             // Orbit path sampled from HelioVector — same source as planet positions
             const orbitPoints = buildOrbitPoints(planet.name, planet.orbitR);
             const orbitLine = makeOrbitPath(orbitPoints, {
-                width: ORBIT_LINE_PX, color: 0xffffff, opacity: ORBIT_BASE_OPACITY,
+                tube: PLANET_TUBE, segments: 256,
+                color: 0xffffff, opacity: ORBIT_BASE_OPACITY,
             });
             orbitLine.userData = {
                 baseOpacity: ORBIT_BASE_OPACITY, hoverOpacity: ORBIT_HOVER_OPACITY,
@@ -1089,11 +1151,12 @@ const SolarSystem3D = ({
                 .map(pt => pt.applyQuaternion(beltQuat));
 
             const orbitLine = makeOrbitPath(orbitPts, {
-                width: ORBIT_LINE_PX * 0.85, color: 0xffffff,
-                opacity: ORBIT_BASE_OPACITY * 0.8,
+                tube: MINOR_TUBE, segments: body.isComet ? 384 : 256,
+                color: 0xffffff, opacity: ORBIT_BASE_OPACITY * MINOR_OPACITY,
             });
             orbitLine.userData = {
-                baseOpacity: ORBIT_BASE_OPACITY * 0.8, hoverOpacity: ORBIT_HOVER_OPACITY,
+                baseOpacity: ORBIT_BASE_OPACITY * MINOR_OPACITY,
+                hoverOpacity: ORBIT_HOVER_OPACITY,
                 baseColor: ORBIT_WHITE, hoverColor: orbitTint(body.color),
             };
             const orbitGeo = orbitLine.geometry;
@@ -1340,11 +1403,12 @@ const SolarSystem3D = ({
             // one path in the scene that did not answer to the pointer.
             const trackMat = new THREE.LineBasicMaterial({
                 color: 0xffffff, transparent: true,
-                opacity: ORBIT_BASE_OPACITY, depthWrite: false,
+                opacity: ORBIT_BASE_OPACITY * MINOR_OPACITY, depthWrite: false,
             });
             const track = new THREE.Line(trackGeo, trackMat);
             track.userData = {
-                baseOpacity: ORBIT_BASE_OPACITY, hoverOpacity: ORBIT_HOVER_OPACITY,
+                baseOpacity: ORBIT_BASE_OPACITY * MINOR_OPACITY,
+                hoverOpacity: ORBIT_HOVER_OPACITY,
                 baseColor: ORBIT_WHITE,
                 // All the way to the craft's colour, not the half-tint a planet
                 // ring takes — out here there is no body beside it to compete.
@@ -1659,13 +1723,11 @@ const SolarSystem3D = ({
         // layout, and one the loop used to do on every single frame.
         let viewW = w;
         let viewH = h;
-        renderer.getDrawingBufferSize(_lineRes);
         const ro = new ResizeObserver(([entry]) => {
             const { width, height } = entry.contentRect;
             if (!width || !height) return;
             viewW = width;
             viewH = height;
-            renderer.getDrawingBufferSize(_lineRes);
             // Re-budget on resize too: rotating a tablet changes the surface
             // area enough to matter.
             renderer.setPixelRatio(pixelRatioFor(width, height));
@@ -1818,6 +1880,10 @@ const SolarSystem3D = ({
         const _shareSpherical = new THREE.Spherical();
         // -1 so the first frame always applies the layout, whichever it is
         let lastScaleT = -1;
+        // What the rings were last built for.
+        let ringsScaleT = 0;
+        let ringsWeight = 1;
+        let ringsHidden = false;
         // The belts as first laid out, so every remap starts from the original
         // radii rather than compounding rounding through the previous one.
         const abBase = abParticles?.geometry.attributes.position.array.slice() ?? null;
@@ -1932,15 +1998,6 @@ const SolarSystem3D = ({
                 // rewritten rather than scaled — 45 points, once per change.
                 probeGroups.forEach(({ track, probe }) => rebuildProbeTrack(track, probe, scaleT));
 
-                // Scaling a ring is exact now that its width is in pixels —
-                // there is no tube around the path to fatten with it — so the
-                // hide-and-rebuild the tubes needed is gone entirely.
-                planetGroups.forEach(({ planet, orbitLine }) => {
-                    if (orbitLine) orbitLine.scale.setScalar(planetFactor(planet, scaleT));
-                });
-                smallBodyGroups.forEach(({ body, orbitLine }) => {
-                    if (orbitLine) orbitLine.scale.setScalar(1 + (AU_UNITS / body.scale - 1) * scaleT);
-                });
 
             }
 
@@ -1959,6 +2016,28 @@ const SolarSystem3D = ({
                 camera.updateProjectionMatrix();
             }
 
+
+            // Rings. Hidden while the layout is in motion — a tube has to be
+            // rebuilt to change width, and rebuilding sixteen of them on every
+            // frame of the transition is not worth it — then rebuilt for
+            // wherever the camera has ended up. Kept out of the layout-change
+            // check above because the camera moves on its own too, and because
+            // easing can land two equal values in a row before it stops.
+            if (isScaleSettling()) {
+                if (!ringsHidden) {
+                    orbitLines.forEach(r => { r.visible = false; });
+                    ringsHidden = true;
+                }
+            } else {
+                const wantWeight = tubeWeight(camera.position.length());
+                if (ringsHidden || ringsScaleT !== scaleT || ringsWeight !== wantWeight) {
+                    queueRings(scaleT, wantWeight);
+                    ringsScaleT = scaleT;
+                    ringsWeight = wantWeight;
+                    ringsHidden = false;
+                }
+                drainRingQueue();
+            }
 
             // While the layout is moving, ease the camera to a distance that
             // frames it. Watching Neptune leave is the whole point, and you
@@ -2388,8 +2467,11 @@ const SolarSystem3D = ({
                 controls.autoRotate = true;
             }
 
-            // Smoothly lerp autoRotateSpeed toward target (hover deceleration / re-acceleration)
-            controls.autoRotateSpeed = THREE.MathUtils.lerp(controls.autoRotateSpeed, targetAutoRotateSpeed, 0.05);
+            // Smoothly lerp autoRotateSpeed toward target (hover deceleration / re-acceleration).
+            // Held at zero when the drift is switched off — eased rather than
+            // cut, so stopping it looks like the scene coming to rest.
+            const wantSpin = autoRotateRef.current ? targetAutoRotateSpeed : 0;
+            controls.autoRotateSpeed = THREE.MathUtils.lerp(controls.autoRotateSpeed, wantSpin, 0.05);
 
             controls.update();
 
