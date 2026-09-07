@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, MapPin, Crosshair, Sun, Moon, ArrowUpRight } from 'lucide-react';
 import SatelliteGlobe from '../components/SatelliteGlobe';
+import LiveFeed from '../components/LiveFeed';
 import { useSatelliteTracking } from '../hooks/useSatelliteTracking';
 import { useNearestCountry } from '../hooks/useNearestCountry';
 import { SATELLITES, DEFAULT_SATELLITE, satelliteById } from '../data/trackedSatellites';
@@ -332,6 +333,9 @@ const SatelliteView = () => {
                             sub="CelesTrak, refreshed 6-hourly"
                         />
                     </div>
+
+                    {/* ── Live video, for the one satellite that has any ── */}
+                    <LiveFeed satellite={def} />
 
                     {/* ── Observer ── */}
                     <div className="glass" style={{ marginTop: 16, padding: 20 }}>
