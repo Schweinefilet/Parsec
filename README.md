@@ -61,6 +61,7 @@ frontend/src/
     nearestCountry.js     which country the ISS ground point is closest to
     probeTracks.js        the Voyagers' flown trajectories, and the radial
                           compression every off-ring position goes through
+    objectSize.js         the catalog's prose sizes as numbers, for comparing
     useNearViewport.js    gate expensive loads on approaching the viewport
     useSatelliteTracking.js  every tracked spacecraft, propagated from TLEs
 ```
@@ -103,6 +104,12 @@ screen below the 3D scene, and its cards carry megapixel photographs — seven o
 them, 30 MB of decoded pixels, were being fetched during the scene's first
 seconds for cards nobody had scrolled to. `useNearViewport` gates the `<img>`
 on an IntersectionObserver instead, so the margin is ours.
+
+**Cubing a width ratio is not a volume ratio.** Jupiter's catalog radius is
+equatorial, and Jupiter is 6.5% flattened, so cubing it says 1,413 Earths fit
+inside — where every textbook says 1,321. `objectSize.js` carries flattening
+for the bodies that spin fast enough to bulge and computes an oblate spheroid;
+everything else is a sphere, which for a moon it may as well be.
 
 **Lerping between two points at the same radius does not keep the radius.**
 The tracker's camera followed its target by lerping toward a point the same
@@ -198,6 +205,22 @@ from the `au`/`orbitR` pair on each planet, so a trajectory running from Earth's
 ring out past Neptune's is squeezed exactly as the rings are and passes through
 the planets it flew by. `probeTracks.test.js` pins that: change a ring radius
 without changing its `au` and it fails.
+
+### Compare
+
+`/compare?a=jupiter&b=earth` puts two bodies side by side at true relative
+size — the one place on the site where nothing is compressed, which is why the
+note under it says so.
+
+Sizes come from parsing the catalog's own prose (`objectSize.js`): "71,492 km",
+"~715 km", "2.38 R⊕", "58 cm", and Haumea's "1,960 × 1,518 × 996 km", which is
+triaxial and needs the geometric mean rather than whichever number the regex
+reaches first. Reading the rows rather than adding a second radius field is
+deliberate — two copies of a number drift, and the one on screen is the one
+people would notice was wrong. `objectSize.test.js` pins the parse for the
+whole catalog, including an ordering check that would fail if a unit were
+misread. Light-years are excluded on purpose: Andromeda beside Earth is not a
+comparison.
 
 ### Assets
 

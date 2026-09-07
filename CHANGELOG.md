@@ -16,6 +16,29 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.7.0
+
+- **Compare two bodies at true relative size.** `/compare` puts any two objects
+  with a real physical size side by side, drawn to scale, with the headline
+  ratio under them: Jupiter is 11.2× wider than Earth, and 1,326 Earths would
+  fit inside it. Below that, every statistic the two share, aligned label by
+  label. It is the one view on the site where nothing is compressed, which is
+  what the note under the discs says — the "not to scale" apology on the solar
+  system view now has somewhere to point.
+
+  The sizes come from the catalog's own prose rather than a second field added
+  beside it, because two copies of a number drift and the one on screen is the
+  one people would notice was wrong. That means parsing "71,492 km", "~715 km",
+  "2.38 R⊕", "1.380 RJup", "3.5–8.5 m", "58 cm", and Haumea's
+  "1,960 × 1,518 × 996 km" — triaxial, and needing the geometric mean of its
+  semi-axes rather than whichever number a regex reaches first. 52 of the 70
+  objects come through. Light-years are refused on purpose: Andromeda beside
+  Earth is not a comparison, it is a rounding error.
+
+  Volume is an oblate spheroid, not a cube of the width ratio. Jupiter's
+  catalog radius is equatorial and Jupiter is 6.5% flattened, so cubing it
+  claims 1,413 Earths fit inside where the accepted figure is 1,321.
+
 ## 1.6.1
 
 - **Every orbit path in the scene now behaves the same way.** The Voyager
