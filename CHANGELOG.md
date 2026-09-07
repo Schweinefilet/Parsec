@@ -16,6 +16,32 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 2.0.2
+
+- **The tracker asked CelesTrak for elements badly enough to get blocked.**
+  One request per satellite, repeated on every single page load, no cache. They
+  returned 403 with a message that doubles as the specification: element files
+  are only checked for updates every two hours, most orbital data updates two
+  or three times a day, "please check your scripts to ensure they are operating
+  properly."
+
+  It now asks once per *group* rather than once per satellite — three
+  spacecraft in two groups is two requests instead of three, and it stays two
+  however many more get added to those groups. Results are cached in
+  `localStorage` for six hours, so a reload does not go near the network at
+  all: measured cold it makes two requests, and warm it makes none.
+
+- **A block, or being offline, no longer empties the page.** Whatever elements
+  are cached get used however old they are, and the panel already shows their
+  age, so the reading is honest rather than absent. Verified while actually
+  blocked: three spacecraft tracked, zero requests, "11 h old" on screen.
+
+- A failed group request no longer falls back to asking for each satellite
+  individually. That turned two rejected requests into five, which is how you
+  stay blocked rather than how you recover from one. The fallback remains for
+  the case it was meant for — a satellite that has moved out of its group —
+  where the group reply arrived and simply did not contain it.
+
 ## 2.0.1
 
 - **The scale toggle is no longer buried under the time control.** It sat on

@@ -133,6 +133,16 @@ no key, and SGP4 turns one into a position. Checked against the live ISS fix it
 lands within half a kilometre, and against N2YO for all three within about
 seven — which at 7.6 km/s is well under a second of clock difference.
 
+CelesTrak is generous but not infinite, and they will block you for asking
+badly — they blocked this site during development, and their message doubles as
+the specification: element files are only *checked* for updates every two hours
+and most update two or three times a day. So `celestrakElements.js` asks once
+per **group** rather than once per satellite, caches to `localStorage` for six
+hours so a reload never touches the network, and serves whatever it has when a
+fetch fails rather than going blank. A failed group fetch deliberately does not
+fall back to per-object requests: answering a block with three more requests is
+how you stay blocked.
+
 Doing it locally is also what makes the tracker work for more than one
 spacecraft. A position costs nothing, so everything updates every second rather
 than every five, a whole orbit can be drawn the instant you pick something

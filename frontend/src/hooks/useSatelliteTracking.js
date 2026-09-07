@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import * as Astronomy from 'astronomy-engine';
 import { SATELLITES } from '../data/trackedSatellites';
+import { loadElements } from './../utils/celestrakElements';
 
 // Where every tracked spacecraft is, on one clock and in one shape.
 //
@@ -17,28 +18,13 @@ import { SATELLITES } from '../data/trackedSatellites';
 // and a whole orbit can be drawn the moment you select something, rather than
 // accumulating while you sit and watch.
 
-const TLE_URL = 'https://celestrak.org/NORAD/elements/gp.php?CATNR=';
 // A low-orbit element set is good to about a kilometre for a day, and CelesTrak
-// reissues every few hours. Six is well inside that and light on their servers.
+// reissues every few hours. Six is well inside that; the loader also caches to
+// localStorage, so a reload does not go near the network.
 const TLE_REFRESH_MS = 6 * 60 * 60 * 1000;
 const STEP_MS = 1000;
 const TRACK_POINTS = 90;
 const R_EARTH_KM = 6378.137;
-
-/**
- * Pull the two element lines out of a CelesTrak reply.
- *
- * CRLF-delimited, with or without a name line above the elements. For a catalog
- * number it does not know CelesTrak answers 404 with the words "No GP data
- * found", which has no element lines in it — so this returns null and the
- * caller drops that satellite rather than propagating nonsense.
- */
-export function parseTLE(text) {
-    const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    const one = lines.find(l => l.startsWith('1 '));
-    const two = lines.find(l => l.startsWith('2 '));
-    return one && two ? [one, two] : null;
-}
 
 /**
  * Is the spacecraft in sunlight?
@@ -96,30 +82,25 @@ export function useSatelliteTracking(selectedId) {
         let cancelled = false;
         const controller = new AbortController();
 
-        const loadElements = async () => {
+        const refreshElements = async () => {
             const sgp4 = engine.current.sgp4
                 ?? (engine.current.sgp4 = await import('satellite.js'));
 
+            const { sets, error } = await loadElements(SATELLITES, { signal: controller.signal });
+            if (cancelled) return;
+            if (error) console.warn('[Tracker] element fetch:', error);
+
             const records = [];
-            await Promise.all(SATELLITES.map(async (def) => {
+            for (const def of SATELLITES) {
+                const set = sets.get(def.norad);
+                if (!set) continue;
                 try {
-                    const res = await fetch(`${TLE_URL}${def.norad}&FORMAT=TLE`,
-                        { signal: controller.signal });
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const tle = parseTLE(await res.text());
-                    if (!tle) throw new Error('no elements in response');
-                    const rec = sgp4.twoline2satrec(tle[0], tle[1]);
+                    const rec = sgp4.twoline2satrec(set.line1, set.line2);
                     records.push({ def, rec, epoch: epochOf(rec), period: periodMinutes(rec) });
                 } catch (err) {
-                    if (err.name !== 'AbortError') {
-                        console.warn(`[Tracker] ${def.shortName} elements failed:`, err.message);
-                    }
+                    console.warn(`[Tracker] ${def.shortName} elements unusable:`, err.message);
                 }
-            }));
-            if (cancelled) return;
-            // Keep them in the order the list declares, not the order they landed
-            records.sort((a, b) =>
-                SATELLITES.indexOf(a.def) - SATELLITES.indexOf(b.def));
+            }
             engine.current.records = records;
             setStatus(records.length === SATELLITES.length ? 'ready'
                 : records.length ? 'partial' : 'error');
@@ -157,14 +138,15 @@ export function useSatelliteTracking(selectedId) {
             if (!cancelled) setFixes(out);
         };
 
-        loadElements().then(() => { if (!cancelled) step(); })
+        refreshElements().then(() => { if (!cancelled) step(); })
             .catch((err) => {
+                if (err.name === 'AbortError') return;
                 console.warn('[Tracker] element load failed:', err.message);
                 if (!cancelled) setStatus('error');
             });
 
         const tick = setInterval(step, STEP_MS);
-        const refresh = setInterval(loadElements, TLE_REFRESH_MS);
+        const refresh = setInterval(refreshElements, TLE_REFRESH_MS);
         return () => {
             cancelled = true;
             controller.abort('unmounted');

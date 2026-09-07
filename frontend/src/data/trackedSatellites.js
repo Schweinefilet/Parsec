@@ -7,6 +7,12 @@
 //
 // `catalogId` ties each one to its page in the object catalog, so the tracker
 // can link through to what the thing actually is.
+//
+// `group` is the CelesTrak group file the object appears in. Elements are
+// fetched a group at a time rather than an object at a time — asking per
+// object is what got the site blocked — so satellites sharing a group cost one
+// request between them. If one ever moves out of its group the loader falls
+// back to asking for it directly.
 export const SATELLITES = [
     {
         id: 'iss',
@@ -14,6 +20,7 @@ export const SATELLITES = [
         name: 'International Space Station',
         shortName: 'ISS',
         catalogId: 'iss',
+        group: 'stations',
         color: '#7fe3a0',
     },
     {
@@ -22,6 +29,7 @@ export const SATELLITES = [
         name: 'Tiangong Space Station',
         shortName: 'Tiangong',
         catalogId: 'tiangong',
+        group: 'stations',
         color: '#ff8f6b',
     },
     {
@@ -30,6 +38,7 @@ export const SATELLITES = [
         name: 'Hubble Space Telescope',
         shortName: 'Hubble',
         catalogId: 'hubble',
+        group: 'science',
         color: '#c9a7ff',
     },
 ];
