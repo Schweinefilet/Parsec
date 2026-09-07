@@ -283,17 +283,17 @@ const CategoryBrowser = () => {
 
                     {/* Which system you are looking at. A heading today and a
                         dropdown the moment data/systems.js has a second entry.
-                        It goes when a card opens or the catalog is scrolled to:
-                        by then you are reading about one object, not deciding
-                        which system to be in. */}
+                        It goes on the first drag, with the instruction under it
+                        — both are a greeting, and once you are moving the scene
+                        yourself neither is telling you anything. It goes on a
+                        card or a scroll to the catalog for the same reason. */}
                     <SystemTitle
                         currentId={DEFAULT_SYSTEM}
                         compact={isMobile}
-                        hidden={!!id || pageScrolled}
+                        hidden={!!id || pageScrolled || hasInteracted3D}
                         hint={isMobile
                             ? 'Drag to orbit, pinch to zoom, tap to explore'
                             : 'Drag to orbit, scroll to zoom, click any object to explore'}
-                        hintHidden={!!id || hasInteracted3D}
                     />
 
                     {/* Imagery stands in for objects the scene cannot place */}

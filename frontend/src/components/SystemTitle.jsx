@@ -22,11 +22,11 @@ import { SYSTEMS, systemById } from '../data/systems';
  *
  * The opening instruction sits under the name as a child of the same column
  * rather than being positioned separately, so it stays the right distance
- * below a heading whose size is a clamp() and therefore not known here. It
- * keeps its own fade: the title goes when you open a card, the instruction
- * goes as soon as you have followed it.
+ * below a heading whose size is a clamp() and therefore not known here. The
+ * two fade together, on one opacity: both are a greeting, and a greeting that
+ * lingers after you have started is in the way of what you started doing.
  */
-const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null, hintHidden = false }) => {
+const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }) => {
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
     const wrapRef = useRef(null);
@@ -121,7 +121,6 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null, 
                     className="transition-opacity duration-700"
                     style={{
                         margin: compact ? '8px 0 0' : '11px 0 0',
-                        opacity: hintHidden ? 0 : 1,
                         color: 'rgba(255,255,255,0.58)',
                         fontSize: compact ? 10 : 11,
                         fontWeight: 600,
