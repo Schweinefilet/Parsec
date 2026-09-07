@@ -143,6 +143,12 @@ const SolarSystem3D = ({
         let exitPhase      = 0; // 0=normal  1=pull-back  2=fly-to-sun
         let exitFrames     = 0;
         let targetAutoRotateSpeed = 0.11; // smoothly updated on hover
+        // How much of the idle motion is running, 1 down to 0. One factor for
+        // both axes: "held still" has to mean still, and the drift is a spin
+        // about the vertical plus a slow sine on the elevation. Gating only the
+        // spin left the view rocking up and down on its own with the button
+        // saying it had stopped.
+        let driftEase = 1;
 
         // ── Focus zoom-in animation state ──────────────────────────────────────
         let focusAnimating   = false;
@@ -2557,18 +2563,22 @@ const SolarSystem3D = ({
                 // Normal home state — let the user zoom freely; only nudge the slow vertical drift
                 const defaultTarget = new THREE.Vector3(0, 0, 0);
                 controls.target.lerp(defaultTarget, 0.08);
-                if (!isInteracting) {
+                if (!isInteracting && driftEase > 0) {
                     // Sine wave on the vertical axis → diagonal orbit (bottom-left to top-right feel)
-                    controls.rotateUp(Math.sin(Date.now() / 10000) * 0.00018);
+                    controls.rotateUp(Math.sin(Date.now() / 10000) * 0.00018 * driftEase);
                 }
                 controls.autoRotate = true;
             }
 
+            // Eased rather than cut, so stopping looks like the scene coming
+            // to rest. Snapped to zero at the tail, because a lerp only ever
+            // approaches it and "almost still" is not what the button says.
+            driftEase = THREE.MathUtils.lerp(driftEase, autoRotateRef.current ? 1 : 0, 0.05);
+            if (!autoRotateRef.current && driftEase < 0.002) driftEase = 0;
+
             // Smoothly lerp autoRotateSpeed toward target (hover deceleration / re-acceleration).
-            // Held at zero when the drift is switched off — eased rather than
-            // cut, so stopping it looks like the scene coming to rest.
-            const wantSpin = autoRotateRef.current ? targetAutoRotateSpeed : 0;
-            controls.autoRotateSpeed = THREE.MathUtils.lerp(controls.autoRotateSpeed, wantSpin, 0.05);
+            controls.autoRotateSpeed = THREE.MathUtils.lerp(
+                controls.autoRotateSpeed, targetAutoRotateSpeed * driftEase, 0.05);
 
             controls.update();
 
