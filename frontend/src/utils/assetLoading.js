@@ -94,3 +94,37 @@ export function __resetAssets() {
     state = { items: [], loaded: 0, total: 0, done: false };
     emit();
 }
+
+// ── The logo handoff ─────────────────────────────────────────────────────────
+// The loading screen's wordmark flies to the header's, and for that to land
+// without a visible swap the header's own copy has to be invisible until the
+// flight is over. The header owns that node, the loading screen owns the
+// animation, and neither is a parent of the other — so it goes through here,
+// the same way the scene's clock and layout already do.
+
+const logoListeners = new Set();
+let logoHeld = false;
+
+function emitLogo() {
+    for (const fn of logoListeners) fn(logoHeld);
+}
+
+export function subscribeLogo(fn) {
+    logoListeners.add(fn);
+    fn(logoHeld);
+    return () => logoListeners.delete(fn);
+}
+
+/** The loading screen is drawing the wordmark; the header should not. */
+export function holdLogo() {
+    if (logoHeld) return;
+    logoHeld = true;
+    emitLogo();
+}
+
+/** The flight has landed. The header's copy is the one on screen from here. */
+export function releaseLogo() {
+    if (!logoHeld) return;
+    logoHeld = false;
+    emitLogo();
+}

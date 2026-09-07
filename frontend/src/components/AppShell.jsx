@@ -11,6 +11,7 @@ import { CATEGORY_TABS } from '../data/objectCatalog';
 import { buildShareUrl, getCameraSnapshot } from '../utils/shareView';
 import { simDate } from '../utils/simTime';
 import { isTrueScale } from '../utils/scaleMode';
+import { subscribeLogo } from '../utils/assetLoading';
 
 // Icon per category id. Kept beside the tab list rather than duplicating the
 // list itself — CATEGORY_TABS in the catalog is the single source of truth, so
@@ -43,6 +44,12 @@ const AppShell = ({ children }) => {
             window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
         }
     };
+
+    // Hidden while the loading screen's copy is flying to this spot. Not a
+    // fade: the flying one lands exactly here at exactly this size, so the two
+    // are interchangeable and a cross-fade would only show as a flicker.
+    const [logoHeld, setLogoHeld] = useState(false);
+    useEffect(() => subscribeLogo(setLogoHeld), []);
 
     const isMobile = useIsMobile();
     const [scrolled, setScrolled] = useState(false);
@@ -136,9 +143,14 @@ const AppShell = ({ children }) => {
             >
                 <Link
                     to="/"
+                    data-app-logo
                     aria-label="P4RSEC — home"
                     className="flex items-center gap-2 flex-shrink-0 focus-ring rounded-lg"
-                    style={{ color: 'rgba(255,255,255,0.92)', pointerEvents: 'auto', textShadow: '0 1px 8px rgba(0,0,0,0.9)' }}
+                    style={{
+                        color: 'rgba(255,255,255,0.92)', pointerEvents: 'auto',
+                        textShadow: '0 1px 8px rgba(0,0,0,0.9)',
+                        visibility: logoHeld ? 'hidden' : 'visible',
+                    }}
                     onClick={() => window.scrollTo({ top: 0, behavior: 'instant' })}
                 >
                     <Telescope className="h-5 w-5" style={{ color: 'var(--accent)' }} aria-hidden="true" />
