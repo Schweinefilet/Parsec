@@ -1432,7 +1432,7 @@ const SolarSystem3D = ({
             geos.push(hitGeo); mats.push(hitMat);
 
             planetMeshes.push(core, hitMesh);
-            probeGroups.push({ group, track, probe, trackCount: trackPts.length });
+            probeGroups.push({ group, track, probe, trackCount: trackPts.length, hit: hitMesh });
         });
 
         // ── Moon meshes (MOON_DATA) ────────────────────────────────────────────
@@ -1819,6 +1819,14 @@ const SolarSystem3D = ({
             });
             smallBodyGroups.forEach(({ group, body }) => {
                 fit(smallBodyHitRefs.get(body.id), group, smallBodyHitRadii.get(body.id));
+            });
+            // The probes were left out of this and kept the fixed 16-unit
+            // sphere they were built with. That is generous in the compressed
+            // layout, where they sit a few hundred units out; at true
+            // distances Voyager 1 is past 12,000 units and 16 of them is about
+            // a pixel, so the only way to hit it was to find that pixel.
+            probeGroups.forEach(({ group, hit }) => {
+                fit(hit, group, hit?.geometry?.parameters?.radius);
             });
         };
 
