@@ -3,10 +3,14 @@ import { Link, useSearchParams, useMatch } from 'react-router-dom';
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
     Crosshair, Sparkles, Satellite, Aperture, Radio, Archive, Scale, Eye as EyeIcon,
+    Link2, Check,
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { CATEGORY_TABS } from '../data/objectCatalog';
+import { buildShareUrl, getCameraSnapshot } from '../utils/shareView';
+import { simDate } from '../utils/simTime';
+import { isTrueScale } from '../utils/scaleMode';
 
 // Icon per category id. Kept beside the tab list rather than duplicating the
 // list itself — CATEGORY_TABS in the catalog is the single source of truth, so
@@ -49,6 +53,27 @@ const AppShell = ({ children }) => {
     }, []);
 
     const [searchOpen, setSearchOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    // Everything else about the page is already in its address; only the
+    // scene's camera, clock and layout are not, so those get folded in here.
+    const share = async () => {
+        const url = buildShareUrl({
+            href: window.location.href,
+            camera: getCameraSnapshot(),
+            simDate: simDate(),
+            trueScale: isTrueScale(),
+        });
+        try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1800);
+        } catch {
+            // Clipboard blocked — put it in the address bar instead, where it
+            // can at least be copied by hand.
+            window.history.replaceState(null, '', url);
+        }
+    };
     const searchRef = useRef(null);
     const navRef = useRef(null);
 
@@ -120,6 +145,27 @@ const AppShell = ({ children }) => {
                 </Link>
 
                 <div ref={searchRef} className="flex items-center gap-2" style={{ pointerEvents: 'auto' }}>
+                    {!searchOpen && (
+                        <button
+                            onClick={share}
+                            title="Copy a link to this view"
+                            aria-label="Copy a link to this view"
+                            className="flex items-center justify-center rounded-xl transition-all focus-ring"
+                            style={{
+                                width: 36, height: 36, flexShrink: 0,
+                                background: copied ? 'rgba(80,220,140,0.18)' : 'rgba(0,0,0,0.42)',
+                                border: `1px solid ${copied ? 'rgba(80,220,140,0.34)' : 'rgba(255,255,255,0.16)'}`,
+                                color: copied ? '#6ee7a0' : 'rgba(255,255,255,0.85)',
+                                backdropFilter: 'blur(14px)',
+                                WebkitBackdropFilter: 'blur(14px)',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            {copied
+                                ? <Check className="h-4 w-4" aria-hidden="true" />
+                                : <Link2 className="h-4 w-4" aria-hidden="true" />}
+                        </button>
+                    )}
                     {!searchOpen && (
                         <Link
                             to="/tonight"

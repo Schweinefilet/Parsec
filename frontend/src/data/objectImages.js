@@ -4,6 +4,19 @@
 // NASA HQ for "Mars". Objects with no suitable NASA image are absent on purpose
 // and render the designed fallback in ObjectCard instead.
 //
+// The absences are not a backlog. NASA's image library was searched again for
+// every object still on fallback art, and for most of them it simply has
+// nothing: no hits at all for Haumea, Makemake, Pallas, Tiangong, 51 Pegasi b,
+// K2-18b, HD 209458 b, GJ 1214 b, 3122 Florence or 1994 PC1. Searching for
+// "Proteus" returns an experimental aircraft, "2023 BU" returns a satellite
+// programme, and "Sputnik" returns Pluto's Sputnik Planum.
+//
+// What it does have is generic concept art — a "hot Jupiter artist concept", a
+// "super-Earth artist concept" — and those are deliberately not used. They are
+// pictures of other planets, and putting one on GJ 1214 b's card would be the
+// same failure as the celebrating scientists: an image that loads, looks
+// plausible, and is not the thing.
+//
 // Paths are relative to the NASA image CDN root below.
 
 const CDN = 'https://images-assets.nasa.gov/image/';
@@ -35,6 +48,9 @@ const PATHS = {
     'iss': 's132e013215/s132e013215~medium.jpg',
     'jupiter': 'PIA21395/PIA21395~medium.jpg',
     'jwst': 'PIA11195/PIA11195~thumb.jpg',
+    // The Kepler mission's own artist concept of this planet, not of a
+    // similar one — the description names Kepler-22b explicitly.
+    'kepler-22b': 'PIA14883/PIA14883~medium.jpg',
     'luna': 'GSFC_20171208_Archive_e001861/GSFC_20171208_Archive_e001861~medium.jpg',
     'mars': 'PIA00003/PIA00003~medium.jpg',
     'mercury': 'PIA10173/PIA10173~small.jpg',
@@ -51,6 +67,10 @@ const PATHS = {
     'pluto': 'PIA20658/PIA20658~small.jpg',
     'rhea': 'PIA14574/PIA14574~small.jpg',
     'saturn': 'PIA18276/PIA18276~small.jpg',
+    // A full-scale Sputnik 1 mockup at the 1975 Paris Air Show. The flight
+    // article re-entered in January 1958, so a mockup is what a photograph of
+    // Sputnik 1 can be.
+    'sputnik1': 'S76-22361/S76-22361~medium.jpg',
     'sun': 'PIA19821/PIA19821~medium.jpg',
     'tethys': 'PIA12709/PIA12709~small.jpg',
     'titan': 'PIA14910/PIA14910~small.jpg',

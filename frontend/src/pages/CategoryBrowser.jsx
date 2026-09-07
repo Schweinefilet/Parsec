@@ -14,7 +14,9 @@ import { CATEGORY_TABS, getObjectsByCategory, getObjectById } from '../data/obje
 import { hasSceneBody } from '../data/solarSystemBodies';
 import { useHorizons } from '../hooks/useHorizons';
 import { useIsMobile } from '../hooks/useMediaQuery';
-import { isTrueScale, toggleTrueScale, subscribeScale } from '../utils/scaleMode';
+import { isTrueScale, toggleTrueScale, subscribeScale, setTrueScale as setSceneScale } from '../utils/scaleMode';
+import { decodeView } from '../utils/shareView';
+import { setOffsetDays } from '../utils/simTime';
 
 const SORT_OPTIONS = [
     { value: 'default', label: 'Default Order' },
@@ -126,6 +128,18 @@ const CategoryBrowser = () => {
     // button can show which way it is set.
     const [trueScale, setTrueScaleUI] = useState(isTrueScale);
     useEffect(() => subscribeScale(() => setTrueScaleUI(isTrueScale())), []);
+
+    // A shared link carries the camera, the clock and the layout. Read once, on
+    // mount, because after that they belong to whoever is driving — rereading
+    // would yank the view back every time the URL changed for another reason.
+    const [sharedView] = useState(() => decodeView(window.location.search));
+    useEffect(() => {
+        if (sharedView.trueScale) setSceneScale(true);
+        if (sharedView.at) {
+            setOffsetDays((sharedView.at.getTime() - Date.now()) / 86400000);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const [pageScrolled, setPageScrolled] = useState(false);
     const [moonHintVisible, setMoonHintVisible] = useState(false);
     const [sheetOpen, setSheetOpen] = useState(false);
@@ -258,6 +272,7 @@ const CategoryBrowser = () => {
                             focusedId={inScene ? id : null}
                             focusOffsetY={focusOffsetY}
                             height={sceneHeight}
+                            initialCamera={sharedView.camera}
                         />
                     </div>
 

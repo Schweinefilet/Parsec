@@ -16,6 +16,37 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 2.1.0
+
+- **A link to what you are looking at.** The copy button in the header folds
+  the scene's camera, clock and layout into the address, so a view of the
+  planets as they will stand during the 2027 eclipse is something you can send
+  someone. It works from every page; the tracker, the comparison and the sky
+  view already carried their state in the URL and simply keep it.
+
+  The clock goes in as an instant rather than an offset — "thirty days ahead"
+  would mean something different tomorrow and a link should not drift after you
+  send it — and anything malformed in an incoming link is discarded rather than
+  applied, because links get truncated and hand-edited and the failure mode of
+  trusting one is a camera inside the Sun.
+
+- **Two more objects have real photographs**: Kepler-22b, using the Kepler
+  mission's own artist concept of that planet, and Sputnik 1, a full-scale
+  mockup photographed at the 1975 Paris Air Show — the flight article re-entered
+  in 1958, so a mockup is what a photograph of Sputnik 1 can be.
+
+  The other thirteen stay on generated art, and that turns out to be the right
+  answer rather than a backlog. NASA's library was searched again for every one
+  of them and mostly has nothing at all: no hits for Haumea, Makemake, Pallas,
+  Tiangong, 51 Pegasi b, K2-18b, HD 209458 b, GJ 1214 b, 3122 Florence or
+  1994 PC1. "Proteus" returns an experimental aircraft and "Sputnik" returns
+  Pluto's Sputnik Planum. What it does have is generic concept art — a "hot
+  Jupiter artist concept", a "super-Earth artist concept" — which is not used
+  on purpose: those are pictures of other planets, and captioning one as
+  GJ 1214 b would be the same failure as the celebrating scientists the
+  original curation was written to avoid. All 57 curated URLs were re-checked
+  and none are broken.
+
 ## 2.0.2
 
 - **The tracker asked CelesTrak for elements badly enough to get blocked.**

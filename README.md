@@ -64,6 +64,7 @@ frontend/src/
     objectSize.js         the catalog's prose sizes as numbers, for comparing
     skyPositions.js       altitude and azimuth from where the viewer is standing
     scaleMode.js          compressed layout ⇄ true distances, and the transition
+    shareView.js          the scene's camera, clock and layout as a link
     useNearViewport.js    gate expensive loads on approaching the viewport
     useSatelliteTracking.js  every tracked spacecraft, propagated from TLEs
 ```
@@ -217,6 +218,22 @@ from the `au`/`orbitR` pair on each planet, so a trajectory running from Earth's
 ring out past Neptune's is squeezed exactly as the rings are and passes through
 the planets it flew by. `probeTracks.test.js` pins that: change a ring radius
 without changing its `au` and it fails.
+
+### Sharing a view
+
+Most of the site's state is already in the address — the focused object, the
+tracked satellite, the compared pair. The 3D scene was the exception: camera,
+clock and layout lived only in memory, so "look at this" was not something you
+could send. `shareView.js` folds those three into query parameters and back,
+and the copy button in the header works from any page (elsewhere the URL is
+already complete).
+
+The camera goes in as spherical coordinates because that is what OrbitControls
+maintains, and the clock goes in as an absolute instant rather than an offset —
+"thirty days ahead" would mean something different tomorrow, and a link should
+not drift after you send it. Anything malformed is discarded rather than
+applied; links get truncated and hand-edited, and the failure mode of trusting
+one is a camera inside the Sun.
 
 ### Scale
 

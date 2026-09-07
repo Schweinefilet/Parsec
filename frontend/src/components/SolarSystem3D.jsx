@@ -15,6 +15,7 @@ import {
 import { probeScenePos, buildProbeTrack, trackDrawCount } from '../utils/probeTracks';
 import { proceduralSurface } from '../utils/proceduralTextures';
 import { simNow, isLive } from '../utils/simTime';
+import { setCameraSnapshot } from '../utils/shareView';
 import {
     scaleProgress, radialFactor, AU_UNITS, isScaleSettling, subscribeScale, isTrueScale,
 } from '../utils/scaleMode';
@@ -26,7 +27,9 @@ import {
 
 let _exitState = { active: false, cameraPos: null, targetPos: null };
 
-const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 100vh)' }) => {
+const SolarSystem3D = ({
+    focusedId, focusOffsetY = 0, height = 'var(--app-vh, 100vh)', initialCamera = null,
+}) => {
     const mountRef  = useRef(null);
     const navigate  = useNavigate();
     // Which labels exist, not where they are. The roster changes only when the
@@ -72,6 +75,14 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         // ── Camera ─────────────────────────────────────────────────────────────
         const camera = new THREE.PerspectiveCamera(45, w / h, 1, 10000);
         camera.position.set(-350, 280, 365);
+        // A link can carry a camera. Applied before OrbitControls is built, so
+        // the controls adopt it as their starting point rather than easing away
+        // from the default the moment they initialise.
+        if (initialCamera) {
+            const { theta, phi, distance } = initialCamera;
+            camera.position.setFromSphericalCoords(
+                distance, THREE.MathUtils.degToRad(phi), THREE.MathUtils.degToRad(theta));
+        }
         camera.lookAt(0, 0, 0);
 
         // ── Renderer ───────────────────────────────────────────────────────────
@@ -1732,6 +1743,7 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
         // ── Animation loop ─────────────────────────────────────────────────────
         let animId;
         let frameCount = 0;
+        const _shareSpherical = new THREE.Spherical();
         // -1 so the first frame always applies the layout, whichever it is
         let lastScaleT = -1;
         // The belts as first laid out, so every remap starts from the original
@@ -2412,6 +2424,18 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 );
             }
 
+            // Publish where the camera is, so a share link can carry it. Every
+            // twentieth frame: it is read only when someone presses a button,
+            // and a spherical conversion per frame is a waste of a phone.
+            if (frameCount % 20 === 0) {
+                _shareSpherical.setFromVector3(camera.position);
+                setCameraSnapshot({
+                    theta: THREE.MathUtils.radToDeg(_shareSpherical.theta),
+                    phi: THREE.MathUtils.radToDeg(_shareSpherical.phi),
+                    distance: _shareSpherical.radius,
+                });
+            }
+
             renderer.render(scene, camera);
         };
         animate();
@@ -2427,6 +2451,8 @@ const SolarSystem3D = ({ focusedId, focusOffsetY = 0, height = 'var(--app-vh, 10
                 };
             }
             mounted = false;
+            // Nothing to share once this scene is gone
+            setCameraSnapshot(null);
             cancelAnimationFrame(animId);
             idleTimers.forEach(cancel => cancel());
             clearInterval(posInterval);
