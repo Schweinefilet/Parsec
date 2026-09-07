@@ -1936,6 +1936,10 @@ const SolarSystem3D = ({
         // ── Animation loop ─────────────────────────────────────────────────────
         let animId;
         let frameCount = 0;
+        // Wall-clock between frames, for anything whose speed should be a rate
+        // rather than a per-frame step. Clamped: a backgrounded tab comes back
+        // with a delta of minutes, and every eased value would jump.
+        let lastFrameMs = performance.now();
         let sceneReadySent = false;
         const _shareSpherical = new THREE.Spherical();
         // Reference for lifting the probe-focus camera off the Sun line.
@@ -2023,6 +2027,15 @@ const SolarSystem3D = ({
         const animate = () => {
             animId = requestAnimationFrame(animate);
             frameCount++;
+
+            const nowMs = performance.now();
+            // 100ms ceiling: past that it is a stall or a backgrounded tab, and
+            // catching up in one step looks worse than losing the time.
+            const deltaSec = Math.min(0.1, Math.max(0, (nowMs - lastFrameMs) / 1000));
+            lastFrameMs = nowMs;
+            // The same delta as a multiple of a 60fps frame, for the per-frame
+            // steps below that were written against that assumption.
+            const frameScale = deltaSec * 60;
             // Two frames after the last texture lands, not the moment it lands:
             // arriving and being on screen are different things here, since the
             // upload to the GPU is spread a couple per frame. Dismissing on
@@ -2572,7 +2585,8 @@ const SolarSystem3D = ({
                 controls.target.lerp(defaultTarget, 0.08);
                 if (!isInteracting && driftEase > 0) {
                     // Sine wave on the vertical axis → diagonal orbit (bottom-left to top-right feel)
-                    controls.rotateUp(Math.sin(Date.now() / 10000) * 0.00018 * driftEase);
+                    controls.rotateUp(
+                        Math.sin(Date.now() / 10000) * 0.00018 * driftEase * frameScale);
                 }
                 controls.autoRotate = true;
             }
@@ -2580,14 +2594,19 @@ const SolarSystem3D = ({
             // Eased rather than cut, so stopping looks like the scene coming
             // to rest. Snapped to zero at the tail, because a lerp only ever
             // approaches it and "almost still" is not what the button says.
-            driftEase = THREE.MathUtils.lerp(driftEase, autoRotateRef.current ? 1 : 0, 0.05);
+            driftEase = THREE.MathUtils.lerp(driftEase, autoRotateRef.current ? 1 : 0, 0.05 * frameScale);
             if (!autoRotateRef.current && driftEase < 0.002) driftEase = 0;
 
             // Smoothly lerp autoRotateSpeed toward target (hover deceleration / re-acceleration).
             controls.autoRotateSpeed = THREE.MathUtils.lerp(
-                controls.autoRotateSpeed, targetAutoRotateSpeed * driftEase, 0.05);
+                controls.autoRotateSpeed, targetAutoRotateSpeed * driftEase, 0.05 * frameScale);
 
-            controls.update();
+            // With no argument OrbitControls assumes 1/60s has passed, so the
+            // drift ran at whatever rate the display did — half speed on the
+            // 30fps the belt used to force, and 2.4x on a 144Hz laptop once
+            // 3.5.0 unlocked the frame rate. Handing it the real delta makes
+            // the spin a rate rather than a per-frame step.
+            controls.update(deltaSec);
 
             // Override camera position + lookAt AFTER controls.update()
             if (focusAnimating && targetMesh && !isInteracting) {
