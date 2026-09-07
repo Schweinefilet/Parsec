@@ -33,10 +33,18 @@ function subsolar(date) {
 }
 
 /**
- * Live 3D Earth with the ISS in orbit above it, its ground track, and a real
- * day/night terminator driven by the current sub-solar point.
+ * Live 3D Earth with the tracked spacecraft above it, the selected one's orbit
+ * drawn behind it, and a real day/night terminator from the sub-solar point.
+ *
+ * `satellites` is every spacecraft to draw; `selectedId` picks the one that
+ * gets the bigger marker, the orbit path, the line down to its sub-satellite
+ * point, and the camera's attention. Nothing here knows which satellite that
+ * is — it used to be built around the ISS, and adding a second one meant
+ * bolting a second code path alongside the first.
  */
-const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null, others = [] }) => {
+const SatelliteGlobe = ({
+    satellites = [], selectedId, track = [], follow = true, observer = null,
+}) => {
     const mountRef = useRef(null);
     const api = useRef({});
 
@@ -58,7 +66,7 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null, o
         mount.appendChild(renderer.domElement);
         renderer.domElement.setAttribute('role', 'img');
         renderer.domElement.setAttribute('aria-label',
-            'Three-dimensional globe showing the live position of the International Space Station');
+            'Three-dimensional globe showing the live positions of the tracked spacecraft');
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(38, w / h, 0.05, 100);
@@ -154,62 +162,52 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null, o
         // as the Earth, it dimmed to nothing over the night side, which is
         // where you most want to find it. MeshBasicMaterial ignores the lights,
         // so the dot is the same green wherever the station is.
-        const issGroup = new THREE.Group();
-        const dotGeo = new THREE.SphereGeometry(0.032, 16, 16);
-        const dotMat = new THREE.MeshBasicMaterial({ color: '#7fe3a0' });
-        issGroup.add(new THREE.Mesh(dotGeo, dotMat));
-        // Halo so it stays findable against the bright day side
-        const haloGeo = new THREE.SphereGeometry(0.075, 16, 16);
-        const haloMat = new THREE.MeshBasicMaterial({
-            color: '#7fe3a0', transparent: true, opacity: 0.38,
-            blending: THREE.AdditiveBlending, depthWrite: false,
-        });
-        issGroup.add(new THREE.Mesh(haloGeo, haloMat));
-        scene.add(issGroup);
-
-        // ── Other spacecraft ──────────────────────────────────────────────
-        // Same dot, in each one's own colour, at its own altitude. Built on
-        // demand and kept in a map by id, so the set can change — an element
-        // fetch that failed simply never appears.
-        const otherMarkers = new Map();
-        const otherGeos = [];
-        const otherMats = [];
+        const markers = new Map();          // id → { group, dot, halo, color }
+        const markerGeos = [];
+        const markerMats = [];
         const makeMarker = (color) => {
             const group = new THREE.Group();
-            const dotGeo = new THREE.SphereGeometry(0.026, 12, 12);
+            const dotGeo = new THREE.SphereGeometry(0.03, 14, 14);
             const dotMat = new THREE.MeshBasicMaterial({ color });
-            group.add(new THREE.Mesh(dotGeo, dotMat));
-            const hGeo = new THREE.SphereGeometry(0.06, 12, 12);
-            const hMat = new THREE.MeshBasicMaterial({
-                color, transparent: true, opacity: 0.32,
+            const dot = new THREE.Mesh(dotGeo, dotMat);
+            group.add(dot);
+            // Halo so it stays findable against the bright day side
+            const haloGeo = new THREE.SphereGeometry(0.075, 14, 14);
+            const haloMat = new THREE.MeshBasicMaterial({
+                color, transparent: true, opacity: 0.34,
                 blending: THREE.AdditiveBlending, depthWrite: false,
             });
-            group.add(new THREE.Mesh(hGeo, hMat));
+            const halo = new THREE.Mesh(haloGeo, haloMat);
+            group.add(halo);
             group.visible = false;
             scene.add(group);
-            otherGeos.push(dotGeo, hGeo);
-            otherMats.push(dotMat, hMat);
-            return group;
+            markerGeos.push(dotGeo, haloGeo);
+            markerMats.push(dotMat, haloMat);
+            return { group, dot, halo };
         };
 
-        // Line from the station down to its sub-satellite point
+        // Line from the selected spacecraft down to its sub-satellite point
         const dropGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-        const dropMat = new THREE.LineBasicMaterial({ color: '#7fe3a0', transparent: true, opacity: 0.45 });
-        scene.add(new THREE.Line(dropGeo, dropMat));
+        const dropMat = new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.4 });
+        const dropLine = new THREE.Line(dropGeo, dropMat);
+        dropLine.visible = false;
+        scene.add(dropLine);
 
         // ── Orbital track ─────────────────────────────────────────────────
-        // Drawn at the altitude each fix was taken at, so it is the path the
-        // station flew rather than its shadow on the ground. It meets the dot
-        // exactly, and the drop line below shows how far up that is.
+        // Drawn at the altitude of each point, so it is the path through space
+        // rather than a shadow on the ground. It meets the marker exactly, and
+        // the drop line shows how far up that is.
         //
-        // Note this is the orbit in Earth's frame, which is the frame this
-        // globe is drawn in: successive passes sit west of the last one because
-        // the Earth turned underneath, rather than retracing one closed ring.
-        const MAX_TRAIL = 1200;
+        // This is the orbit in Earth's frame, which is the frame this globe is
+        // drawn in: successive passes sit west of the last because the Earth
+        // turned underneath, rather than retracing one closed ring.
+        const MAX_TRACK = 400;
         const trackGeo = new THREE.BufferGeometry();
-        trackGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_TRAIL * 3), 3));
+        trackGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_TRACK * 3), 3));
         trackGeo.setDrawRange(0, 0);
-        const trackMat = new THREE.LineBasicMaterial({ color: '#7fe3a0', transparent: true, opacity: 0.65 });
+        const trackMat = new THREE.LineBasicMaterial({
+            color: '#ffffff', transparent: true, opacity: 0.55,
+        });
         scene.add(new THREE.Line(trackGeo, trackMat));
 
         // ── Observer marker ───────────────────────────────────────────────
@@ -250,27 +248,59 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null, o
         });
         ro.observe(mount);
 
-        // Smoothed ISS position so 5-second polls don't make it jump
-        const issTarget = new THREE.Vector3(0, 0, R + 0.13);
-        const issCurrent = issTarget.clone();
+        // Where the camera is being drawn toward, smoothed so a jump in the
+        // selection glides rather than snaps.
+        const focusTarget = new THREE.Vector3(0, 0, R + 0.13);
+        const focusCurrent = focusTarget.clone();
+        let haveFocus = false;
         const _sun = new THREE.Vector3();
         const _camWanted = new THREE.Vector3();
+        const _p = new THREE.Vector3();
 
         api.current = {
-            setIss(latDeg, lonDeg, altKm) {
-                toVec3(latDeg, lonDeg, R * (1 + (altKm ?? 420) * ALT_SCALE), issTarget);
+            setSatellites(list, selectedId) {
+                const seen = new Set();
+                for (const sat of list ?? []) {
+                    if (sat.lat == null || sat.lon == null) continue;
+                    seen.add(sat.id);
+                    let marker = markers.get(sat.id);
+                    if (!marker) { marker = makeMarker(sat.color); markers.set(sat.id, marker); }
+                    const chosen = sat.id === selectedId;
+                    toVec3(sat.lat, sat.lon, R * (1 + (sat.altitude ?? 420) * ALT_SCALE), _p);
+                    marker.group.position.copy(_p);
+                    marker.group.visible = true;
+                    // The selected one reads first: a larger dot and a brighter
+                    // halo. The rest stay legible but recede.
+                    marker.group.scale.setScalar(chosen ? 1 : 0.72);
+                    marker.halo.material.opacity = chosen ? 0.4 : 0.2;
+                    marker.dot.material.opacity = chosen ? 1 : 0.75;
+                    marker.dot.material.transparent = !chosen;
+
+                    if (chosen) {
+                        focusTarget.copy(_p);
+                        haveFocus = true;
+                        // The track and the drop line belong to whoever is
+                        // selected, so they take that satellite's colour.
+                        trackMat.color.set(sat.color);
+                        dropMat.color.set(sat.color);
+                        const dp = dropGeo.attributes.position.array;
+                        dp[0] = _p.x; dp[1] = _p.y; dp[2] = _p.z;
+                        const surf = _p.clone().setLength(R);
+                        dp[3] = surf.x; dp[4] = surf.y; dp[5] = surf.z;
+                        dropGeo.attributes.position.needsUpdate = true;
+                        dropLine.visible = true;
+                    }
+                }
+                // Anything that dropped out of the list stops being drawn
+                for (const [id, marker] of markers) if (!seen.has(id)) marker.group.visible = false;
+                if (!seen.has(selectedId)) dropLine.visible = false;
             },
-            setTrail(points) {
+            setTrack(points) {
                 const arr = trackGeo.attributes.position.array;
-                const n = Math.min(points.length, MAX_TRAIL);
-                const off = points.length - n;
-                const v = new THREE.Vector3();
+                const n = Math.min(points?.length ?? 0, MAX_TRACK);
                 for (let i = 0; i < n; i++) {
-                    const p = points[off + i];
-                    // Fixes recorded before altitude was carried, or a reading
-                    // the API left out, fall back to the station's usual height
-                    toVec3(p.lat, p.lon, R * (1 + (p.alt || 420) * ALT_SCALE), v);
-                    arr[i * 3] = v.x; arr[i * 3 + 1] = v.y; arr[i * 3 + 2] = v.z;
+                    toVec3(points[i].lat, points[i].lon, R * (1 + (points[i].alt ?? 420) * ALT_SCALE), _p);
+                    arr[i * 3] = _p.x; arr[i * 3 + 1] = _p.y; arr[i * 3 + 2] = _p.z;
                 }
                 trackGeo.attributes.position.needsUpdate = true;
                 trackGeo.setDrawRange(0, n);
@@ -279,19 +309,6 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null, o
                 if (!o) { obsMesh.visible = false; return; }
                 toVec3(o.lat, o.lon, R * 1.01, obsMesh.position);
                 obsMesh.visible = true;
-            },
-            setOthers(list) {
-                const seen = new Set();
-                for (const sat of list ?? []) {
-                    if (sat.lat == null || sat.lon == null) continue;
-                    seen.add(sat.id);
-                    let marker = otherMarkers.get(sat.id);
-                    if (!marker) { marker = makeMarker(sat.color); otherMarkers.set(sat.id, marker); }
-                    toVec3(sat.lat, sat.lon, R * (1 + (sat.altitude ?? 420) * ALT_SCALE), marker.position);
-                    marker.visible = true;
-                }
-                // Anything that dropped out of the list stops being drawn
-                for (const [id, marker] of otherMarkers) if (!seen.has(id)) marker.visible = false;
             },
             setFollow(v) { api.current.follow = v; if (v) userDriving = false; },
             follow: true,
@@ -307,26 +324,29 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null, o
             uniforms.sunDirection.value.copy(_sun);
             sunLight.position.copy(_sun).multiplyScalar(30);
 
-            issCurrent.lerp(issTarget, 0.08);
-            issGroup.position.copy(issCurrent);
+            // Markers are placed the moment a fix arrives; only what the
+            // camera is chasing is smoothed, so switching satellite glides
+            // across rather than cutting.
+            focusCurrent.lerp(focusTarget, 0.08);
 
-            const dp = dropGeo.attributes.position.array;
-            dp[0] = issCurrent.x; dp[1] = issCurrent.y; dp[2] = issCurrent.z;
-            const surf = issCurrent.clone().setLength(R);
-            dp[3] = surf.x; dp[4] = surf.y; dp[5] = surf.z;
-            dropGeo.attributes.position.needsUpdate = true;
-
-            // Drift the camera to keep the station in view until the user takes
-            // over. Bias a third of the way toward the sub-solar point so the
-            // shot includes the lit limb and terminator rather than staring at
-            // an unlit hemisphere whenever the station is over Earth's night.
-            if (api.current.follow && !userDriving) {
+            // Drift the camera to keep the selected craft in view until the
+            // user takes over. Bias part of the way toward the sub-solar point
+            // so the shot includes the lit limb and terminator rather than
+            // staring at an unlit hemisphere whenever it is over Earth's night.
+            if (haveFocus && api.current.follow && !userDriving) {
                 const dist = camera.position.length();
-                _camWanted.copy(issCurrent).normalize()
+                _camWanted.copy(focusCurrent).normalize()
                     .addScaledVector(_sun, 0.55)
                     .normalize()
                     .multiplyScalar(dist);
-                camera.position.lerp(_camWanted, 0.012);
+                // Straight back out to the distance we started the frame at.
+                // Both ends of this lerp are the same length, but the line
+                // between them is a chord, not an arc, so every frame of
+                // following quietly lost altitude — the further the camera had
+                // to swing, the more it lost, and picking a different craft is
+                // the biggest swing there is. It was creeping in on the Earth
+                // and stopping only when it hit minDistance.
+                camera.position.lerp(_camWanted, 0.012).setLength(dist);
             }
 
             controls.update();
@@ -339,9 +359,9 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null, o
             cancelAnimationFrame(animId);
             controls.dispose();
             ro.disconnect();
-            [geo, atmoGeo, dotGeo, haloGeo, dropGeo, trackGeo, obsGeo, ...gratGeos, ...otherGeos]
+            [geo, atmoGeo, dropGeo, trackGeo, obsGeo, ...gratGeos, ...markerGeos]
                 .forEach(g => g.dispose());
-            [earthMat, atmoMat, dotMat, haloMat, dropMat, trackMat, obsMat, gratMat, ...otherMats]
+            [earthMat, atmoMat, dropMat, trackMat, obsMat, gratMat, ...markerMats]
                 .forEach(m => m.dispose());
             loaded.forEach(t => t.dispose());
             if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
@@ -351,15 +371,14 @@ const IssGlobe = ({ lat, lon, altitude, trail, follow = true, observer = null, o
 
     // ── Push live data into the scene ─────────────────────────────────────
     useEffect(() => {
-        if (lat != null && lon != null) api.current.setIss?.(lat, lon, altitude);
-    }, [lat, lon, altitude]);
+        api.current.setSatellites?.(satellites, selectedId);
+    }, [satellites, selectedId]);
 
-    useEffect(() => { api.current.setTrail?.(trail ?? []); }, [trail]);
-    useEffect(() => { api.current.setOthers?.(others); }, [others]);
+    useEffect(() => { api.current.setTrack?.(track); }, [track]);
     useEffect(() => { api.current.setObserver?.(observer); }, [observer]);
     useEffect(() => { api.current.setFollow?.(follow); }, [follow]);
 
     return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
 };
 
-export default IssGlobe;
+export default SatelliteGlobe;

@@ -1,15 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, MapPin, Crosshair, Sun, Moon } from 'lucide-react';
-// STASHED StarfieldBg — uncomment this and the <StarfieldBg /> below to restore it.
-// import StarfieldBg from '../components/StarfieldBg';
-import IssGlobe from '../components/IssGlobe';
-import { useIssPosition } from '../hooks/useIssPosition';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ChevronLeft, MapPin, Crosshair, Sun, Moon, ArrowUpRight } from 'lucide-react';
+import SatelliteGlobe from '../components/SatelliteGlobe';
+import { useSatelliteTracking } from '../hooks/useSatelliteTracking';
 import { useNearestCountry } from '../hooks/useNearestCountry';
-import { useTrackedSatellites } from '../hooks/useTrackedSatellites';
-import { ISS_COLOR } from '../data/trackedSatellites';
+import { SATELLITES, DEFAULT_SATELLITE, satelliteById } from '../data/trackedSatellites';
 
-const ISS_NORAD = 25544;
 const EARTH_R_KM = 6371;
 
 // Great-circle distance between two lat/lon pairs, in km
@@ -24,6 +20,14 @@ function haversine(a, b) {
 
 const fmtCoord = (v, pos, neg) =>
     v == null ? '—' : `${Math.abs(v).toFixed(2)}° ${v >= 0 ? pos : neg}`;
+
+const fmtAge = (date) => {
+    if (!date) return null;
+    const hours = (Date.now() - date.getTime()) / 3600000;
+    if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min old`;
+    if (hours < 48) return `${Math.round(hours)} h old`;
+    return `${Math.round(hours / 24)} days old`;
+};
 
 const Stat = ({ label, value, sub, accent }) => (
     <div>
@@ -45,14 +49,69 @@ const Stat = ({ label, value, sub, accent }) => (
     </div>
 );
 
+/**
+ * One spacecraft in the picker. Doubles as the legend — the dot is the same
+ * colour it is drawn in on the globe, so there is nothing to cross-reference.
+ */
+const SatelliteChip = ({ def, fix, selected, onSelect }) => {
+    const live = !!fix;
+    return (
+        <button
+            type="button"
+            onClick={() => onSelect(def.id)}
+            aria-pressed={selected}
+            className="flex items-center gap-2 rounded-full focus-ring flex-shrink-0"
+            style={{
+                padding: '7px 14px 7px 11px',
+                background: selected ? `rgba(${hexToRgb(def.color)},0.16)` : 'rgba(255,255,255,0.05)',
+                border: `1px solid ${selected ? `rgba(${hexToRgb(def.color)},0.42)` : 'rgba(255,255,255,0.12)'}`,
+                cursor: 'pointer',
+                opacity: live ? 1 : 0.45,
+                transition: 'background 200ms ease, border-color 200ms ease, opacity 200ms ease',
+            }}
+        >
+            <span style={{
+                width: 8, height: 8, borderRadius: 999, flexShrink: 0,
+                background: def.color,
+                boxShadow: selected ? `0 0 8px ${def.color}` : 'none',
+            }} />
+            <span style={{
+                fontSize: '0.8rem', fontWeight: 700,
+                color: selected ? '#fff' : 'rgba(255,255,255,0.72)',
+            }}>
+                {def.shortName}
+            </span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
+                {live ? `${fix.altitude.toFixed(0)} km` : '—'}
+            </span>
+        </button>
+    );
+};
+
+// The chip backgrounds need the colour with an alpha, and the palette is hex
+function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
+
 const SatelliteView = () => {
     const navigate = useNavigate();
-    const iss = useIssPosition();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // Which craft is being followed lives in the URL, so a view of Hubble is a
+    // link someone can send rather than a place you have to navigate back to.
+    const requested = searchParams.get('sat');
+    const selectedId = satelliteById(requested) ? requested : DEFAULT_SATELLITE;
+    const select = (id) => setSearchParams(id === DEFAULT_SATELLITE ? {} : { sat: id }, { replace: true });
+
+    const { satellites, selected, track, status } = useSatelliteTracking(selectedId);
+    const def = satelliteById(selectedId);
+
     const [follow, setFollow] = useState(true);
     const [observer, setObserver] = useState(null);
     const [geoError, setGeoError] = useState(null);
 
-    // Tick once a second so "updated Ns ago" stays honest between polls
+    // Tick once a second so the elements-age readout stays honest
     const [, setNow] = useState(Date.now());
     useEffect(() => {
         const iv = setInterval(() => setNow(Date.now()), 1000);
@@ -70,30 +129,25 @@ const SatelliteView = () => {
     };
 
     const distanceKm = useMemo(() => {
-        if (!observer || iss.lat == null) return null;
-        return haversine(observer, { lat: iss.lat, lon: iss.lon });
-    }, [observer, iss.lat, iss.lon]);
+        if (!observer || !selected) return null;
+        return haversine(observer, { lat: selected.lat, lon: selected.lon });
+    }, [observer, selected]);
 
-    const secondsAgo = iss.timestamp ? Math.max(0, Math.round((Date.now() - iss.timestamp) / 1000)) : null;
-    const isDaylight = iss.visibility === 'daylight';
-
-    // Nearest land, which is a different question from what it is over: the
-    // station is at sea roughly seven tenths of the time.
-    const nearest = useNearestCountry(iss.lat, iss.lon);
-
-    // Tiangong and Hubble, propagated locally from current orbital elements
-    const others = useTrackedSatellites();
-    // The table samples land every degree or so, so a reading under ~75 km
-    // means the ground point is inside that country or just off its coast —
-    // either way "overhead" is the honest word for it, and a precise-looking
-    // "12 km away" would not be.
+    const nearest = useNearestCountry(selected?.lat, selected?.lon);
     const overhead = nearest != null && nearest.km < 75;
+
+    // Within its own footprint is the honest test for "you could see it go over"
+    const inRange = distanceKm != null && selected?.footprintKm != null
+        && distanceKm < selected.footprintKm;
+
+    const elementsAge = fmtAge(selected?.elementsEpoch);
+    const statusLabel = status === 'error' ? 'No elements'
+        : status === 'loading' ? 'Loading'
+        : status === 'partial' ? 'Partial' : 'Live';
+    const statusOk = status === 'ready';
 
     return (
         <>
-            {/* STASHED StarfieldBg — restore with its import at the top of this file.
-                <StarfieldBg canvasId="starfield-satellites" /> */}
-
             <div style={{ position: 'relative', zIndex: 1, minHeight: 'var(--app-vh, 100vh)', paddingTop: 64 }}>
                 <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 16px 40px' }}>
 
@@ -114,10 +168,10 @@ const SatelliteView = () => {
                         </button>
                         <div style={{ minWidth: 0 }}>
                             <h1 style={{ margin: 0, fontSize: 'clamp(1.15rem, 3vw, 1.6rem)', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
-                                ISS Live Tracker
+                                Satellite Tracker
                             </h1>
                             <p style={{ margin: '1px 0 0', fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                                International Space Station · NORAD {ISS_NORAD}
+                                {def.name} · NORAD {def.norad}
                             </p>
                         </div>
                         <span
@@ -125,19 +179,40 @@ const SatelliteView = () => {
                             style={{
                                 fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
                                 textTransform: 'uppercase', padding: '5px 10px', borderRadius: 999,
-                                background: iss.error ? 'rgba(255,90,80,0.14)'
-                                    : iss.stale ? 'rgba(255,200,60,0.14)' : 'rgba(80,220,140,0.14)',
-                                border: `1px solid ${iss.error ? 'rgba(255,90,80,0.30)'
-                                    : iss.stale ? 'rgba(255,200,60,0.30)' : 'rgba(80,220,140,0.30)'}`,
-                                color: iss.error ? '#ff8a80' : iss.stale ? '#ffd166' : '#6ee7a0',
+                                background: status === 'error' ? 'rgba(255,90,80,0.14)'
+                                    : statusOk ? 'rgba(80,220,140,0.14)' : 'rgba(255,200,60,0.14)',
+                                border: `1px solid ${status === 'error' ? 'rgba(255,90,80,0.30)'
+                                    : statusOk ? 'rgba(80,220,140,0.30)' : 'rgba(255,200,60,0.30)'}`,
+                                color: status === 'error' ? '#ff8a80' : statusOk ? '#6ee7a0' : '#ffd166',
                             }}
                         >
                             <span style={{
                                 width: 6, height: 6, borderRadius: 999, background: 'currentColor',
-                                animation: iss.error || iss.stale ? 'none' : 'issPulse 2s ease-in-out infinite',
+                                animation: statusOk ? 'issPulse 2s ease-in-out infinite' : 'none',
                             }} />
-                            {iss.error ? 'Offline' : iss.stale ? 'Reconnecting' : 'Live'}
+                            {statusLabel}
                         </span>
+                    </div>
+
+                    {/* ── Which spacecraft ── */}
+                    {/* The picker is the legend. Each chip carries the colour its
+                        dot is drawn in and its current altitude, so choosing one
+                        and reading the globe are the same action. */}
+                    <div
+                        className="flex items-center gap-2 mb-3"
+                        style={{ overflowX: 'auto', paddingBottom: 2 }}
+                        role="group"
+                        aria-label="Choose a spacecraft to follow"
+                    >
+                        {SATELLITES.map(s => (
+                            <SatelliteChip
+                                key={s.id}
+                                def={s}
+                                fix={satellites.find(f => f.id === s.id)}
+                                selected={s.id === selectedId}
+                                onSelect={select}
+                            />
+                        ))}
                     </div>
 
                     {/* ── Globe ── */}
@@ -150,18 +225,23 @@ const SatelliteView = () => {
                             padding: 0,
                         }}
                     >
-                        <IssGlobe
-                            lat={iss.lat} lon={iss.lon} altitude={iss.altitude}
-                            trail={iss.trail} follow={follow} observer={observer}
-                            others={others}
+                        <SatelliteGlobe
+                            satellites={satellites}
+                            selectedId={selectedId}
+                            track={track}
+                            follow={follow}
+                            observer={observer}
                         />
 
-                        {iss.loading && (
+                        {status !== 'ready' && satellites.length === 0 && (
                             <div style={{
-                                position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
+                                position: 'absolute', inset: 0, display: 'flex',
+                                alignItems: 'center', justifyContent: 'center',
                                 color: 'var(--text-tertiary)', fontSize: '0.85rem', pointerEvents: 'none',
                             }}>
-                                Acquiring position…
+                                {status === 'error'
+                                    ? 'Could not reach the orbital element service.'
+                                    : 'Fetching orbital elements…'}
                             </div>
                         )}
 
@@ -183,43 +263,19 @@ const SatelliteView = () => {
                                 }}
                             >
                                 <Crosshair style={{ width: 12, height: 12 }} />
-                                {follow ? 'Following' : 'Free look'}
+                                {follow ? `Following ${def.shortName}` : 'Free look'}
                             </button>
                         </div>
 
-                        {/* Which dot is which. The ISS is always listed; the
-                            others appear as their elements arrive, so a failed
-                            fetch reads as one fewer entry rather than a dot on
-                            the globe nobody can identify. */}
-                        <div style={{
-                            position: 'absolute', bottom: 10, left: 14,
-                            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 14px',
-                            pointerEvents: 'none',
+                        <p style={{
+                            position: 'absolute', bottom: 10, left: 14, margin: 0,
+                            fontSize: 10, color: 'rgba(255,255,255,0.35)', pointerEvents: 'none',
                         }}>
-                            {[{ id: 'iss', name: 'ISS', color: ISS_COLOR, altitude: iss.altitude },
-                              ...others].map(sat => (
-                                <span key={sat.id} className="flex items-center gap-1.5"
-                                    style={{ fontSize: 10, color: 'rgba(255,255,255,0.62)' }}>
-                                    <span style={{
-                                        width: 7, height: 7, borderRadius: 999,
-                                        background: sat.color, flexShrink: 0,
-                                        boxShadow: `0 0 6px ${sat.color}`,
-                                    }} />
-                                    {sat.name}
-                                    {sat.altitude != null && (
-                                        <span style={{ color: 'rgba(255,255,255,0.34)' }}>
-                                            {sat.altitude.toFixed(0)} km
-                                        </span>
-                                    )}
-                                </span>
-                            ))}
-                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.30)' }}>
-                                Drag to rotate · Scroll to zoom
-                            </span>
-                        </div>
+                            Orbit shown for {def.shortName}, one revolution · Drag to rotate · Scroll to zoom
+                        </p>
                     </div>
 
-                    {/* ── Telemetry ── */}
+                    {/* ── Telemetry for the selected craft ── */}
                     <div
                         className="glass"
                         style={{
@@ -228,8 +284,8 @@ const SatelliteView = () => {
                             gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
                         }}
                     >
-                        <Stat label="Latitude" value={fmtCoord(iss.lat, 'N', 'S')} />
-                        <Stat label="Longitude" value={fmtCoord(iss.lon, 'E', 'W')} />
+                        <Stat label="Latitude" value={fmtCoord(selected?.lat, 'N', 'S')} />
+                        <Stat label="Longitude" value={fmtCoord(selected?.lon, 'E', 'W')} />
                         <Stat
                             label="Nearest country"
                             value={nearest?.name ?? '—'}
@@ -242,29 +298,37 @@ const SatelliteView = () => {
                         />
                         <Stat
                             label="Altitude"
-                            value={iss.altitude != null ? `${iss.altitude.toFixed(0)} km` : '—'}
+                            value={selected ? `${selected.altitude.toFixed(0)} km` : '—'}
+                            sub={selected ? `sees ${Math.round(selected.footprintKm).toLocaleString()} km to the horizon` : null}
                         />
                         <Stat
                             label="Speed"
-                            value={iss.velocity != null ? `${(iss.velocity / 3600).toFixed(2)} km/s` : '—'}
-                            sub={iss.velocity != null ? `${Math.round(iss.velocity).toLocaleString()} km/h` : null}
+                            value={selected?.velocity != null ? `${selected.velocity.toFixed(2)} km/s` : '—'}
+                            sub={selected?.velocity != null
+                                ? `${Math.round(selected.velocity * 3600).toLocaleString()} km/h` : null}
                         />
                         <Stat
                             label="Sunlight"
                             value={
                                 <span className="flex items-center gap-1.5">
-                                    {isDaylight
+                                    {selected?.sunlit
                                         ? <Sun style={{ width: 15, height: 15 }} />
                                         : <Moon style={{ width: 15, height: 15 }} />}
-                                    {iss.visibility ? iss.visibility[0].toUpperCase() + iss.visibility.slice(1) : '—'}
+                                    {selected == null ? '—' : selected.sunlit ? 'Daylight' : 'Eclipsed'}
                                 </span>
                             }
-                            accent={isDaylight ? '#ffd166' : '#9db4ff'}
+                            accent={selected?.sunlit ? '#ffd166' : '#9db4ff'}
                         />
                         <Stat
-                            label="Updated"
-                            value={secondsAgo == null ? '—' : secondsAgo < 2 ? 'Just now' : `${secondsAgo}s ago`}
-                            sub="Polls every 5s"
+                            label="Orbital period"
+                            value={selected?.periodMinutes ? `${selected.periodMinutes.toFixed(1)} min` : '—'}
+                            sub={selected?.periodMinutes
+                                ? `${(1440 / selected.periodMinutes).toFixed(1)} orbits a day` : null}
+                        />
+                        <Stat
+                            label="Elements"
+                            value={elementsAge ?? '—'}
+                            sub="CelesTrak, refreshed 6-hourly"
                         />
                     </div>
 
@@ -281,34 +345,49 @@ const SatelliteView = () => {
                                             {distanceKm != null ? `${Math.round(distanceKm).toLocaleString()} km` : '—'}
                                         </p>
                                         <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-tertiary)' }}>
-                                            Ground distance from {fmtCoord(observer.lat, 'N', 'S')}, {fmtCoord(observer.lon, 'E', 'W')}
-                                            {distanceKm != null && distanceKm < 2000 && ' · overhead soon'}
+                                            Ground distance to {def.shortName} from {fmtCoord(observer.lat, 'N', 'S')}, {fmtCoord(observer.lon, 'E', 'W')}
+                                            {inRange && ' · above your horizon now'}
                                         </p>
                                     </>
                                 ) : (
                                     <p style={{ margin: '3px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                        {geoError ?? 'Share your location to see how far away the station is.'}
+                                        {geoError ?? `Share your location to see how far away ${def.shortName} is.`}
                                     </p>
                                 )}
                             </div>
-                            <button
-                                onClick={locate}
-                                className="flex items-center gap-2 rounded-xl font-bold focus-ring"
-                                style={{
-                                    padding: '10px 16px', fontSize: '0.8rem',
-                                    background: 'rgba(255,209,102,0.14)',
-                                    border: '1px solid rgba(255,209,102,0.28)',
-                                    color: '#ffd166', cursor: 'pointer', flexShrink: 0,
-                                }}
-                            >
-                                <MapPin style={{ width: 15, height: 15 }} />
-                                {observer ? 'Update location' : 'Use my location'}
-                            </button>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                    onClick={() => navigate(`/object/${def.catalogId}`)}
+                                    className="flex items-center gap-1.5 rounded-xl font-bold focus-ring"
+                                    style={{
+                                        padding: '10px 14px', fontSize: '0.8rem',
+                                        background: 'rgba(255,255,255,0.06)',
+                                        border: '1px solid rgba(255,255,255,0.14)',
+                                        color: 'rgba(255,255,255,0.85)', cursor: 'pointer',
+                                    }}
+                                >
+                                    About {def.shortName}
+                                    <ArrowUpRight style={{ width: 14, height: 14 }} />
+                                </button>
+                                <button
+                                    onClick={locate}
+                                    className="flex items-center gap-2 rounded-xl font-bold focus-ring"
+                                    style={{
+                                        padding: '10px 16px', fontSize: '0.8rem',
+                                        background: 'rgba(255,209,102,0.14)',
+                                        border: '1px solid rgba(255,209,102,0.28)',
+                                        color: '#ffd166', cursor: 'pointer', flexShrink: 0,
+                                    }}
+                                >
+                                    <MapPin style={{ width: 15, height: 15 }} />
+                                    {observer ? 'Update location' : 'Use my location'}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <p style={{ marginTop: 14, fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center' }}>
-                        ISS position from wheretheiss.at · Tiangong and Hubble propagated from CelesTrak orbital elements ·
+                        Positions propagated with SGP4 from CelesTrak orbital elements ·
                         Terminator computed from the current sub-solar point ·
                         Nearest country measured against Natural Earth coastlines
                     </p>

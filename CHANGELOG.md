@@ -16,6 +16,41 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 1.6.0
+
+- **The tracker is a satellite tracker now, not an ISS page with two extra
+  dots.** Every spacecraft is an entry in one list, and picking one is the whole
+  interaction: a row of chips above the globe, each carrying the colour its dot
+  is drawn in and its current altitude, so the legend and the control are the
+  same thing. Choosing one moves the camera to it, draws its orbit, and swings
+  the entire telemetry panel over to it. The selection lives in the URL —
+  `/satellites?sat=hubble` is a link you can send.
+
+  The ISS used to be the exception: its own feed, its own hook, its own half of
+  the page, with the others bolted alongside. It is now an ordinary row in
+  `data/trackedSatellites.js`, and adding a fourth spacecraft is adding a line.
+
+- **One source, so every spacecraft has every reading.** Positions all come
+  from CelesTrak elements through SGP4 now, including the ISS. The two things
+  the old single-satellite feed gave away for free are computed instead:
+  sunlight from a cylindrical shadow test against the Sun's direction, and the
+  footprint from the horizon distance at that altitude. The panel gained
+  orbital period, footprint and the age of the element set, and lost "updated
+  3 seconds ago", which was never quite true — the underlying data was always
+  a TLE a few hours old, and that is what it says now.
+
+  Because the sum is local it costs nothing to repeat, so every satellite
+  updates every second, and selecting one draws a full revolution of its orbit
+  immediately rather than accumulating a tail while you watch it.
+
+- **Fixed the camera slowly zooming itself in.** Following a target meant
+  lerping toward a point at the same distance from Earth's centre — but the
+  straight line between two points on a sphere is a chord, so each frame lost a
+  little altitude and the view crept inward until it hit the zoom limit. With
+  one satellite and a small swing it was slow enough to miss. Switching
+  spacecraft is a much larger swing, and it became a plainly wrong shot of a
+  globe that no longer fitted the frame.
+
 ## 1.5.7
 
 - **The tracker follows Tiangong and Hubble as well as the ISS**, each a dot in

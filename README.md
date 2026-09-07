@@ -62,7 +62,7 @@ frontend/src/
     probeTracks.js        the Voyagers' flown trajectories, and the radial
                           compression every off-ring position goes through
     useNearViewport.js    gate expensive loads on approaching the viewport
-    useTrackedSatellites.js  Tiangong and Hubble, propagated from TLEs
+    useSatelliteTracking.js  every tracked spacecraft, propagated from TLEs
 ```
 
 ### Performance is a feature here
@@ -104,6 +104,15 @@ them, 30 MB of decoded pixels, were being fetched during the scene's first
 seconds for cards nobody had scrolled to. `useNearViewport` gates the `<img>`
 on an IntersectionObserver instead, so the margin is ours.
 
+**Lerping between two points at the same radius does not keep the radius.**
+The tracker's camera followed its target by lerping toward a point the same
+distance from Earth's centre — but a straight line between two points on a
+sphere is a chord, so every frame of following lost a little altitude, and the
+camera crept inward until it hit `minDistance`. It went unnoticed while there
+was one satellite to follow and the swing was small; picking a different one is
+a much bigger swing, and it became obvious. The fix is a `setLength` after the
+lerp.
+
 **A "where is it now" API you can call from a browser is rarer than it looks.**
 Adding Tiangong and Hubble to the tracker took three attempts. wheretheiss.at,
 which the ISS uses, serves exactly one satellite — everything else 404s. N2YO
@@ -114,6 +123,14 @@ What works is doing the sum here: CelesTrak serves current TLEs with CORS and
 no key, and SGP4 turns one into a position. Checked against the live ISS fix it
 lands within half a kilometre, and against N2YO for all three within about
 seven — which at 7.6 km/s is well under a second of clock difference.
+
+Doing it locally is also what makes the tracker work for more than one
+spacecraft. A position costs nothing, so everything updates every second rather
+than every five, a whole orbit can be drawn the instant you pick something
+instead of accumulating while you watch, and adding a fourth satellite is a
+line in `data/trackedSatellites.js`. Sunlight and footprint, which the old
+single-satellite feed handed over for free, are computed in
+`useSatelliteTracking.js` — a cylindrical shadow test and a horizon distance.
 
 **Two coordinate frames that look identical until they don't.**
 `HelioVector` returns J2000 *equatorial*; JPL Horizons hands you J2000
