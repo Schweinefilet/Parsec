@@ -44,9 +44,13 @@ function subsolar(date) {
  */
 const SatelliteGlobe = ({
     satellites = [], selectedId, track = [], follow = true, observer = null,
+    onUserTakeOver,
 }) => {
     const mountRef = useRef(null);
     const api = useRef({});
+    // Held in a ref so the scene effect never needs it as a dependency
+    const takeOverRef = useRef(onUserTakeOver);
+    useEffect(() => { takeOverRef.current = onUserTakeOver; }, [onUserTakeOver]);
 
     // ── Scene setup (once) ────────────────────────────────────────────────
     useEffect(() => {
@@ -79,8 +83,23 @@ const SatelliteGlobe = ({
         controls.minDistance = 3.4;
         controls.maxDistance = 14;
 
+        // Taking the camera off the spacecraft is something the button should
+        // report, not just something that quietly happens: it said "Following
+        // Hubble" while the camera sat wherever you had dragged it.
+        //
+        // Keyed on the camera actually moving during an interaction rather than
+        // on the interaction starting, because OrbitControls fires 'start' on
+        // any pointer down — a click on the globe that never moves would
+        // otherwise switch following off.
         let userDriving = false;
-        controls.addEventListener('start', () => { userDriving = true; });
+        let interacting = false;
+        controls.addEventListener('start', () => { interacting = true; });
+        controls.addEventListener('end', () => { interacting = false; });
+        controls.addEventListener('change', () => {
+            if (!interacting || userDriving) return;
+            userDriving = true;
+            takeOverRef.current?.();
+        });
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.22));
         const sunLight = new THREE.DirectionalLight(0xfff6e8, 2.1);

@@ -16,6 +16,20 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 2.1.3
+
+- **The tracker's follow button says what is actually happening.** Dragging or
+  scrolling the globe already took the camera off the spacecraft — that is what
+  it is for — but the button went on reading "Following Hubble" regardless, so
+  pressing it did nothing you could see and there was no way back to following.
+  It flips to "Free look" the moment you take the camera, and pressing it hands
+  the camera back.
+
+  Keyed on the camera actually moving during an interaction, not on the
+  interaction starting: OrbitControls fires its `start` event on any pointer
+  down, so a click on the globe that never moves would otherwise have switched
+  following off by itself.
+
 ## 2.1.2
 
 - **Orbit paths stay visible in true distances.** They were `TubeGeometry`,

@@ -231,6 +231,7 @@ const SatelliteView = () => {
                             track={track}
                             follow={follow}
                             observer={observer}
+                            onUserTakeOver={() => setFollow(false)}
                         />
 
                         {status !== 'ready' && satellites.length === 0 && (
