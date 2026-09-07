@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, MapPin, Sun, Moon as MoonIcon, ArrowUpRight, Eye } from 'lucide-react';
+import {
+    ChevronLeft, MapPin, Sun, Moon as MoonIcon, ArrowUpRight, Eye,
+    Orbit, Sparkles, Telescope, CalendarDays,
+} from 'lucide-react';
 import { useObserverLocation } from '../hooks/useObserverLocation';
 import { skyView, VISIBILITY_LABEL } from '../utils/skyPositions';
+import { findEvents, whenWords, daysUntil, RANK } from '../utils/skyEvents';
 import { PLANETS } from '../data/solarSystemBodies';
 
 const BODY_COLOR = {
@@ -13,6 +17,89 @@ const BODY_COLOR = {
 const fmtTime = (d) => d
     ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null;
+
+const fmtDate = (d) => d.toLocaleDateString([], {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+});
+
+const EVENT_ICON = {
+    'solar-eclipse': Sun,
+    'lunar-eclipse': MoonIcon,
+    'opposition': Orbit,
+    'elongation': Telescope,
+    'full-moon': MoonIcon,
+    'new-moon': MoonIcon,
+    'meteor-shower': Sparkles,
+};
+
+// Three weights, because an eclipse and a full moon are not the same news.
+const RANK_STYLE = {
+    [RANK.headline]: { color: '#ffd166', bg: 'rgba(255,209,102,0.13)', border: 'rgba(255,209,102,0.30)' },
+    [RANK.notable]:  { color: '#9db4ff', bg: 'rgba(120,140,255,0.12)', border: 'rgba(120,140,255,0.26)' },
+    [RANK.routine]:  { color: 'var(--text-secondary)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.11)' },
+};
+
+/**
+ * One event, with the thing that makes this page more than a calendar: a
+ * button that puts the solar system at that instant. Reading that Saturn is
+ * at opposition in April tells you less than watching it line up.
+ */
+const EventRow = ({ event, now, onJump }) => {
+    const Icon = EVENT_ICON[event.kind] ?? CalendarDays;
+    const style = RANK_STYLE[event.rank] ?? RANK_STYLE[RANK.routine];
+    const soon = daysUntil(event.at, now) < 14;
+
+    return (
+        <div
+            className="flex flex-wrap items-start gap-x-3 gap-y-2"
+            style={{ padding: '13px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}
+        >
+            <span
+                className="flex items-center justify-center flex-shrink-0"
+                style={{
+                    width: 30, height: 30, borderRadius: 9, marginTop: 1,
+                    background: style.bg, border: `1px solid ${style.border}`, color: style.color,
+                }}
+            >
+                <Icon style={{ width: 15, height: 15 }} />
+            </span>
+
+            <span style={{ minWidth: 0, flex: '1 1 240px' }}>
+                <span className="flex flex-wrap items-baseline gap-x-2">
+                    <strong style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff' }}>
+                        {event.title}
+                    </strong>
+                    <span style={{
+                        fontSize: '0.72rem', fontWeight: 700, color: soon ? style.color : 'var(--text-tertiary)',
+                        whiteSpace: 'nowrap',
+                    }}>
+                        {whenWords(event.at, now)}
+                    </span>
+                </span>
+                <span style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                    {event.detail}
+                </span>
+                <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: 3 }}>
+                    {fmtDate(event.at)} · {fmtTime(event.at)}
+                </span>
+            </span>
+
+            <button
+                onClick={() => onJump(event)}
+                className="flex items-center gap-1.5 rounded-lg font-bold focus-ring flex-shrink-0"
+                style={{
+                    marginLeft: 'auto', padding: '7px 11px', fontSize: '0.74rem',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.13)',
+                    color: 'rgba(255,255,255,0.85)', cursor: 'pointer', whiteSpace: 'nowrap',
+                }}
+            >
+                Set the clock to it
+                <ArrowUpRight style={{ width: 13, height: 13 }} />
+            </button>
+        </div>
+    );
+};
 
 /**
  * The sky as a panorama: due north at both ends, the horizon along the bottom,
@@ -138,6 +225,72 @@ const TonightPage = () => {
     const upNow = view?.bodies.filter(b => b.up) ?? [];
     const below = view?.bodies.filter(b => !b.up) ?? [];
 
+    // The calendar costs 40ms cold and 13ms warm, which is nothing once a day
+    // and wasteful once a minute — so it is keyed on the date rather than on
+    // the clock. Countdowns stay live regardless: whenWords() reads `now` at
+    // render, so "in 3 days" becomes "tomorrow" without recomputing anything.
+    //
+    // Without a location this still runs. A solar eclipse is the one kind
+    // that depends on standing somewhere; oppositions, lunar eclipses and
+    // meteor showers are the same sky for everyone, and a page that shows
+    // nothing until you hand over your position has earned nothing.
+    const dayKey = now.toDateString();
+    const events = useMemo(
+        () => findEvents(location, { from: new Date(), days: 365, limit: 12 }),
+        // dayKey is the whole point of the dependency list here: it is what
+        // holds the result steady across the minute tick and lets it go at
+        // midnight. The rule cannot see that because the value is not read.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [location, dayKey],
+    );
+
+    /** Put the solar system at that instant. */
+    const jumpTo = (event) => navigate(`/?at=${encodeURIComponent(event.at.toISOString())}`);
+
+    // A year of dates is a reference; a thing happening this fortnight is
+    // news, and it is the only reason to open the page twice. Routine events
+    // do not qualify — a full moon every month is not something to be told
+    // about — so this is the soonest that is at least notable.
+    const imminent = events.find(e => e.rank >= RANK.notable && daysUntil(e.at, now) <= 14);
+
+    const eventsPanel = (
+        <div className="glass" style={{ marginTop: 16, padding: '4px 20px 16px' }}>
+            <div className="flex flex-wrap items-baseline gap-x-3">
+                <p style={{ margin: '14px 0 2px', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
+                    Coming up
+                </p>
+                <p style={{ margin: '14px 0 2px', fontSize: 11, color: 'var(--text-tertiary)' }}>
+                    the next year, most notable first
+                    {!location && ' · a solar eclipse needs your location to know if it reaches you'}
+                </p>
+            </div>
+            {imminent && (
+                <div
+                    className="flex flex-wrap items-center gap-x-2 gap-y-1"
+                    style={{
+                        margin: '10px 0 2px', padding: '9px 12px', borderRadius: 11,
+                        background: RANK_STYLE[imminent.rank].bg,
+                        border: `1px solid ${RANK_STYLE[imminent.rank].border}`,
+                    }}
+                >
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: RANK_STYLE[imminent.rank].color }}>
+                        {imminent.title} {whenWords(imminent.at, now)}
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                        {imminent.detail}
+                    </span>
+                </div>
+            )}
+            {events.length === 0 ? (
+                <p style={{ margin: '12px 0 4px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    Nothing found in the next year.
+                </p>
+            ) : events.map(e => (
+                <EventRow key={e.id} event={e} now={now} onJump={jumpTo} />
+            ))}
+        </div>
+    );
+
     return (
         <div style={{ position: 'relative', zIndex: 1, minHeight: 'var(--app-vh, 100vh)', paddingTop: 64 }}>
             <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 16px 40px' }}>
@@ -216,7 +369,11 @@ const TonightPage = () => {
                             {asking ? 'Asking…' : 'Use my location'}
                         </button>
                     </div>
-                ) : (
+                ) : null}
+
+                {!location && eventsPanel}
+
+                {location && (
                     <>
                         {/* ── The sky ── */}
                         <div className="glass" style={{ padding: '16px 8px 8px' }}>
@@ -312,6 +469,8 @@ const TonightPage = () => {
                                 ))}
                             </div>
                         )}
+
+                        {eventsPanel}
 
                         <div className="flex flex-wrap items-center justify-center gap-2" style={{ marginTop: 16 }}>
                             <button
