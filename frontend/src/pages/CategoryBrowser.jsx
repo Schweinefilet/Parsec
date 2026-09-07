@@ -344,8 +344,8 @@ const CategoryBrowser = () => {
                                 ? 'Switch back to the compressed layout'
                                 : 'Show true distances between the planets'}
                             title={trueScale
-                                ? 'Back to the compressed layout'
-                                : 'Spread the planets out to their real distances'}
+                                ? 'Showing real distances — switch back to the compressed layout'
+                                : 'Distances are compressed to fit — switch to the real ones'}
                             inert={(!!id || pageScrolled) || undefined}
                             className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
                             style={{
@@ -376,7 +376,11 @@ const CategoryBrowser = () => {
                             }}
                         >
                             <Ruler style={{ width: 13, height: 13 }} />
-                            {trueScale ? 'True distances' : 'To scale'}
+                            {/* Both halves name a layout, so the pair reads as
+                                one setting with two values rather than as a
+                                verb one way and a noun the other. "To scale"
+                                was also ambiguous about which state it meant. */}
+                            {trueScale ? 'True distances' : 'Compressed distances'}
                         </button>
                         <button
                             onClick={scrollToCatalog}

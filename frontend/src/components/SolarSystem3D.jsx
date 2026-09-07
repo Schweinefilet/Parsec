@@ -1688,6 +1688,37 @@ const SolarSystem3D = ({
             return out;
         };
 
+        // ── Hitboxes ───────────────────────────────────────────────────────
+        // A hitbox is a fixed number of scene units, which means how easy
+        // something is to click depends entirely on how far away the camera
+        // is. That was tolerable while the camera lived at one distance; with
+        // true distances it sits six times further out and everything but the
+        // Sun and Jupiter became impossible to hit. These are re-sized to hold
+        // a roughly constant angular size instead, so a planet is the same
+        // target whatever layout you are in and however far you have zoomed.
+        const HIT_TARGET_PX = 15;
+        const HIT_MAX_GROWTH = 25;
+        const _hitPos = new THREE.Vector3();
+        const sizeHitboxes = () => {
+            // Focus mode deliberately shrinks them to the visible body, so that
+            // clicking a planet you are already looking at picks its moons.
+            if (focusedIdRef.current) return;
+            const perUnit = (2 * Math.tan((camera.fov * Math.PI) / 360)) / Math.max(1, viewH);
+            const fit = (mesh, group, baseR) => {
+                if (!mesh || !baseR) return;
+                group.getWorldPosition(_hitPos);
+                const wanted = HIT_TARGET_PX * perUnit * camera.position.distanceTo(_hitPos);
+                mesh.scale.setScalar(Math.min(HIT_MAX_GROWTH, Math.max(1, wanted / baseR)));
+            };
+            planetGroups.forEach(({ group, planet }) => {
+                const hb = planetHitboxRefs.get(planet.name);
+                fit(hb, group, hb?.geometry?.parameters?.radius);
+            });
+            smallBodyGroups.forEach(({ group, body }) => {
+                fit(smallBodyHitRefs.get(body.id), group, smallBodyHitRadii.get(body.id));
+            });
+        };
+
         const _labelProj = new THREE.Vector3();
         // Where labels have already landed this pass. Two bodies can be a pixel
         // apart on screen — a conjunction, or the whole inner system once
@@ -2003,15 +2034,19 @@ const SolarSystem3D = ({
                             ?? newMesh.geometry?.parameters?.radius ?? 3.5;
                         const isTinyBody = SMALL_BODIES.some(b => b.id === currentFocusedId)
                             || MOON_DATA.some(b => b.id === currentFocusedId);
-                        const baseDist = newMesh.userData.id === 'sun' ? 50
+                        // Planets and the Sun sit a little further back than they
+                        // used to: at 3.5 radii Jupiter filled about three fifths
+                        // of the frame and read as being right on top of you.
+                        // Moons and small bodies are unchanged — their framing was
+                        // tuned separately and the flat offset pushes tiny things
+                        // much too far.
+                        const baseDist = newMesh.userData.id === 'sun' ? 62
                                      : newMesh.userData.id === 'iss' ? 0.3
                                      // Back off further for Halley so coma + tails frame the shot
                                      : newMesh.userData.id === 'halley' ? 7
-                                     // Small bodies & moons scale with radius — the flat +2
-                                     // pushed tiny objects much too far from the camera
                                      : focusDef?.focusDist
                                      ?? (isTinyBody ? Math.max(radius * 5.5, 0.5)
-                                                    : radius * 3.5 + 2);
+                                                    : radius * 4.5 + 3);
                         // A portrait viewport has a far narrower horizontal field of
                         // view, so a distance framed for landscape pushes the body off
                         // both edges. Back off in proportion, with a ceiling so phones
@@ -2369,6 +2404,10 @@ const SolarSystem3D = ({
                     setMoonLabelsReady(true);
                 }
             }
+
+            // Cheap, but there is no need to re-measure forty hitboxes every
+            // frame — nothing moves far enough in a sixth of a second to matter.
+            if (frameCount % 10 === 0) sizeHitboxes();
 
             // ── Object labels ──────────────────────────────────────────────────
             // Rebuild the roster only when the focus changes; otherwise just

@@ -16,6 +16,30 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 2.1.1
+
+- **Focusing a planet or the Sun no longer parks the camera on its nose.**
+  Jupiter filled about three fifths of the frame at the old distance and read
+  as being right on top of you; it now sits at four and a half radii rather
+  than three and a half, and the Sun a little further out too. Moons and small
+  bodies are untouched — their framing was tuned separately, and the flat
+  offset that suits a planet pushes a tiny object much too far away.
+
+- **Planets are clickable in true distances.** A hitbox was a fixed number of
+  scene units, so how easy something was to hit depended entirely on where the
+  camera happened to be. That was survivable while the camera lived at one
+  distance; with true distances it sits six times further out and everything
+  but the Sun and Jupiter became impossible to catch. Hitboxes now hold a
+  roughly constant angular size, so a planet is the same target whichever
+  layout you are in and however far you have zoomed — measured across both
+  layouts, every planet now answers the pointer from 12-15px off centre, where
+  before the small ones answered from nowhere at all.
+
+- **The scale toggle names a layout on both sides.** It read "To scale" one way
+  and "True distances" the other — a verb and a noun, and "To scale" was
+  ambiguous about which state it was describing. It is now "Compressed
+  distances" and "True distances", which reads as one setting with two values.
+
 ## 2.1.0
 
 - **A link to what you are looking at.** The copy button in the header folds
