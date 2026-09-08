@@ -2068,6 +2068,7 @@ const SolarSystem3D = ({
         };
         let prevNowDays = null;
         let scrubBase = null;   // live→scrub handover, see the moon block
+        let wasScrubbing = false;   // to catch the frame the clock rejoins now
         let meshRotSpeed = 0.002;
         let liveOrbitSpeed = 2000;
         let liveISSSpeed   = 2000; // tracked independently so hover response is immediate
@@ -2109,8 +2110,14 @@ const SolarSystem3D = ({
             const scrubbing = !isLive();
             // Planets then have to follow the clock. That is nine ephemeris calls,
             // so it is throttled: every other frame is well past the point where
-            // the motion looks continuous.
+            // the motion looks continuous. The frame the clock rejoins the
+            // present — the end of a "Back to now" wind-back, or an instant
+            // reset under reduced motion — gets one guaranteed update, or the
+            // planets would sit at the date the scrub left them until the 60s
+            // interval next fired.
             if (scrubbing && frameCount % 2 === 0) updatePlanetPositions(simTime);
+            else if (wasScrubbing && !scrubbing) updatePlanetPositions(simTime);
+            wasScrubbing = scrubbing;
             const nowDays = (simMs - ORBIT_EPOCH_MS) / 86400000;
             const currentFocusedId = focusedIdRef.current;
 
@@ -2395,7 +2402,19 @@ const SolarSystem3D = ({
             if (scrubbing && !scrubBase) {
                 scrubBase = { days: nowDays, angles: new Map(moonAngles) };
             } else if (!scrubbing && scrubBase) {
-                scrubBase = null;   // moonAngles already holds the handover value
+                // Settle every moon onto the angle the live date implies before
+                // the integrator takes back over. A wind-back has already
+                // walked nowDays home so this is a no-op; an instant reset
+                // (reduced motion) skipped that, and without this the moons
+                // would resume from wherever the scrub left them.
+                MOON_DATA.forEach(moon => {
+                    const base = scrubBase.angles.get(moon.name) ?? moon.phase0;
+                    const dir = moon.retrograde ? -1 : 1;
+                    const turns = (nowDays - scrubBase.days) / moon.period;
+                    const a = base + dir * Math.PI * 2 * turns;
+                    moonAngles.set(moon.name, Number.isFinite(a) ? a : moon.phase0);
+                });
+                scrubBase = null;
             }
 
             MOON_DATA.forEach(moon => {

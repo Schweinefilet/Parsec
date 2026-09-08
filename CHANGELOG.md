@@ -16,6 +16,39 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.9.0
+
+- **"Back to now" winds the scene home.** Pressing it used to reset the *rate*
+  to live but leave the planets sitting at whatever date the scrub had reached
+  — they only caught up on the next sixty-second refresh, or the moment you
+  touched another control. Now the clock eases from wherever it is parked back
+  to the present over five seconds, on an ease that starts and ends gently, and
+  the planets, moons, probes and small bodies walk back with it. The scrubber
+  slides home, the date counts down, and the button re-arms as "live" when it
+  lands.
+
+  - **The frame the clock rejoins the present gets a guaranteed position
+    update.** This is the actual fix for the stale-planets bug: whether the
+    return was a five-second wind-back or an instant jump, the scene now
+    settles every body exactly onto the live date on the handover frame rather
+    than trusting the throttled refresh to get there eventually.
+  - **Moons settle onto the live date too.** They were computed absolutely from
+    the simulated date while scrubbing and integrated forward while live, and
+    an instant return left them resuming from the scrubbed phase. The handover
+    now lands them where the present implies before the live integrator takes
+    over.
+  - **Reduced motion skips the travel.** `prefers-reduced-motion: reduce` gets
+    the same destination with no animation — an instant reset.
+  - **Grabbing any transport control mid-glide cancels it** without jumping the
+    clock, and a second press of "Back to now" while it is still winding snaps
+    the rest of the way.
+
+  `simTime.js` gains `glideToNow()` alongside the instant `resetToNow()`, and
+  `isGliding()`; `isLive()` reports false for the duration of a wind-back,
+  which is what keeps the scene animating through it.
+
+---
+
 ## 3.8.23
 
 - **The atlas speaks Vietnamese.** The whole interface and the whole catalog —

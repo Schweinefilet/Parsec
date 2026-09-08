@@ -2,9 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Pause, Rewind, FastForward, RotateCcw, Clock, ChevronsLeft } from 'lucide-react';
 import {
     RATES, RANGE_DAYS, simDate, getRate, isPaused, isLive,
-    setRate, togglePaused, resetToNow, setOffsetDays, offsetDays, subscribe,
+    setRate, togglePaused, glideToNow, setOffsetDays, offsetDays, subscribe,
 } from '../utils/simTime';
-import { useIsMobile, useHasRoomForTimeline } from '../hooks/useMediaQuery';
+import { useIsMobile, useHasRoomForTimeline, useReducedMotion } from '../hooks/useMediaQuery';
 import { useI18n } from '../i18n';
 
 /**
@@ -45,6 +45,7 @@ const TimeControl = ({ hidden }) => {
     const { t, date: fmtDate, time: fmtTime } = useI18n();
     const isMobile = useIsMobile();
     const roomy = useHasRoomForTimeline();
+    const reducedMotion = useReducedMotion();
     const [, force] = useState(0);
     // Open where there is room for it. Expanded, this is around 500px of
     // control anchored bottom-left, and on anything narrower than a roomy
@@ -64,6 +65,12 @@ const TimeControl = ({ hidden }) => {
     const onScrub = useCallback((e) => {
         setOffsetDays(Number(e.target.value));
     }, []);
+
+    // "Back to now" winds the scene home over five seconds so the planets are
+    // seen to move; reduced motion gets the same destination with no travel.
+    const backToNow = useCallback(() => {
+        glideToNow(reducedMotion ? 0 : 5000);
+    }, [reducedMotion]);
 
     const date = simDate();
     const rate = getRate();
@@ -193,7 +200,7 @@ const TimeControl = ({ hidden }) => {
                         />
 
                         <button
-                            onClick={resetToNow}
+                            onClick={backToNow}
                             style={{ ...btn(false), opacity: live ? 0.35 : 1 }}
                             disabled={live}
                             aria-label={t('time.backToNow')}
