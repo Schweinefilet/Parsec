@@ -16,6 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.21
+
+- **Hovering a body's label now does what hovering the body does.** Since the
+  labels became buttons you could click a name to fly there, but the pointer
+  passing over the text — a DOM element beside the canvas, not on it — never
+  reached the raycast that lights the orbit ring, holds the idle drift, and
+  slows a hovered moon. A small bridge routes the label's `mouseenter` /
+  `mouseleave` (and `focus` / `blur`, so a keyboard gets the same feedback as
+  it tabs through) into that same state, keyed on the body's id.
+
+---
+
 ## 3.8.20
 
 - **A focused object stopped breaking on a landscape phone.** Turned sideways, a

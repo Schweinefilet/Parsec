@@ -56,6 +56,11 @@ const SolarSystem3D = ({
     useEffect(() => subscribeScale(() => setTrueScale(isTrueScale())), []);
     const [moonLabelsReady, setMoonLabelsReady] = useState(false);
     const labelElsRef = useRef(new Map());
+    // Filled by the scene effect with { enter(id), leave() } so the floating
+    // labels — which sit beside their body, not over the canvas — can drive the
+    // same hover state a raycast would: light the orbit ring, hold the drift,
+    // slow a hovered moon.
+    const sceneHoverRef = useRef(null);
 
     const focusedIdRef = useRef(focusedId);
     useLayoutEffect(() => {
@@ -1775,6 +1780,36 @@ const SolarSystem3D = ({
         renderer.domElement.addEventListener('click',     handleClick);
         renderer.domElement.addEventListener('mousemove', handleMouseMove);
 
+        // ── Label hover bridge ─────────────────────────────────────────────────
+        // A floating label is a DOM button 12px off to the side of its body, so
+        // hovering it never crosses the canvas and the raycast above never runs.
+        // These do by name what handleMouseMove does by ray: hover the body's
+        // orbit ring, mark a hovered moon, and hold the idle drift still. The
+        // label's own mouseleave (or the next mousemove over the canvas) undoes
+        // it the same way the empty-hit branch does.
+        const meshForId = (bid) => planetMeshes.find(m => m.userData.id === bid);
+        sceneHoverRef.current = {
+            enter(bid) {
+                const orbit = meshForId(bid)?.userData.orbitLine ?? null;
+                if (orbit !== activeOrbit) {
+                    orbitAtRest(activeOrbit);
+                    orbitHovered(orbit);
+                    activeOrbit = orbit;
+                }
+                hoveredMoonId = (focusedIdRef.current && MOON_DATA.some(m => m.id === bid))
+                    ? bid : null;
+                if (!focusedIdRef.current) targetAutoRotateSpeed = 0;
+            },
+            leave() {
+                if (activeOrbit) {
+                    orbitAtRest(activeOrbit);
+                    activeOrbit = null;
+                }
+                hoveredMoonId = null;
+                targetAutoRotateSpeed = 0.11;
+            },
+        };
+
         // ── ResizeObserver ─────────────────────────────────────────────────────
         // Canvas size in CSS pixels, kept current here so the label pass never
         // has to call getBoundingClientRect() — a read that forces a synchronous
@@ -2752,6 +2787,7 @@ const SolarSystem3D = ({
             orientationMQ?.removeEventListener('change', syncSky);
             renderer.domElement.removeEventListener('click',     handleClick);
             renderer.domElement.removeEventListener('mousemove', handleMouseMove);
+            sceneHoverRef.current = null;
             renderer.domElement.removeEventListener('webglcontextlost',     onContextLost);
             renderer.domElement.removeEventListener('webglcontextrestored', onContextRestored);
             if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
@@ -2820,6 +2856,13 @@ const SolarSystem3D = ({
                             else labelElsRef.current.delete(key);
                         }}
                         onClick={() => id && navigate(`/object/${id}`)}
+                        // Match the hover the canvas gives the body itself —
+                        // orbit ring lit, drift held, moon slowed — and give a
+                        // keyboard the same feedback as it tabs through.
+                        onMouseEnter={() => id && sceneHoverRef.current?.enter(id)}
+                        onMouseLeave={() => sceneHoverRef.current?.leave()}
+                        onFocus={() => id && sceneHoverRef.current?.enter(id)}
+                        onBlur={() => sceneHoverRef.current?.leave()}
                         aria-label={t('scene.flyTo', { name: bodyName(name) })}
                         className="focus-ring"
                         style={{
