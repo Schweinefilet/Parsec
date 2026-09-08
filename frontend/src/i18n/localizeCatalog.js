@@ -238,6 +238,17 @@ export function assetLabel(englishName, code) {
     return cat?.assets?.[englishName] ?? englishName;
 }
 
+/**
+ * A country's name, given the label the land table uses.
+ *
+ * That label is Natural Earth's short map form — "Dem. Rep. Congo" — which is
+ * an English cartographic convention rather than a name. Other languages get
+ * the ordinary name instead of an abbreviation of it.
+ */
+export function countryName(name, code) {
+    return CATALOGS[code]?.countries?.[name] ?? name;
+}
+
 /** Stat labels and section names on their own, for the compare page. */
 export function statLabel(label, code) {
     return CATALOGS[code]?.statLabels?.[label] ?? label;

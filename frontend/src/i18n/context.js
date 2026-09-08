@@ -51,6 +51,7 @@ function fallback() {
             category: (tab) => tab,
             categoryBadge: (id) => id.replace(/-/g, ' '),
             bodyName: (n) => n,
+            countryName: (n) => n,
             assetLabel: (n) => n,
             statLabel: (l) => l,
             sectionLabel: (s) => s,

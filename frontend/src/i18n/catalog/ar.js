@@ -19,8 +19,13 @@
 // here; the compiler sorts longest-first, so "Radial Velocity" is matched
 // before "Velocity" and "S-Type" before "Type".
 
+import { countries } from './countries.ar';
+
 export const ar = {
     intl: 'ar',
+    // 240 of them, in their own file — see countries.ar.js. Bundled into this
+    // chunk rather than the tracker's, so the lookup stays synchronous.
+    countries,
     // "April 13, 2029" reads "13 أبريل 2029".
     dayFirstDates: true,
     // Signed numbers need protecting from the bidi algorithm — see

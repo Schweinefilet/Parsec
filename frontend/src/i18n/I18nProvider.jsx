@@ -8,7 +8,7 @@ import { I18nContext, intlTag } from './context';
 import { loadLocale } from './load';
 import {
     localizeObject, localizeCategory, categoryBadge, bodyName,
-    assetLabel, statLabel, sectionLabel, translateValue,
+    assetLabel, statLabel, sectionLabel, translateValue, countryName,
 } from './localizeCatalog';
 
 // Language, direction and the formatters that depend on both.
@@ -108,6 +108,7 @@ export function I18nProvider({ children, locale: forced }) {
             category: (tab) => localizeCategory(tab, t.code),
             categoryBadge: (id) => categoryBadge(id, t.code),
             bodyName: (name) => bodyName(name, t.code),
+            countryName: (name) => countryName(name, t.code),
             assetLabel: (name) => assetLabel(name, t.code),
             statLabel: (label) => statLabel(label, t.code),
             sectionLabel: (section) => sectionLabel(section, t.code),

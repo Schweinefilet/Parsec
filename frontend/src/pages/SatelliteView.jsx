@@ -98,7 +98,7 @@ function hexToRgb(hex) {
 }
 
 const SatelliteView = () => {
-    const { t, bodyName, num } = useI18n();
+    const { t, bodyName, countryName, num } = useI18n();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -296,7 +296,7 @@ const SatelliteView = () => {
                         <Stat label={t('tracker.longitude')} value={fmtCoord(selected?.lon, E, W)} />
                         <Stat
                             label={t('tracker.nearestCountry')}
-                            value={nearest?.name ?? '—'}
+                            value={nearest ? countryName(nearest.name) : '—'}
                             sub={
                                 nearest == null ? null
                                 : overhead ? t('tracker.overhead')

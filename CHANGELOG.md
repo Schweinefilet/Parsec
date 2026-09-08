@@ -16,6 +16,39 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.2
+
+- **The tracker names countries in Arabic.** All 240 of them. This was the last
+  English left on an Arabic page, and the only place a name reaches the screen
+  from a data file rather than a string table — which is exactly why it
+  survived a complete translation of everything else.
+
+  Natural Earth's labels are shortened for a map: "Dem. Rep. Congo",
+  "Bosnia and Herz.", "Antigua and Barb.". That is an English cartographic
+  convention rather than a name, and Arabic has no equivalent, so these are the
+  ordinary names written out — جمهورية الكونغو الديمقراطية, not an abbreviation
+  of it. The stat tile has room.
+
+  A test asserts the land table and the translation are the same set in both
+  directions: a country added to the data without a name fails, and so does a
+  name left behind after one is renamed upstream.
+
+- **Israel's land points are labelled Palestine.** An editorial decision by the
+  site's author, applied in `scripts/build-land-points.mjs` as a documented
+  rename rather than an edit to the generated table, so it survives the next
+  regeneration and reads as a decision rather than as a quirk of the upstream
+  data. Natural Earth ships the two as separate features; they are now merged
+  into one entry covering 29.7°–33.1°N, so the tracker reports Palestine for
+  the whole territory in every language. 241 entries became 240. Neighbouring
+  countries are unaffected — Beirut still answers Lebanon, Amman Jordan, Cairo
+  Egypt.
+
+  The build script gained the merge step this needed: points are now collected
+  per display name rather than per feature, so two features sharing a label
+  become one country rather than two entries that answer identically.
+
+---
+
 ## 3.8.1
 
 - **The skip link was sitting in the corner of every page.** Making it

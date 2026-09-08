@@ -64,14 +64,36 @@ function inside(rings, x, y) {
 // NAME is Natural Earth's own map-label form, already short ("Dem. Rep. Congo").
 // Where the CIA World Factbook name is shorter still it reads better in a stat
 // tile — "United States" rather than "United States of America".
-const displayName = (p) => {
+const naturalEarthName = (p) => {
     const name = p.NAME;
     const alt  = p.NAME_CIAWF;
     return alt && alt.length < name.length ? alt : name;
 };
 
-const table = [];
-let totalPoints = 0;
+// Editorial overrides on top of Natural Earth's labels.
+//
+// Everything else in this file is the source data as it ships. This is not:
+// it is a deliberate choice by the site's author about what to call a place,
+// applied here rather than in the generated JSON so that it survives the next
+// regeneration and so that anyone reading the table can see it was a decision
+// rather than a quirk of the upstream data.
+//
+// Features that end up sharing a name are merged into one entry below, so a
+// rename onto an existing name folds the two together.
+const RENAME = {
+    Israel: 'Palestine',
+};
+
+const displayName = (p) => {
+    const name = naturalEarthName(p);
+    return RENAME[name] ?? name;
+};
+
+// name → set of "lat,lon" keys. Keyed by display name rather than by feature,
+// so two features carrying the same label become one country in the table
+// instead of two entries that answer identically.
+const byName = new Map();
+let renamed = 0;
 
 for (const f of gj.features) {
     const name = f.properties.NAME;
@@ -79,13 +101,17 @@ for (const f of gj.features) {
     const rings = ringsOf(f.geometry);
     if (!rings.length) continue;
 
-    const pts = new Set();
+    const label = displayName(f.properties);
+    if (label !== naturalEarthName(f.properties)) renamed++;
+    if (!byName.has(label)) byName.set(label, new Set());
+    const pts = byName.get(label);
+    const before = pts.size;
     const add = (lon, lat) =>
         pts.add(`${Math.round(lat * SCALE)},${Math.round(lon * SCALE)}`);
 
     // ── Coastline ──────────────────────────────────────────────────────────
     for (const ring of rings) {
-        const before = pts.size;
+        const ringBefore = pts.size;
         let carried = COAST_STEP;                   // so the first vertex lands
         for (let i = 1; i < ring.length; i++) {
             const [x0, y0] = ring[i - 1], [x1, y1] = ring[i];
@@ -106,7 +132,7 @@ for (const f of gj.features) {
         // its country also owns — Tokelau behind New Zealand, Lakshadweep
         // behind India — and the sea around it answers with a neighbour
         // several hundred km further off.
-        if (pts.size === before) add(ring[0][0], ring[0][1]);
+        if (pts.size === ringBefore) add(ring[0][0], ring[0][1]);
     }
 
     // ── Interior fill ──────────────────────────────────────────────────────
@@ -122,8 +148,19 @@ for (const f of gj.features) {
         }
     }
 
-    // Sorted and delta-coded: neighbouring points differ by a digit or two, so
-    // the file gzips to about a third of what the absolute coordinates cost.
+    if (pts.size === before) {
+        console.warn(`  ${label}: feature contributed no points`);
+    }
+}
+
+// Sorted and delta-coded: neighbouring points differ by a digit or two, so the
+// file gzips to about a third of what the absolute coordinates cost. Done once
+// per name rather than once per feature, so a merged country's points are one
+// continuous sorted run and delta-code as tightly as any other.
+const table = [];
+let totalPoints = 0;
+
+for (const [name, pts] of byName) {
     const sorted = [...pts]
         .map(k => k.split(',').map(Number))
         .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
@@ -134,10 +171,11 @@ for (const f of gj.features) {
         prevLat = lat; prevLon = lon;
     }
     totalPoints += sorted.length;
-    table.push([displayName(f.properties), deltas]);
+    table.push([name, deltas]);
 }
 
 table.sort((a, b) => a[0].localeCompare(b[0]));
 const json = JSON.stringify(table);
 writeFileSync(OUT, json);
 console.log(`${table.length} countries, ${totalPoints} points, ${(json.length / 1024).toFixed(1)} KB → ${OUT}`);
+if (renamed) console.log(`${renamed} feature(s) relabelled — see RENAME above`);
