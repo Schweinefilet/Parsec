@@ -365,40 +365,14 @@ const CategoryBrowser = () => {
                     <TimeControl hidden={(isMobile && !!id) || (!!id && !inScene)} />
 
 
-                    {/* Catalog entry point — kept on the same row as the time
-                        control rather than stacked above it. */}
-                    <div
-                        className="absolute inset-x-0 flex justify-center pointer-events-none"
-                        style={{ bottom: isMobile ? 12 : 18, zIndex: 4, padding: '0 16px' }}
-                    >
-                        {/* The pill stays exactly centred — it was deliberately
-                            aligned with the time control in 1.5.2 — so the
-                            toggles hang off it rather than joining the row and
-                            shunting it sideways. */}
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        {/* View controls, in a row above the centred pill. Both
-                            are about how the scene behaves rather than what is
-                            in it, and neither can share the bottom row: the
-                            time control is anchored there and reaches across. */}
-                        {/* On the same row as the catalog pill, off the end of
-                            it. The pill itself stays exactly centred — it was
-                            deliberately aligned with the time control in 1.5.2 —
-                            so these hang off it rather than joining a shared row
-                            that would shunt it sideways.
-
-                            The end, not the start, and that has to be logical
-                            rather than "the right". The expanded time control is
-                            anchored to the same corner the reading starts at, and
-                            reaches about 535px in whatever the window, so
-                            anything sharing this row on that side runs straight
-                            through it. Pinned to the physical right, these sat
-                            on top of the time control in Arabic — where the time
-                            control is the thing on the right.
-
-                            A phone has no room beside the pill for two more
-                            pills, so there they stay stacked above it, clear of
-                            the time control by 23px. */}
-                        {(() => {
+                    {/* Catalog entry point, plus the two scene toggles.
+                        Desktop: the pill sits centred, aligned with the time
+                        control (a 1.5.2 decision), and the toggles fan off its
+                        end. Phone: everything stacks up the start edge above the
+                        time control — the pill was being covered by the expanded
+                        time control on the shared bottom row, and the toggles
+                        read better left-aligned than floating centred. */}
+                    {(() => {
                         const pill = (active) => ({
                             pointerEvents: id || pageScrolled ? 'none' : 'auto',
                             opacity: id || pageScrolled ? 0 : 1,
@@ -447,32 +421,64 @@ const CategoryBrowser = () => {
                                 {t(trueScale ? 'scene.trueDistances' : 'scene.compressedDistances')}
                             </button>
                         );
+                        const exploreBtn = (
+                            <button
+                                onClick={scrollToCatalog}
+                                aria-label={t('scene.scrollToCatalog')}
+                                inert={(!!id || pageScrolled) || undefined}
+                                className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
+                                style={{
+                                    pointerEvents: id || pageScrolled ? 'none' : 'auto',
+                                    opacity: id || pageScrolled ? 0 : 1,
+                                    background: 'rgba(0,0,0,0.42)',
+                                    border: '1px solid rgba(255,255,255,0.16)',
+                                    backdropFilter: 'blur(14px)',
+                                    WebkitBackdropFilter: 'blur(14px)',
+                                    color: 'rgba(255,255,255,0.78)',
+                                    padding: '7px 15px', fontSize: 10, fontWeight: 700,
+                                    letterSpacing: '0.1em', textTransform: 'uppercase',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                {t('scene.exploreCatalog')}
+                                <ChevronDown style={{ width: 14, height: 14 }} />
+                            </button>
+                        );
 
-                        // Desktop has room to fan both pills off the end of the
-                        // catalog pill. A phone does not — three rows of controls
-                        // over the scene — so there they fold behind one button.
+                        // ── Desktop: centred pill, toggles off its end ──
                         if (!isMobile) {
                             return (
-                                <div style={{
-                                    position: 'absolute', insetInlineStart: '100%', marginInlineStart: 8,
-                                    top: '50%', transform: 'translateY(-50%)',
-                                    display: 'flex', alignItems: 'center', gap: 8,
-                                }}>
-                                    {driftBtn}
-                                    {scaleBtn}
+                                <div
+                                    className="absolute inset-x-0 flex justify-center pointer-events-none"
+                                    style={{ bottom: 18, zIndex: 4, padding: '0 16px' }}
+                                >
+                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                        <div style={{
+                                            position: 'absolute', insetInlineStart: '100%', marginInlineStart: 8,
+                                            top: '50%', transform: 'translateY(-50%)',
+                                            display: 'flex', alignItems: 'center', gap: 8,
+                                        }}>
+                                            {driftBtn}
+                                            {scaleBtn}
+                                        </div>
+                                        {exploreBtn}
+                                    </div>
                                 </div>
                             );
                         }
 
+                        // ── Phone: a start-aligned column above the time control ──
                         const anyActive = !autoRotate || trueScale;
                         return (
-                            <div style={{
-                                position: 'absolute', bottom: '100%', marginBottom: 23,
-                                insetInlineStart: '50%', transform: 'translateX(-50%)',
-                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-                            }}>
+                            <div
+                                style={{
+                                    position: 'absolute', insetInlineStart: 12, bottom: 62, zIndex: 4,
+                                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                                    gap: 8, pointerEvents: 'none',
+                                }}
+                            >
                                 {sceneOptsOpen && (
-                                    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                                    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
                                         {driftBtn}
                                         {scaleBtn}
                                     </div>
@@ -497,35 +503,10 @@ const CategoryBrowser = () => {
                                 >
                                     <SlidersHorizontal style={{ width: 15, height: 15 }} />
                                 </button>
+                                {exploreBtn}
                             </div>
                         );
-                        })()}
-                        <button
-                            onClick={scrollToCatalog}
-                            aria-label={t('scene.scrollToCatalog')}
-                            inert={(!!id || pageScrolled) || undefined}
-                            className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
-                            style={{
-                                pointerEvents: id || pageScrolled ? 'none' : 'auto',
-                                opacity: id || pageScrolled ? 0 : 1,
-                                background: 'rgba(0,0,0,0.42)',
-                                border: '1px solid rgba(255,255,255,0.16)',
-                                backdropFilter: 'blur(14px)',
-                                WebkitBackdropFilter: 'blur(14px)',
-                                color: 'rgba(255,255,255,0.78)',
-                                padding: '7px 15px',
-                                fontSize: 10,
-                                fontWeight: 700,
-                                letterSpacing: '0.1em',
-                                textTransform: 'uppercase',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            {t('scene.exploreCatalog')}
-                            <ChevronDown style={{ width: 14, height: 14 }} />
-                        </button>
-                        </div>
-                    </div>
+                    })()}
 
                     {/* Back to solar system */}
                     {id && (

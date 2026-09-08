@@ -132,21 +132,29 @@ const TimeControl = ({ hidden }) => {
                     </button>
                 ) : (
                     <>
-                        <button onClick={() => stepRate(-1)} style={btn(false)} aria-label={t('time.slower')}>
-                            <Rewind style={{ width: 15, height: 15 }} />
-                        </button>
-                        <button
-                            onClick={togglePaused}
-                            style={btn(paused)}
-                            aria-label={t(paused ? 'time.resume' : 'time.pause')}
-                        >
-                            {paused
-                                ? <Play style={{ width: 15, height: 15 }} />
-                                : <Pause style={{ width: 15, height: 15 }} />}
-                        </button>
-                        <button onClick={() => stepRate(1)} style={btn(false)} aria-label={t('time.faster')}>
-                            <FastForward style={{ width: 15, height: 15 }} />
-                        </button>
+                        {/* Media transport reads left-to-right in every language —
+                            rewind on the left, fast-forward on the right, the way
+                            the icons point and the way the timeline runs — so the
+                            group is pinned `direction: ltr` and does not reverse
+                            with a right-to-left page. It still sits at the start
+                            edge of the control, which in Arabic is the right. */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, direction: 'ltr' }}>
+                            <button onClick={() => stepRate(-1)} style={btn(false)} aria-label={t('time.slower')}>
+                                <Rewind style={{ width: 15, height: 15 }} />
+                            </button>
+                            <button
+                                onClick={togglePaused}
+                                style={btn(paused)}
+                                aria-label={t(paused ? 'time.resume' : 'time.pause')}
+                            >
+                                {paused
+                                    ? <Play style={{ width: 15, height: 15 }} />
+                                    : <Pause style={{ width: 15, height: 15 }} />}
+                            </button>
+                            <button onClick={() => stepRate(1)} style={btn(false)} aria-label={t('time.faster')}>
+                                <FastForward style={{ width: 15, height: 15 }} />
+                            </button>
+                        </div>
 
                         <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.14)', margin: '0 2px' }} />
 
@@ -201,10 +209,10 @@ const TimeControl = ({ hidden }) => {
                             title={t('time.collapseTitle')}
                         >
                             {/* Points at the corner this collapses into, which
-                                is the corner the reading starts at. Rewind and
-                                fast-forward above are deliberately not flipped:
-                                they point along the timeline, and the timeline
-                                runs the same way in every language. */}
+                                is the corner the reading starts at — so it does
+                                flip. The transport group above does not: it runs
+                                along the timeline, the same way in every
+                                language. */}
                             <ChevronsLeft className="flip-rtl" style={{ width: 15, height: 15 }} />
                         </button>
                     </>

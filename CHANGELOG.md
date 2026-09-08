@@ -16,6 +16,25 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.14
+
+- **The phone's scene controls stack up the start edge now.** "Explore the
+  catalog" shared the bottom row with the time control, which — once expanded —
+  covered it completely; you had to collapse the clock to find the way into the
+  catalog. Everything now stacks above the time control against the start edge:
+  the view-options button and its two toggles, then the catalog pill, then the
+  clock. All left-aligned rather than floating centred.
+
+- **Media transport reads left-to-right in Arabic too.** Rewind, pause,
+  fast-forward were reversed by the right-to-left flow, so a left-pointing
+  rewind icon sat on the right of the pause button and fast-forward on the
+  left. The transport is a video-player control, not a sentence — it now holds
+  `direction: ltr` like the scrubber it drives, so the icons point the way they
+  move. It still sits at the start edge of the control, which in Arabic is the
+  right.
+
+---
+
 ## 3.8.13
 
 - **The README claimed version 1.5.2.** It has been at 3.x for a long time, and
