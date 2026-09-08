@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useSearchParams, useMatch } from 'react-router-dom';
+import { Link, useSearchParams, useMatch, useLocation } from 'react-router-dom';
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
     Crosshair, Sparkles, Satellite, Aperture, Radio, Archive, Scale, Eye as EyeIcon,
@@ -39,6 +39,11 @@ const AppShell = ({ children }) => {
     const [searchParams, setSearchParams] = useSearchParams();
     const match = useMatch('/object/:id');
     const focusedId = match?.params?.id;
+    // The category bar belongs to the catalog and nothing else. On the tracker,
+    // the compare view and the sky page it was context for a list that isn't
+    // there — and tapping a tab silently threw you back to the solar system.
+    const { pathname } = useLocation();
+    const onOwnPage = ['/satellites', '/compare', '/tonight'].includes(pathname);
     const activeTab = searchParams.get('tab') || 'planets';
     const setTab = (id) => {
         setSearchParams({ tab: id }, { replace: true });
@@ -118,7 +123,7 @@ const AppShell = ({ children }) => {
     // On a phone that would strand people: OrbitControls takes every touch on
     // the canvas, so there is no swipe to scroll with, and the bar you would
     // scroll to reach is the only other way into the catalog. Keep it visible.
-    const navHidden = !!focusedId || (!scrolled && !isMobile);
+    const navHidden = onOwnPage || !!focusedId || (!scrolled && !isMobile);
 
     return (
         <div

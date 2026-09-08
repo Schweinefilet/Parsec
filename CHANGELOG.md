@@ -16,6 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.3
+
+- **The category bar followed you onto pages that have no catalog.** The tracker,
+  the compare view and "what's up tonight" all showed the thirteen-tab
+  strip along the bottom — on a phone always, on desktop the moment you
+  scrolled — with a tab lit up as though it meant something there. Tapping one
+  threw you back to the solar system with no warning. The bar now belongs to the
+  catalog and nowhere else, and the space it was reserving at the foot of those
+  pages goes back to the content.
+
+---
+
 ## 3.8.2
 
 - **The tracker names countries in Arabic.** All 240 of them. This was the last
