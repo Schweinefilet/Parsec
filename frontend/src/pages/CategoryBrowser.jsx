@@ -175,6 +175,13 @@ const CategoryBrowser = () => {
         return () => window.removeEventListener('scroll', onScroll);
     }, []);
 
+    // The view-options popover only belongs to the hero. Fold it away when the
+    // page scrolls or an object is focused, so it isn't sitting open behind the
+    // fade the next time the hero comes back.
+    useEffect(() => {
+        if (pageScrolled || id) setSceneOptsOpen(false);
+    }, [pageScrolled, id]);
+
     // Escape leaves a focused object
     useEffect(() => {
         if (!id) return;

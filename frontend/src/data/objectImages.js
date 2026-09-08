@@ -32,7 +32,11 @@ const PATHS = {
     'ceres': 'PIA19619/PIA19619~small.jpg',
     'chandra': '9501245/9501245~medium.jpg',
     'crab-nebula': 'PIA17563/PIA17563~medium.jpg',
-    'deimos': 'PIA22250/PIA22250~medium.jpg',
+    // MRO HiRISE colour view, two angles. The earlier PIA22250 was a THEMIS
+    // thermal-analysis figure — a VIS thumbnail beside a false-colour
+    // temperature grid and a "110–200K" scale bar — which read as a broken
+    // image on a card rather than as Deimos.
+    'deimos': 'PIA11826/PIA11826~small.jpg',
     'didymos': 'PIA25329/PIA25329~medium.jpg',
     'dione': 'PIA14914/PIA14914~medium.jpg',
     'earth': 'PIA18033/PIA18033~medium.jpg',
@@ -47,7 +51,10 @@ const PATHS = {
     'io': 'PIA00282/PIA00282~small.jpg',
     'iss': 's132e013215/s132e013215~medium.jpg',
     'jupiter': 'PIA21395/PIA21395~medium.jpg',
-    'jwst': 'PIA11195/PIA11195~thumb.jpg',
+    // The segmented primary mirror during assembly at Goddard. The earlier
+    // PIA11195 was a close-up of a NIRCam detector in someone's gloved hands —
+    // real Webb hardware, but unrecognisable as the telescope.
+    'jwst': 'GSFC_20171208_Archive_e000422/GSFC_20171208_Archive_e000422~medium.jpg',
     // The Kepler mission's own artist concept of this planet, not of a
     // similar one — the description names Kepler-22b explicitly.
     'kepler-22b': 'PIA14883/PIA14883~medium.jpg',

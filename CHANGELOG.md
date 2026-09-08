@@ -16,6 +16,21 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.16
+
+- **Two catalog images weren't of their subject.** Deimos was a THEMIS
+  thermal-analysis figure — a grey VIS thumbnail next to a false-colour
+  temperature grid and a "110–200 K" scale bar — and JWST was a close-up of a
+  NIRCam detector cradled in gloved hands. Both read as broken images on a
+  card. Deimos is now the MRO HiRISE colour view; JWST is the segmented primary
+  mirror mid-assembly at Goddard.
+
+- **The phone's view-options popover stayed open behind the fade.** Opening it
+  and then scrolling to the catalog or focusing an object left it expanded, so
+  it sprang back the next time the hero returned. It folds away on either now.
+
+---
+
 ## 3.8.15
 
 - **Search on a phone was unusable.** The field opened at half the bar width,
