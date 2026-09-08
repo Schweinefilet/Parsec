@@ -48,10 +48,19 @@ const AppShell = ({ children }) => {
     const activeTab = resolveTab(searchParams.get('tab'));
     const setTab = (id) => {
         setSearchParams({ tab: id }, { replace: true });
-        // Choosing a category from the hero view should take you to it
-        if (window.scrollY < window.innerHeight * 0.5) {
-            window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
-        }
+        // Keep the catalog heading just under the header. From the hero that's a
+        // scroll down to it; from inside the catalog it holds the heading in
+        // place — otherwise switching to a category with fewer objects lets the
+        // browser clamp the scroll back up onto the scene, and you have to swipe
+        // past it again. Anchored on #catalog rather than a viewport multiple,
+        // because a one-card category isn't tall enough to reach innerHeight.
+        requestAnimationFrame(() => {
+            const el = document.getElementById('catalog');
+            if (!el) return;
+            const y = Math.max(0, el.getBoundingClientRect().top + window.scrollY - 60);
+            const fromHero = window.scrollY < y * 0.6;
+            window.scrollTo({ top: y, behavior: fromHero ? 'smooth' : 'auto' });
+        });
     };
 
     // Keep <title> and the canonical link in step with the route — there is no
@@ -174,6 +183,9 @@ const AppShell = ({ children }) => {
                     transition: 'background 350ms ease, backdrop-filter 350ms ease',
                 }}
             >
+                {/* On a phone the open search field wants the whole bar, so the
+                    wordmark steps aside for it. */}
+                {!(searchOpen && isMobile) && (
                 <Link
                     to="/"
                     data-app-logo
@@ -196,8 +208,13 @@ const AppShell = ({ children }) => {
                         {t('app.name')}
                     </span>
                 </Link>
+                )}
 
-                <div ref={searchRef} className="flex items-center gap-2" style={{ pointerEvents: 'auto' }}>
+                <div
+                    ref={searchRef}
+                    className="flex items-center gap-2"
+                    style={{ pointerEvents: 'auto', ...(searchOpen && isMobile ? { flex: 1 } : {}) }}
+                >
                     {!searchOpen && <LanguagePicker />}
                     {!searchOpen && (
                         <button
@@ -257,7 +274,7 @@ const AppShell = ({ children }) => {
                         </Link>
                     )}
                     {searchOpen && (
-                        <div className="animate-fade-in" style={{ width: 'clamp(200px, 52vw, 340px)' }}>
+                        <div className="animate-fade-in" style={{ width: isMobile ? '100%' : 'clamp(200px, 52vw, 340px)' }}>
                             <ObjectSearch autoFocus onClose={() => setSearchOpen(false)} />
                         </div>
                     )}

@@ -16,6 +16,28 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.15
+
+- **Search on a phone was unusable.** The field opened at half the bar width,
+  overlapping the wordmark, and the results list — clamped to ~200px — wrapped
+  every entry into a two- to four-line block with the category badge floating
+  in the middle of the text. On a phone the wordmark now steps aside, the field
+  takes the whole bar, and each result is one truncated line with the badge
+  pinned to the end.
+
+- **The catalog held its place when you switched category.** Tapping a shorter
+  category — Moons (23) to Stars (1) — let the page collapse under your scroll
+  position and dumped you back onto the 3D scene, to swipe past all over again.
+  Category changes now anchor the heading just under the header, and a
+  one-object category is given enough height to sit there.
+
+- **The 23rd moon was being clipped.** The catalog's `max-height` was a fixed
+  4000px cap for a collapse animation that is never actually seen; the moon
+  list had grown past it and `overflow: hidden` was cutting off everything
+  after roughly the fifteenth. The cap is gone.
+
+---
+
 ## 3.8.14
 
 - **The phone's scene controls stack up the start edge now.** "Explore the

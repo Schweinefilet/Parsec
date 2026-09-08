@@ -195,7 +195,10 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                                 cursor: 'pointer',
                             }}
                         >
-                            <span style={{ minWidth: 0 }}>
+                            {/* One line, truncated — a long name like "James Webb
+                                Space Telescope" was wrapping around the badge into
+                                a four-line block on a phone. */}
+                            <span style={{ minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 <span className="font-bold text-sm text-white">{obj.name}</span>
                                 <span className="text-xs" style={{ marginInlineStart: 8, color: 'var(--text-tertiary)' }}>
                                     {obj.type}
@@ -206,7 +209,7 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                             ) : (
                                 <span
                                     className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0"
-                                    style={{ border: '1px solid rgba(255,255,255,0.18)', color: 'var(--text-tertiary)' }}
+                                    style={{ border: '1px solid rgba(255,255,255,0.18)', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}
                                 >
                                     {categoryBadge(obj.category)}
                                 </span>

@@ -784,16 +784,28 @@ const CategoryBrowser = () => {
                     <SpaceDataStrip />
                 </div>
 
-                {/* ── Catalog ── */}
+                {/* ── Catalog ──
+                    maxHeight was a fixed 4000px cap, which the 23-moon list had
+                    grown past — the last few moons were being clipped by the
+                    overflow:hidden. The cap only ever existed for the
+                    collapse-on-focus transition, and that transition is never
+                    actually seen (focusing scrolls to the top first, and body
+                    scroll is locked), so `none` is safe and nothing is cut.
+
+                    minHeight keeps a one- or two-object category (Stars, Comets)
+                    tall enough that its heading can still scroll up under the
+                    header instead of the scene staying wedged above it. */}
                 <div
                     id="catalog"
                     className="transition-all duration-500 ease-in-out flex flex-col gap-6 px-4 md:px-8"
                     style={{
                         opacity: id ? 0 : 1,
-                        maxHeight: id ? 0 : 4000,
+                        maxHeight: id ? 0 : 'none',
+                        minHeight: id ? 0 : 'calc(100vh - 120px)',
                         overflow: 'hidden',
                         pointerEvents: id ? 'none' : 'auto',
                         paddingTop: 24,
+                        paddingBottom: 16,
                     }}
                 >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
