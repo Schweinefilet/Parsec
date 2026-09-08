@@ -16,6 +16,16 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.5
+
+- **"What's up tonight" stopped repeating its one button twelve times.** Every
+  row in the year-ahead list carried a "Set the clock to it" pill, which is a
+  lot of button for a reference list. The row itself is the target now — a
+  wider hit area and one accessible label — with a corner arrow that lifts on
+  hover or focus to say so.
+
+---
+
 ## 3.8.4
 
 - **A `?tab=` that named no category quietly served Stars.** The default was

@@ -141,6 +141,25 @@ button:focus-visible {
   transform: translateY(-1px);
 }
 
+/* ── "What's up tonight" event rows ─────────────────────────── */
+/* The whole row jumps the clock; the corner arrow lifts to say so. */
+.event-row {
+  transition: background 0.18s ease;
+}
+.event-row-arrow {
+  opacity: 0.38;
+  transition: opacity 0.18s ease;
+}
+@media (hover: hover) {
+  .event-row:hover {
+    background: rgba(255, 255, 255, 0.035);
+  }
+}
+.event-row:hover .event-row-arrow,
+.event-row:focus-visible .event-row-arrow {
+  opacity: 0.95;
+}
+
 /* ── Utilities ──────────────────────────────────────────────── */
 .no-scrollbar {
   scrollbar-width: none;

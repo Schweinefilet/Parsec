@@ -288,7 +288,7 @@ export const en = {
         comingUpNote: 'the next year, most notable first',
         comingUpNoLocation: ' · a solar eclipse needs your location to know if it reaches you',
         noEvents: 'Nothing found in the next year.',
-        setClock: 'Set the clock to it',
+        setClockAria: 'Set the solar system to {title}',
         footnote: 'Positions computed on your device from your latitude and longitude ·'
             + ' Altitudes include atmospheric refraction · Magnitudes are current, not average',
     },

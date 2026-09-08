@@ -33,9 +33,13 @@ const RANK_STYLE = {
 };
 
 /**
- * One event, with the thing that makes this page more than a calendar: a
- * button that puts the solar system at that instant. Reading that Saturn is
- * at opposition in April tells you less than watching it line up.
+ * One event, and the thing that makes this page more than a calendar: the whole
+ * row puts the solar system at that instant. Reading that Saturn is at
+ * opposition in April tells you less than watching it line up.
+ *
+ * The action used to be a "Set the clock to it" pill repeated down the whole
+ * year of events. The row itself is the target now — a bigger hit area, and one
+ * label — with a corner arrow that lifts on hover or focus.
  */
 const EventRow = ({ event, now, onJump }) => {
     const { t, date, time } = useI18n();
@@ -48,9 +52,16 @@ const EventRow = ({ event, now, onJump }) => {
     const soon = daysUntil(event.at, now) < 14;
 
     return (
-        <div
-            className="flex flex-wrap items-start gap-x-3 gap-y-2"
-            style={{ padding: '13px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}
+        <button
+            type="button"
+            onClick={() => onJump(event)}
+            aria-label={t('tonight.setClockAria', { title: event.title })}
+            className="event-row flex flex-wrap items-start gap-x-3 gap-y-2 w-full focus-ring"
+            style={{
+                padding: '13px 20px', margin: '0 -20px', width: 'calc(100% + 40px)',
+                textAlign: 'start', background: 'none', cursor: 'pointer',
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+            }}
         >
             <span
                 className="flex items-center justify-center flex-shrink-0"
@@ -82,20 +93,12 @@ const EventRow = ({ event, now, onJump }) => {
                 </span>
             </span>
 
-            <button
-                onClick={() => onJump(event)}
-                className="flex items-center gap-1.5 rounded-lg font-bold focus-ring flex-shrink-0"
-                style={{
-                    marginInlineStart: 'auto', padding: '7px 11px', fontSize: '0.74rem',
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.13)',
-                    color: 'rgba(255,255,255,0.85)', cursor: 'pointer', whiteSpace: 'nowrap',
-                }}
-            >
-                {t('tonight.setClock')}
-                <ArrowUpRight className="flip-rtl" style={{ width: 13, height: 13 }} />
-            </button>
-        </div>
+            <ArrowUpRight
+                className="event-row-arrow flip-rtl flex-shrink-0"
+                aria-hidden="true"
+                style={{ width: 15, height: 15, marginTop: 8, marginInlineStart: 'auto', color: 'rgba(255,255,255,0.85)' }}
+            />
+        </button>
     );
 };
 
