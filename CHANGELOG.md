@@ -16,6 +16,17 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.9
+
+- **A shared link has a preview card now.** The markup already declared
+  `twitter:card = summary_large_image` but there was no image to go with it, so
+  a link to the site unfurled as a bare title and a line of text. `og-image.png`
+  is a 1200×630 card in the site's own idiom — the wordmark, the tagline, a
+  ringed planet bleeding off the edge — wired up as `og:image` / `twitter:image`
+  with width, height and alt, alongside the `og:url` that was also missing.
+
+---
+
 ## 3.8.8
 
 - **Every route now has its own `<title>` and a canonical link.** There is no
