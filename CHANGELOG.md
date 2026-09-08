@@ -16,6 +16,24 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.22
+
+- **The site tells crawlers who it is now.** `og:url`, `og:image` and
+  `twitter:image` still pointed at the `onrender.com` host the site was first
+  deployed to rather than `p4rsec.com`, so a shared link's preview and its
+  canonical origin disagreed with where the site actually lives. All three now
+  name `p4rsec.com`, and a static `<link rel="canonical">` joins them — the
+  route-aware one that `documentHead.js` maintains at runtime is still the one
+  a JS crawler sees, this is the value in the shipped HTML.
+
+- **A sitemap and a robots.txt.** `public/robots.txt` allows everything and
+  points at `public/sitemap.xml`, which lists the one indexable URL — the SPA
+  serves the same shell for every route, so a per-page sitemap would be listing
+  the same document forty times. `robots.txt` had to be un-ignored: the repo's
+  `.gitignore` carries an unrelated `*.txt` catch-all.
+
+---
+
 ## 3.8.21
 
 - **Hovering a body's label now does what hovering the body does.** Since the

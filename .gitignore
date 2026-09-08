@@ -18,6 +18,9 @@ dist/
 results*
 *.txt
 !requirements.txt
+# Static asset that must ship to the CDN — the *.txt catch-all above is
+# unrelated boilerplate, but this file is served at /robots.txt.
+!frontend/public/robots.txt
 logs/
 cache/
 state/
