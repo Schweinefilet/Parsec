@@ -2280,6 +2280,14 @@ export const OBJECTS = [
     },
 ];
 
+// The default tab, and the fallback for a `?tab=` value that names no category —
+// a stale or hand-edited link. "Planets" is where a first visit should land;
+// falling through to CATEGORY_TABS[0] quietly served "Stars" (one object)
+// instead.
+export const DEFAULT_TAB = 'planets';
+export const resolveTab = (id) =>
+    (CATEGORY_TABS.some(t => t.id === id) ? id : DEFAULT_TAB);
+
 export const getObjectsByCategory = (categoryId) =>
     OBJECTS.filter(o => o.category === categoryId);
 

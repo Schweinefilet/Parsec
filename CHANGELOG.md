@@ -16,6 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.4
+
+- **A `?tab=` that named no category quietly served Stars.** The default was
+  written twice — `'planets'` where the tab strip reads it, and a fall-through
+  to the first tab in the list where the catalog does — so a stale or
+  hand-edited link like `?tab=comets` (the plural; the real id is `comet`)
+  landed on the one-object Stars page instead of the eight planets. One
+  `resolveTab` now answers for both: a value that names a real category passes
+  through, anything else becomes Planets.
+
+---
+
 ## 3.8.3
 
 - **The category bar followed you onto pages that have no catalog.** The tracker,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { OBJECTS, CATEGORY_TABS, getObjectById, getObjectsByCategory } from './objectCatalog';
+import { OBJECTS, CATEGORY_TABS, getObjectById, getObjectsByCategory, resolveTab, DEFAULT_TAB } from './objectCatalog';
 import { objectImage } from './objectImages';
 import { accentOf, CATEGORY_ACCENT } from './categoryStyles';
 
@@ -97,6 +97,19 @@ describe('lookups', () => {
         const planets = getObjectsByCategory('planets');
         expect(planets.length).toBe(8);
         expect(planets.every(p => p.category === 'planets')).toBe(true);
+    });
+
+    it('resolves a valid ?tab= value to itself', () => {
+        expect(resolveTab('moons')).toBe('moons');
+        expect(resolveTab('deep-space-probes')).toBe('deep-space-probes');
+    });
+
+    it('falls back to the default tab for an unknown or missing ?tab=', () => {
+        expect(resolveTab('comets')).toBe(DEFAULT_TAB);   // the plural — a plausible wrong guess
+        expect(resolveTab(null)).toBe(DEFAULT_TAB);
+        expect(resolveTab(undefined)).toBe(DEFAULT_TAB);
+        expect(resolveTab('')).toBe(DEFAULT_TAB);
+        expect(CATEGORY_TABS.some(t => t.id === DEFAULT_TAB)).toBe(true);
     });
 });
 

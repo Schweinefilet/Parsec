@@ -8,7 +8,7 @@ import {
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
 import { useIsMobile } from '../hooks/useMediaQuery';
-import { CATEGORY_TABS } from '../data/objectCatalog';
+import { CATEGORY_TABS, resolveTab } from '../data/objectCatalog';
 import { buildShareUrl, getCameraSnapshot } from '../utils/shareView';
 import { simDate } from '../utils/simTime';
 import { isTrueScale } from '../utils/scaleMode';
@@ -44,7 +44,7 @@ const AppShell = ({ children }) => {
     // there — and tapping a tab silently threw you back to the solar system.
     const { pathname } = useLocation();
     const onOwnPage = ['/satellites', '/compare', '/tonight'].includes(pathname);
-    const activeTab = searchParams.get('tab') || 'planets';
+    const activeTab = resolveTab(searchParams.get('tab'));
     const setTab = (id) => {
         setSearchParams({ tab: id }, { replace: true });
         // Choosing a category from the hero view should take you to it

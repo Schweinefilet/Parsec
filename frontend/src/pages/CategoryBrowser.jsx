@@ -13,7 +13,7 @@ import ObjectDetailBody from '../components/ObjectDetailBody';
 import ObjectHero from '../components/ObjectHero';
 import SpacecraftViewer from '../components/SpacecraftViewer';
 import TimeControl from '../components/TimeControl';
-import { CATEGORY_TABS, getObjectsByCategory, getObjectById } from '../data/objectCatalog';
+import { CATEGORY_TABS, getObjectsByCategory, getObjectById, resolveTab } from '../data/objectCatalog';
 import { hasSceneBody } from '../data/solarSystemBodies';
 import { useHorizons } from '../hooks/useHorizons';
 import { useIsMobile } from '../hooks/useMediaQuery';
@@ -126,7 +126,7 @@ const CategoryBrowser = () => {
     const id = match?.params?.id;
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const activeTab = searchParams.get('tab') || 'planets';
+    const activeTab = resolveTab(searchParams.get('tab'));
     const [sortBy, setSortBy] = useState('default');
     const isMobile = useIsMobile();
 
@@ -219,7 +219,7 @@ const CategoryBrowser = () => {
     }, [id]);
 
     const currentCategory = localizeCategory(
-        CATEGORY_TABS.find(tab => tab.id === activeTab) ?? CATEGORY_TABS[0]);
+        CATEGORY_TABS.find(tab => tab.id === activeTab));
     const objects = getObjectsByCategory(currentCategory.id);
     // Sorted on the translated names with the reader's own collation — an
     // alphabetical list of English names is not alphabetical in Arabic.
