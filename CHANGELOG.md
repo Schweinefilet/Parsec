@@ -16,6 +16,43 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.1
+
+- **The skip link was sitting in the corner of every page.** Making it
+  direction-aware, it was written as `inset-inline-start: -9999px` followed by
+  `left: auto`, the second line intended as a reset of the physical rule it
+  replaced. In a left-to-right page those two *are the same property*, the later
+  declaration wins, and `auto` parks an absolutely positioned element at its
+  static position. So the link that exists to be invisible until focused was
+  visible, in English, on every page. Both rules are logical now, and a test
+  reads the stylesheet for the general case — a logical inset declared
+  alongside the physical property it resolves to — because jsdom does no layout
+  and this class of bug cannot be caught by rendering.
+
+- **The drift and scale toggles sat on top of the time control in Arabic.**
+  They hang off the end of the centred catalog pill, away from the corner the
+  time control is anchored to — but "away" was written as `left: 100%`, and the
+  time control had already moved to the other side. Both are logical now, so
+  the two layouts are mirror images rather than a collision.
+
+- **The time control's collapse arrow points at the corner it collapses into.**
+  Along with the back buttons and the outward-link arrows. Rewind and
+  fast-forward deliberately do not turn around: they point along the timeline,
+  and the timeline runs the same way in every language.
+
+- **The annotations flanking a focused body were still in English.** They read
+  `label` and `value` straight off the catalog, which `localizeObject` keeps in
+  English on purpose — a section and a row have to stay identifiable by a name
+  that does not move, so the translated pair sits beside them. Saturn came out
+  as زُحل, عملاق غازي and 29.46 سنة, with MASS and EQUATORIAL RADIUS underneath.
+  The focused view had no test at all; it has one now, and it fails on exactly
+  this.
+
+- **The telemetry ticker's hemisphere letters are words.** N and W are not
+  universal; an Arabic reader gets ش and غ.
+
+---
+
 ## 3.8.0
 
 - **The atlas speaks Arabic.** The whole interface, and the whole catalog:

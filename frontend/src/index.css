@@ -102,7 +102,11 @@ button:focus-visible {
 
 .skip-link {
   position: absolute;
-  left: -9999px;
+  /* Logical, so it hides off whichever edge the reading starts at. Not paired
+     with a physical `left` as a fallback: in a left-to-right page the two are
+     the same property, the later declaration wins, and `left: auto` parks the
+     link at its static position — visible, in the top corner, on every page. */
+  inset-inline-start: -9999px;
   top: 0;
   z-index: 100;
   padding: 10px 16px;
@@ -114,7 +118,7 @@ button:focus-visible {
   font-weight: 700;
 }
 .skip-link:focus {
-  left: 0;
+  inset-inline-start: 0;
 }
 
 /* ── Catalog cards ──────────────────────────────────────────── */
@@ -350,16 +354,6 @@ body {
                'Noto Sans Arabic', 'Geeza Pro', Tahoma, 'Arial', sans-serif;
 }
 
-/* Logical, so it hides off whichever edge the reading starts at. */
-.skip-link {
-  inset-inline-start: -9999px;
-  left: auto;
-}
-.skip-link:focus {
-  inset-inline-start: 0;
-  left: auto;
-}
-
 /* The magnifying glass and the clear button sit at the two ends of the field,
    and which end each is at depends on the direction. */
 .glass-input-search {
@@ -374,6 +368,14 @@ body {
    exactly what the bidi algorithm is for. */
 .ltr-figure {
   direction: ltr;
+}
+
+/* An icon that points somewhere — back, collapse, dismiss — is describing a
+   direction on the screen, and the screen has turned around. Media transport
+   (play, rewind, fast-forward) deliberately does not get this: those point
+   along the timeline, which runs the same way in every language. */
+:root[dir="rtl"] .flip-rtl {
+  transform: scaleX(-1);
 }
 
 /* A number with a unit is a single unbreakable run. Isolating it stops a

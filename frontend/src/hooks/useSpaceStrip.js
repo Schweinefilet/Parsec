@@ -19,17 +19,20 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Static fallbacks shown when APIs are unreachable or rate-limited
 const FALLBACKS = {
-    iss_lat:   '51.6°N',
-    iss_lon:   '0.0°E',
+    iss_lat:   { value: '51.6°', suffixKey: 'sky.north' },
+    iss_lon:   { value: '0.0°',  suffixKey: 'sky.east' },
     neo_week:  '~25',
 };
 
 // Labels and units are keys; the value is a measurement, and a measurement is
 // the same in every language. `valueKey` is for the two cells whose value is a
 // word rather than a number — the moon phase, and "Unavailable".
+// `suffixKey` is the hemisphere letter, which is a word in every language and
+// happens to be one character in this one: N and W are not universal, and an
+// Arabic reader gets ش and غ.
 const INITIAL_CELLS = [
-    { key: 'iss_lat',    label: 'ticker.issLat',     value: FALLBACKS.iss_lat  },
-    { key: 'iss_lon',    label: 'ticker.issLon',     value: FALLBACKS.iss_lon  },
+    { key: 'iss_lat',    label: 'ticker.issLat',     ...FALLBACKS.iss_lat },
+    { key: 'iss_lon',    label: 'ticker.issLon',     ...FALLBACKS.iss_lon },
     { key: 'iss_alt',    label: 'ticker.issAlt',     value: '~408', unit: 'ticker.km' },
     { key: 'iss_speed',  label: 'ticker.issSpeed',   value: '7.66', unit: 'ticker.kmPerSec' },
     { key: 'neo_week',   label: 'ticker.neoWeek',    value: FALLBACKS.neo_week, unit: 'ticker.objects' },
@@ -95,12 +98,17 @@ export function useSpaceStrip() {
     const mountedRef = useRef(true);
     const neoAbortRef = useRef(null);
 
-    const updateCell = (key, value, unit) =>
+    const updateCell = (key, value, unit, suffixKey) =>
         setCells(prev =>
             prev.map(c => c.key === key
                 // A cell that has just been given a measurement is no longer a
-                // cell whose value is a word, so the key goes with it.
-                ? { ...c, value, valueKey: undefined, ...(unit !== undefined ? { unit } : {}) }
+                // cell whose value is a word, so the key goes with it. The
+                // hemisphere letter is replaced outright rather than kept: a
+                // latitude that has crossed the equator must not keep saying N.
+                ? {
+                    ...c, value, valueKey: undefined, suffixKey,
+                    ...(unit !== undefined ? { unit } : {}),
+                }
                 : c)
         );
 
@@ -113,8 +121,10 @@ export function useSpaceStrip() {
             const lat = Number(d.latitude);
             const lon = Number(d.longitude);
             if (Number.isFinite(lat) && Number.isFinite(lon)) {
-                updateCell('iss_lat', `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'}`);
-                updateCell('iss_lon', `${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'}`);
+                updateCell('iss_lat', `${Math.abs(lat).toFixed(1)}°`, undefined,
+                    lat >= 0 ? 'sky.north' : 'sky.south');
+                updateCell('iss_lon', `${Math.abs(lon).toFixed(1)}°`, undefined,
+                    lon >= 0 ? 'sky.east' : 'sky.west');
             }
             if (Number.isFinite(Number(d.altitude))) {
                 updateCell('iss_alt', Number(d.altitude).toFixed(0), 'ticker.km');

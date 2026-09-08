@@ -200,7 +200,12 @@ const TimeControl = ({ hidden }) => {
                             aria-label={t('time.collapse')}
                             title={t('time.collapseTitle')}
                         >
-                            <ChevronsLeft style={{ width: 15, height: 15 }} />
+                            {/* Points at the corner this collapses into, which
+                                is the corner the reading starts at. Rewind and
+                                fast-forward above are deliberately not flipped:
+                                they point along the timeline, and the timeline
+                                runs the same way in every language. */}
+                            <ChevronsLeft className="flip-rtl" style={{ width: 15, height: 15 }} />
                         </button>
                     </>
                 )}

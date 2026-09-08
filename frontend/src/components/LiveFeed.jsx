@@ -58,7 +58,7 @@ const LiveFeed = ({ satellite }) => {
                     style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', padding: '2px 4px' }}
                 >
                     {t('feed.onYouTube', { source: live.source })}
-                    <ArrowUpRight style={{ width: 12, height: 12 }} aria-hidden="true" />
+                    <ArrowUpRight className="flip-rtl" style={{ width: 12, height: 12 }} aria-hidden="true" />
                 </a>
             </div>
 

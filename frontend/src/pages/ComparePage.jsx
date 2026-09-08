@@ -355,7 +355,7 @@ const ComparePage = () => {
                             }}
                         >
                             {t('compare.about', { name: localize(o).name })}
-                            <ArrowUpRight style={{ width: 14, height: 14 }} />
+                            <ArrowUpRight className="flip-rtl" style={{ width: 14, height: 14 }} />
                         </button>
                     ))}
                 </div>

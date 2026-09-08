@@ -229,7 +229,12 @@ const CategoryBrowser = () => {
         return 0;
     }), [objects, sortBy, localize, intl]);
 
-    const physicalRows = object?.stats?.find(s => s.section === 'Physical')?.rows ?? [];
+    // `valueText` and `labelText` are the translated pair that localizeObject
+    // adds beside the English `value`/`label` — the English ones stay because
+    // they are what a section and a row are identified by, and reading them
+    // here is how the flanking annotations kept saying MASS on an Arabic page.
+    const physicalRows = (object?.stats?.find(s => s.section === 'Physical')?.rows ?? [])
+        .map(r => ({ value: r.valueText ?? r.value, label: r.labelText ?? r.label }));
     const scrollToCatalog = useCallback(() => {
         window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
     }, []);
@@ -365,31 +370,37 @@ const CategoryBrowser = () => {
                     >
                         {/* The pill stays exactly centred — it was deliberately
                             aligned with the time control in 1.5.2 — so the
-                            scale toggle hangs off its left rather than joining
-                            the row and shunting it sideways. */}
+                            toggles hang off it rather than joining the row and
+                            shunting it sideways. */}
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                         {/* View controls, in a row above the centred pill. Both
                             are about how the scene behaves rather than what is
                             in it, and neither can share the bottom row: the
                             time control is anchored there and reaches across. */}
-                        {/* On the same row as the catalog pill, off its right
-                            side. The pill itself stays exactly centred — it was
+                        {/* On the same row as the catalog pill, off the end of
+                            it. The pill itself stays exactly centred — it was
                             deliberately aligned with the time control in 1.5.2 —
                             so these hang off it rather than joining a shared row
                             that would shunt it sideways.
-                            Right, not left: the expanded time control is anchored
-                            bottom-left and its right edge lands at a fixed 535px
-                            whatever the window, so anything sharing this row on
-                            the left runs straight through it.
+
+                            The end, not the start, and that has to be logical
+                            rather than "the right". The expanded time control is
+                            anchored to the same corner the reading starts at, and
+                            reaches about 535px in whatever the window, so
+                            anything sharing this row on that side runs straight
+                            through it. Pinned to the physical right, these sat
+                            on top of the time control in Arabic — where the time
+                            control is the thing on the right.
+
                             A phone has no room beside the pill for two more
                             pills, so there they stay stacked above it, clear of
                             the time control by 23px. */}
                         <div style={isMobile ? {
                             position: 'absolute', bottom: '100%', marginBottom: 23,
-                            left: '50%', transform: 'translateX(-50%)',
+                            insetInlineStart: '50%', transform: 'translateX(-50%)',
                             display: 'flex', alignItems: 'center', gap: 8,
                         } : {
-                            position: 'absolute', left: '100%', marginLeft: 8,
+                            position: 'absolute', insetInlineStart: '100%', marginInlineStart: 8,
                             top: '50%', transform: 'translateY(-50%)',
                             display: 'flex', alignItems: 'center', gap: 8,
                         }}>
@@ -495,7 +506,7 @@ const CategoryBrowser = () => {
                                 cursor: 'pointer',
                             }}
                         >
-                            <ChevronLeft style={{ width: 18, height: 18 }} />
+                            <ChevronLeft className="flip-rtl" style={{ width: 18, height: 18 }} />
                         </button>
                     )}
 
@@ -724,7 +735,7 @@ const CategoryBrowser = () => {
                                             }}
                                         >
                                             {t('spacecraft.trackIss')}
-                                            <ArrowUpRight style={{ width: 16, height: 16 }} />
+                                            <ArrowUpRight className="flip-rtl" style={{ width: 16, height: 16 }} />
                                         </button>
                                     )}
 

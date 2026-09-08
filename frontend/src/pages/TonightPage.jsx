@@ -93,7 +93,7 @@ const EventRow = ({ event, now, onJump }) => {
                 }}
             >
                 {t('tonight.setClock')}
-                <ArrowUpRight style={{ width: 13, height: 13 }} />
+                <ArrowUpRight className="flip-rtl" style={{ width: 13, height: 13 }} />
             </button>
         </div>
     );
@@ -316,7 +316,7 @@ const TonightPage = () => {
                             color: 'rgba(255,255,255,0.85)', cursor: 'pointer',
                         }}
                     >
-                        <ChevronLeft style={{ width: 18, height: 18 }} />
+                        <ChevronLeft className="flip-rtl" style={{ width: 18, height: 18 }} />
                     </button>
                     <div style={{ minWidth: 0 }}>
                         <h1 style={{ margin: 0, fontSize: 'clamp(1.15rem, 3vw, 1.6rem)', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
@@ -523,7 +523,7 @@ const TonightPage = () => {
                                 }}
                             >
                                 {t('tonight.trackSatellite')}
-                                <ArrowUpRight style={{ width: 14, height: 14 }} />
+                                <ArrowUpRight className="flip-rtl" style={{ width: 14, height: 14 }} />
                             </button>
                         </div>
 

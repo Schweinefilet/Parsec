@@ -30,4 +30,13 @@ export default [
       ],
     },
   },
+  {
+    // Tests run in Node as well as in jsdom, and a couple of them read source
+    // files off disk — the stylesheet one, because jsdom does no layout and a
+    // CSS bug can only be caught by reading. The app itself stays browser-only.
+    files: ['**/*.{test,spec}.{js,jsx}', 'src/test/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+    },
+  },
 ]
