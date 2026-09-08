@@ -16,6 +16,16 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.10
+
+- **The category bar says how many objects each tab holds.** Thirteen tabs, and
+  four of them — Stars, Comets, Historical, Asteroids — hold one or two objects,
+  which you only found out by scrolling the bar and tapping. A small count now
+  sits beside each label ("Moons 23", "Comets 1"), and the whole tab reads
+  "Moons — 23 objects" to a screen reader.
+
+---
+
 ## 3.8.9
 
 - **A shared link has a preview card now.** The markup already declared

@@ -2291,5 +2291,12 @@ export const resolveTab = (id) =>
 export const getObjectsByCategory = (categoryId) =>
     OBJECTS.filter(o => o.category === categoryId);
 
+// How many objects sit behind each tab — so the nav can say whether a category
+// holds one object or twenty before you open it. Computed once from the same
+// list the catalog filters.
+export const CATEGORY_COUNTS = Object.fromEntries(
+    CATEGORY_TABS.map(tab => [tab.id, OBJECTS.filter(o => o.category === tab.id).length]),
+);
+
 export const getObjectById = (id) =>
     OBJECTS.find(o => o.id === id) ?? null;

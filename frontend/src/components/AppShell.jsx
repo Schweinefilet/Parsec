@@ -8,7 +8,7 @@ import {
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
 import { useIsMobile } from '../hooks/useMediaQuery';
-import { CATEGORY_TABS, DEFAULT_TAB, resolveTab, getObjectById } from '../data/objectCatalog';
+import { CATEGORY_TABS, CATEGORY_COUNTS, DEFAULT_TAB, resolveTab, getObjectById } from '../data/objectCatalog';
 import { buildShareUrl, getCameraSnapshot } from '../utils/shareView';
 import { simDate } from '../utils/simTime';
 import { isTrueScale } from '../utils/scaleMode';
@@ -328,12 +328,14 @@ const AppShell = ({ children }) => {
                     const { label } = category(tab);
                     const Icon = TAB_ICONS[id] ?? CircleDot;
                     const isActive = activeTab === id;
+                    const count = CATEGORY_COUNTS[id];
                     return (
                         <button
                             key={id}
                             data-active={isActive}
                             onClick={() => setTab(id)}
                             aria-current={isActive ? 'page' : undefined}
+                            aria-label={`${label} — ${t('catalog.count', { count })}`}
                             className="flex flex-col items-center justify-center gap-1 rounded-xl transition-all relative flex-shrink-0 focus-ring"
                             style={{
                                 minWidth: 72,
@@ -347,8 +349,19 @@ const AppShell = ({ children }) => {
                                 style={{ transform: isActive ? 'scale(1.12)' : 'scale(1)' }}
                                 aria-hidden="true"
                             />
-                            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
-                                {label}
+                            {/* Label with the object count beside it, so a tab that
+                                holds one object reads differently from one that
+                                holds twenty before you open it. */}
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }} aria-hidden="true">
+                                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.02em' }}>
+                                    {label}
+                                </span>
+                                <span style={{
+                                    fontSize: 9, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                                    color: isActive ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.30)',
+                                }}>
+                                    {count}
+                                </span>
                             </span>
                             {isActive && (
                                 <span
