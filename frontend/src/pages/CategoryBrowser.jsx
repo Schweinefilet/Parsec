@@ -246,7 +246,14 @@ const CategoryBrowser = () => {
     const physicalRows = (object?.stats?.find(s => s.section === 'Physical')?.rows ?? [])
         .map(r => ({ value: r.valueText ?? r.value, label: r.labelText ?? r.label }));
     const scrollToCatalog = useCallback(() => {
-        window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
+        // Land with the "Planets — 8 objects" heading just under the header, not
+        // a full viewport down — on a phone the scene is shorter than that and
+        // `innerHeight` overshot the heading clean off the top.
+        const el = document.getElementById('catalog');
+        const top = el
+            ? Math.max(0, el.getBoundingClientRect().top + window.scrollY - 60)
+            : window.innerHeight;
+        window.scrollTo({ top, behavior: 'smooth' });
     }, []);
 
     // Mobile lifts the focused body clear of the sheet — but only while the
@@ -699,7 +706,10 @@ const CategoryBrowser = () => {
                                                     <p style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>{object.keyStatValue}</p>
                                                     <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>{object.keyStatLabel}</p>
                                                 </div>
-                                                {physicalRows[0] && (
+                                                {/* Spacecraft get a full stats card of their own directly
+                                                    below — operator, launch year, altitude — so a second
+                                                    stat here only repeated one of those. */}
+                                                {physicalRows[0] && !isSpacecraft && (
                                                     <div>
                                                         <p style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>{physicalRows[0].value}</p>
                                                         <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>{physicalRows[0].label}</p>

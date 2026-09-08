@@ -16,6 +16,21 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.18
+
+- **"Explore the catalog" overshot the heading.** It scrolled a full viewport
+  down, but on a phone the scene is shorter than that, so you landed halfway
+  down the card list with the category name and count scrolled off the top. It
+  now lands with the heading just under the header, the same anchor a category
+  switch uses.
+
+- **A spacecraft's operator stopped being the first thing you read twice.** The
+  phone identity card showed the key stat plus the first "Physical" row, which
+  for a spacecraft is the operator — repeated immediately below in its own
+  stats card. The identity card now shows just the key stat for spacecraft.
+
+---
+
 ## 3.8.17
 
 - **The standalone pages share one header now.** The tracker, compare and
