@@ -79,6 +79,8 @@ export const ar = {
         showDetails: 'أظهر التفاصيل',
         hideDetails: 'أخفِ التفاصيل',
         flyTo: 'الانتقال إلى {name}',
+        viewOptions: 'خيارات العرض',
+        viewOptionsClose: 'إغلاق خيارات العرض',
     },
 
     catalog: {

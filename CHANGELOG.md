@@ -16,6 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.12
+
+- **The phone hero was three rows of controls deep.** Drift and scale toggles
+  on one row, the clock and the catalog pill on another, the category bar under
+  that — over a scene that was already letterboxed. On a phone the two toggles
+  now fold behind one small button that expands them on tap; it goes gold when
+  either is set to something other than its default, so a changed setting still
+  shows without being open. Desktop is unchanged — it has the room to fan both
+  pills off the end of the catalog pill.
+
+---
+
 ## 3.8.11
 
 - **The floating labels are buttons now.** They were `pointer-events: none`

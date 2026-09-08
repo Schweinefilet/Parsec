@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate, useMatch } from 'react-router-dom';
-import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause, SlidersHorizontal } from 'lucide-react';
 // STASHED StarfieldBg — uncomment this and the <StarfieldBg /> below to restore it.
 // import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
@@ -162,6 +162,9 @@ const CategoryBrowser = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     const [pageScrolled, setPageScrolled] = useState(false);
+    // Phone only: the drift and scale toggles fold behind one button so the
+    // hero isn't three rows of controls deep on a small screen.
+    const [sceneOptsOpen, setSceneOptsOpen] = useState(false);
     const [moonHintVisible, setMoonHintVisible] = useState(false);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [descriptionOpen, setDescriptionOpen] = useState(false);
@@ -395,72 +398,108 @@ const CategoryBrowser = () => {
                             A phone has no room beside the pill for two more
                             pills, so there they stay stacked above it, clear of
                             the time control by 23px. */}
-                        <div style={isMobile ? {
-                            position: 'absolute', bottom: '100%', marginBottom: 23,
-                            insetInlineStart: '50%', transform: 'translateX(-50%)',
-                            display: 'flex', alignItems: 'center', gap: 8,
-                        } : {
-                            position: 'absolute', insetInlineStart: '100%', marginInlineStart: 8,
-                            top: '50%', transform: 'translateY(-50%)',
-                            display: 'flex', alignItems: 'center', gap: 8,
-                        }}>
-                        <button
-                            onClick={() => setAutoRotate(v => !v)}
-                            aria-pressed={!autoRotate}
-                            aria-label={t(autoRotate ? 'scene.driftingAria' : 'scene.heldStillAria')}
-                            title={t(autoRotate ? 'scene.driftingTitle' : 'scene.heldStillTitle')}
-                            inert={(!!id || pageScrolled) || undefined}
-                            className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
-                            style={{
-                                pointerEvents: id || pageScrolled ? 'none' : 'auto',
-                                opacity: id || pageScrolled ? 0 : 1,
-                                background: autoRotate ? 'rgba(0,0,0,0.42)' : 'rgba(255,209,102,0.16)',
-                                border: `1px solid ${autoRotate ? 'rgba(255,255,255,0.16)' : 'rgba(255,209,102,0.34)'}`,
-                                backdropFilter: 'blur(14px)',
-                                WebkitBackdropFilter: 'blur(14px)',
-                                color: autoRotate ? 'rgba(255,255,255,0.78)' : '#ffd166',
-                                padding: '7px 15px', fontSize: 10, fontWeight: 700,
-                                letterSpacing: '0.1em', textTransform: 'uppercase',
-                                cursor: 'pointer', whiteSpace: 'nowrap',
-                            }}
-                        >
-                            {autoRotate
-                                ? <Orbit style={{ width: 13, height: 13 }} />
-                                : <Pause style={{ width: 13, height: 13 }} />}
-                            {t(autoRotate ? 'scene.drifting' : 'scene.heldStill')}
-                        </button>
-                        <button
-                            onClick={toggleTrueScale}
-                            aria-pressed={trueScale}
-                            aria-label={t(trueScale ? 'scene.compressedAria' : 'scene.trueScaleAria')}
-                            title={t(trueScale ? 'scene.trueScaleTitle' : 'scene.compressedTitle')}
-                            inert={(!!id || pageScrolled) || undefined}
-                            className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
-                            style={{
-                                pointerEvents: id || pageScrolled ? 'none' : 'auto',
-                                opacity: id || pageScrolled ? 0 : 1,
-                                background: trueScale ? 'rgba(255,209,102,0.16)' : 'rgba(0,0,0,0.42)',
-                                border: `1px solid ${trueScale ? 'rgba(255,209,102,0.34)' : 'rgba(255,255,255,0.16)'}`,
-                                backdropFilter: 'blur(14px)',
-                                WebkitBackdropFilter: 'blur(14px)',
-                                color: trueScale ? '#ffd166' : 'rgba(255,255,255,0.78)',
-                                padding: '7px 15px',
-                                fontSize: 10,
-                                fontWeight: 700,
-                                letterSpacing: '0.1em',
-                                textTransform: 'uppercase',
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            <Ruler style={{ width: 13, height: 13 }} />
-                            {/* Both halves name a layout, so the pair reads as
-                                one setting with two values rather than as a
-                                verb one way and a noun the other. "To scale"
-                                was also ambiguous about which state it meant. */}
-                            {t(trueScale ? 'scene.trueDistances' : 'scene.compressedDistances')}
-                        </button>
-                        </div>
+                        {(() => {
+                        const pill = (active) => ({
+                            pointerEvents: id || pageScrolled ? 'none' : 'auto',
+                            opacity: id || pageScrolled ? 0 : 1,
+                            background: active ? 'rgba(255,209,102,0.16)' : 'rgba(0,0,0,0.42)',
+                            border: `1px solid ${active ? 'rgba(255,209,102,0.34)' : 'rgba(255,255,255,0.16)'}`,
+                            backdropFilter: 'blur(14px)',
+                            WebkitBackdropFilter: 'blur(14px)',
+                            color: active ? '#ffd166' : 'rgba(255,255,255,0.78)',
+                            padding: '7px 15px', fontSize: 10, fontWeight: 700,
+                            letterSpacing: '0.1em', textTransform: 'uppercase',
+                            cursor: 'pointer', whiteSpace: 'nowrap',
+                        });
+                        const driftBtn = (
+                            <button
+                                key="drift"
+                                onClick={() => setAutoRotate(v => !v)}
+                                aria-pressed={!autoRotate}
+                                aria-label={t(autoRotate ? 'scene.driftingAria' : 'scene.heldStillAria')}
+                                title={t(autoRotate ? 'scene.driftingTitle' : 'scene.heldStillTitle')}
+                                inert={(!!id || pageScrolled) || undefined}
+                                className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
+                                style={pill(!autoRotate)}
+                            >
+                                {autoRotate
+                                    ? <Orbit style={{ width: 13, height: 13 }} />
+                                    : <Pause style={{ width: 13, height: 13 }} />}
+                                {t(autoRotate ? 'scene.drifting' : 'scene.heldStill')}
+                            </button>
+                        );
+                        const scaleBtn = (
+                            <button
+                                key="scale"
+                                onClick={toggleTrueScale}
+                                aria-pressed={trueScale}
+                                aria-label={t(trueScale ? 'scene.compressedAria' : 'scene.trueScaleAria')}
+                                title={t(trueScale ? 'scene.trueScaleTitle' : 'scene.compressedTitle')}
+                                inert={(!!id || pageScrolled) || undefined}
+                                className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
+                                style={pill(trueScale)}
+                            >
+                                <Ruler style={{ width: 13, height: 13 }} />
+                                {/* Both halves name a layout, so the pair reads as
+                                    one setting with two values rather than as a
+                                    verb one way and a noun the other. "To scale"
+                                    was also ambiguous about which state it meant. */}
+                                {t(trueScale ? 'scene.trueDistances' : 'scene.compressedDistances')}
+                            </button>
+                        );
+
+                        // Desktop has room to fan both pills off the end of the
+                        // catalog pill. A phone does not — three rows of controls
+                        // over the scene — so there they fold behind one button.
+                        if (!isMobile) {
+                            return (
+                                <div style={{
+                                    position: 'absolute', insetInlineStart: '100%', marginInlineStart: 8,
+                                    top: '50%', transform: 'translateY(-50%)',
+                                    display: 'flex', alignItems: 'center', gap: 8,
+                                }}>
+                                    {driftBtn}
+                                    {scaleBtn}
+                                </div>
+                            );
+                        }
+
+                        const anyActive = !autoRotate || trueScale;
+                        return (
+                            <div style={{
+                                position: 'absolute', bottom: '100%', marginBottom: 23,
+                                insetInlineStart: '50%', transform: 'translateX(-50%)',
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                            }}>
+                                {sceneOptsOpen && (
+                                    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                                        {driftBtn}
+                                        {scaleBtn}
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => setSceneOptsOpen(v => !v)}
+                                    aria-expanded={sceneOptsOpen}
+                                    aria-label={t(sceneOptsOpen ? 'scene.viewOptionsClose' : 'scene.viewOptions')}
+                                    inert={(!!id || pageScrolled) || undefined}
+                                    className="flex items-center justify-center rounded-full transition-opacity duration-700 focus-ring"
+                                    style={{
+                                        pointerEvents: id || pageScrolled ? 'none' : 'auto',
+                                        opacity: id || pageScrolled ? 0 : 1,
+                                        width: 34, height: 34,
+                                        background: (sceneOptsOpen || anyActive) ? 'rgba(255,209,102,0.16)' : 'rgba(0,0,0,0.42)',
+                                        border: `1px solid ${(sceneOptsOpen || anyActive) ? 'rgba(255,209,102,0.34)' : 'rgba(255,255,255,0.16)'}`,
+                                        backdropFilter: 'blur(14px)',
+                                        WebkitBackdropFilter: 'blur(14px)',
+                                        color: (sceneOptsOpen || anyActive) ? '#ffd166' : 'rgba(255,255,255,0.78)',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    <SlidersHorizontal style={{ width: 15, height: 15 }} />
+                                </button>
+                            </div>
+                        );
+                        })()}
                         <button
                             onClick={scrollToCatalog}
                             aria-label={t('scene.scrollToCatalog')}

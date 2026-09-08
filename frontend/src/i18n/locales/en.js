@@ -73,6 +73,8 @@ export const en = {
         showDetails: 'Show details',
         hideDetails: 'Hide details',
         flyTo: 'Fly to {name}',
+        viewOptions: 'View options',
+        viewOptionsClose: 'Close view options',
     },
 
     catalog: {
