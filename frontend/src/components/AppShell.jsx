@@ -8,11 +8,12 @@ import {
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
 import { useIsMobile } from '../hooks/useMediaQuery';
-import { CATEGORY_TABS, resolveTab } from '../data/objectCatalog';
+import { CATEGORY_TABS, DEFAULT_TAB, resolveTab, getObjectById } from '../data/objectCatalog';
 import { buildShareUrl, getCameraSnapshot } from '../utils/shareView';
 import { simDate } from '../utils/simTime';
 import { isTrueScale } from '../utils/scaleMode';
 import { subscribeLogo } from '../utils/assetLoading';
+import { syncDocumentHead } from '../utils/documentHead';
 import { useI18n } from '../i18n';
 
 // Icon per category id. Kept beside the tab list rather than duplicating the
@@ -35,7 +36,7 @@ const TAB_ICONS = {
 };
 
 const AppShell = ({ children }) => {
-    const { t, category } = useI18n();
+    const { t, category, object: localizeObject } = useI18n();
     const [searchParams, setSearchParams] = useSearchParams();
     const match = useMatch('/object/:id');
     const focusedId = match?.params?.id;
@@ -52,6 +53,30 @@ const AppShell = ({ children }) => {
             window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
         }
     };
+
+    // Keep <title> and the canonical link in step with the route — there is no
+    // server render, so without this every page carried index.html's one title
+    // and no canonical at all.
+    useEffect(() => {
+        const site = t('app.name');
+        const full = (name) => (name ? `${name} — ${site}` : t('app.title'));
+        let name, canonicalPath;
+        if (focusedId) {
+            const obj = getObjectById(focusedId);
+            name = obj ? localizeObject(obj).name : null;
+            canonicalPath = `/object/${focusedId}`;
+        } else if (onOwnPage) {
+            const key = { '/tonight': 'tonight.title', '/compare': 'compare.title', '/satellites': 'tracker.title' }[pathname];
+            name = key ? t(key) : null;
+            canonicalPath = pathname;
+        } else {
+            const isDefault = activeTab === DEFAULT_TAB;
+            const tab = CATEGORY_TABS.find(x => x.id === activeTab);
+            name = isDefault || !tab ? null : category(tab).label;
+            canonicalPath = isDefault ? '/' : `/?tab=${activeTab}`;
+        }
+        syncDocumentHead({ title: full(name), canonicalPath });
+    }, [focusedId, onOwnPage, pathname, activeTab, t, category, localizeObject]);
 
     // Hidden while the loading screen's copy is flying to this spot. Not a
     // fade: the flying one lands exactly here at exactly this size, so the two

@@ -72,12 +72,12 @@ export function I18nProvider({ children, locale: forced }) {
         root.setAttribute('lang', locale.code);
         root.setAttribute('dir', locale.dir);
 
-        // index.html carries the English title and description for crawlers,
-        // which see the document before any of this runs. Once a reader has
-        // chosen a language, the tab and anything that reads the description
-        // should follow them.
+        // index.html carries the English description for crawlers, which see the
+        // document before any of this runs. Once a reader has chosen a language,
+        // anything that reads the description should follow them. The tab title
+        // is route-specific and belongs to AppShell (utils/documentHead), which
+        // re-composes it in the new language when `t` changes here.
         const t = makeTranslator(localeLoaded(locale.code) ? locale.code : 'en');
-        document.title = t('app.title');
         const meta = document.querySelector('meta[name="description"]');
         if (meta) meta.setAttribute('content', t('app.description'));
     }, [locale, ready]);

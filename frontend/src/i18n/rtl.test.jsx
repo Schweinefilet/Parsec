@@ -3,6 +3,7 @@ import { render, screen, cleanup, waitFor, fireEvent, within } from '@testing-li
 import { MemoryRouter } from 'react-router-dom';
 import { I18nProvider } from './I18nProvider';
 import { loadLocale } from './load';
+import AppShell from '../components/AppShell';
 import ObjectCard from '../components/ObjectCard';
 import ObjectStatsPanel from '../components/ObjectStatsPanel';
 import ObjectSearch from '../components/ObjectSearch';
@@ -53,7 +54,9 @@ describe('the document in Arabic', () => {
     });
 
     it('renames the tab', async () => {
-        await mount(<ObjectCard object={getObjectById('mars')} />);
+        // AppShell (via utils/documentHead) owns the title; it re-composes it
+        // in the current language whenever the translator changes.
+        await mount(<AppShell><div /></AppShell>);
         await waitFor(() => expect(document.title).toMatch(/[؀-ۿ]/));
     });
 });

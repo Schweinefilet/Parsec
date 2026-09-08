@@ -16,6 +16,21 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.8
+
+- **Every route now has its own `<title>` and a canonical link.** There is no
+  server render, so index.html's one title — "P4RSEC — Explore the Solar System
+  in 3D" — was what a browser tab, a bookmark and a shared link showed for the
+  ISS tracker, the compare view, and every one of the seventy object pages
+  alike, and no page declared a canonical URL at all, so a preview domain or a
+  local mirror competed with the real site for the same content. `AppShell`
+  keeps both in step with the route: "Saturn — P4RSEC", "What's up tonight —
+  P4RSEC", "Moons — P4RSEC", canonicalised to the matching path. It re-composes
+  in the reader's language, which is the job it took over from the i18n
+  provider.
+
+---
+
 ## 3.8.7
 
 - **The catalog cards dropped their category badge.** Every card in the grid is

@@ -28,3 +28,7 @@ if (!window.matchMedia) {
 globalThis.ResizeObserver ??= class {
     observe() {} unobserve() {} disconnect() {}
 };
+
+// jsdom doesn't implement it; components that keep a selected tab in view call
+// it unconditionally.
+Element.prototype.scrollIntoView ??= function scrollIntoView() {};
