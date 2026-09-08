@@ -16,6 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.6
+
+- **Compare stopped shearing the larger body off flat.** On a narrow screen the
+  bigger disc was sized to almost the full width of the card, and the card
+  clips its overflow — so the glow, and at the far end the disc's own edge, met
+  a hard vertical line down the side and read as a clipped planet rather than a
+  big one. The stage now reserves a margin either side of the pair and the
+  outer glow is capped lower, so Jupiter beside Earth and the Sun beside
+  Jupiter both sit clear of the edge.
+
+---
+
 ## 3.8.5
 
 - **"What's up tonight" stopped repeating its one button twelve times.** Every

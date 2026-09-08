@@ -99,9 +99,12 @@ const BodyDisc = ({ object, fraction, maxPx, fmtKm }) => {
                         background: photo
                             ? `#05070a center/cover url(${photo})`
                             : `radial-gradient(circle at 32% 30%, rgba(${accent.rgb},0.55), rgba(${accent.rgb},0.16) 55%, #05070a 100%)`,
-                        // A terminator and a rim, so a flat crop reads as a body
+                        // A terminator and a rim, so a flat crop reads as a body.
+                        // The outer glow is capped low: near-stage-width, a wide
+                        // halo is the first thing the card's overflow:hidden bites
+                        // off, and a hard-clipped glow looks like a clipped planet.
                         boxShadow: px > 8
-                            ? `inset ${-px * 0.16}px ${-px * 0.1}px ${px * 0.4}px rgba(0,0,0,0.75), 0 0 ${Math.min(46, px * 0.34)}px rgba(${accent.rgb},0.38)`
+                            ? `inset ${-px * 0.16}px ${-px * 0.1}px ${px * 0.4}px rgba(0,0,0,0.75), 0 0 ${Math.min(28, px * 0.22)}px rgba(${accent.rgb},0.38)`
                             : `0 0 6px rgba(${accent.rgb},0.9)`,
                         outline: px < 6 ? `1px solid rgba(${accent.rgb},0.9)` : 'none',
                         outlineOffset: 2,
@@ -202,8 +205,13 @@ const ComparePage = () => {
     const stageWidth = useMeasuredWidth(stageRef);
     const smallShare = Math.min(rA, rB) / Math.max(rA, rB);
     const gap = Math.min(64, Math.max(20, stageWidth * 0.06));
+    // Reserve a margin either side of the pair — without it the larger disc came
+    // out at nearly the full stage width, and its glow (and, at the extreme, its
+    // own edge) was sheared off flat by the card's overflow:hidden, which reads
+    // as a clipped planet rather than a big one.
+    const margin = Math.min(56, stageWidth * 0.14);
     const maxPx = stageWidth
-        ? Math.max(60, Math.min(320, (stageWidth - gap) / (1 + smallShare)))
+        ? Math.max(60, Math.min(300, (stageWidth - gap - margin) / (1 + smallShare)))
         : 0;
 
     return (
