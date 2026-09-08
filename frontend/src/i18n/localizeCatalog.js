@@ -232,6 +232,26 @@ export function bodyName(englishName, code) {
     return (hit.short && entry.shortName) || entry.name || englishName;
 }
 
+/**
+ * Whether the catalog actually carries a name for a scene body.
+ *
+ * `bodyName` returning the English string is the only signal a script like
+ * Arabic needs — a Latin word mid-scene is the bug. Vietnamese is written in
+ * the Latin alphabet, so "Io" and "Titan" are the real Vietnamese names and
+ * come back unchanged; there the question is only whether an entry exists at
+ * all, which is what this answers. See i18n.test.js.
+ */
+export function bodyNameExists(englishName, code) {
+    const cat = CATALOGS[code];
+    if (!cat) return false;
+    if (cat.bodies?.[englishName]) return true;
+    const hit = NAME_TO_ID.get(englishName);
+    if (!hit) return false;
+    const entry = cat.objects?.[hit.id];
+    if (!entry) return false;
+    return Boolean((hit.short && entry.shortName) || entry.name);
+}
+
 /** A loading-screen asset name ("Saturn's rings"), translated where we have one. */
 export function assetLabel(englishName, code) {
     const cat = CATALOGS[code];

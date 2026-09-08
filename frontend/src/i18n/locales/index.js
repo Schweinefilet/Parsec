@@ -19,6 +19,12 @@
 // other; and Arabic-language scientific and astronomical writing overwhelmingly
 // sets figures in Western digits. Changing this line is all it takes to revisit
 // the decision.
+//
+// `script` is the writing system, which a few tests key off. Arabic script
+// leaking a Latin word mid-sentence is a translation gap; Vietnamese *is*
+// written in the Latin alphabet, so the same word may legitimately match its
+// English source ("Io", "Titan", "Vesta"), and the checks that would flag that
+// are skipped for `latn`.
 
 export const DEFAULT_LOCALE = 'en';
 
@@ -29,6 +35,7 @@ export const LOCALES = [
         english: 'English',
         dir: 'ltr',
         numerals: 'latn',
+        script: 'latn',
         // Passed to Intl.*. Distinct from `code` so a future 'pt-BR' can key
         // its strings under one name and still format like Brazil.
         intl: 'en',
@@ -42,7 +49,18 @@ export const LOCALES = [
         english: 'Arabic',
         dir: 'rtl',
         numerals: 'latn',
+        script: 'arab',
         intl: 'ar',
+        bundled: false,
+    },
+    {
+        code: 'vi',
+        endonym: 'Tiếng Việt',
+        english: 'Vietnamese',
+        dir: 'ltr',
+        numerals: 'latn',
+        script: 'latn',
+        intl: 'vi',
         bundled: false,
     },
 ];

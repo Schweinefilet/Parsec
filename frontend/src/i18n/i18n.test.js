@@ -5,7 +5,7 @@ import {
 } from './translate';
 import { loadLocale } from './load';
 import {
-    translateValue, localizeObject, localizeCategory, bodyName,
+    translateValue, localizeObject, localizeCategory, bodyName, bodyNameExists,
     catalogFor, translatedCatalogs, OBJECTS, CATEGORY_TABS,
 } from './localizeCatalog';
 import { PLANETS, MOON_DATA, SMALL_BODIES, PROBES } from '../data/solarSystemBodies';
@@ -177,7 +177,7 @@ describe('catalog coverage', () => {
     // catalog that failed to load would otherwise make this whole block
     // silently produce zero tests, which is the worst possible way for a
     // coverage suite to pass.
-    for (const { code } of LOCALES.filter(l => l.code !== DEFAULT_LOCALE)) {
+    for (const { code, script } of LOCALES.filter(l => l.code !== DEFAULT_LOCALE)) {
         const cat = () => catalogFor(code);
 
         it(`${code} names every object`, () => {
@@ -223,11 +223,16 @@ describe('catalog coverage', () => {
         it(`${code} has a name for every body the 3D scene labels`, () => {
             // The scene labels by English display name, and two of its tables
             // disagree with the catalog on purpose ("Moon" vs "Luna"). A body
-            // whose name falls through here shows up in Latin script mid-scene.
+            // whose name falls through here shows up in Latin script mid-scene
+            // — which is a bug in Arabic and simply correct in Vietnamese,
+            // where "Io" and "Titan" are the names. For a Latin-script locale
+            // the check is only that an entry exists at all.
             const scene = [...PLANETS, ...MOON_DATA, ...SMALL_BODIES, ...PROBES];
             const untranslated = scene
                 .map(b => b.name)
-                .filter(n => bodyName(n, code) === n);
+                .filter(n => script === 'latn'
+                    ? !bodyNameExists(n, code)
+                    : bodyName(n, code) === n);
             expect(untranslated).toEqual([]);
         });
     }

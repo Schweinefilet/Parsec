@@ -1,0 +1,403 @@
+// The interface in Vietnamese.
+//
+// Two things about this file that are not visible from the English one.
+//
+// Vietnamese has no grammatical plural — "1 ngày" and "5 ngày" are the same
+// word — so every plural table here carries the single CLDR category the
+// language uses, `other`. selectPlural reads it whatever the number.
+//
+// The script is Latin. Names the rest of the world already writes in Latin —
+// "Io", "Titan", "NGC 5195" — are left as they are, the same way Vietnamese
+// astronomy writing leaves them; the classical planets and a handful of
+// deep-sky objects have Vietnamese names and take them (see ../catalog/vi.js).
+//
+// Word order is not preserved where the language wants it different: Vietnamese
+// puts the qualifier after the amount, so `time.offset` reads "{amount}
+// {direction}" and comes out "3 ngày trước".
+
+export const vi = {
+    app: {
+        name: 'P4RSEC',
+        home: 'P4RSEC — trang chủ',
+        srTitle: 'P4RSEC — bản đồ 3D tương tác của Hệ Mặt Trời',
+        title: 'P4RSEC — Khám phá Hệ Mặt Trời trong không gian 3D',
+        description: 'Bản đồ 3D tương tác của Hệ Mặt Trời. Bay đến từng hành tinh, mặt trăng,'
+            + ' hành tinh lùn và sao chổi, theo dõi Trạm Vũ trụ Quốc tế theo thời gian thực,'
+            + ' và duyệt 70 thiên thể với dữ liệu quỹ đạo thực.',
+        skipToCatalog: 'Bỏ qua, đến danh mục',
+    },
+
+    language: {
+        label: 'Ngôn ngữ',
+        choose: 'Chọn ngôn ngữ',
+    },
+
+    nav: {
+        categories: 'Nhóm thiên thể',
+        back: 'Quay lại',
+        copyLink: 'Sao chép liên kết đến khung nhìn này',
+        copied: 'Đã sao chép liên kết',
+        tonight: 'Bầu trời đêm nay',
+        tonightTitle: 'Bầu trời đêm nay từ nơi bạn đứng',
+        compare: 'So sánh hai thiên thể',
+        compareTitle: 'So sánh hai thiên thể theo kích thước tương đối thực',
+        search: 'Tìm thiên thể',
+        searchClose: 'Đóng tìm kiếm',
+        searchShortcut: 'Tìm kiếm (⌘K)',
+    },
+
+    system: {
+        name: 'Hệ Mặt Trời',
+        blurb: 'Một ngôi sao, tám hành tinh, và mọi thứ bị giữ quanh chúng',
+        choose: '{name} — chọn hệ khác',
+        listLabel: 'Các hệ',
+    },
+
+    scene: {
+        canvas: 'Hệ Mặt Trời 3D tương tác. Kéo để xoay quanh, cuộn để phóng to, nhấp vào một thiên thể để khám phá.',
+        hintDesktop: 'Kéo để xoay quanh, cuộn để phóng to, nhấp vào thiên thể bất kỳ để khám phá',
+        hintMobile: 'Kéo để xoay quanh, chụm để phóng to, chạm để khám phá',
+        notToScale: '*không theo tỉ lệ',
+        distancesToScale: '*khoảng cách theo tỉ lệ — các thiên thể được phóng to, nếu không bạn sẽ chẳng thấy gì',
+        drifting: 'Đang trôi',
+        heldStill: 'Đã giữ yên',
+        driftingAria: 'Dừng camera trôi',
+        heldStillAria: 'Cho camera trôi lại',
+        driftingTitle: 'Khung nhìn trôi chậm — nhấn để giữ yên',
+        heldStillTitle: 'Khung nhìn đang được giữ yên — nhấn để cho trôi',
+        trueDistances: 'Khoảng cách thực',
+        compressedDistances: 'Khoảng cách nén',
+        trueScaleAria: 'Hiện khoảng cách thực giữa các hành tinh',
+        compressedAria: 'Chuyển về bố cục nén',
+        trueScaleTitle: 'Đang hiện khoảng cách thực — chuyển về bố cục nén',
+        compressedTitle: 'Khoảng cách được nén cho vừa — chuyển sang khoảng cách thực',
+        exploreCatalog: 'Khám phá danh mục',
+        scrollToCatalog: 'Cuộn xuống danh mục thiên thể',
+        back: 'Về Hệ Mặt Trời',
+        backTitle: 'Về Hệ Mặt Trời (Esc)',
+        clickMoon: 'Nhấp vào một mặt trăng để khám phá',
+        showDetails: 'Hiện chi tiết',
+        hideDetails: 'Ẩn chi tiết',
+        flyTo: 'Bay đến {name}',
+        viewOptions: 'Tùy chọn hiển thị',
+        viewOptionsClose: 'Đóng tùy chọn hiển thị',
+    },
+
+    catalog: {
+        sort: 'Sắp xếp:',
+        sortDefault: 'Thứ tự mặc định',
+        sortAZ: 'Tên A → Z',
+        sortZA: 'Tên Z → A',
+        count: { other: '{count} thiên thể' },
+        empty: 'Chưa có thiên thể nào trong nhóm này.',
+        cardAria: '{name} — {type}',
+        credit: 'NASA',
+    },
+
+    search: {
+        placeholder: 'Tìm hành tinh, mặt trăng, thiên hà…',
+        label: 'Tìm thiên thể',
+        clear: 'Xóa tìm kiếm',
+        popular: 'Phổ biến',
+        noMatches: 'Không có gì khớp với “{query}”.',
+    },
+
+    stats: {
+        none: 'Không có dữ liệu.',
+        aria: 'Số liệu về {name}',
+        object: 'Thiên thể',
+        painted: 'Không có bản đồ ảnh toàn cầu của {name}. Bề mặt hiển thị ở đây là hình dựng'
+            + ' dựa trên các đặc điểm đã biết, không phải ảnh chụp.',
+        chartFailed: 'Không thể vẽ biểu đồ.',
+        notEnoughData: 'Không đủ dữ liệu để vẽ biểu đồ.',
+        chartRange: 'Khoảng thời gian biểu đồ',
+        distanceFromEarth: 'Khoảng cách đến Trái Đất',
+        distanceFromSun: 'Khoảng cách đến Mặt Trời',
+        chartUnits: 'Đơn vị thiên văn (AU) — độ lệch tâm e = {e}',
+        chartUnitsCircular: 'Đơn vị thiên văn (AU) — xấp xỉ quỹ đạo tròn',
+        chartAria: '{title} của {name} trong {range} qua',
+        distanceAria: 'Khoảng cách theo thời gian, từ {from} đến {to} {unit}',
+    },
+
+    spacecraft: {
+        launchYear: 'Năm phóng',
+        status: 'Trạng thái',
+        operator: 'Đơn vị vận hành',
+        locationAltitude: 'Vị trí / Độ cao',
+        trackIss: 'Theo dõi ISS theo thời gian thực',
+        distanceFromSun: 'Khoảng cách đến Mặt Trời',
+        au: 'AU',
+        lightDelay: '{km} tỉ km · ánh sáng mất {hours} giờ để đến chỗ chúng ta',
+        horizonsNote: 'Ngoại suy từ vectơ trạng thái của JPL Horizons',
+        statusActive: 'HOẠT ĐỘNG',
+        statusInactive: 'NGỪNG HOẠT ĐỘNG',
+        modelAria: 'Mô hình 3D tương tác — kéo để xoay',
+    },
+
+    time: {
+        live: 'Trực tiếp',
+        rateAndOffset: '{rate}, {offset}',
+        liveAt: '{time}, trực tiếp',
+        paused: 'đã tạm dừng',
+        realTime: 'thời gian thực',
+        now: 'bây giờ',
+        offset: '{amount} {direction}',
+        ahead: 'sau',
+        ago: 'trước',
+        days: { other: '{count} ngày' },
+        months: { other: '{count} tháng' },
+        years: { other: '{count} năm' },
+        open: 'Mở bảng điều khiển thời gian',
+        collapse: 'Thu gọn bảng điều khiển thời gian',
+        collapseTitle: 'Thu gọn',
+        slower: 'Chậm hơn',
+        faster: 'Nhanh hơn',
+        pause: 'Tạm dừng thời gian',
+        resume: 'Tiếp tục thời gian',
+        backToNow: 'Về hiện tại',
+        scrub: 'Tua qua thời gian',
+    },
+
+    loading: {
+        starting: 'Đang khởi động',
+        progress: 'Đang tải {loaded} / {total}',
+        ready: 'Sẵn sàng',
+        skipped: 'đã bỏ qua',
+    },
+
+    error: {
+        title: 'Đã xảy ra lỗi',
+        body: 'Không dựng được khung nhìn 3D. Thường là do trục trặc đồ họa trên thiết bị'
+            + ' chứ không phải lỗi của bạn — tải lại trang thường khắc phục được.',
+        reload: 'Tải lại',
+        backHome: 'Về Hệ Mặt Trời',
+    },
+
+    ticker: {
+        aria: 'Dữ liệu vũ trụ trực tiếp',
+        issLat: 'VĨ ĐỘ ISS',
+        issLon: 'KINH ĐỘ ISS',
+        issAlt: 'ĐỘ CAO ISS',
+        issSpeed: 'TỐC ĐỘ ISS',
+        neoWeek: 'NEO/TUẦN',
+        moon: 'MẶT TRĂNG',
+        solarWind: 'GIÓ MẶT TRỜI',
+        km: 'km',
+        kmPerSec: 'km/s',
+        objects: 'thiên thể',
+        unavailable: 'Không có',
+    },
+
+    moonPhase: {
+        new: 'Trăng non',
+        waxingCrescent: 'Lưỡi liềm đầu tháng',
+        firstQuarter: 'Thượng huyền',
+        waxingGibbous: 'Trăng khuyết đầu tháng',
+        full: 'Trăng tròn',
+        waningGibbous: 'Trăng khuyết cuối tháng',
+        lastQuarter: 'Hạ huyền',
+        waningCrescent: 'Lưỡi liềm cuối tháng',
+    },
+
+    tracker: {
+        title: 'Theo dõi vệ tinh',
+        subtitle: '{name} · NORAD {norad}',
+        back: 'Quay lại',
+        choose: 'Chọn tàu vũ trụ để theo dõi',
+        statusLive: 'Trực tiếp',
+        statusLoading: 'Đang tải',
+        statusPartial: 'Một phần',
+        statusError: 'Không có phần tử quỹ đạo',
+        fetching: 'Đang lấy phần tử quỹ đạo…',
+        unreachable: 'Không kết nối được dịch vụ phần tử quỹ đạo.',
+        following: 'Đang theo dõi {name}',
+        freeLook: 'Nhìn tự do',
+        orbitCaption: 'Quỹ đạo hiển thị cho {name}, một vòng · Kéo để xoay · Cuộn để phóng to',
+        latitude: 'Vĩ độ',
+        longitude: 'Kinh độ',
+        nearestCountry: 'Quốc gia gần nhất',
+        overhead: 'Ngay trên đầu',
+        kmAway: 'cách {km} km',
+        altitude: 'Độ cao',
+        km: '{km} km',
+        horizon: 'nhìn được {km} km tới chân trời',
+        speed: 'Tốc độ',
+        kmPerSec: '{v} km/s',
+        kmPerHour: '{v} km/h',
+        sunlight: 'Ánh sáng Mặt Trời',
+        daylight: 'Ban ngày',
+        eclipsed: 'Trong bóng tối',
+        period: 'Chu kỳ quỹ đạo',
+        minutes: '{n} phút',
+        orbitsPerDay: '{n} vòng mỗi ngày',
+        elements: 'Phần tử quỹ đạo',
+        elementsSource: 'CelesTrak, làm mới mỗi 6 giờ',
+        ageMinutes: '{n} phút trước',
+        ageHours: '{n} giờ trước',
+        ageDays: '{n} ngày trước',
+        distanceFromYou: 'Khoảng cách từ bạn',
+        groundDistance: 'Khoảng cách trên mặt đất đến {name} từ {lat}, {lon}',
+        aboveHorizon: ' · đang trên chân trời của bạn',
+        shareLocation: 'Chia sẻ vị trí của bạn để biết {name} cách xa bao nhiêu.',
+        about: 'Về {name}',
+        useLocation: 'Dùng vị trí của tôi',
+        updateLocation: 'Cập nhật vị trí',
+        geoUnsupported: 'Trình duyệt này không hỗ trợ',
+        geoDenied: 'Đã từ chối quyền',
+        geoFailed: 'Không lấy được vị trí',
+        footnote: 'Vị trí được truyền lan bằng SGP4 từ phần tử quỹ đạo của CelesTrak ·'
+            + ' Đường phân giới ngày–đêm tính từ điểm hạ Mặt Trời hiện tại ·'
+            + ' Quốc gia gần nhất đo theo đường bờ biển của Natural Earth',
+    },
+
+    feed: {
+        title: 'Xem trực tiếp',
+        play: 'Phát luồng trực tiếp',
+        lazy: 'Chỉ tải từ YouTube khi bạn nhấn, không sớm hơn',
+        onYouTube: '{source} trên YouTube',
+        issCaption: 'Các camera ngoài trên mô-đun Harmony · hình chuyển sang xanh'
+            + ' khi Trạm đi vào phần đêm của quỹ đạo, và mất tín hiệu khi chuyển'
+            + ' giữa các vệ tinh chuyển tiếp',
+        none: 'Không có video trực tiếp công khai từ {name}.',
+        noneTelescope: ' Đây là kính viễn vọng hướng ra xa Trái Đất, và nó không phát'
+            + ' video — ảnh của nó được ghép lại từ các lần phơi sáng dài sau đó.',
+        noneOther: ' Chỉ Trạm Vũ trụ mới mang camera có luồng công khai liên tục.',
+        issTitle: 'Hình ảnh độ nét cao trực tiếp từ Trạm Vũ trụ',
+    },
+
+    tonight: {
+        title: 'Bầu trời đêm nay',
+        subtitle: 'Những hành tinh trên đầu bạn, và hướng nào để nhìn',
+        from: 'Từ {lat}, {lon} · {time}',
+        askTitle: 'Bạn đang đứng ở đâu?',
+        askBody: 'Những hành tinh nào trên chân trời của bạn hoàn toàn phụ thuộc vào nơi bạn đứng.'
+            + ' Vị trí của bạn được giữ lại trong trình duyệt này — bầu trời được tính trên thiết bị'
+            + ' của bạn, và không có gì được gửi đi đâu cả.',
+        asking: 'Đang hỏi…',
+        useLocation: 'Dùng vị trí của tôi',
+        updateLocation: 'Cập nhật vị trí',
+        forget: 'Quên đi',
+        trackSatellite: 'Theo dõi một vệ tinh',
+        skyAria: 'Bản đồ bầu trời: {count} thiên thể trên chân trời',
+        nothingUp: 'Hiện không có gì trên chân trời của bạn',
+        countUp: '{count} thiên thể trên chân trời · thanh này là toàn cảnh vòng quanh,'
+            + ' từ hướng bắc trở lại hướng bắc',
+        tooBright: ' · trời vẫn còn quá sáng để thấy những thiên thể mờ hơn',
+        aboveHorizon: 'Trên chân trời',
+        belowHorizon: 'Dưới chân trời',
+        look: 'Nhìn',
+        lookAt: 'Nhìn về hướng {compass}, {where}',
+        degreesUp: '(cao {deg}°)',
+        lit: 'sáng {pct}%',
+        mag: 'cấp sao {m}',
+        sets: 'lặn lúc {time}',
+        rises: 'mọc lúc {time}',
+        notUpToday: 'không mọc hôm nay',
+        comingUp: 'Sắp tới',
+        comingUpNote: 'trong năm tới, đáng chú ý nhất trước',
+        comingUpNoLocation: ' · nhật thực cần vị trí của bạn để biết nó có tới nơi bạn không',
+        noEvents: 'Không tìm thấy gì trong năm tới.',
+        setClockAria: 'Đặt Hệ Mặt Trời về thời điểm {title}',
+        footnote: 'Vị trí được tính trên thiết bị của bạn từ vĩ độ và kinh độ ·'
+            + ' Độ cao đã tính khúc xạ khí quyển · Cấp sao là hiện tại, không phải trung bình',
+    },
+
+    sky: {
+        twilightDay: 'Ban ngày',
+        twilightCivil: 'Chạng vạng dân dụng',
+        twilightNautical: 'Chạng vạng hàng hải',
+        twilightAstronomical: 'Chạng vạng thiên văn',
+        twilightNight: 'Đêm',
+        visibilityNakedEye: 'Mắt thường',
+        visibilityDarkSky: 'Mắt thường, trời tối',
+        visibilityBinoculars: 'Ống nhòm',
+        visibilityTelescope: 'Kính thiên văn',
+        visibilityUnknown: '—',
+        altBelow: 'dưới chân trời',
+        altJustAbove: 'vừa trên chân trời',
+        altLow: 'thấp',
+        altHigh: 'cao',
+        altOverhead: 'gần ngay trên đầu',
+        // A 16-point compass, and the four cardinals on their own for the
+        // panorama's axis. B/Đ/N/T are Bắc/Đông/Nam/Tây; the intermediate
+        // points combine them, e.g. ĐB = Đông Bắc.
+        compass: ['B', 'BĐB', 'ĐB', 'ĐĐB', 'Đ', 'ĐĐN', 'ĐN', 'NĐN',
+            'N', 'NTN', 'TN', 'TTN', 'T', 'TTB', 'TB', 'BTB'],
+        north: 'B',
+        east: 'Đ',
+        south: 'N',
+        west: 'T',
+    },
+
+    events: {
+        passed: 'đã qua',
+        today: 'hôm nay',
+        tomorrow: 'ngày mai',
+        inDays: 'trong {count} ngày',
+        inWeeks: 'trong {count} tuần',
+        inMonths: 'trong {count} tháng',
+        inYears: 'trong {count} năm',
+
+        solarEclipse: 'Nhật thực {kind}',
+        solarEclipseGeneric: 'Nhật thực',
+        solarObscured: '{pct}% Mặt Trời bị che khuất từ nơi bạn đứng',
+        solarVisible: 'Quan sát được từ vị trí của bạn',
+        lunarEclipse: 'Nguyệt thực {kind}',
+        lunarEclipseDetail: 'Mặt Trăng đi qua bóng Trái Đất — quan sát được ở bất cứ đâu nó đang mọc',
+        lunarEclipseFaint: 'Mặt Trăng chỉ hơi tối đi, dễ bỏ lỡ',
+        opposition: '{body} ở vị trí xung đối',
+        oppositionDetail: 'Đối diện Mặt Trời — {body} mọc lúc hoàng hôn, lặn lúc rạng đông,'
+            + ' và sáng nhất',
+        oppositionDetailFaint: 'Đối diện Mặt Trời — {body} mọc lúc hoàng hôn, lặn lúc rạng đông,'
+            + ' và sáng nhất, dù vẫn cần ống nhòm',
+        elongation: '{body} ở ly giác cực đại buổi {visibility}',
+        elongationDetail: 'cách Mặt Trời {deg}° — xa ánh chói nhất có thể, {when}',
+        beforeDawn: 'trước rạng đông',
+        afterSunset: 'sau hoàng hôn',
+        morning: 'sáng',
+        evening: 'chiều',
+        supermoon: 'Siêu trăng',
+        supermoonDetail: 'Trăng tròn ở cận điểm, cách {km} km — lớn hơn khoảng 7% so với'
+            + ' một lần trăng tròn trung bình',
+        fullMoon: 'Trăng tròn',
+        fullMoonDetail: 'Sáng suốt đêm, và đủ sáng để lấn át mọi thứ mờ nhạt',
+        newMoon: 'Trăng non',
+        newMoonDetail: 'Không có trăng trên trời — những đêm tối nhất trong tháng',
+        showerPeak: 'Cực đại {name}',
+        showerDetail: 'Tới khoảng {zhr} vệt mỗi giờ dưới trời tối khi không có Mặt Trăng',
+
+        eclipseTotal: 'toàn phần',
+        eclipseAnnular: 'hình khuyên',
+        eclipsePartial: 'một phần',
+        eclipsePenumbral: 'nửa tối',
+
+        showerQuadrantids: 'Quadrantids',
+        showerLyrids: 'Lyrids',
+        showerEtaAquariids: 'Eta Aquariids',
+        showerPerseids: 'Perseids',
+        showerOrionids: 'Orionids',
+        showerLeonids: 'Leonids',
+        showerGeminids: 'Geminids',
+        showerUrsids: 'Ursids',
+    },
+
+    compare: {
+        title: 'So sánh',
+        subtitle: 'Hai thiên thể theo kích thước tương đối thực',
+        first: 'Thứ nhất',
+        second: 'Thứ hai',
+        swap: 'Đổi chỗ hai thiên thể',
+        swapTitle: 'Đổi chỗ',
+        across: 'đường kính {size}',
+        option: '{name} — đường kính {size}',
+        sameSize: '{a} và {b} cùng kích thước',
+        widerThan: '{bigger} rộng gấp {ratio} lần {smaller}',
+        volumeSmall: '{bigger} có thể tích gấp {ratio} lần {smaller}',
+        volumeMany: '{ratio} {smaller} lọt vừa trong {bigger}',
+        note: 'Vẽ theo tỉ lệ — khác với khung nhìn Hệ Mặt Trời, ở đây không có gì bị nén',
+        about: 'Về {name}',
+        km: '{n} km',
+        m: '{n} m',
+        cm: '{n} cm',
+    },
+};

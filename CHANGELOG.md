@@ -16,6 +16,42 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.23
+
+- **The atlas speaks Vietnamese.** The whole interface and the whole catalog —
+  seventy object names, thirty-six types, the stat labels, seventy
+  descriptions, the eight hundred stat values under them, and the two hundred
+  and forty countries the ISS tracker can name. Vietnamese is written in the
+  Latin alphabet and reads left to right, so none of the right-to-left work
+  Arabic needed applies here; this is a translation, not a re-layout.
+
+  The classical bodies take their Vietnamese names — Mặt Trời, Sao Kim, Sao
+  Hỏa, Mặt Trăng — and so do the deep-sky objects a reader is likely to know:
+  Andromeda is Thiên hà Tiên Nữ, Orion is Lạp Hộ, the constellations are their
+  Sino-Vietnamese names. Moons and dwarf planets named in the last two
+  centuries — Io, Titan, Makemake — keep the international spelling, which is
+  what Vietnamese-language astronomy writing does with them. Catalogue
+  designations stay in Latin for the same reason they do everywhere else.
+
+- **Counted nouns lose their plural.** Vietnamese has no grammatical number:
+  "1 ngày" and "5 ngày" are the same word. Every plural table in the locale
+  carries the single CLDR category the language uses, and `selectPlural`
+  returns a plain string whatever the count — so the same key that inflects
+  five ways in Arabic and two in English does nothing at all here, which is
+  correct.
+
+- **Two coverage tests learned about Latin-script locales.** "Leaves no Latin
+  script in a translated country name" and "has a name for every scene body"
+  both assumed a translated string stops looking like its English source. For
+  Vietnamese it legitimately does not — "Brazil" is "Brazil", "Io" is "Io" —
+  so the country check is skipped for a Latin-script locale, and the body check
+  asks only whether an entry exists rather than whether it differs. A new
+  `bodyNameExists` in `localizeCatalog.js` backs the second one. Numbers keep
+  their English grouping (`1,750`, not `1.750`) to match the stat values that
+  pass through the sweep untouched.
+
+---
+
 ## 3.8.22
 
 - **The site tells crawlers who it is now.** `og:url`, `og:image` and

@@ -26,6 +26,13 @@ const LOADERS = {
         registerLocale('ar', strings.ar);
         registerCatalog('ar', catalog.ar);
     }),
+    vi: () => Promise.all([
+        import('./locales/vi'),
+        import('./catalog/vi'),
+    ]).then(([strings, catalog]) => {
+        registerLocale('vi', strings.vi);
+        registerCatalog('vi', catalog.vi);
+    }),
 };
 
 const inFlight = new Map();

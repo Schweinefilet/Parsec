@@ -25,7 +25,7 @@ describe('the land table', () => {
 });
 
 describe('country names', () => {
-    for (const { code } of LOCALES.filter(l => l.code !== DEFAULT_LOCALE)) {
+    for (const { code, script } of LOCALES.filter(l => l.code !== DEFAULT_LOCALE)) {
         it(`${code} translates every country in the table`, () => {
             const table = catalogFor(code)?.countries ?? {};
             const missing = tableNames.filter(n => !table[n]);
@@ -41,13 +41,18 @@ describe('country names', () => {
             expect(extra).toEqual([]);
         });
 
-        it(`${code} leaves no Latin script in a translated name`, () => {
-            const table = catalogFor(code)?.countries ?? {};
-            const latin = Object.entries(table)
-                .filter(([, v]) => /[A-Za-z]/.test(v))
-                .map(([k, v]) => `${k} → ${v}`);
-            expect(latin).toEqual([]);
-        });
+        // Only meaningful for a locale in a non-Latin script. Vietnamese is
+        // written in the Latin alphabet, so a Latin letter in a Vietnamese
+        // country name ("Bồ Đào Nha", "Brazil") is not a translation gap.
+        if (script !== 'latn') {
+            it(`${code} leaves no Latin script in a translated name`, () => {
+                const table = catalogFor(code)?.countries ?? {};
+                const latin = Object.entries(table)
+                    .filter(([, v]) => /[A-Za-z]/.test(v))
+                    .map(([k, v]) => `${k} → ${v}`);
+                expect(latin).toEqual([]);
+            });
+        }
     }
 
     it('passes a name through untouched in the source language', () => {
