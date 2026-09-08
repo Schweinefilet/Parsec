@@ -72,6 +72,7 @@ export const en = {
         clickMoon: 'Click a moon to explore it',
         showDetails: 'Show details',
         hideDetails: 'Hide details',
+        flyTo: 'Fly to {name}',
     },
 
     catalog: {

@@ -16,6 +16,19 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.11
+
+- **The floating labels are buttons now.** They were `pointer-events: none`
+  decoration — you could click the planet's dot but not its name, and in the
+  compressed home view that dot is a few pixels across. Each label is a real
+  button that flies to its body, so the name is a target, and a keyboard can
+  tab through Mercury, Venus, Earth… and press Enter to go there — the 3D scene
+  had no keyboard path into it before. `pointer-events` stays off the button so
+  a drag that starts on a label still orbits the scene; the text span opts back
+  in as the click target, and neither touches keyboard focus.
+
+---
+
 ## 3.8.10
 
 - **The category bar says how many objects each tab holds.** Thirteen tabs, and

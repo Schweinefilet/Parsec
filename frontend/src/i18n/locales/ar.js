@@ -78,6 +78,7 @@ export const ar = {
         clickMoon: 'انقر على قمر لاستكشافه',
         showDetails: 'أظهر التفاصيل',
         hideDetails: 'أخفِ التفاصيل',
+        flyTo: 'الانتقال إلى {name}',
     },
 
     catalog: {

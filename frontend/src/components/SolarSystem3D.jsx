@@ -1830,12 +1830,12 @@ const SolarSystem3D = ({
             if (!focused) {
                 // Home view — label every planet
                 planetGroups.forEach(({ group, planet }) => out.push(
-                    { key: `planet:${planet.name}`, name: planet.name, kind: 'planet', object3d: group }));
+                    { key: `planet:${planet.name}`, id: planet.id, name: planet.name, kind: 'planet', object3d: group }));
                 // Small bodies and probes: dimmer, same size as moon labels
                 smallBodyGroups.forEach(({ group, body }) => out.push(
-                    { key: `small:${body.name}`, name: body.name, kind: 'small-body', object3d: group }));
+                    { key: `small:${body.name}`, id: body.id, name: body.name, kind: 'small-body', object3d: group }));
                 probeGroups.forEach(({ group, probe }) => out.push(
-                    { key: `small:${probe.name}`, name: probe.name, kind: 'small-body', object3d: group }));
+                    { key: `small:${probe.name}`, id: probe.id, name: probe.name, kind: 'small-body', object3d: group }));
                 return out;
             }
             // Focused on a planet — show its moons only
@@ -1845,7 +1845,7 @@ const SolarSystem3D = ({
                     if (moon.parent !== focusedPlanet.planet.name) return;
                     const mesh = moonMeshRefs.get(moon.name);
                     if (mesh) out.push(
-                        { key: `moon:${moon.name}`, name: moon.name, kind: 'moon', object3d: mesh });
+                        { key: `moon:${moon.name}`, id: moon.id, name: moon.name, kind: 'moon', object3d: mesh });
                 });
                 return out;
             }
@@ -1853,7 +1853,7 @@ const SolarSystem3D = ({
             const focusedMoon = MOON_DATA.find(m => m.id === focused);
             const moonMesh = focusedMoon ? moonMeshRefs.get(focusedMoon.name) : null;
             if (moonMesh) out.push(
-                { key: `moon:${focusedMoon.name}`, name: focusedMoon.name, kind: 'moon', object3d: moonMesh });
+                { key: `moon:${focusedMoon.name}`, id: focusedMoon.id, name: focusedMoon.name, kind: 'moon', object3d: moonMesh });
             return out;
         };
 
@@ -2665,7 +2665,7 @@ const SolarSystem3D = ({
                     labelBuiltFor = currentFocusedId;
                     labelTargets  = buildLabelTargets(currentFocusedId);
                     labelZ.clear();
-                    setLabelRoster(labelTargets.map(({ key, name, kind }) => ({ key, name, kind })));
+                    setLabelRoster(labelTargets.map(({ key, id, name, kind }) => ({ key, id, name, kind })));
                 }
                 positionLabels();
             }
@@ -2793,22 +2793,35 @@ const SolarSystem3D = ({
                     {t(trueScale ? 'scene.distancesToScale' : 'scene.notToScale')}
                 </div>
 
-                {/* Floating object labels.
+                {/* Floating object labels — each one a button that flies to its
+                    body, so the name is a target in its own right (the dot it
+                    sits beside is a few pixels wide in the compressed view) and
+                    a keyboard can tab through the bodies the same way.
+
                     Place, z-order and visibility belong to the render loop, so
                     they are deliberately absent from the style below: React
                     diffs only what it set itself, and leaving those three out
                     means a re-render here can never undo the loop's writes.
-                    Planet labels stack 20–28, small bodies 12–16, moons 4–8. */}
-                {labelRoster.map(({ key, name, kind }) => {
+                    Planet labels stack 20–28, small bodies 12–16, moons 4–8.
+
+                    pointerEvents:none on the button keeps a drag that starts on
+                    a label orbiting the scene rather than being swallowed; the
+                    text span opts back in, so the glyphs themselves are the
+                    click target. Neither affects keyboard focus. */}
+                {labelRoster.map(({ key, id, name, kind }) => {
                     const isMoon      = kind === 'moon';
                     const isSmallBody = kind === 'small-body';
                     return (
-                    <div
+                    <button
                         key={key}
+                        type="button"
                         ref={(el) => {
                             if (el) labelElsRef.current.set(key, el);
                             else labelElsRef.current.delete(key);
                         }}
+                        onClick={() => id && navigate(`/object/${id}`)}
+                        aria-label={t('scene.flyTo', { name: bodyName(name) })}
+                        className="focus-ring"
                         style={{
                             position: 'absolute',
                             top: 0,
@@ -2819,9 +2832,13 @@ const SolarSystem3D = ({
                             willChange: 'transform',
                             opacity: isMoon ? (moonLabelsReady ? 1 : 0) : isSmallBody ? 0.72 : 1,
                             transition: isMoon ? 'opacity 0.5s ease' : 'none',
+                            background: 'none', border: 'none', padding: 0, margin: 0,
                         }}
                     >
-                        <div style={{
+                        <span style={{
+                            display: 'block',
+                            pointerEvents: 'auto',
+                            cursor: 'pointer',
                             color: 'rgba(255,255,255,0.92)',
                             fontSize: isMoon || isSmallBody ? 8 : 11,
                             fontWeight: 700,
@@ -2831,8 +2848,8 @@ const SolarSystem3D = ({
                             whiteSpace: 'nowrap',
                         }}>
                             {bodyName(name)}
-                        </div>
-                    </div>
+                        </span>
+                    </button>
                     );
                 })}
             </div>
