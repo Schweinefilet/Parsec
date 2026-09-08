@@ -16,6 +16,17 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.13
+
+- **The README claimed version 1.5.2.** It has been at 3.x for a long time, and
+  the line asserted `frontend/package.json` "tracks the same number" while the
+  two had drifted more than a whole major version apart. The README no longer
+  hardcodes a version — it points at the newest CHANGELOG heading, which is the
+  number `package.json` actually carries. The stale "107 tests" is now 333, and
+  `utils/documentHead.js` joins the file map.
+
+---
+
 ## 3.8.12
 
 - **The phone hero was three rows of controls deep.** Drift and scale toggles

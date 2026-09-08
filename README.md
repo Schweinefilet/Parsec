@@ -6,9 +6,10 @@ live over a rendered Earth.
 
 **Live:** <https://parsec-uo4a.onrender.com/>
 
-**Version 1.5.2.** Releases follow `MAJOR.MINOR.PATCH` — main version, big
-patch, minor patch. See [CHANGELOG.md](CHANGELOG.md) for what each level means
-and the history; `frontend/package.json` tracks the same number.
+Releases follow `MAJOR.MINOR.PATCH` — main version, big patch, minor patch. The
+current version is the newest heading in [CHANGELOG.md](CHANGELOG.md), which is
+also what `frontend/package.json` carries; that file explains what each level
+means and holds the full history.
 
 ## Running it
 
@@ -19,7 +20,7 @@ npm run dev      # http://localhost:5173
 ```
 
 ```bash
-npm test          # vitest — 107 tests
+npm test          # vitest — 333 tests
 npm run lint
 npm run build     # static bundle in frontend/dist
 ```
@@ -65,6 +66,7 @@ frontend/src/
     skyPositions.js       altitude and azimuth from where the viewer is standing
     scaleMode.js          compressed layout ⇄ true distances, and the transition
     shareView.js          the scene's camera, clock and layout as a link
+    documentHead.js       per-route <title> and canonical link (no SSR)
     useNearViewport.js    gate expensive loads on approaching the viewport
     useSatelliteTracking.js  every tracked spacecraft, propagated from TLEs
 ```
