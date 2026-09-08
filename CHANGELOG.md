@@ -16,6 +16,16 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.7
+
+- **The catalog cards dropped their category badge.** Every card in the grid is
+  already filtered to one category, so a "PLANETS" tag on all eight planets, a
+  "MOONS" tag on all twenty-three moons, only ever repeated the tab overhead.
+  The card keeps its name, type and figures; the search results, where the
+  badge does disambiguate, are untouched.
+
+---
+
 ## 3.8.6
 
 - **Compare stopped shearing the larger body off flat.** On a narrow screen the

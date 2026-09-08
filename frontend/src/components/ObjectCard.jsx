@@ -56,13 +56,12 @@ export const FallbackArt = ({ object }) => {
 };
 
 const ObjectCard = ({ object: source }) => {
-    const { t, object: localize, categoryBadge } = useI18n();
+    const { t, object: localize } = useI18n();
     const object = localize(source);
     const navigate = useNavigate();
     const src = objectImage(object.id);
     const [failed, setFailed] = useState(false);
     const [loaded, setLoaded] = useState(false);
-    const accent = accentOf(object.category);
 
     // The catalog sits a whole screen below the 3D scene, and these are big
     // photographs — 1280px square in places, which is 6 MB of pixels once
@@ -130,7 +129,9 @@ const ObjectCard = ({ object: source }) => {
                 <FallbackArt object={object} />
             )}
 
-            <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, padding: '16px 16px 0' }}>
+            {/* No category badge: every card in this grid is already filtered to
+                one category, so the badge only ever repeated the tab you were on. */}
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 8, padding: '16px 16px 0' }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                     <h3 style={{ color: '#fff', fontSize: '0.95rem', fontWeight: 700, letterSpacing: '-0.01em', margin: 0 }}>
                         {object.name}
@@ -139,19 +140,6 @@ const ObjectCard = ({ object: source }) => {
                         {object.type}
                     </p>
                 </div>
-                <span
-                    style={{
-                        flexShrink: 0,
-                        fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.06em',
-                        padding: '3px 7px', borderRadius: 8,
-                        background: `rgba(${accent.rgb},0.16)`,
-                        border: `1px solid rgba(${accent.rgb},0.28)`,
-                        color: accent.text,
-                        textTransform: 'uppercase',
-                    }}
-                >
-                    {categoryBadge(object.category)}
-                </span>
             </div>
 
             <div style={{ position: 'relative', zIndex: 1, padding: '0 16px 16px', marginTop: 12 }}>
