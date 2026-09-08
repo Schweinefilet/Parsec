@@ -708,8 +708,11 @@ const CategoryBrowser = () => {
                                                 </div>
                                                 {/* Spacecraft get a full stats card of their own directly
                                                     below — operator, launch year, altitude — so a second
-                                                    stat here only repeated one of those. */}
-                                                {physicalRows[0] && !isSpacecraft && (
+                                                    stat here only repeated one of those. And an asteroid's
+                                                    first physical row is its diameter, which is already the
+                                                    key stat — "~370 m / DIAMETER" twice. */}
+                                                {physicalRows[0] && !isSpacecraft
+                                                    && physicalRows[0].label !== object.keyStatLabel && (
                                                     <div>
                                                         <p style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>{physicalRows[0].value}</p>
                                                         <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>{physicalRows[0].label}</p>

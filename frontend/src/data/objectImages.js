@@ -25,9 +25,11 @@ const PATHS = {
     '55-cnc-e': 'PIA22069/PIA22069~medium.jpg',
     'amalthea': 'PIA25728/PIA25728~medium.jpg',
     'andromeda': 'PIA15416/PIA15416~medium.jpg',
-    'apophis': 'PIA24168/PIA24168~medium.jpg',
+    // Apophis (PIA24168, a Goldstone/Green Bank radar strip with date labels)
+    // and Bennu (PIA24101, an annotated particle-ejection figure) were both
+    // science plots rather than a view of the rock — the designed fallback art
+    // reads better on a card than either did.
     'ariel': 'PIA00037/PIA00037~small.jpg',
-    'bennu': 'PIA24101/PIA24101~small.jpg',
     'callisto': 'PIA13896/PIA13896~small.jpg',
     'ceres': 'PIA19619/PIA19619~small.jpg',
     'chandra': '9501245/9501245~medium.jpg',
@@ -66,7 +68,10 @@ const PATHS = {
     'miranda': 'PIA00044/PIA00044~small.jpg',
     'neptune': 'PIA00064/PIA00064~small.jpg',
     'nereid': 'PIA00054/PIA00054~thumb.jpg',
-    'new-horizons': 'PIA21589/PIA21589~medium.jpg',
+    // Artist's concept of the spacecraft at Pluto. The earlier PIA21589 ("Nap
+    // Time for New Horizons") was a solar-system map showing where it had
+    // drifted to, not a picture of the probe.
+    'new-horizons': 'PIA10075/PIA10075~medium.jpg',
     'oberon': 'PIA00034/PIA00034~thumb.jpg',
     'orion-nebula': 'PIA04227/PIA04227~small.jpg',
     'phobos': 'PIA06335/PIA06335~thumb.jpg',
@@ -82,14 +87,18 @@ const PATHS = {
     'tethys': 'PIA12709/PIA12709~small.jpg',
     'titan': 'PIA14910/PIA14910~small.jpg',
     'titania': 'PIA01979/PIA01979~thumb.jpg',
-    'trappist-1e': 'PIA24371/PIA24371~medium.jpg',
+    // The seven TRAPPIST-1 planets rendered as spheres against the dwarf star.
+    // PIA24371 was a "planet density vs. illumination" scatter plot.
+    'trappist-1e': 'PIA22093/PIA22093~medium.jpg',
     'triton': 'PIA18668/PIA18668~medium.jpg',
     'umbriel': 'PIA00040/PIA00040~thumb.jpg',
     'uranus': 'PIA18182/PIA18182~medium.jpg',
     'venus': 'PIA00257/PIA00257~medium.jpg',
     'vesta': 'PIA15351/PIA15351~small.jpg',
     'voyager1': 'PIA17462/PIA17462~medium.jpg',
-    'voyager2': 'PIA22921/PIA22921~small.jpg',
+    // Same spacecraft render as Voyager 1 — they are identical craft, and the
+    // earlier PIA22921 was a heliosphere cross-section diagram.
+    'voyager2': 'PIA17462/PIA17462~medium.jpg',
     'whirlpool-galaxy': 'PIA23005/PIA23005~medium.jpg',
 };
 

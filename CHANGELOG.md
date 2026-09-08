@@ -16,6 +16,24 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.19
+
+- **Four more catalog images weren't of their subject.** Apophis was a
+  Goldstone/Green Bank radar strip with "Mar 8 / Mar 9 / Mar 10" along the
+  bottom; Bennu was an annotated particle-ejection figure; TRAPPIST-1e was a
+  planet-density scatter plot; New Horizons was a solar-system map of where it
+  had drifted. Apophis and Bennu fall back to the designed cover art now;
+  TRAPPIST-1e is the seven planets rendered as spheres; New Horizons is the
+  spacecraft at Pluto; and Voyager 2, which had a heliosphere cross-section,
+  now shares Voyager 1's render — they are the same craft.
+
+- **A NEO's diameter stopped being printed twice in its own header.** The phone
+  identity card showed the key stat and the first physical row, which for an
+  asteroid are both the diameter — "~370 m / DIAMETER" beside "~370 m (0.37 km)
+  / DIAMETER". The second is dropped when it repeats the first's label.
+
+---
+
 ## 3.8.18
 
 - **"Explore the catalog" overshot the heading.** It scrolled a full viewport
