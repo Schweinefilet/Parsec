@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    ChevronLeft, MapPin, Sun, Moon as MoonIcon, ArrowUpRight, Eye,
+    MapPin, Sun, Moon as MoonIcon, ArrowUpRight, Eye,
     Orbit, Sparkles, Telescope, CalendarDays,
 } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 import { useObserverLocation } from '../hooks/useObserverLocation';
 import { skyView, VISIBILITY_KEY } from '../utils/skyPositions';
 import { findEvents, whenWords, daysUntil, RANK } from '../utils/skyEvents';
@@ -307,39 +308,21 @@ const TonightPage = () => {
             <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 16px 40px' }}>
 
                 {/* ── Header ── */}
-                <div className="flex items-center gap-3 mb-4">
-                    <button
-                        onClick={() => navigate(-1)}
-                        aria-label={t('tonight.back')}
-                        className="flex items-center justify-center rounded-xl focus-ring"
-                        style={{
-                            width: 36, height: 36, flexShrink: 0,
-                            background: 'rgba(255,255,255,0.06)',
-                            border: '1px solid rgba(255,255,255,0.14)',
-                            color: 'rgba(255,255,255,0.85)', cursor: 'pointer',
-                        }}
-                    >
-                        <ChevronLeft className="flip-rtl" style={{ width: 18, height: 18 }} />
-                    </button>
-                    <div style={{ minWidth: 0 }}>
-                        <h1 style={{ margin: 0, fontSize: 'clamp(1.15rem, 3vw, 1.6rem)', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
-                            {t('tonight.title')}
-                        </h1>
-                        <p style={{ margin: '1px 0 0', fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                            {location
-                                ? t('tonight.from', {
-                                    lat: `${Math.abs(location.lat).toFixed(2)}°${t(location.lat >= 0 ? 'sky.north' : 'sky.south')}`,
-                                    lon: `${Math.abs(location.lon).toFixed(2)}°${t(location.lon >= 0 ? 'sky.east' : 'sky.west')}`,
-                                    time: fmtTime(now),
-                                })
-                                : t('tonight.subtitle')}
-                        </p>
-                    </div>
-                    {view && (
+                <PageHeader
+                    onBack={() => navigate(-1)}
+                    backLabel={t('tonight.back')}
+                    title={t('tonight.title')}
+                    subtitle={location
+                        ? t('tonight.from', {
+                            lat: `${Math.abs(location.lat).toFixed(2)}°${t(location.lat >= 0 ? 'sky.north' : 'sky.south')}`,
+                            lon: `${Math.abs(location.lon).toFixed(2)}°${t(location.lon >= 0 ? 'sky.east' : 'sky.west')}`,
+                            time: fmtTime(now),
+                        })
+                        : t('tonight.subtitle')}
+                    trailing={view && (
                         <span
-                            className="flex items-center gap-1.5 flex-shrink-0"
+                            className="flex items-center gap-1.5"
                             style={{
-                                marginInlineStart: 'auto',
                                 fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
                                 textTransform: 'uppercase', padding: '5px 10px', borderRadius: 999,
                                 background: view.twilight.dark ? 'rgba(120,140,255,0.14)' : 'rgba(255,200,60,0.14)',
@@ -353,7 +336,7 @@ const TonightPage = () => {
                             {t(view.twilight.labelKey)}
                         </span>
                     )}
-                </div>
+                />
 
                 {!location ? (
                     <div className="glass" style={{ padding: 28, textAlign: 'center' }}>

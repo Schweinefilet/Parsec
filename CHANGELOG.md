@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.17
+
+- **The standalone pages share one header now.** The tracker, compare and
+  "tonight" each carried their own copy of a back button beside a two-line
+  title block — which on a phone wedged the button against the title. The new
+  `PageHeader` drops the row to one line, `[back] [title] [status]`, with the
+  subtitle on its own line aligned under the title, and the title free to
+  truncate rather than wrap into the button.
+
+- **Compare stopped printing each diameter three times.** The size under each
+  disc ("12,742 km across") repeated the picker above it and the sentence
+  below, and under a two-pixel Earth it wrapped onto three lines. Just the name
+  now.
+
+---
+
 ## 3.8.16
 
 - **Two catalog images weren't of their subject.** Deimos was a THEMIS

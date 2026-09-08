@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, ArrowLeftRight, ArrowUpRight } from 'lucide-react';
+import { ArrowLeftRight, ArrowUpRight } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 import { OBJECTS, CATEGORY_TABS, getObjectById } from '../data/objectCatalog';
 import { radiusKm, isComparable, volumeRatio } from '../utils/objectSize';
 import { objectImage } from '../data/objectImages';
@@ -83,8 +84,8 @@ const ObjectPicker = ({ value, onChange, label, groups, fmtKm, localize, t }) =>
  * always comes out at `maxPx` and the smaller lands wherever it truly falls —
  * which for Ceres beside the Sun is under a pixel, and that is the answer.
  */
-const BodyDisc = ({ object, fraction, maxPx, fmtKm }) => {
-    const { t, object: localize } = useI18n();
+const BodyDisc = ({ object, fraction, maxPx }) => {
+    const { object: localize } = useI18n();
     const named = localize(object);
     const px = Math.max(1, fraction * maxPx);
     const photo = objectImage(object.id);
@@ -111,12 +112,15 @@ const BodyDisc = ({ object, fraction, maxPx, fmtKm }) => {
                     }}
                 />
             </div>
-            <div style={{ textAlign: 'center', minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#fff' }}>{named.name}</p>
-                <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
-                    {t('compare.across', { size: fmtKm(radiusKm(object) * 2) })}
-                </p>
-            </div>
+            {/* Name only. The diameter is in the picker above ("Jupiter —
+                142,984 km across") and the sentence below, and a second copy
+                under a two-pixel Earth disc just wrapped onto three lines. */}
+            <p style={{
+                margin: 0, textAlign: 'center', fontSize: '0.95rem', fontWeight: 700,
+                color: '#fff', whiteSpace: 'nowrap',
+            }}>
+                {named.name}
+            </p>
         </div>
     );
 };
@@ -219,29 +223,11 @@ const ComparePage = () => {
             <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 16px 40px' }}>
 
                 {/* ── Header ── */}
-                <div className="flex items-center gap-3 mb-4">
-                    <button
-                        onClick={() => navigate(-1)}
-                        aria-label="Go back"
-                        className="flex items-center justify-center rounded-xl focus-ring"
-                        style={{
-                            width: 36, height: 36, flexShrink: 0,
-                            background: 'rgba(255,255,255,0.06)',
-                            border: '1px solid rgba(255,255,255,0.14)',
-                            color: 'rgba(255,255,255,0.85)', cursor: 'pointer',
-                        }}
-                    >
-                        <ChevronLeft style={{ width: 18, height: 18 }} />
-                    </button>
-                    <div style={{ minWidth: 0 }}>
-                        <h1 style={{ margin: 0, fontSize: 'clamp(1.15rem, 3vw, 1.6rem)', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
-                            {t('compare.title')}
-                        </h1>
-                        <p style={{ margin: '1px 0 0', fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                            {t('compare.subtitle')}
-                        </p>
-                    </div>
-                </div>
+                <PageHeader
+                    onBack={() => navigate(-1)}
+                    title={t('compare.title')}
+                    subtitle={t('compare.subtitle')}
+                />
 
                 {/* ── Pickers ── */}
                 <div className="glass flex flex-wrap items-end gap-3" style={{ padding: 16 }}>
@@ -273,8 +259,8 @@ const ComparePage = () => {
                         style={{ gap, flexWrap: 'nowrap', minHeight: 120 }}
                     >
                         {maxPx > 0 && <>
-                            <BodyDisc object={a} fraction={rA / Math.max(rA, rB)} maxPx={maxPx} fmtKm={fmtKm} />
-                            <BodyDisc object={b} fraction={rB / Math.max(rA, rB)} maxPx={maxPx} fmtKm={fmtKm} />
+                            <BodyDisc object={a} fraction={rA / Math.max(rA, rB)} maxPx={maxPx} />
+                            <BodyDisc object={b} fraction={rB / Math.max(rA, rB)} maxPx={maxPx} />
                         </>}
                     </div>
 

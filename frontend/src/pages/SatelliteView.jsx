@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, MapPin, Crosshair, Sun, Moon, ArrowUpRight } from 'lucide-react';
+import { MapPin, Crosshair, Sun, Moon, ArrowUpRight } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 import SatelliteGlobe from '../components/SatelliteGlobe';
 import LiveFeed from '../components/LiveFeed';
 import { useSatelliteTracking } from '../hooks/useSatelliteTracking';
@@ -158,48 +159,32 @@ const SatelliteView = () => {
                 <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 16px 40px' }}>
 
                     {/* ── Header ── */}
-                    <div className="flex items-center gap-3 mb-4">
-                        <button
-                            onClick={() => navigate(-1)}
-                            aria-label={t('tracker.back')}
-                            className="flex items-center justify-center rounded-xl focus-ring"
-                            style={{
-                                width: 36, height: 36, flexShrink: 0,
-                                background: 'rgba(255,255,255,0.06)',
-                                border: '1px solid rgba(255,255,255,0.14)',
-                                color: 'rgba(255,255,255,0.85)', cursor: 'pointer',
-                            }}
-                        >
-                            <ChevronLeft className="flip-rtl" style={{ width: 18, height: 18 }} />
-                        </button>
-                        <div style={{ minWidth: 0 }}>
-                            <h1 style={{ margin: 0, fontSize: 'clamp(1.15rem, 3vw, 1.6rem)', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
-                                {t('tracker.title')}
-                            </h1>
-                            <p style={{ margin: '1px 0 0', fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
-                                {t('tracker.subtitle', { name: bodyName(def.shortName), norad: def.norad })}
-                            </p>
-                        </div>
-                        <span
-                            className="flex items-center gap-1.5 flex-shrink-0"
-                            style={{
-                                marginInlineStart: 'auto',
-                                fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-                                textTransform: 'uppercase', padding: '5px 10px', borderRadius: 999,
-                                background: status === 'error' ? 'rgba(255,90,80,0.14)'
-                                    : statusOk ? 'rgba(80,220,140,0.14)' : 'rgba(255,200,60,0.14)',
-                                border: `1px solid ${status === 'error' ? 'rgba(255,90,80,0.30)'
-                                    : statusOk ? 'rgba(80,220,140,0.30)' : 'rgba(255,200,60,0.30)'}`,
-                                color: status === 'error' ? '#ff8a80' : statusOk ? '#6ee7a0' : '#ffd166',
-                            }}
-                        >
-                            <span style={{
-                                width: 6, height: 6, borderRadius: 999, background: 'currentColor',
-                                animation: statusOk ? 'issPulse 2s ease-in-out infinite' : 'none',
-                            }} />
-                            {statusLabel}
-                        </span>
-                    </div>
+                    <PageHeader
+                        onBack={() => navigate(-1)}
+                        backLabel={t('tracker.back')}
+                        title={t('tracker.title')}
+                        subtitle={t('tracker.subtitle', { name: bodyName(def.shortName), norad: def.norad })}
+                        trailing={(
+                            <span
+                                className="flex items-center gap-1.5"
+                                style={{
+                                    fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+                                    textTransform: 'uppercase', padding: '5px 10px', borderRadius: 999,
+                                    background: status === 'error' ? 'rgba(255,90,80,0.14)'
+                                        : statusOk ? 'rgba(80,220,140,0.14)' : 'rgba(255,200,60,0.14)',
+                                    border: `1px solid ${status === 'error' ? 'rgba(255,90,80,0.30)'
+                                        : statusOk ? 'rgba(80,220,140,0.30)' : 'rgba(255,200,60,0.30)'}`,
+                                    color: status === 'error' ? '#ff8a80' : statusOk ? '#6ee7a0' : '#ffd166',
+                                }}
+                            >
+                                <span style={{
+                                    width: 6, height: 6, borderRadius: 999, background: 'currentColor',
+                                    animation: statusOk ? 'issPulse 2s ease-in-out infinite' : 'none',
+                                }} />
+                                {statusLabel}
+                            </span>
+                        )}
+                    />
 
                     {/* ── Which spacecraft ── */}
                     {/* The picker is the legend. Each chip carries the colour its

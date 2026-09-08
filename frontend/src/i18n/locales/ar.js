@@ -35,6 +35,7 @@ export const ar = {
 
     nav: {
         categories: 'فئات الأجرام',
+        back: 'رجوع',
         copyLink: 'انسخ رابطًا لهذا المشهد',
         copied: 'نُسخ الرابط',
         tonight: 'سماء الليلة',
