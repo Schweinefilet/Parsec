@@ -22,6 +22,11 @@ export function useMediaQuery(query) {
 }
 
 export const useIsMobile = () => useMediaQuery('(max-width: 767px)');
+// A landscape phone is wider than the mobile breakpoint but far too short for
+// the focused-object layout, which stacks a description panel over annotations
+// over the body and assumes a tall window. Pages that lay out around the fold
+// treat this the same as mobile.
+export const useIsShortViewport = () => useMediaQuery('(max-height: 520px)');
 // Wide enough for the expanded time control to sit at bottom-left without
 // reaching the centred controls. Below this it opens on request instead.
 export const useHasRoomForTimeline = () => useMediaQuery('(min-width: 1280px)');

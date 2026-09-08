@@ -25,6 +25,7 @@ vi.mock('../components/SpacecraftViewer', () => ({ default: () => null }));
 // rows go into the identity card in the sheet, which is asserted below too.
 vi.mock('../hooks/useMediaQuery', () => ({
     useIsMobile: () => false,
+    useIsShortViewport: () => false,
     useReducedMotion: () => true,
     useHasRoomForTimeline: () => true,
 }));

@@ -16,7 +16,7 @@ import TimeControl from '../components/TimeControl';
 import { CATEGORY_TABS, getObjectsByCategory, getObjectById, resolveTab } from '../data/objectCatalog';
 import { hasSceneBody } from '../data/solarSystemBodies';
 import { useHorizons } from '../hooks/useHorizons';
-import { useIsMobile } from '../hooks/useMediaQuery';
+import { useIsMobile, useIsShortViewport } from '../hooks/useMediaQuery';
 import { isTrueScale, toggleTrueScale, subscribeScale, setTrueScale as setSceneScale } from '../utils/scaleMode';
 import { decodeView } from '../utils/shareView';
 import { setOffsetDays } from '../utils/simTime';
@@ -129,6 +129,12 @@ const CategoryBrowser = () => {
     const activeTab = resolveTab(searchParams.get('tab'));
     const [sortBy, setSortBy] = useState('default');
     const isMobile = useIsMobile();
+    const isShort = useIsShortViewport();
+    // The focused-object view (sheet vs. flanking annotations, where the body
+    // sits) also switches to the compact treatment on a landscape phone, which
+    // is wide enough to miss the mobile breakpoint but too short for the tall
+    // desktop layout. The hero and the catalog grid stay keyed on width alone.
+    const compactFocus = isMobile || isShort;
 
     const object = useMemo(
         () => (id ? localize(getObjectById(id)) : null), [id, localize]);
@@ -202,7 +208,7 @@ const CategoryBrowser = () => {
         if (!id) return;
         const openAt = setTimeout(() => {
             setDescriptionOpen(true);
-            if (isMobile) setSheetOpen(true);
+            if (compactFocus) setSheetOpen(true);
         }, 1500);
         const timers = [openAt];
         if (PLANETS_WITH_MOONS.has(id)) {
@@ -210,7 +216,7 @@ const CategoryBrowser = () => {
             timers.push(setTimeout(() => setMoonHintVisible(false), 9500));
         }
         return () => timers.forEach(clearTimeout);
-    }, [id, isSpacecraftCard, isMobile]);
+    }, [id, isSpacecraftCard, compactFocus]);
 
     // Returning to the top of the page also returns the browser scroll position
     useEffect(() => { if (id) window.scrollTo({ top: 0, behavior: 'instant' }); }, [id]);
@@ -260,7 +266,7 @@ const CategoryBrowser = () => {
     // sheet is actually covering it. Collapsed, the viewport is free again and
     // the object returns to centre instead of staying pinned to the top half.
     // Desktop keeps the body centred throughout.
-    const focusOffsetY = id && isMobile && sheetOpen ? 0.24 : 0;
+    const focusOffsetY = id && compactFocus && sheetOpen ? 0.24 : 0;
 
     // OrbitControls sets touch-action:none on the canvas so one finger orbits.
     // That also means a full-height canvas swallows the swipe people use to
@@ -361,14 +367,14 @@ const CategoryBrowser = () => {
                             style={{
                                 zIndex: 3,
                                 padding: '0 16px',
-                                // Mobile sits it under the header and above the
+                                // Compact sits it under the header and above the
                                 // sheet; centring would bury it, since the sheet
                                 // opens over the lower half.
-                                alignItems: isMobile ? 'flex-start' : 'center',
-                                paddingTop: isMobile ? 76 : 0,
+                                alignItems: compactFocus ? 'flex-start' : 'center',
+                                paddingTop: compactFocus ? 76 : 0,
                             }}
                         >
-                            <ObjectHero object={object} compact={isMobile} />
+                            <ObjectHero object={object} compact={compactFocus} />
                         </div>
                     )}
 
@@ -376,7 +382,7 @@ const CategoryBrowser = () => {
                         watching a moon system wind forward is the best of it, and
                         the bottom-left corner is clear of the centred sheet. Hidden
                         on a focused mobile view, where the sheet takes that space. */}
-                    <TimeControl hidden={(isMobile && !!id) || (!!id && !inScene)} />
+                    <TimeControl hidden={(compactFocus && !!id) || (!!id && !inScene)} />
 
 
                     {/* Catalog entry point, plus the two scene toggles.
@@ -545,7 +551,7 @@ const CategoryBrowser = () => {
                     )}
 
                     {/* Desktop annotations flanking the body */}
-                    {!isMobile && object && (
+                    {!compactFocus && object && (
                         <div
                             className="absolute inset-0 pointer-events-none flex items-center justify-between px-6 md:px-16 transition-all duration-1000 ease-out"
                             style={{
@@ -617,7 +623,7 @@ const CategoryBrowser = () => {
                     )}
 
                     {/* Desktop: description slides down from the top */}
-                    {!isMobile && object && (
+                    {!compactFocus && object && (
                         <div style={{
                             position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6,
                             transform: descriptionOpen ? 'translateY(0)' : 'translateY(-100%)',
@@ -644,12 +650,11 @@ const CategoryBrowser = () => {
                                 // 84 on desktop, not 74: the chevron button is
                                 // about 84px tall, so the old peek clipped its
                                 // lower arrow and sat the pair lower than they
-                                // needed to be. Mobile keeps 74 — its handle is
-                                // a 4px grab bar, and raising it would only show
-                                // more sheet.
+                                // needed to be. The compact handle is a 4px grab
+                                // bar and keeps 74.
                                 transform: sheetOpen
                                     ? 'translateY(0)'
-                                    : `translateY(calc(100% - ${isMobile ? 74 : 84}px))`,
+                                    : `translateY(calc(100% - ${compactFocus ? 74 : 84}px))`,
                                 transition: 'transform 0.45s cubic-bezier(0.32,0.72,0,1)',
                             }}
                         >
@@ -664,7 +669,7 @@ const CategoryBrowser = () => {
                                     animation: sheetOpen ? 'none' : 'scrollPromptBob 1.8s ease-in-out infinite',
                                 }}
                             >
-                                {isMobile ? (
+                                {compactFocus ? (
                                     <span style={{
                                         width: 40, height: 4, borderRadius: 2,
                                         background: 'rgba(255,255,255,0.55)',
@@ -679,21 +684,23 @@ const CategoryBrowser = () => {
                             </button>
 
                             <div style={{
-                                maxHeight: isMobile ? '58vh' : '60vh',
+                                maxHeight: compactFocus ? '58vh' : '60vh',
                                 overflowY: 'auto',
                                 overscrollBehavior: 'contain',
                                 WebkitOverflowScrolling: 'touch',
-                                padding: isMobile ? '0 12px 24px' : '0 16px 32px',
-                                // On mobile the sheet sits directly over the body, and
-                                // a bright planet behind translucent glass makes white
-                                // text vanish. Give the sheet its own dark base.
-                                background: isMobile
+                                padding: compactFocus ? '0 12px 24px' : '0 16px 32px',
+                                // In the compact view the sheet sits directly over the
+                                // body, and a bright planet behind translucent glass
+                                // makes white text vanish. Give the sheet its own dark
+                                // base.
+                                background: compactFocus
                                     ? 'linear-gradient(to bottom, rgba(4,6,10,0) 0%, rgba(4,6,10,0.86) 6%, rgba(4,6,10,0.96) 22%, #04060a 45%)'
                                     : 'none',
                             }}>
                                 <div className="max-w-2xl mx-auto flex flex-col gap-4">
-                                    {/* Mobile carries the identity that desktop shows as annotations */}
-                                    {isMobile && (
+                                    {/* The compact view carries the identity that the
+                                        desktop annotations show flanking the body */}
+                                    {compactFocus && (
                                         <div className="glass p-4">
                                             <h1 style={{ color: '#fff', fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
                                                 {object.shortName ?? object.name}
@@ -780,7 +787,7 @@ const CategoryBrowser = () => {
                                     )}
 
                                     {/* Desktop already shows the description above the fold */}
-                                    <ObjectDetailBody object={object} showDescription={isMobile} />
+                                    <ObjectDetailBody object={object} showDescription={compactFocus} />
                                 </div>
                             </div>
                         </div>
@@ -812,16 +819,19 @@ const CategoryBrowser = () => {
                     actually seen (focusing scrolls to the top first, and body
                     scroll is locked), so `none` is safe and nothing is cut.
 
-                    minHeight keeps a one- or two-object category (Stars, Comets)
-                    tall enough that its heading can still scroll up under the
-                    header instead of the scene staying wedged above it. */}
+                    minHeight (phone only) keeps a one- or two-object category
+                    (Stars, Comets) tall enough that its heading can still scroll
+                    up under the header instead of the scene staying wedged above
+                    it. Desktop skips it: the scene doesn't hold the scroll the
+                    same way there, and a lone card over a viewport of black is
+                    worse than the alternative. */}
                 <div
                     id="catalog"
                     className="transition-all duration-500 ease-in-out flex flex-col gap-6 px-4 md:px-8"
                     style={{
                         opacity: id ? 0 : 1,
                         maxHeight: id ? 0 : 'none',
-                        minHeight: id ? 0 : 'calc(100vh - 120px)',
+                        minHeight: id || !isMobile ? undefined : 'calc(100vh - 120px)',
                         overflow: 'hidden',
                         pointerEvents: id ? 'none' : 'auto',
                         paddingTop: 24,

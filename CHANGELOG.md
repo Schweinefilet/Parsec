@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.8.20
+
+- **A focused object stopped breaking on a landscape phone.** Turned sideways, a
+  phone is wider than the mobile breakpoint but far too short for the desktop
+  focused-object layout — a description panel across the top, stat annotations
+  down each side, all assuming a tall window — so the panel landed on top of the
+  name and the orbital period. That layout now switches to the bottom sheet on
+  any viewport under 520px tall, not just under 768px wide.
+
+- **The lone-card void is a phone-only thing now.** The min-height that lets a
+  one-object category scroll its heading up on a phone was also padding a single
+  small card out over a full screen of black on the desktop grid. Desktop skips
+  it.
+
+---
+
 ## 3.8.19
 
 - **Four more catalog images weren't of their subject.** Apophis was a
