@@ -35,7 +35,14 @@
     <link rel="canonical" href="https://p4rsec.com/" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- The home view is a 3D scene with no visible heading by design, so the
+           app renders a screen-reader-only <h1>. That one is client-rendered;
+           this copy sits in the served HTML so a crawler that snapshots before
+           the bundle runs still finds a heading. React replaces the whole of
+           #root on mount, so the two never coexist. -->
+      <h1 style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0">P4RSEC — an interactive 3D atlas of the solar system</h1>
+    </div>
     <noscript>
       <div style="padding:32px;font-family:system-ui,sans-serif;color:#fff;background:#000;min-height:100vh">
         <h1>P4RSEC</h1>

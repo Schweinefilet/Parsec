@@ -44,16 +44,6 @@ export const LOCALES = [
         bundled: true,
     },
     {
-        code: 'ar',
-        endonym: 'العربية',
-        english: 'Arabic',
-        dir: 'rtl',
-        numerals: 'latn',
-        script: 'arab',
-        intl: 'ar',
-        bundled: false,
-    },
-    {
         code: 'vi',
         endonym: 'Tiếng Việt',
         english: 'Vietnamese',
@@ -61,6 +51,16 @@ export const LOCALES = [
         numerals: 'latn',
         script: 'latn',
         intl: 'vi',
+        bundled: false,
+    },
+    {
+        code: 'ar',
+        endonym: 'العربية',
+        english: 'Arabic',
+        dir: 'rtl',
+        numerals: 'latn',
+        script: 'arab',
+        intl: 'ar',
         bundled: false,
     },
 ];

@@ -16,6 +16,21 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 3.9.1
+
+- **The served HTML carries an `<h1>` now.** The app has always rendered a
+  screen-reader-only heading on the home view — the scene has no visible title
+  by design — but it was client-rendered, so a crawler that reads the HTML
+  before the bundle executes (Bing Webmaster Tools flagged this) found none. A
+  copy of it now sits inside `#root` in `index.html`; React replaces the whole
+  of `#root` on mount, so the static one and the app's one never coexist, and
+  every rendered page still has exactly one `<h1>`.
+
+- **Vietnamese sits above Arabic in the language menu.** Just the order in the
+  locale table — English, Tiếng Việt, العربية.
+
+---
+
 ## 3.9.0
 
 - **"Back to now" winds the scene home.** Pressing it used to reset the *rate*
