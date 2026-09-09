@@ -36,6 +36,11 @@ const MASS_KG = {
 // The Sun's 12 matches sunGeo in SolarSystem3D.
 const DRAWN_R = { sun: 12, ...Object.fromEntries(PLANETS.map(p => [p.id, p.r])) };
 
+// Each body's own colour, so the field lines flowing into it can be tinted the
+// way the orbit rings are on hover — the Sun's from sunMat in SolarSystem3D,
+// the planets' from their own table.
+const BODY_COLOR = { sun: '#FFF4A0', ...Object.fromEntries(PLANETS.map(p => [p.id, p.color])) };
+
 export const WEIGHT_CONFIG = {
     // log10(mass) is clamped to this window, then normalised to 0..1.
     logMassMin: 22.0,   // ~Pluto — the floor
@@ -126,6 +131,7 @@ export const GRAVITY_BODIES = ['sun', ...PLANETS.map(p => p.id)].map(id => ({
     id,
     massKg: MASS_KG[id],
     drawnR: DRAWN_R[id],
+    color: BODY_COLOR[id],
     weights: visualWeights(MASS_KG[id], DRAWN_R[id]),
 }));
 

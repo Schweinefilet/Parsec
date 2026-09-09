@@ -16,6 +16,29 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.3.0
+
+- **The gravity field lines now read as a field.** Three changes to the
+  field-line overlay:
+  - **Each line is tinted the colour of the body it flows into** — the Sun's
+    gold, Earth's blue, Mars' rust, Uranus' cyan — the same tints the orbit
+    rings take on hover. Which body a streamline belongs to comes out of the
+    tracer now (the stop sphere it crosses), so a line that arcs from a planet
+    across to the Sun is coloured for the Sun, where it ends.
+  - **The lines are drawn wider.** They were a one-pixel hairline on every
+    platform, which read as a grey haze; they now have real width
+    (three's `LineSegments2`), so the picture is lines and not fog. Per-line
+    alpha comes down to match — a fat line over additive blending piles up
+    fast where the streamlines converge.
+  - **Each line carries one small arrowhead** partway along, pointing the way
+    the field flows — into the mass. The barb sits in the plane of the line's
+    own curve so it mostly faces the camera rather than turning edge-on.
+- Measured on the test machine: still a flat ~60 fps in field-line mode; the
+  retrace cost is unchanged (the tracer does the same work, the arrowheads are
+  a handful of extra segments per line).
+
+---
+
 ## 4.2.1
 
 - **The timeline opens expanded on a phone.** It used to start as a compact
