@@ -16,6 +16,15 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.1.4
+
+- **Gentler default drift.** The out-of-the-box yaw and pitch are halved again
+  (0.15 and 0.11 of full) — the idle motion is now barely there. Anyone who
+  has already touched the sliders keeps their own setting; Reset gives the new
+  values.
+
+---
+
 ## 4.1.3
 
 - **Three times as many field lines.** `fieldLines` runs 15–72 per body now
