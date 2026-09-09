@@ -27,6 +27,11 @@ import {
     targetOrbitSpeed, stepOrbitSpeed, targetIssSpeed,
     advanceMoonAngle, moonOffset, DEFAULT_ORBIT_SPEED,
 } from '../utils/orbitalMotion';
+import { getVizMode, vizWeight, isVizSettling, VIZ_OFF, VIZ_GRID, VIZ_FIELD } from '../utils/vizMode';
+import { GRAVITY_BODIES } from '../utils/gravityModel';
+import { makeGravityGrid } from '../utils/gravityGrid';
+import { makeGravityLines } from '../utils/gravityLines';
+import { GRAVITY_FIELD_DEFAULTS } from '../utils/gravityField';
 import { useI18n } from '../i18n';
 
 let _exitState = { active: false, cameraPos: null, targetPos: null };
@@ -915,6 +920,59 @@ const SolarSystem3D = ({
         // gives the exact orbital plane normal in scene-space, so both belts
         // align with the same plane the planet orbit rings live in.
         const beltQuat = eclipticQuaternion();
+
+        // ── Gravity overlays (warped grid / field lines) ───────────────────────
+        // Both read one array — `_gravBodies` — rebuilt in place each frame from
+        // the live scene (collectGravityBodies below). Neither recomputes an
+        // orbit. The grid is entirely shader work; the field lines are a CPU
+        // trace, retraced only when the planets have moved enough to matter.
+        const GRAV_GRID_EXTENT      = 480;    // half-width of the sheet, compressed layout
+        const GRAV_GRID_EXTENT_TRUE = 4200;   // …eased toward this at true distances (holds Pluto)
+        const GRAV_FIELD_BOUNDS      = 520;   // streamlines terminate past this radius
+        const GRAV_FIELD_BOUNDS_TRUE = 5200;
+        const GRAV_RETRACE_MOVE = 2.5;        // scene units a body must shift to force a retrace
+        // Never retrace more often than every N frames. Bumped automatically
+        // when a retrace runs long (a slow CPU under a fast sim-time rate), so
+        // the trace can never eat more than roughly a third of the frame.
+        let gravRetraceFrames = q.tier === 'low' ? 2 : 1;
+
+        const gravGrid  = makeGravityGrid({
+            segments: q.tier === 'low' ? 96 : 192,
+            halfExtent: GRAV_GRID_EXTENT,
+            halfExtentTrue: GRAV_GRID_EXTENT_TRUE,
+            cells: 96,
+            orientation: beltQuat,
+        });
+        const gravLines = makeGravityLines();
+        scene.add(gravGrid.mesh, gravLines.object);
+
+        // Opt-in retrace/frame logging: `localStorage['p4rsec.gravperf'] = '1'`.
+        const gravPerfLog = (() => {
+            try { return window.localStorage.getItem('p4rsec.gravperf') === '1'; }
+            catch { return false; }
+        })();
+
+        const _gravBodies = GRAVITY_BODIES.map(b => ({
+            id: b.id,
+            // The phone tier thins the streamlines: the trace is on the CPU and
+            // the screen is small.
+            weights: q.tier === 'low'
+                ? { ...b.weights, lineCount: Math.max(4, Math.round(b.weights.lineCount * 0.55)) }
+                : b.weights,
+            pos: new THREE.Vector3(),
+            expansion: 1,   // radial spread in the current layout; drives the outer-planet distance term
+        }));
+        const _gravPlanetById = new Map(planetGroups.map(g => [g.planet.id, g]));
+        const collectGravityBodies = (scaleT) => {
+            for (const gb of _gravBodies) {
+                if (gb.id === 'sun') { gb.pos.set(0, 0, 0); gb.expansion = 1; continue; }
+                const pg = _gravPlanetById.get(gb.id);
+                if (!pg) continue;
+                gb.pos.copy(pg.group.position);
+                gb.expansion = radialFactor(pg.planet.orbitR, pg.planet.au, scaleT);
+            }
+            return _gravBodies;
+        };
 
         // Belt config — declared in outer scope so the LOD system can read them.
         const AB_COUNT  = q.beltParticles.asteroid;
@@ -2069,6 +2127,14 @@ const SolarSystem3D = ({
         let prevNowDays = null;
         let scrubBase = null;   // live→scrub handover, see the moon block
         let wasScrubbing = false;   // to catch the frame the clock rejoins now
+        // Gravity-overlay loop state: the field-line retrace gate and the
+        // fly-in fade. gravRetrace* are kept for the perf readout.
+        let gravTraceAt = null;        // Vector3[] of body positions at the last retrace
+        let gravTraceFrame = -999;
+        let gravTraceScaleT = -1;
+        let gravFocusFade = 1;         // 1 in the system view, eased to 0 inside a body
+        let gravRetraceMs = 0;
+        let gravRetraceStats = null;
         let meshRotSpeed = 0.002;
         let liveOrbitSpeed = 2000;
         let liveISSSpeed   = 2000; // tracked independently so hover response is immediate
@@ -2782,6 +2848,75 @@ const SolarSystem3D = ({
                 });
             }
 
+            // ── Gravity overlays ──────────────────────────────────────────────
+            {
+                const gGridW  = vizWeight(VIZ_GRID);
+                const gFieldW = vizWeight(VIZ_FIELD);
+                // Fade the whole thing out once you have flown into a body — a
+                // system-wide sheet is noise from inside one planet's space.
+                gravFocusFade = THREE.MathUtils.lerp(
+                    gravFocusFade, currentFocusedId ? 0 : 1, ease(0.08));
+
+                const gridOn  = gGridW  * gravFocusFade > 0.002;
+                const fieldOn = gFieldW * gravFocusFade > 0.002;
+                gravGrid.mesh.visible    = gridOn;
+                gravLines.object.visible = fieldOn;
+
+                if ((gridOn || fieldOn)
+                    && (getVizMode() !== VIZ_OFF || isVizSettling())) {
+                    const gBodies = collectGravityBodies(scaleT);
+
+                    if (gridOn) {
+                        gravGrid.setOpacity(gGridW * gravFocusFade * 0.9);
+                        gravGrid.update(gBodies, scaleT);   // every frame — pure shader
+                    }
+
+                    if (fieldOn) {
+                        gravLines.setOpacity(gFieldW * gravFocusFade * 0.85);
+                        // Retrace only when a body has actually moved. The gate
+                        // is displacement, not wall-clock: sped-up sim time
+                        // moves the planets a lot per frame and the lines keep
+                        // up; at live rate nothing moves and it never retraces
+                        // after the first. Capped to once per GRAV_RETRACE_FRAMES.
+                        let moved = Infinity;
+                        if (gravTraceAt) {
+                            moved = 0;
+                            for (let i = 0; i < gBodies.length; i++) {
+                                const d = gBodies[i].pos.distanceTo(gravTraceAt[i]);
+                                if (d > moved) moved = d;
+                            }
+                        }
+                        if ((moved >= GRAV_RETRACE_MOVE || scaleT !== gravTraceScaleT)
+                            && frameCount - gravTraceFrame >= gravRetraceFrames) {
+                            const _t0 = performance.now();
+                            const bounds = GRAV_FIELD_BOUNDS
+                                + (GRAV_FIELD_BOUNDS_TRUE - GRAV_FIELD_BOUNDS) * scaleT;
+                            gravRetraceStats = gravLines.retrace(
+                                gBodies, { ...GRAVITY_FIELD_DEFAULTS, bounds });
+                            gravRetraceMs = performance.now() - _t0;
+                            gravTraceAt = gBodies.map(b => b.pos.clone());
+                            gravTraceFrame = frameCount;
+                            gravTraceScaleT = scaleT;
+                            // Back off if the trace ran long relative to the
+                            // frame — a weak CPU being scrubbed fast. Recovers
+                            // one frame at a time once it is cheap again.
+                            const budget = Math.max(8, deltaSec * 1000) / 3;
+                            gravRetraceFrames = gravRetraceMs > budget
+                                ? Math.min(6, gravRetraceFrames + 1)
+                                : Math.max(q.tier === 'low' ? 2 : 1, gravRetraceFrames - 1);
+                            if (gravPerfLog) {
+                                console.log(
+                                    `[gravity] retrace ${gravRetraceMs.toFixed(2)}ms`
+                                    + ` · ${gravRetraceStats.lines} lines`
+                                    + ` · ${gravRetraceStats.segments} segments`
+                                    + ` · ${gravRetraceStats.steps} RK4 steps`
+                                    + ` · every ${gravRetraceFrames}f`);
+                            }
+                        }
+                    }
+                }
+            }
+
             renderer.render(scene, camera);
         };
         animate();
@@ -2816,6 +2951,9 @@ const SolarSystem3D = ({
             textures.forEach(t => t.dispose());
             beltLODInstances.forEach(m => { m.geometry.dispose(); scene.remove(m); });
             orbitLines.forEach(l => { l.geometry.dispose(); l.material.dispose(); });
+            scene.remove(gravGrid.mesh, gravLines.object);
+            gravGrid.dispose();
+            gravLines.dispose();
             renderer.dispose();
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate, useMatch } from 'react-router-dom';
-import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause, SlidersHorizontal } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause, SlidersHorizontal, Waves } from 'lucide-react';
 // STASHED StarfieldBg — uncomment this and the <StarfieldBg /> below to restore it.
 // import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
@@ -18,6 +18,9 @@ import { hasSceneBody } from '../data/solarSystemBodies';
 import { useHorizons } from '../hooks/useHorizons';
 import { useIsMobile, useIsShortViewport } from '../hooks/useMediaQuery';
 import { isTrueScale, toggleTrueScale, subscribeScale, setTrueScale as setSceneScale } from '../utils/scaleMode';
+import {
+    getVizMode, cycleVizMode, subscribeViz, VIZ_OFF, VIZ_GRID, VIZ_FIELD,
+} from '../utils/vizMode';
 import { decodeView } from '../utils/shareView';
 import { setOffsetDays } from '../utils/simTime';
 import { useI18n } from '../i18n';
@@ -155,6 +158,8 @@ const CategoryBrowser = () => {
     const [autoRotate, setAutoRotate] = useState(true);
     const [trueScale, setTrueScaleUI] = useState(isTrueScale);
     useEffect(() => subscribeScale(() => setTrueScaleUI(isTrueScale())), []);
+    const [vizMode, setVizModeUI] = useState(getVizMode);
+    useEffect(() => subscribeViz(() => setVizModeUI(getVizMode())), []);
 
     // A shared link carries the camera, the clock and the layout. Read once, on
     // mount, because after that they belong to whoever is driving — rereading
@@ -441,6 +446,29 @@ const CategoryBrowser = () => {
                                 {t(trueScale ? 'scene.trueDistances' : 'scene.compressedDistances')}
                             </button>
                         );
+                        // One pill, cycled off → warped grid → field lines → off.
+                        // The label carries the state because a cycle button
+                        // otherwise gives no clue what it does or where it is.
+                        const gravState = vizMode === VIZ_GRID ? 'scene.gravityStateGrid'
+                            : vizMode === VIZ_FIELD ? 'scene.gravityStateField'
+                                : 'scene.gravityStateOff';
+                        const gravBtn = (
+                            <button
+                                key="gravity"
+                                onClick={cycleVizMode}
+                                aria-pressed={vizMode !== VIZ_OFF}
+                                aria-label={t('scene.gravityAria', { state: t(gravState) })}
+                                title={t('scene.gravityAria', { state: t(gravState) })}
+                                inert={(!!id || pageScrolled) || undefined}
+                                className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
+                                style={pill(vizMode !== VIZ_OFF)}
+                            >
+                                <Waves style={{ width: 13, height: 13 }} />
+                                {vizMode === VIZ_OFF
+                                    ? t('scene.gravity')
+                                    : `${t('scene.gravity')} · ${t(gravState)}`}
+                            </button>
+                        );
                         const exploreBtn = (
                             <button
                                 onClick={scrollToCatalog}
@@ -480,6 +508,7 @@ const CategoryBrowser = () => {
                                         }}>
                                             {driftBtn}
                                             {scaleBtn}
+                                            {gravBtn}
                                         </div>
                                         {exploreBtn}
                                     </div>
@@ -488,7 +517,7 @@ const CategoryBrowser = () => {
                         }
 
                         // ── Phone: a start-aligned column above the time control ──
-                        const anyActive = !autoRotate || trueScale;
+                        const anyActive = !autoRotate || trueScale || vizMode !== VIZ_OFF;
                         return (
                             <div
                                 style={{
@@ -501,6 +530,7 @@ const CategoryBrowser = () => {
                                     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
                                         {driftBtn}
                                         {scaleBtn}
+                                        {gravBtn}
                                     </div>
                                 )}
                                 <button

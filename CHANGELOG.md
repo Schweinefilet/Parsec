@@ -16,6 +16,38 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.0.0
+
+- **You can see the gravity now.** A new control on the scene — cycled off →
+  warped grid → field lines — lays a visualisation of the solar system's
+  gravity over the top of it.
+
+  - **Warped grid** is the embedding-diagram picture: a sheet in the ecliptic
+    plane, dimpled downward under every body. The height field is
+    `y(x,z) = -Σ mᵢ·exp(-((x-xᵢ)²+(z-zᵢ)²)/rᵢ²)`, summed in a vertex shader
+    over a 192×192 mesh, so the sheet deforms live as the planets move with
+    no geometry rebuilt — only the uniform values change. The Sun's funnel
+    dominates; Jupiter and the ice giants sit as their own pinch-points.
+  - **Field lines** traces streamlines of `g(P) = Σ -G·mᵢ·(P-Pᵢ)/|P-Pᵢ|³`
+    out from a sphere around each body — RK4 with a step that shrinks toward a
+    mass and stretches across open space, so a line never punches through a
+    planet. It is a CPU trace (≈130 lines, ~3 ms) and re-runs only when a body
+    has actually moved, not on a clock — so it keeps pace with the planets
+    even at a year per second and costs nothing at all when time is live.
+  - Both read one shared model. Real planetary mass spans eight orders of
+    magnitude, so it is mapped through a clamped log to a small visual range
+    — every constant of that mapping is in one `WEIGHT_CONFIG` object. Real
+    distance is left to the radial compression the scene already applies to
+    position, with a layout-gated correction that only wakes up at true
+    distances, where a fixed-size well would otherwise vanish on the vast
+    sheet.
+  - It fades away when you fly into a body, crossfades between the two modes,
+    and honours the phone tier with a coarser grid and fewer field lines.
+    Measured flat 60 fps in every mode on the test machine, including field
+    lines at the fastest time rate.
+
+---
+
 ## 3.9.1
 
 - **The served HTML carries an `<h1>` now.** The app has always rendered a

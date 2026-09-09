@@ -81,6 +81,11 @@ export const vi = {
         flyTo: 'Bay đến {name}',
         viewOptions: 'Tùy chọn hiển thị',
         viewOptionsClose: 'Đóng tùy chọn hiển thị',
+        gravity: 'Hấp dẫn',
+        gravityStateOff: 'tắt',
+        gravityStateGrid: 'lưới cong',
+        gravityStateField: 'đường sức',
+        gravityAria: 'Lớp hấp dẫn: {state}. Nhấn để chuyển lần lượt giữa tắt, lưới cong và đường sức.',
     },
 
     catalog: {

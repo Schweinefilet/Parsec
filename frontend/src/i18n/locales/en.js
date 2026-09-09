@@ -76,6 +76,11 @@ export const en = {
         flyTo: 'Fly to {name}',
         viewOptions: 'View options',
         viewOptionsClose: 'Close view options',
+        gravity: 'Gravity',
+        gravityStateOff: 'off',
+        gravityStateGrid: 'warped grid',
+        gravityStateField: 'field lines',
+        gravityAria: 'Gravity overlay: {state}. Activate to cycle through off, warped grid and field lines.',
     },
 
     catalog: {

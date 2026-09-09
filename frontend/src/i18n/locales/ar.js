@@ -82,6 +82,11 @@ export const ar = {
         flyTo: 'الانتقال إلى {name}',
         viewOptions: 'خيارات العرض',
         viewOptionsClose: 'إغلاق خيارات العرض',
+        gravity: 'الجاذبية',
+        gravityStateOff: 'متوقّفة',
+        gravityStateGrid: 'شبكة منحنية',
+        gravityStateField: 'خطوط المجال',
+        gravityAria: 'طبقة الجاذبية: {state}. فعّلها للتنقّل بين الإيقاف والشبكة المنحنية وخطوط المجال.',
     },
 
     catalog: {
