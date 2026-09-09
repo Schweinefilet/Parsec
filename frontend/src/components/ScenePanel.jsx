@@ -47,13 +47,18 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
     const hiddenX = rtl ? 'translateX(100%)' : 'translateX(-100%)';
 
     // The handle mark is the focused-object sheet's pull handle laid on its
-    // side: the exact same doubled ChevronDown (bright then dim, overlapped by
-    // the same -24, widened by the same scaleX(1.5)), each turned a quarter
-    // turn so the pair reads as » / «. It points into the scene when closed and
-    // back at the edge when open; the direction lives in the rotation, so the
-    // bright chevron stays put and a right-to-left layout just flips which way
-    // "into the scene" is.
+    // side: two ChevronDown, overlapped and widened by scaleX(1.5), each turned
+    // a quarter turn so the pair reads as » / «. It points into the scene when
+    // closed and back at the edge when open; the direction lives in the
+    // rotation, so a right-to-left layout just flips which way "into the scene"
+    // is. The heavier chevron sits on the far side from the screen edge.
     const chevDeg = (open === rtl) ? -90 : 90;
+    // The row is pinned `direction: ltr`, so the first icon is always the
+    // visual left and the second the visual right. The screen edge the tab is
+    // flush against is the left in a left-to-right layout, the right in Arabic
+    // — and the heavier chevron goes on the far side from it.
+    const chevLeft  = rtl ? 0.80 : 0.40;
+    const chevRight = rtl ? 0.40 : 0.80;
 
     const gravState = vizMode === VIZ_GRID ? 'scene.gravityStateGrid'
         : vizMode === VIZ_FIELD ? 'scene.gravityStateField'
@@ -128,7 +133,7 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
                             }}>
                                 <ChevronDown style={{
                                     width: 40, height: 40, flexShrink: 0,
-                                    color: 'rgba(255,255,255,0.80)',
+                                    color: `rgba(255,255,255,${chevLeft})`,
                                     transform: `rotate(${chevDeg}deg) scaleX(1.5)`,
                                     transition: 'transform 0.35s ease',
                                 }} />
@@ -139,7 +144,7 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
                             }}>
                                 <ChevronDown style={{
                                     width: 40, height: 40, flexShrink: 0,
-                                    color: 'rgba(255,255,255,0.40)',
+                                    color: `rgba(255,255,255,${chevRight})`,
                                     transform: `rotate(${chevDeg}deg) scaleX(1.5)`,
                                     transition: 'transform 0.35s ease',
                                 }} />

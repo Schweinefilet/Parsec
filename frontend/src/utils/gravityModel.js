@@ -69,6 +69,11 @@ export const WEIGHT_CONFIG = {
     // counted twice.
     gridExpandRadius: 0.7,
     gridExpandDepth:  0.28,
+    // The sheet is not drawn whole — only a disc around each body, a window
+    // onto that body's dimple. Its radius is the well's Gaussian sigma
+    // (gridRadius, which already tracks mass, so the Sun's window dwarfs
+    // Pluto's) times `k`; the outer `feather` fraction of the disc fades out.
+    gridPatch: { k: 2.4, feather: 0.45 },
     // The Sun is fixed at the origin, so the expansion above never touches it
     // — which left it a small, fixed pit that the layout's zoom-out shrank
     // into insignificance next to the flung-out planet wells. It holds 99.9%

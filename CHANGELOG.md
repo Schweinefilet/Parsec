@@ -16,6 +16,21 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.4.0
+
+- **The warped grid is now a window, not a whole sheet.** Instead of one
+  endless plane, the grid is drawn only in a disc around each body — a view
+  onto that body's dimple. The disc's radius tracks the well's own size (and
+  so, roughly, the body's mass): the Sun's window dwarfs Pluto's. Tuned by
+  `WEIGHT_CONFIG.gridPatch`.
+- **"Explore the catalog" gets the liquid-glass treatment** — the frosted
+  white fill, the border, the specular edge and the drop shadow the app's
+  cards use — instead of a flat black chip.
+- The scene-drawer chevron's two arrowheads swap weight: the heavier one now
+  sits on the far side from the screen edge.
+
+---
+
 ## 4.3.7
 
 - Nudged the closed scene-drawer chevron a few pixels further off the edge.

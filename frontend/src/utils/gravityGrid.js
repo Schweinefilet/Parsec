@@ -11,9 +11,16 @@
 // The grid lines themselves are drawn in the fragment shader from the
 // undisplaced plane coordinates, so they bend into the wells in 3-D the way
 // the rubber-sheet picture does, with no extra geometry.
+//
+// The whole sheet is not shown — the fragment shader masks it to a disc around
+// each body (radius ∝ that body's well sigma, so it tracks mass), so what you
+// see is a window onto each dimple rather than one endless plane. See
+// WEIGHT_CONFIG.gridPatch.
 
 import * as THREE from 'three';
 import { MAX_GRAVITY_BODIES, WEIGHT_CONFIG } from './gravityModel';
+
+const { gridPatch: GRID_PATCH } = WEIGHT_CONFIG;
 
 const VERT = /* glsl */`
     uniform vec3  uBodies[${MAX_GRAVITY_BODIES}];   // xz = plane position, y = well depth
@@ -45,11 +52,28 @@ const FRAG = /* glsl */`
     uniform float uOpacity;
     uniform float uHalfExtent;
     uniform float uCells;
+    uniform vec3  uBodies[${MAX_GRAVITY_BODIES}];
+    uniform float uRadii[${MAX_GRAVITY_BODIES}];
+    uniform int   uCount;
+    uniform float uPatchK;
+    uniform float uPatchFeather;
 
     varying vec2  vPlane;
     varying float vDepth;
 
     void main() {
+        // Only a disc around each body is drawn — a window onto its dimple.
+        // Track the distance to the nearest body as a fraction of that body's
+        // window radius; < 1 is inside a window.
+        float nearest = 1e9;
+        for (int i = 0; i < ${MAX_GRAVITY_BODIES}; i++) {
+            if (i >= uCount) break;
+            float pr = uRadii[i] * uPatchK;
+            nearest = min(nearest, length(vPlane - uBodies[i].xz) / pr);
+        }
+        float win = 1.0 - smoothstep(1.0 - uPatchFeather, 1.0, nearest);
+        if (win < 0.002) discard;
+
         // Anti-aliased grid lines from the plan-view coordinate.
         vec2 c  = vPlane / (2.0 * uHalfExtent) + 0.5;
         vec2 g  = abs(fract(c * uCells) - 0.5);
@@ -58,12 +82,12 @@ const FRAG = /* glsl */`
         float line = max(ln.x, ln.y);
         if (line < 0.001) discard;
 
-        // Fade out toward the edge so the sheet has no hard border, and let
-        // the deep parts of a well glow a little.
+        // Keep the sheet-edge fade as a backstop for a window that reaches the
+        // rim, and let the deep parts of a well glow a little.
         float edge  = 1.0 - smoothstep(0.72, 1.0, length(vPlane) / uHalfExtent);
         float glow  = 1.0 + clamp(vDepth * 0.06, 0.0, 1.6);
 
-        gl_FragColor = vec4(uColor * glow, line * edge * uOpacity);
+        gl_FragColor = vec4(uColor * glow, line * win * edge * uOpacity);
     }
 `;
 
@@ -89,6 +113,8 @@ export function makeGravityGrid({
         uCells: { value: cells },
         uColor: { value: new THREE.Color(color[0], color[1], color[2]) },
         uOpacity: { value: 0 },
+        uPatchK: { value: GRID_PATCH.k },
+        uPatchFeather: { value: GRID_PATCH.feather },
     };
 
     const mat = new THREE.ShaderMaterial({
