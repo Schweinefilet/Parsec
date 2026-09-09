@@ -16,6 +16,23 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.1.2
+
+- **Drift, reworked.** Three fixes to yesterday's sliders at once:
+  - **The labels follow a rolled view now.** They project against the camera,
+    and the roll was applied after that projection had already run for the
+    frame — so the scene tipped and the names stayed put. The camera's world
+    matrix is refreshed before the labels are placed.
+  - **No more limits, no more bouncing off them.** Pitch and roll ran between
+    soft stops and reversed. They are now applied as free rotations of the
+    camera about its own axes — pitch somersaults right over the poles, roll
+    spins all the way round — and `controls.update` reads the drifted position
+    back as its orbit, so a drag still picks up cleanly from wherever it left.
+  - **Half speed.** The top of each slider's range is halved; a fully cranked
+    drift is a slow tumble, not a fairground ride.
+
+---
+
 ## 4.1.1
 
 - **The drift sliders were dead to the touch.** The toolbar they sit in is

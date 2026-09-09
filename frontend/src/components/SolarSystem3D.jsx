@@ -172,14 +172,16 @@ const SolarSystem3D = ({
         let driftEase = 1;
         // Eased hover slow-down (1 normally, DRIFT_HOVER_SLOW over a body).
         let driftScale = 1;
-        // Bounce state for the pitch and roll swings, and the current roll
-        // angle (applied to the camera each frame after controls.update).
-        let pitchDir = 1;
-        let rollDir  = 1;
-        let rollAngle = 0;
-        const DRIFT_PITCH_POLAR = { min: 0.70, max: 1.95 };  // ~40° … ~112° from straight down
-        const DRIFT_ROLL_LIMIT  = 0.55;                       // ~31° of lean either way
-        const DRIFT_HOVER_SLOW  = 0.12;
+        const DRIFT_HOVER_SLOW = 0.12;
+        // Scratch for the drift maths (see the "Idle camera drift" block).
+        const _dOff = new THREE.Vector3();
+        const _dUp = new THREE.Vector3();
+        const _dBack = new THREE.Vector3();
+        const _dRight = new THREE.Vector3();
+        const _dLevelUp = new THREE.Vector3();
+        const _dCross = new THREE.Vector3();
+        const _dQ = new THREE.Quaternion();
+        const _dTmpQ = new THREE.Quaternion();
 
         // ── Focus zoom-in animation state ──────────────────────────────────────
         let focusAnimating   = false;
@@ -2750,53 +2752,80 @@ const SolarSystem3D = ({
             if (!autoRotateRef.current && driftEase < 0.002) driftEase = 0;
             driftScale = THREE.MathUtils.lerp(driftScale, hoverSlow ? DRIFT_HOVER_SLOW : 1, ease(0.05));
 
+            // With no argument OrbitControls assumes 1/60s has passed. Handing
+            // it the real delta makes any user-drag damping a rate rather than
+            // a per-frame step — it ran 2.4x fast on a 144Hz laptop otherwise.
+            controls.update(deltaSec);
+
             // ── Idle camera drift ──────────────────────────────────────────────
-            // Yaw and pitch go through OrbitControls (yaw spins, pitch swings
-            // between soft polar limits); roll it will not do — it keeps the
-            // horizon level by design — so roll is an angle accumulated here
-            // and rotated onto the camera after controls.update() below. All
-            // three scale with driftEase (the on/off button) and driftScale
-            // (the hover slow-down), and only run in the home view when the
-            // reader is not already driving.
+            // Applied by hand *after* controls.update, as three small rotations
+            // of the camera about the target, each about one of the camera's
+            // own axes: yaw about up, pitch about right, roll about the view
+            // axis. There are no limits — pitch somersaults right over the
+            // poles and roll spins freely, because up and right are re-derived
+            // from the live camera every frame and rotated along with it.
+            // controls.update reads the drifted position back as its own orbit,
+            // so a later drag still works. Home view only, not while the reader
+            // is driving; roll relaxes to level whenever its slider is centred.
             {
                 const canDrift = !targetMesh && exitPhase === 0 && !focusAnimating
                     && !isInteracting;
                 const dr = driftRates();
                 const ds = canDrift ? driftEase * driftScale : 0;
+                const radius = camera.position.distanceTo(controls.target);
 
-                if (ds > 0.001 && dr.yaw !== 0) {
-                    controls.rotateLeft(dr.yaw * ds * deltaSec);
-                }
-                if (ds > 0.001 && dr.pitch !== 0) {
-                    const polar = controls.getPolarAngle();
-                    if (polar <= DRIFT_PITCH_POLAR.min) pitchDir = -1;
-                    else if (polar >= DRIFT_PITCH_POLAR.max) pitchDir = 1;
-                    // rotateUp(+) decreases the polar angle
-                    controls.rotateUp(Math.abs(dr.pitch) * Math.sign(dr.pitch || 1)
-                        * pitchDir * ds * deltaSec);
-                }
-                if (ds > 0.001 && dr.roll !== 0) {
-                    if (rollAngle >= DRIFT_ROLL_LIMIT) rollDir = -1;
-                    else if (rollAngle <= -DRIFT_ROLL_LIMIT) rollDir = 1;
-                    rollAngle += Math.abs(dr.roll) * Math.sign(dr.roll || 1)
-                        * rollDir * ds * deltaSec;
-                } else if (Math.abs(rollAngle) > 1e-4) {
-                    // Slider back to centre, drift held still, or pointer on a
-                    // body — unwind the lean.
-                    rollAngle *= 0.92;
-                }
-            }
+                _dBack.copy(camera.position).sub(controls.target);
+                if (_dBack.lengthSq() < 1e-6) _dBack.set(0, 0, 1);
+                _dBack.normalize();
+                _dRight.crossVectors(camera.up, _dBack);
+                if (_dRight.lengthSq() < 1e-6) _dRight.set(1, 0, 0);
+                _dRight.normalize();
+                _dUp.crossVectors(_dBack, _dRight).normalize();
 
-            // With no argument OrbitControls assumes 1/60s has passed. Handing
-            // it the real delta makes the drift a rate rather than a per-frame
-            // step — it ran 2.4x fast on a 144Hz laptop otherwise.
-            controls.update(deltaSec);
+                _dQ.identity();
+                let moved = false;
 
-            // Roll: OrbitControls has just levelled the camera, so tip it back
-            // by the accumulated angle around its own view axis. Home view only
-            // — a focused or exiting camera is never rolled.
-            if (Math.abs(rollAngle) > 1e-4 && !targetMesh && exitPhase === 0 && !focusAnimating) {
-                camera.rotateZ(rollAngle);
+                if (ds > 0.001) {
+                    if (dr.pitch) {
+                        _dQ.premultiply(_dTmpQ.setFromAxisAngle(_dRight, dr.pitch * ds * deltaSec));
+                        moved = true;
+                    }
+                    if (dr.yaw) {
+                        _dQ.premultiply(_dTmpQ.setFromAxisAngle(_dUp, dr.yaw * ds * deltaSec));
+                        moved = true;
+                    }
+                    if (dr.roll) {
+                        _dQ.premultiply(_dTmpQ.setFromAxisAngle(_dBack, dr.roll * ds * deltaSec));
+                        moved = true;
+                    }
+                }
+
+                // Roll → level, unless it is being driven. "Level" is world-up
+                // with the view component removed; undefined looking straight
+                // up or down, so it simply waits there.
+                if (canDrift && dr.roll === 0) {
+                    _dLevelUp.set(0, 1, 0).projectOnPlane(_dBack);
+                    if (_dLevelUp.lengthSq() > 1e-5) {
+                        _dLevelUp.normalize();
+                        const err = _dUp.angleTo(_dLevelUp);
+                        if (err > 2e-3) {
+                            const sign = _dCross.crossVectors(_dUp, _dLevelUp).dot(_dBack) < 0 ? -1 : 1;
+                            _dQ.premultiply(_dTmpQ.setFromAxisAngle(_dBack, sign * err * 0.1));
+                            moved = true;
+                        }
+                    }
+                }
+
+                if (moved) {
+                    _dOff.copy(camera.position).sub(controls.target)
+                        .applyQuaternion(_dQ).setLength(radius);
+                    camera.position.copy(controls.target).add(_dOff);
+                    camera.up.applyQuaternion(_dQ).normalize();
+                    camera.lookAt(controls.target);
+                    // The floating labels project against this next; without the
+                    // refresh they trail a frame behind the tumbled camera.
+                    camera.updateMatrixWorld();
+                }
             }
 
             // Override camera position + lookAt AFTER controls.update()

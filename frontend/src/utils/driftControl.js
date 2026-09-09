@@ -2,9 +2,9 @@
 //
 // The scene has always drifted — a slow turntable spin with a hint of vertical
 // sway. This exposes that as three axes the reader sets with sliders: yaw
-// (the spin), pitch (a nod), roll (a lean). Each is a signed rate in -1..1;
-// yaw runs continuously, pitch and roll swing gently between soft limits so
-// the motion never winds up at a pole or spins into a pinwheel.
+// (the spin), pitch (a nod), roll (a lean). Each is a signed rate in -1..1 and
+// runs indefinitely in whichever direction: pitch somersaults over the poles,
+// roll spins right round, nothing reverses at a limit.
 //
 // A module singleton the render loop reads every frame — not React state, the
 // scene effect must not re-run — and a taste setting, so it is persisted. The
@@ -13,10 +13,10 @@
 const STORAGE_KEY = 'p4rsec.drift';
 
 /** The out-of-the-box drift: a gentle diagonal turntable, no roll. */
-export const DRIFT_DEFAULTS = { yaw: 0.22, pitch: 0.16, roll: 0 };
+export const DRIFT_DEFAULTS = { yaw: 0.3, pitch: 0.22, roll: 0 };
 
 /** Peak angular velocity each axis reaches at |slider| = 1, radians/second. */
-export const DRIFT_MAX = { yaw: 0.08, pitch: 0.10, roll: 0.13 };
+export const DRIFT_MAX = { yaw: 0.04, pitch: 0.05, roll: 0.065 };
 
 const AXES = ['yaw', 'pitch', 'roll'];
 const clamp = (v) => (v < -1 ? -1 : v > 1 ? 1 : v);
