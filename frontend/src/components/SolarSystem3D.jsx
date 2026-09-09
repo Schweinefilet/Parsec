@@ -454,13 +454,22 @@ const SolarSystem3D = ({
             if (skySphere || !q.skyTexture || !mounted) return;
             const skyGeo = new THREE.SphereGeometry(8000, q.skySegments, q.skySegments);
             const skyTex = loader.load('/textures/' + q.skyTexture);
+            // The Milky Way plate is an ordinary sRGB photo. Without this flag
+            // three treats its bytes as linear and re-encodes them on output —
+            // the image comes out too bright — and, worse, it leaves WebGL's
+            // UNPACK_COLORSPACE_CONVERSION at the browser default, so Safari on
+            // a P3 Mac stretches it into the display gamut and Chrome does not:
+            // the same texture looks blown-out in one browser and faint in the
+            // other. Tagging it sRGB fixes the decode and pins both browsers to
+            // the same result.
+            skyTex.colorSpace = THREE.SRGBColorSpace;
             textures.push(skyTex);
             const skyMat = new THREE.MeshBasicMaterial({
                 map:         skyTex,
                 side:        THREE.BackSide,
                 depthWrite:  false,
                 transparent: true,
-                opacity:     0.35,
+                opacity:     0.5,
             });
             geos.push(skyGeo);
             mats.push(skyMat);
@@ -953,10 +962,15 @@ const SolarSystem3D = ({
         let gravRetraceFrames = q.tier === 'low' ? 2 : 1;
 
         const gravGrid  = makeGravityGrid({
-            segments: q.tier === 'low' ? 96 : 192,
+            // Finer well geometry than the old whole-sheet needed (the windowed
+            // mask, 4.4.0, means far fewer fragments to shade). `cells` is only
+            // a touch above the old 96 — a first denser pass at 168 was too
+            // busy — but it now holds that world-size out to true distances
+            // (see update()).
+            segments: q.tier === 'low' ? 128 : 256,
             halfExtent: GRAV_GRID_EXTENT,
             halfExtentTrue: GRAV_GRID_EXTENT_TRUE,
-            cells: 96,
+            cells: 90,
             orientation: beltQuat,
         });
         const gravLines = makeGravityLines();

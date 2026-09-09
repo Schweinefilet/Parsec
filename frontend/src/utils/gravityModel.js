@@ -48,14 +48,14 @@ export const WEIGHT_CONFIG = {
 
     // ── Warped-grid mode ──────────────────────────────────────────────────
     // A body contributes a Gaussian dimple to the height field. Wall slope is
-    // depth/sigma, so the Sun's pit is made both deeper and steeper by pairing
-    // a large `depth.max` with a modest `radius.max` — and a high `gamma` on
-    // each keeps that from dragging the planets down with it: at mass
-    // parameter 1 (the Sun) gamma does nothing, but by Jupiter's 0.64 it has
-    // pulled the curve well back down, so the planets stay the shallow, tight
-    // pinch-points they were and only the Sun gets the drama.
-    gridDepth:  { min: 3,  max: 48, gamma: 2.0 },   // Gaussian amplitude, scene units
-    gridRadius: { min: 14, max: 48, gamma: 1.3 },   // Gaussian sigma,     scene units
+    // depth/sigma, so the Sun's pit is a deep, narrow puncture: a big
+    // `depth.max` against a small `radius.max`. `depth.gamma` is high so at
+    // Jupiter's mass parameter (0.64) it has pulled the curve back down and
+    // the planets stay shallow — only the Sun gets the drama. `radius.gamma`
+    // is near 1 the other way, so shrinking `radius.max` for the Sun doesn't
+    // also collapse the planets' footprints.
+    gridDepth:  { min: 3,  max: 66, gamma: 2.4 },   // Gaussian amplitude, scene units
+    gridRadius: { min: 14, max: 34, gamma: 1.05 },  // Gaussian sigma,     scene units
     // The distance term. A first cut left distance out entirely — the scene's
     // radial compression already maps it into position — but rendering both
     // layout extremes showed that at true distances a fixed-size well is a

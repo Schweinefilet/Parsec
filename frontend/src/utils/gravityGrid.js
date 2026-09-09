@@ -150,6 +150,11 @@ export function makeGravityGrid({
          */
         update(bodies, scaleT) {
             uniforms.uHalfExtent.value = halfExtent + (halfExtentTrue - halfExtent) * scaleT;
+            // `cells` is the count at the compressed width; hold the *world*
+            // size of a cell constant as the sheet eases out to true distances,
+            // otherwise each window would show only a few enormous squares out
+            // there. (Now the sheet is windowed we can afford the extra lines.)
+            uniforms.uCells.value = cells * (uniforms.uHalfExtent.value / halfExtent);
             const n = Math.min(bodies.length, MAX_GRAVITY_BODIES);
             for (let i = 0; i < n; i++) {
                 _local.copy(bodies[i].pos).applyMatrix4(invWorld);   // world → sheet-local

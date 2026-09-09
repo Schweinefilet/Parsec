@@ -12,8 +12,8 @@
 
 const STORAGE_KEY = 'p4rsec.drift';
 
-/** The out-of-the-box drift: a barely-there diagonal turntable, no roll. */
-export const DRIFT_DEFAULTS = { yaw: 0.15, pitch: 0.11, roll: 0 };
+/** The out-of-the-box drift: a gentle diagonal turntable, no roll. */
+export const DRIFT_DEFAULTS = { yaw: 0.195, pitch: 0.143, roll: 0 };
 
 /** Peak angular velocity each axis reaches at |slider| = 1, radians/second. */
 export const DRIFT_MAX = { yaw: 0.04, pitch: 0.05, roll: 0.065 };

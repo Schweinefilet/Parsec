@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.4.1
+
+- **Default drift is ~30% quicker** — the out-of-the-box yaw and pitch step up
+  from 0.15 / 0.11 to 0.195 / 0.143.
+- **Warped grid:** a touch denser than before, and the cell size now holds
+  constant out to true distances instead of a window showing four huge
+  squares. The Sun's dimple is retuned — narrower and much deeper, a proper
+  puncture.
+- **Milky Way sky brightness.** The sky plate was untagged, so it was decoded
+  as linear data and re-lightened on output, and — the reason it looked
+  blown-out in Safari but faint in Chrome — WebGL was left free to stretch it
+  into a P3 Mac display's gamut in Safari only. It is tagged sRGB now: correct
+  brightness, and identical between browsers.
+
+---
+
 ## 4.4.0
 
 - **The warped grid is now a window, not a whole sheet.** Instead of one
