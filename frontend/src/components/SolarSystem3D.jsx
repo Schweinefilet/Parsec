@@ -28,7 +28,7 @@ import {
     advanceMoonAngle, moonOffset, DEFAULT_ORBIT_SPEED,
 } from '../utils/orbitalMotion';
 import { getVizMode, vizWeight, isVizSettling, VIZ_OFF, VIZ_GRID, VIZ_FIELD } from '../utils/vizMode';
-import { GRAVITY_BODIES } from '../utils/gravityModel';
+import { GRAVITY_BODIES, WEIGHT_CONFIG } from '../utils/gravityModel';
 import { makeGravityGrid } from '../utils/gravityGrid';
 import { makeGravityLines } from '../utils/gravityLines';
 import { GRAVITY_FIELD_DEFAULTS } from '../utils/gravityField';
@@ -961,11 +961,17 @@ const SolarSystem3D = ({
                 : b.weights,
             pos: new THREE.Vector3(),
             expansion: 1,   // radial spread in the current layout; drives the outer-planet distance term
+            wellScale: 1,   // uniform grid-well size multiplier — only the Sun uses it, to grow with the layout
         }));
         const _gravPlanetById = new Map(planetGroups.map(g => [g.planet.id, g]));
         const collectGravityBodies = (scaleT) => {
             for (const gb of _gravBodies) {
-                if (gb.id === 'sun') { gb.pos.set(0, 0, 0); gb.expansion = 1; continue; }
+                if (gb.id === 'sun') {
+                    gb.pos.set(0, 0, 0);
+                    gb.expansion = 1;
+                    gb.wellScale = 1 + (WEIGHT_CONFIG.sunWellTrueScale - 1) * scaleT;
+                    continue;
+                }
                 const pg = _gravPlanetById.get(gb.id);
                 if (!pg) continue;
                 gb.pos.copy(pg.group.position);

@@ -88,10 +88,11 @@ export function makeGravityLines({ color = [0.62, 0.80, 1.0], initialCapacity = 
         retrace(bodies, cfg) {
             const src = bodies.map(b => {
                 const e = b.expansion ?? 1;   // 1 compressed; > 1 for outer planets at true scale
+                const s = b.wellScale ?? 1;   // Sun-only, grows the seed sphere with the layout
                 return {
                     pos: b.pos,
                     fieldMass: b.weights.fieldMass * Math.pow(e, WEIGHT_CONFIG.fieldExpandMass),
-                    minRadius: b.weights.minRadius * Math.pow(e, WEIGHT_CONFIG.fieldExpandRadius),
+                    minRadius: b.weights.minRadius * Math.pow(e, WEIGHT_CONFIG.fieldExpandRadius) * s,
                     lineCount: b.weights.lineCount,
                 };
             });

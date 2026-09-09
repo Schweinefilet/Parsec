@@ -128,10 +128,11 @@ export function makeGravityGrid({
             for (let i = 0; i < n; i++) {
                 _local.copy(bodies[i].pos).applyMatrix4(invWorld);   // world → sheet-local
                 const e = bodies[i].expansion ?? 1;
-                const depth = bodies[i].weights.gridDepth * Math.pow(e, WEIGHT_CONFIG.gridExpandDepth);
+                const s = bodies[i].wellScale ?? 1;   // uniform size mult (Sun grows with the layout)
+                const depth = bodies[i].weights.gridDepth * Math.pow(e, WEIGHT_CONFIG.gridExpandDepth) * s;
                 uniforms.uBodies.value[i].set(_local.x, depth, _local.z);
                 uniforms.uRadii.value[i] = bodies[i].weights.gridRadius
-                    * Math.pow(e, WEIGHT_CONFIG.gridExpandRadius);
+                    * Math.pow(e, WEIGHT_CONFIG.gridExpandRadius) * s;
             }
             uniforms.uCount.value = n;
         },

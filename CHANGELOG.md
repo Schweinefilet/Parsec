@@ -16,6 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.0.2
+
+- **The Sun keeps its well at true distances.** The distance term that widens
+  the outer planet wells so they survive the zoom-out never touched the Sun —
+  it is fixed at the origin — so at true scale the Sun's small fixed pit was
+  losing the steepness contest to the flung-out gas giants. It now grows with
+  the layout by its own factor (both dimensions equally, so the wall slope is
+  the one the compressed tuning set — just larger), and the planet wells
+  deepen a little less on the way out. Compressed mode is unchanged.
+
+---
+
 ## 4.0.1
 
 - **The Sun's gravity well is deeper and steeper.** Wall slope is depth over

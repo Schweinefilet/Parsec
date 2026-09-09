@@ -74,6 +74,9 @@ describe('visual weights', () => {
             expect(WEIGHT_CONFIG[k]).toBeGreaterThan(0);
             expect(WEIGHT_CONFIG[k]).toBeLessThanOrEqual(1);
         }
+        // The Sun's well grows with the layout — it never moves, so the
+        // expansion term above can't reach it.
+        expect(WEIGHT_CONFIG.sunWellTrueScale).toBeGreaterThan(1);
     });
 });
 

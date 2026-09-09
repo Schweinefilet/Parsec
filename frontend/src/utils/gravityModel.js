@@ -63,7 +63,14 @@ export const WEIGHT_CONFIG = {
     // rather than folded into the mass mapping, so the compression is never
     // counted twice.
     gridExpandRadius: 0.7,
-    gridExpandDepth:  0.35,
+    gridExpandDepth:  0.28,
+    // The Sun is fixed at the origin, so the expansion above never touches it
+    // — which left it a small, fixed pit that the layout's zoom-out shrank
+    // into insignificance next to the flung-out planet wells. It holds 99.9%
+    // of the system's mass and should read that way at any scale, so its
+    // well grows with the layout by this factor (both dimensions equally, so
+    // the wall slope the compressed tuning set is preserved — just larger).
+    sunWellTrueScale: 3.4,
 
     // ── Field-line mode ───────────────────────────────────────────────────
     // g(P) = sum over bodies of  -G * m_i * (P - P_i) / |P - P_i|^3
