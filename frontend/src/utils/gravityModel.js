@@ -42,15 +42,15 @@ export const WEIGHT_CONFIG = {
     logMassMax: 30.3,   // ~Sun   — the ceiling
 
     // ── Warped-grid mode ──────────────────────────────────────────────────
-    // A body contributes a Gaussian dimple to the height field. `gamma`
-    // shapes the mid-range: >1 pushes the terrestrial planets down relative
-    // to the gas giants, which is what makes Jupiter read as heavier than
-    // Earth rather than merely deeper than Mercury. `radius` is kept fairly
-    // tight — a wide Sun well was swallowing the inner planets whole, so its
-    // sigma now runs out around Venus and the planets sit as their own
-    // pinch-points rather than folds in the Sun's slope.
-    gridDepth:  { min: 3,  max: 34, gamma: 1.5 },   // Gaussian amplitude, scene units
-    gridRadius: { min: 14, max: 58, gamma: 1.0 },   // Gaussian sigma,     scene units
+    // A body contributes a Gaussian dimple to the height field. Wall slope is
+    // depth/sigma, so the Sun's pit is made both deeper and steeper by pairing
+    // a large `depth.max` with a modest `radius.max` — and a high `gamma` on
+    // each keeps that from dragging the planets down with it: at mass
+    // parameter 1 (the Sun) gamma does nothing, but by Jupiter's 0.64 it has
+    // pulled the curve well back down, so the planets stay the shallow, tight
+    // pinch-points they were and only the Sun gets the drama.
+    gridDepth:  { min: 3,  max: 48, gamma: 2.0 },   // Gaussian amplitude, scene units
+    gridRadius: { min: 14, max: 48, gamma: 1.3 },   // Gaussian sigma,     scene units
     // The distance term. A first cut left distance out entirely — the scene's
     // radial compression already maps it into position — but rendering both
     // layout extremes showed that at true distances a fixed-size well is a

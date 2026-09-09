@@ -16,6 +16,17 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.0.1
+
+- **The Sun's gravity well is deeper and steeper.** Wall slope is depth over
+  sigma, so `gridDepth.max` went up (34 → 48) and `gridRadius.max` down
+  (58 → 48), with a steeper `gamma` on each so the change lands on the Sun
+  and not the planets — at the Sun's mass parameter the gamma does nothing,
+  but by Jupiter it has pulled the curve back down, so the gas giants stay
+  the tight pinch-points they were.
+
+---
+
 ## 4.0.0
 
 - **You can see the gravity now.** A new control on the scene — cycled off →
