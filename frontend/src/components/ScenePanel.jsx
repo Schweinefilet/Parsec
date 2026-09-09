@@ -90,7 +90,7 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
                     className="focus-ring"
                     style={{
                         position: 'absolute', top: '50%',
-                        insetInlineStart: open ? '100%' : 4,
+                        insetInlineStart: open ? '100%' : 10,
                         transform: 'translateY(-50%)',
                         transition: slide,
                         pointerEvents: 'auto',

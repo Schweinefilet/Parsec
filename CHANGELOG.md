@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.3.7
+
+- Nudged the closed scene-drawer chevron a few pixels further off the edge.
+
+---
+
 ## 4.3.6
 
 - The scene-drawer tab's chevron bobs left–right now, the way it points,
