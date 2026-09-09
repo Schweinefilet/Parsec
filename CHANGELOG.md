@@ -16,6 +16,20 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.4.2
+
+- **The warped grid's full sheet is back — as a ghost.** Rather than clipping
+  the grid to a disc around each body, the whole sheet is drawn again, but
+  outside those windows it drops to a faint grey (`gridPatch.outAlpha`). The
+  body windows keep their colour and full strength.
+- **The grid thins by half at true distances.** The layout is so much emptier
+  out there that the compressed density read as clutter.
+- **The Sun's well at true distances is a spike, not a crater.** Its depth
+  still grows with the layout (`sunWellTrueScale` 3.4) but its radius grows far
+  less (`sunWellTrueScaleRadius` 1.7).
+
+---
+
 ## 4.4.1
 
 - **Default drift is ~30% quicker** — the out-of-the-box yaw and pitch step up

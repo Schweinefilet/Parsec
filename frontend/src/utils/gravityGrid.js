@@ -57,14 +57,15 @@ const FRAG = /* glsl */`
     uniform int   uCount;
     uniform float uPatchK;
     uniform float uPatchFeather;
+    uniform float uPatchOutAlpha;   // opacity outside every window, as a fraction of uOpacity
 
     varying vec2  vPlane;
     varying float vDepth;
 
     void main() {
-        // Only a disc around each body is drawn — a window onto its dimple.
-        // Track the distance to the nearest body as a fraction of that body's
-        // window radius; < 1 is inside a window.
+        // The whole sheet is drawn, but only a disc around each body is drawn
+        // in full: elsewhere it drops to a faint grey ghost. win (0..1) is how
+        // far inside the nearest body's window this fragment sits.
         float nearest = 1e9;
         for (int i = 0; i < ${MAX_GRAVITY_BODIES}; i++) {
             if (i >= uCount) break;
@@ -72,7 +73,6 @@ const FRAG = /* glsl */`
             nearest = min(nearest, length(vPlane - uBodies[i].xz) / pr);
         }
         float win = 1.0 - smoothstep(1.0 - uPatchFeather, 1.0, nearest);
-        if (win < 0.002) discard;
 
         // Anti-aliased grid lines from the plan-view coordinate.
         vec2 c  = vPlane / (2.0 * uHalfExtent) + 0.5;
@@ -82,12 +82,18 @@ const FRAG = /* glsl */`
         float line = max(ln.x, ln.y);
         if (line < 0.001) discard;
 
-        // Keep the sheet-edge fade as a backstop for a window that reaches the
-        // rim, and let the deep parts of a well glow a little.
+        // Sheet-edge fade so there is no hard border, plus a glow in the deep
+        // parts of a well.
         float edge  = 1.0 - smoothstep(0.72, 1.0, length(vPlane) / uHalfExtent);
         float glow  = 1.0 + clamp(vDepth * 0.06, 0.0, 1.6);
 
-        gl_FragColor = vec4(uColor * glow, line * win * edge * uOpacity);
+        // In a window: the colour, at full strength. Outside: greyed, and way
+        // down in opacity.
+        float luma = dot(uColor, vec3(0.299, 0.587, 0.114));
+        vec3  rgb  = mix(vec3(luma), uColor, win) * glow;
+        float a    = line * edge * uOpacity * mix(uPatchOutAlpha, 1.0, win);
+
+        gl_FragColor = vec4(rgb, a);
     }
 `;
 
@@ -115,6 +121,7 @@ export function makeGravityGrid({
         uOpacity: { value: 0 },
         uPatchK: { value: GRID_PATCH.k },
         uPatchFeather: { value: GRID_PATCH.feather },
+        uPatchOutAlpha: { value: GRID_PATCH.outAlpha },
     };
 
     const mat = new THREE.ShaderMaterial({
@@ -150,20 +157,24 @@ export function makeGravityGrid({
          */
         update(bodies, scaleT) {
             uniforms.uHalfExtent.value = halfExtent + (halfExtentTrue - halfExtent) * scaleT;
-            // `cells` is the count at the compressed width; hold the *world*
-            // size of a cell constant as the sheet eases out to true distances,
-            // otherwise each window would show only a few enormous squares out
-            // there. (Now the sheet is windowed we can afford the extra lines.)
-            uniforms.uCells.value = cells * (uniforms.uHalfExtent.value / halfExtent);
+            // `cells` is the count at the compressed width. Hold a cell's
+            // *world* size roughly constant as the sheet eases out (so a window
+            // doesn't collapse to a few enormous squares), but thin the grid by
+            // half at full true distance — the layout is so much emptier there
+            // that the compressed density reads as clutter.
+            uniforms.uCells.value = cells
+                * (uniforms.uHalfExtent.value / halfExtent)
+                * (1.0 - 0.5 * scaleT);
             const n = Math.min(bodies.length, MAX_GRAVITY_BODIES);
             for (let i = 0; i < n; i++) {
                 _local.copy(bodies[i].pos).applyMatrix4(invWorld);   // world → sheet-local
-                const e = bodies[i].expansion ?? 1;
-                const s = bodies[i].wellScale ?? 1;   // uniform size mult (Sun grows with the layout)
+                const e  = bodies[i].expansion ?? 1;
+                const s  = bodies[i].wellScale ?? 1;                 // Sun-only depth mult (grows with the layout)
+                const sr = bodies[i].wellScaleRadius ?? s;          // …and its (gentler) radius mult
                 const depth = bodies[i].weights.gridDepth * Math.pow(e, WEIGHT_CONFIG.gridExpandDepth) * s;
                 uniforms.uBodies.value[i].set(_local.x, depth, _local.z);
                 uniforms.uRadii.value[i] = bodies[i].weights.gridRadius
-                    * Math.pow(e, WEIGHT_CONFIG.gridExpandRadius) * s;
+                    * Math.pow(e, WEIGHT_CONFIG.gridExpandRadius) * sr;
             }
             uniforms.uCount.value = n;
         },

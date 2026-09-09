@@ -991,8 +991,9 @@ const SolarSystem3D = ({
                 ? { ...b.weights, lineCount: Math.max(4, Math.round(b.weights.lineCount * 0.34)) }
                 : b.weights,
             pos: new THREE.Vector3(),
-            expansion: 1,   // radial spread in the current layout; drives the outer-planet distance term
-            wellScale: 1,   // uniform grid-well size multiplier — only the Sun uses it, to grow with the layout
+            expansion: 1,        // radial spread in the current layout; drives the outer-planet distance term
+            wellScale: 1,        // Sun-only grid-well depth multiplier — grows with the layout
+            wellScaleRadius: 1,  // …and its gentler radius multiplier
         }));
         const _gravPlanetById = new Map(planetGroups.map(g => [g.planet.id, g]));
         const collectGravityBodies = (scaleT) => {
@@ -1001,6 +1002,7 @@ const SolarSystem3D = ({
                     gb.pos.set(0, 0, 0);
                     gb.expansion = 1;
                     gb.wellScale = 1 + (WEIGHT_CONFIG.sunWellTrueScale - 1) * scaleT;
+                    gb.wellScaleRadius = 1 + (WEIGHT_CONFIG.sunWellTrueScaleRadius - 1) * scaleT;
                     continue;
                 }
                 const pg = _gravPlanetById.get(gb.id);
