@@ -75,7 +75,7 @@ export const WEIGHT_CONFIG = {
     // the Sun's window dwarfs Pluto's) times `k`; the outer `feather` fraction
     // fades. Outside every window the sheet drops to grey at `outAlpha` of the
     // usual opacity — a faint ghost of the full grid.
-    gridPatch: { k: 2.4, feather: 0.45, outAlpha: 0.14 },
+    gridPatch: { k: 2.4, feather: 0.45, outAlpha: 0.32 },
     // The Sun is fixed at the origin, so the expansion above never touches it
     // — which left it a small, fixed pit that the layout's zoom-out shrank
     // into insignificance next to the flung-out planet wells. It holds 99.9%

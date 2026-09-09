@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.4.3
+
+- The warped grid's ghost sheet is brighter — `gridPatch.outAlpha` 0.14 → 0.32.
+
+---
+
 ## 4.4.2
 
 - **The warped grid's full sheet is back — as a ghost.** Rather than clipping
