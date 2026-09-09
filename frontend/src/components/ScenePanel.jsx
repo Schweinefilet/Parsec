@@ -100,13 +100,16 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
                     }}
                 >
                     {/* Bob + fade while closed — the sheet handle's animation,
-                        on its own wrapper so it doesn't fight the scale below. */}
+                        turned sideways (edgeTabBob) so it nudges the way the
+                        chevron points. On its own wrapper so it doesn't fight
+                        the transforms below. */}
                     <span
                         style={{
                             display: 'block', pointerEvents: 'none',
+                            '--bob-x': rtl ? '-4px' : '4px',
                             animation: (open || reduced)
                                 ? 'none'
-                                : 'scrollPromptBob 1.8s ease-in-out infinite',
+                                : 'edgeTabBob 1.8s ease-in-out infinite',
                         }}
                     >
                         {/* The focused-object sheet's pull handle — two rounded

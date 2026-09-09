@@ -16,6 +16,13 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.3.6
+
+- The scene-drawer tab's chevron bobs left–right now, the way it points,
+  instead of up–down.
+
+---
+
 ## 4.3.5
 
 - **The scene-drawer tab loses its box.** Now it is only the chevron — no

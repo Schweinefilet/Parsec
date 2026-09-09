@@ -76,6 +76,13 @@ body::after {
   50%       { transform: translateY(5px); opacity: 0.50; }
 }
 
+/* scrollPromptBob turned on its side, for the edge-drawer tab: it nudges the
+   way the chevron points (`--bob-x` is negative in a right-to-left layout). */
+@keyframes edgeTabBob {
+  0%, 100% { transform: translateX(0);                  opacity: 0.28; }
+  50%      { transform: translateX(var(--bob-x, 4px));  opacity: 0.50; }
+}
+
 @keyframes issPulse {
   0%, 100% { opacity: 1;   transform: scale(1); }
   50%      { opacity: 0.35; transform: scale(0.8); }
