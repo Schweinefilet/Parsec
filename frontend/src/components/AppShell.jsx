@@ -188,7 +188,7 @@ const AppShell = ({ children }) => {
                     wordmark steps aside for it. */}
                 {!(searchOpen && isMobile) && (
                 <div
-                    className="flex flex-col flex-shrink-0"
+                    className="flex items-center gap-1.5 flex-shrink-0"
                     style={{ visibility: logoHeld ? 'hidden' : 'visible' }}
                 >
                     <Link
@@ -212,15 +212,16 @@ const AppShell = ({ children }) => {
                             {t('app.name')}
                         </span>
                     </Link>
-                    {/* Build version, tucked under the wordmark (past the icon).
+                    {/* Build version, a small tag to the right of the wordmark.
                         Not inside the link: [data-app-logo] is what the loading
                         screen measures to land the flown wordmark on. */}
                     <span
                         data-latin
                         aria-hidden="true"
                         style={{
-                            fontSize: 9, fontWeight: 600, letterSpacing: '0.1em',
-                            lineHeight: 1, marginTop: 2, paddingInlineStart: 28,
+                            alignSelf: 'flex-start', marginTop: 3,
+                            fontSize: 9, fontWeight: 600, letterSpacing: '0.08em',
+                            lineHeight: 1,
                             color: 'rgba(255,255,255,0.34)',
                             textShadow: '0 1px 6px rgba(0,0,0,0.9)',
                             fontVariantNumeric: 'tabular-nums', pointerEvents: 'none',

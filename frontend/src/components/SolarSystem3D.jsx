@@ -2865,6 +2865,14 @@ const SolarSystem3D = ({
                     labelZ.clear();
                     setLabelRoster(labelTargets.map(({ key, id, name, kind }) => ({ key, id, name, kind })));
                 }
+                // The labels project against camera.matrixWorldInverse. After
+                // controls.update() moved the camera this frame, that matrix is
+                // still last frame's — renderer.render() is what refreshes it,
+                // and that runs after this. So a drag or a zoom left every label
+                // trailing one frame behind its body until the motion stopped.
+                // Refresh it here (the drift block does the same when it moves
+                // the camera itself).
+                camera.updateMatrixWorld();
                 positionLabels();
             }
 

@@ -16,6 +16,19 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.3.3
+
+- **Labels keep up with a drag.** The floating body names project against the
+  camera's world matrix, which the renderer only refreshes *after* the labels
+  are placed — so during a drag or a zoom every label trailed a frame behind
+  its body and only snapped true when the motion stopped. The matrix is now
+  refreshed just before the labels are positioned.
+- **The version tag moves beside the wordmark** rather than under it.
+- **The scene drawer's tab gets the double-chevron** from the focused-object
+  pull handle — a bright arrowhead over a dim one — instead of a single glyph.
+
+---
+
 ## 4.3.2
 
 - **The field-line arrowheads move to the tip.** They sat partway along each

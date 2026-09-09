@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Orbit, Pause, Ruler, Waves, ChevronsRight, ChevronsLeft } from 'lucide-react';
+import { Orbit, Pause, Ruler, Waves, ChevronRight } from 'lucide-react';
 import DriftSliders from './DriftSliders';
 import { toggleTrueScale } from '../utils/scaleMode';
 import { cycleVizMode, VIZ_OFF, VIZ_GRID, VIZ_FIELD } from '../utils/vizMode';
@@ -46,6 +46,12 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
     const slide = reduced ? 'none' : 'transform 320ms cubic-bezier(0.32,0.72,0,1), inset-inline-start 320ms cubic-bezier(0.32,0.72,0,1)';
     const hiddenX = rtl ? 'translateX(100%)' : 'translateX(-100%)';
 
+    // The handle chevrons: stretched a little across the short axis, spun 180°
+    // to face back at the edge when open, and mirrored for a right-to-left
+    // layout. All three go in one transform string because `flip-rtl` (a class)
+    // would be overridden by the inline stretch.
+    const chevTransform = `scaleY(1.25)${open ? ' rotate(180deg)' : ''}${rtl ? ' scaleX(-1)' : ''}`;
+
     const gravState = vizMode === VIZ_GRID ? 'scene.gravityStateGrid'
         : vizMode === VIZ_FIELD ? 'scene.gravityStateField'
             : 'scene.gravityStateOff';
@@ -82,20 +88,38 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
                         transition: slide,
                         pointerEvents: 'auto',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: 22, height: 74,
+                        width: 26, height: 78,
                         border: '1px solid rgba(255,255,255,0.16)',
                         borderStartStartRadius: 0, borderEndStartRadius: 0,
                         borderStartEndRadius: 10, borderEndEndRadius: 10,
                         background: 'rgba(8,10,15,0.92)',
                         backdropFilter: 'blur(14px)',
                         WebkitBackdropFilter: 'blur(14px)',
-                        color: 'rgba(255,255,255,0.75)',
                         cursor: 'pointer',
                     }}
                 >
-                    {open
-                        ? <ChevronsLeft className="flip-rtl" style={{ width: 15, height: 15 }} aria-hidden="true" />
-                        : <ChevronsRight className="flip-rtl" style={{ width: 15, height: 15 }} aria-hidden="true" />}
+                    {/* Two stacked chevrons, echoing the focused-object sheet's
+                        pull handle — bright over dim, overlapped, stretched
+                        across the short axis. They point into the scene when
+                        closed and back at the edge when open; flip-rtl is folded
+                        into the transform since it also carries the stretch. */}
+                    <span
+                        aria-hidden="true"
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}
+                    >
+                        <ChevronRight style={{
+                            width: 19, height: 19, marginBottom: -6,
+                            color: 'rgba(255,255,255,0.9)',
+                            transform: chevTransform,
+                            transition: reduced ? 'none' : 'transform 300ms ease',
+                        }} />
+                        <ChevronRight style={{
+                            width: 19, height: 19,
+                            color: 'rgba(255,255,255,0.42)',
+                            transform: chevTransform,
+                            transition: reduced ? 'none' : 'transform 300ms ease',
+                        }} />
+                    </span>
                 </button>
 
                 <div
