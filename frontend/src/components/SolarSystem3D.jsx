@@ -970,10 +970,10 @@ const SolarSystem3D = ({
 
         const _gravBodies = GRAVITY_BODIES.map(b => ({
             id: b.id,
-            // The phone tier thins the streamlines: the trace is on the CPU and
-            // the screen is small.
+            // The phone tier thins the streamlines hard: the trace is on the
+            // CPU, the screen is small, and the full count is ~390 lines.
             weights: q.tier === 'low'
-                ? { ...b.weights, lineCount: Math.max(4, Math.round(b.weights.lineCount * 0.55)) }
+                ? { ...b.weights, lineCount: Math.max(4, Math.round(b.weights.lineCount * 0.34)) }
                 : b.weights,
             pos: new THREE.Vector3(),
             expansion: 1,   // radial spread in the current layout; drives the outer-planet distance term
@@ -2949,7 +2949,9 @@ const SolarSystem3D = ({
                     }
 
                     if (fieldOn) {
-                        gravLines.setOpacity(gFieldW * gravFocusFade * 0.85);
+                        // 0.62, not 0.85: additive blending piles up where the
+                        // ~390 lines converge, and the sinks were blowing out.
+                        gravLines.setOpacity(gFieldW * gravFocusFade * 0.62);
                         // Retrace only when a body has actually moved. The gate
                         // is displacement, not wall-clock: sped-up sim time
                         // moves the planets a lot per frame and the lines keep

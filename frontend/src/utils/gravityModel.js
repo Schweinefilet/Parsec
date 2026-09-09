@@ -80,7 +80,7 @@ export const WEIGHT_CONFIG = {
     // here so the formula in code matches the spec.
     fieldG: 1,
     fieldMass:  { min: 1, max: 60, gamma: 1.6 },    // m_i above; compresses ~8 decades to ~1.8
-    fieldLines: { min: 5, max: 24, gamma: 1.0 },    // seed streamlines per body (rounded)
+    fieldLines: { min: 15, max: 72, gamma: 1.0 },   // seed streamlines per body (rounded) — ~390 lines total
     // Stop sphere for a converging line: clamp(drawnRadius * k, floor, ceil).
     minRadius:  { k: 1.8, floor: 2.5, ceil: 44 },
     // Same layout-gated distance term as the grid: the stop sphere and the

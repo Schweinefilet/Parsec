@@ -16,6 +16,17 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.1.3
+
+- **Three times as many field lines.** `fieldLines` runs 15–72 per body now
+  (was 5–24), ~390 lines total — the field topology reads properly, each body
+  a clear sink. Line opacity drops to compensate for the additive pile-up
+  where they converge; the phone tier thins back to roughly the old count.
+  Retrace is ~5.5 ms on the test machine (was ~1.8), still comfortably inside
+  a frame, and the adaptive frame-skip already covers a fast scrub.
+
+---
+
 ## 4.1.2
 
 - **Drift, reworked.** Three fixes to yesterday's sliders at once:

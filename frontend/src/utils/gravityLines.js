@@ -43,7 +43,7 @@ const SEED_FADE = 0.12;   // alpha at the seed end; the line brightens to 1 wher
  * @param {number[]} [opts.color]  rgb 0..1
  * @param {number}   [opts.initialCapacity]  vertices to preallocate
  */
-export function makeGravityLines({ color = [0.62, 0.80, 1.0], initialCapacity = 24000 } = {}) {
+export function makeGravityLines({ color = [0.62, 0.80, 1.0], initialCapacity = 64000 } = {}) {
     let capacity = initialCapacity;
     let positions = new Float32Array(capacity * 3);
     let fades = new Float32Array(capacity);
