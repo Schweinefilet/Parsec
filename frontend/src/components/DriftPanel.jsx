@@ -1,29 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
-import { SlidersHorizontal, RotateCcw } from 'lucide-react';
-import {
-    getDrift, setDriftAxis, resetDrift, subscribeDrift, DRIFT_DEFAULTS,
-} from '../utils/driftControl';
+import { SlidersHorizontal } from 'lucide-react';
+import DriftSliders from './DriftSliders';
 import { useI18n } from '../i18n';
 
 /**
- * The three sliders that set the idle camera drift — yaw, pitch, roll.
+ * The camera-drift sliders as a popover — the phone layout's home for them,
+ * next to the Drifting / Held still pill. The desktop layout puts the same
+ * DriftSliders inline in the ScenePanel drawer instead.
  *
- * A small icon button that opens a glass popover, sitting next to the
- * Drifting / Held still pill. The store is a module singleton the scene reads
- * every frame (utils/driftControl); this only mirrors it for the inputs and
- * writes back on change. Nudging any slider while the drift is off turns it
- * back on, via `onWake` — adjusting a motion you cannot see is pointless.
+ * A small icon button that opens a glass popover; DriftSliders does the rest
+ * (it talks to the utils/driftControl singleton directly).
  */
-const AXES = ['yaw', 'pitch', 'roll'];
-const LABEL_KEY = { yaw: 'scene.driftYaw', pitch: 'scene.driftPitch', roll: 'scene.driftRoll' };
-
 const DriftPanel = ({ driftOn, onWake, disabled }) => {
     const { t } = useI18n();
     const [open, setOpen] = useState(false);
-    const [axes, setAxes] = useState(getDrift);
     const wrapRef = useRef(null);
-
-    useEffect(() => subscribeDrift(() => setAxes({ ...getDrift() })), []);
 
     useEffect(() => {
         if (!open) return;
@@ -39,13 +30,6 @@ const DriftPanel = ({ driftOn, onWake, disabled }) => {
 
     // Close if the whole control gets disabled (scrolled away / a body focused).
     useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
-
-    const change = (axis, value) => {
-        if (!driftOn) onWake?.();
-        setDriftAxis(axis, value);
-    };
-
-    const atDefaults = AXES.every(a => axes[a] === DRIFT_DEFAULTS[a]);
 
     return (
         <div ref={wrapRef} style={{ position: 'relative', flexShrink: 0 }}>
@@ -83,72 +67,13 @@ const DriftPanel = ({ driftOn, onWake, disabled }) => {
                         insetInlineStart: 0,
                         width: 232, maxWidth: 'calc(100vw - 28px)',
                         padding: '12px 14px', borderRadius: 14, zIndex: 60,
-                        direction: 'ltr',
                         // The toolbar container is pointer-events:none (so a drag
                         // that misses a pill still orbits the scene); the popover
                         // has to opt back in or its sliders are dead.
                         pointerEvents: 'auto',
                     }}
                 >
-                    <div style={{
-                        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-                        marginBottom: 8,
-                    }}>
-                        <span style={{
-                            fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
-                            textTransform: 'uppercase', color: 'rgba(255,255,255,0.62)',
-                        }}>
-                            {t('scene.cameraDrift')}
-                        </span>
-                        <button
-                            onClick={resetDrift}
-                            disabled={atDefaults}
-                            className="flex items-center gap-1 focus-ring"
-                            style={{
-                                fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
-                                color: atDefaults ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.66)',
-                                background: 'none', border: 'none', padding: '2px 3px',
-                                cursor: atDefaults ? 'default' : 'pointer',
-                            }}
-                        >
-                            <RotateCcw style={{ width: 11, height: 11 }} aria-hidden="true" />
-                            {t('scene.driftReset')}
-                        </button>
-                    </div>
-
-                    {AXES.map(axis => (
-                        <label key={axis} style={{ display: 'block', margin: '9px 0' }}>
-                            <span style={{
-                                display: 'block', fontSize: 11, fontWeight: 600,
-                                color: 'rgba(255,255,255,0.82)', marginBottom: 3,
-                            }}>
-                                {t(LABEL_KEY[axis])}
-                            </span>
-                            <input
-                                type="range"
-                                className="drift-slider"
-                                min={-1}
-                                max={1}
-                                step={0.01}
-                                value={axes[axis]}
-                                onChange={(e) => change(axis, Number(e.target.value))}
-                                aria-label={t(LABEL_KEY[axis])}
-                                aria-valuetext={
-                                    axes[axis] === 0
-                                        ? t('scene.driftCentre')
-                                        : `${axes[axis] > 0 ? '+' : ''}${Math.round(axes[axis] * 100)}%`
-                                }
-                            />
-                        </label>
-                    ))}
-
-                    {!driftOn && (
-                        <p style={{
-                            fontSize: 9.5, color: 'rgba(255,255,255,0.4)', marginTop: 6, lineHeight: 1.4,
-                        }}>
-                            {t('scene.driftPaused')}
-                        </p>
-                    )}
+                    <DriftSliders driftOn={driftOn} onWake={onWake} />
                 </div>
             )}
         </div>

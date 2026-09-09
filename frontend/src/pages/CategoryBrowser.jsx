@@ -14,6 +14,7 @@ import ObjectHero from '../components/ObjectHero';
 import SpacecraftViewer from '../components/SpacecraftViewer';
 import TimeControl from '../components/TimeControl';
 import DriftPanel from '../components/DriftPanel';
+import ScenePanel from '../components/ScenePanel';
 import { CATEGORY_TABS, getObjectsByCategory, getObjectById, resolveTab } from '../data/objectCatalog';
 import { hasSceneBody } from '../data/solarSystemBodies';
 import { useHorizons } from '../hooks/useHorizons';
@@ -391,13 +392,14 @@ const CategoryBrowser = () => {
                     <TimeControl hidden={(compactFocus && !!id) || (!!id && !inScene)} />
 
 
-                    {/* Catalog entry point, plus the two scene toggles.
+                    {/* Catalog entry point, plus the scene toggles.
                         Desktop: the pill sits centred, aligned with the time
-                        control (a 1.5.2 decision), and the toggles fan off its
-                        end. Phone: everything stacks up the start edge above the
-                        time control — the pill was being covered by the expanded
-                        time control on the shared bottom row, and the toggles
-                        read better left-aligned than floating centred. */}
+                        control (a 1.5.2 decision); the toggles live in the
+                        ScenePanel drawer against the leading edge, collapsed by
+                        default (4.2.0 — the fan was growing a pill per feature).
+                        Phone: the drawer fights the thumb there, so the toggles
+                        stay folded behind one button up the start edge above the
+                        time control, and the pill sits alongside it. */}
                     {(() => {
                         const pill = (active) => ({
                             pointerEvents: id || pageScrolled ? 'none' : 'auto',
@@ -502,27 +504,25 @@ const CategoryBrowser = () => {
                             </button>
                         );
 
-                        // ── Desktop: centred pill, toggles off its end ──
+                        // ── Desktop: centred pill, toggles in the edge drawer ──
                         if (!isMobile) {
                             return (
-                                <div
-                                    className="absolute inset-x-0 flex justify-center pointer-events-none"
-                                    style={{ bottom: 18, zIndex: 4, padding: '0 16px' }}
-                                >
-                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                        <div style={{
-                                            position: 'absolute', insetInlineStart: '100%', marginInlineStart: 8,
-                                            top: '50%', transform: 'translateY(-50%)',
-                                            display: 'flex', alignItems: 'center', gap: 8,
-                                        }}>
-                                            {driftBtn}
-                                            {driftPanel}
-                                            {scaleBtn}
-                                            {gravBtn}
-                                        </div>
+                                <>
+                                    <div
+                                        className="absolute inset-x-0 flex justify-center pointer-events-none"
+                                        style={{ bottom: 18, zIndex: 4, padding: '0 16px' }}
+                                    >
                                         {exploreBtn}
                                     </div>
-                                </div>
+                                    <ScenePanel
+                                        autoRotate={autoRotate}
+                                        onToggleDrift={() => setAutoRotate(v => !v)}
+                                        onWakeDrift={() => setAutoRotate(true)}
+                                        trueScale={trueScale}
+                                        vizMode={vizMode}
+                                        disabled={!!id || pageScrolled}
+                                    />
+                                </>
                             );
                         }
 

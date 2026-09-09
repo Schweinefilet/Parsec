@@ -16,6 +16,27 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.2.0
+
+- **Scene controls fold into an edge drawer.** Drift on/off, the yaw/pitch/roll
+  sliders, compressed/true distances and the gravity overlay used to fan out
+  along the bottom as a row of pills — one more each release. On desktop they
+  now live in a panel against the leading edge of the scene, collapsed by
+  default behind a small chevron tab, so the hero view is clean and there is
+  somewhere for the next toggle to go. *Explore the catalog* stays exactly
+  where it was, centred at the bottom.
+- The drawer sits above the floating body labels and is near-opaque, so it
+  covers them cleanly when it is open over their side of the view (the whole
+  right half in the default framing — the leading edge in a right-to-left
+  layout). It hides with the rest of the hero chrome once the page scrolls or
+  an object is focused; the toggle states themselves are untouched.
+- The phone keeps its own treatment — the same toggles folded behind one
+  button up the start edge — because a left drawer fights the thumb there.
+- Internally: the drift sliders are now a shared `DriftSliders` component, used
+  both by the new desktop drawer and the phone's existing popover.
+
+---
+
 ## 4.1.4
 
 - **Gentler default drift.** The out-of-the-box yaw and pitch are halved again
