@@ -1,27 +1,40 @@
-// The field-line overlay — every traced streamline in one fat-line batch,
+// The field-line overlay — every traced streamline in one merged LineSegments,
 // each tinted with the colour of the body it flows into and carrying a small
 // arrowhead partway along to show which way the flow runs.
 //
-// Fat lines (three's LineSegments2 / LineMaterial), not plain gl.LINES: the
-// GL line is one pixel on every platform, and at the seed densities here a
-// hairline reads as a grey haze rather than a field. LineSegments2 draws each
-// segment as an instanced quad, so width is real and vertex colour is free —
-// the cost is a `resolution` uniform the scene has to keep in step with the
-// canvas (see setResolution). Not TubeGeometry, which the orbit rings use:
-// those are built once, these rebuild on every retrace (~400 lines) and a
-// merged instanced buffer with one draw call is far cheaper to refill.
+// Plain gl.LINES: one pixel on every platform, but a merged buffer with a
+// single draw call is close to free to refill, which matters because these
+// rebuild on every retrace (~400 lines) — unlike the orbit rings, which are
+// TubeGeometry because they are built once and want a locked width. A fat-line
+// pass (LineSegments2) was tried and dropped: the hairline is the look we
+// want back.
 //
-// Colour is baked per vertex: the body tint times a fade that runs from dim
-// at the seed end to full where the line plunges into the body, so the
-// picture reads as flow *into* the masses. The arrowhead sits at ARROW_AT
-// along each line, drawn at full tint so it stands out of the faded shaft.
+// Colour is baked per vertex: the body tint times a fade that runs from dim at
+// the seed end to full where the line plunges into the body, so the picture
+// reads as flow *into* the masses. The arrowhead sits at ARROW_AT along each
+// line, drawn at full tint so it stands out of the faded shaft.
 
 import * as THREE from 'three';
-import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
-import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
-import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { traceField } from './gravityField';
 import { WEIGHT_CONFIG } from './gravityModel';
+
+const VERT = /* glsl */`
+    attribute vec3 aColor;
+    varying vec3 vColor;
+    void main() {
+        vColor = aColor;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+`;
+
+const FRAG = /* glsl */`
+    precision highp float;
+    uniform float uOpacity;
+    varying vec3 vColor;
+    void main() {
+        gl_FragColor = vec4(vColor, uOpacity);
+    }
+`;
 
 const SEED_FADE   = 0.12;   // vertex brightness at the seed end; 1.0 where it meets the body
 const BASE_TINT   = new THREE.Color(0.62, 0.80, 1.0);   // the old single colour — fallback when a body has none
@@ -39,45 +52,37 @@ const _p2 = new THREE.Vector3();
 const _radial = new THREE.Vector3();
 
 /**
- * @param {number} [opts.linewidth]       line width in CSS pixels
- * @param {number} [opts.initialCapacity] segments to preallocate
+ * @param {number} [opts.initialCapacity] vertices to preallocate
  */
-export function makeGravityLines({ linewidth = 2.6, initialCapacity = 32000 } = {}) {
-    let capacity = initialCapacity;                       // segments
-    let positions = new Float32Array(capacity * 6);       // xyz, xyz per segment
-    let colors = new Float32Array(capacity * 6);          // rgb, rgb per segment
+export function makeGravityLines({ initialCapacity = 64000 } = {}) {
+    let capacity = initialCapacity;                  // vertices
+    let positions = new Float32Array(capacity * 3);
+    let colors = new Float32Array(capacity * 3);     // tint * fade, baked per vertex
 
-    const geo = new LineSegmentsGeometry();
-    geo.setPositions(positions);
-    geo.setColors(colors);
-    geo.instanceCount = 0;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+    geo.setAttribute('aColor', new THREE.BufferAttribute(colors, 3).setUsage(THREE.DynamicDrawUsage));
+    geo.setDrawRange(0, 0);
 
-    const mat = new LineMaterial({
-        linewidth,
-        worldUnits: false,
-        vertexColors: true,
+    const mat = new THREE.ShaderMaterial({
+        uniforms: { uOpacity: { value: 0 } },
+        vertexShader: VERT,
+        fragmentShader: FRAG,
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
-        alphaToCoverage: false,
     });
-    mat.opacity = 0;
-    // A sane default so the width maths isn't dividing by 1px before the scene
-    // wires setResolution to the canvas.
-    if (typeof window !== 'undefined') {
-        mat.resolution.set(window.innerWidth || 1, window.innerHeight || 1);
-    }
 
-    const object = new LineSegments2(geo, mat);
+    const object = new THREE.LineSegments(geo, mat);
     object.renderOrder = 3;
     object.frustumCulled = false;   // the lines span the scene; skip the per-frame cull test
 
-    const grow = (neededSegs) => {
-        capacity = Math.ceil(neededSegs * 1.5);
-        positions = new Float32Array(capacity * 6);
-        colors = new Float32Array(capacity * 6);
-        geo.setPositions(positions);
-        geo.setColors(colors);
+    const grow = (neededVerts) => {
+        capacity = Math.ceil(neededVerts * 1.5);
+        positions = new Float32Array(capacity * 3);
+        colors = new Float32Array(capacity * 3);
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+        geo.setAttribute('aColor', new THREE.BufferAttribute(colors, 3).setUsage(THREE.DynamicDrawUsage));
     };
 
     return {
@@ -106,17 +111,19 @@ export function makeGravityLines({ linewidth = 2.6, initialCapacity = 32000 } = 
 
             const { lines, lineBodies, segmentCount, stepCount } = traceField(src, cfg);
 
-            const maxSegs = segmentCount + lines.length * ARROW_BARBS;
-            if (maxSegs > capacity) grow(maxSegs);
+            const maxVerts = (segmentCount + lines.length * ARROW_BARBS) * 2;
+            if (maxVerts > capacity) grow(maxVerts);
 
-            let seg = 0;
+            let v = 0;   // vertex write cursor
             const put = (ax, ay, az, bx, by, bz, r1, g1, b1, r2, g2, b2) => {
-                const o = seg * 6;
+                let o = v * 3;
                 positions[o] = ax; positions[o + 1] = ay; positions[o + 2] = az;
-                positions[o + 3] = bx; positions[o + 4] = by; positions[o + 5] = bz;
                 colors[o] = r1; colors[o + 1] = g1; colors[o + 2] = b1;
-                colors[o + 3] = r2; colors[o + 4] = g2; colors[o + 5] = b2;
-                seg++;
+                v++;
+                o = v * 3;
+                positions[o] = bx; positions[o + 1] = by; positions[o + 2] = bz;
+                colors[o] = r2; colors[o + 1] = g2; colors[o + 2] = b2;
+                v++;
             };
 
             for (let li = 0; li < lines.length; li++) {
@@ -179,20 +186,17 @@ export function makeGravityLines({ linewidth = 2.6, initialCapacity = 32000 } = 
                 }
             }
 
-            geo.attributes.instanceStart.data.needsUpdate = true;
-            geo.attributes.instanceColorStart.data.needsUpdate = true;
-            geo.instanceCount = seg;
+            geo.attributes.position.needsUpdate = true;
+            geo.attributes.aColor.needsUpdate = true;
+            geo.setDrawRange(0, v);
+            // No computeBoundingSphere: frustumCulled is off and it would run
+            // over the whole buffer, stale tail included.
 
-            return { lines: lines.length, segments: seg, steps: stepCount };
+            return { lines: lines.length, segments: v / 2, steps: stepCount };
         },
 
         setOpacity(o) {
-            mat.opacity = o;
-        },
-
-        /** Keep the fat-line shader's pixel maths in step with the canvas (CSS px). */
-        setResolution(w, h) {
-            mat.resolution.set(w, h);
+            mat.uniforms.uOpacity.value = o;
         },
 
         dispose() {

@@ -16,6 +16,16 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.3.1
+
+- **Back to a hairline field line.** The wider line from 4.3.0 is reverted —
+  the field lines are a one-pixel `gl.LINES` batch again, and the per-line
+  alpha goes back with it. The per-body tint and the arrowheads stay; only the
+  width changed back. Drops the `LineSegments2` dependency and the canvas
+  `resolution` plumbing that came with it.
+
+---
+
 ## 4.3.0
 
 - **The gravity field lines now read as a field.** Three changes to the

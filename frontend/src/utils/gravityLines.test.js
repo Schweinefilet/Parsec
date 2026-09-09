@@ -10,8 +10,8 @@ const bodies = [
 ];
 
 // The colour buffer holds `tint * fade` per vertex; slice it to what's drawn.
-const drawnColors = (l) => l.object.geometry.attributes.instanceColorStart.data.array
-    .slice(0, l.object.geometry.instanceCount * 6);
+const drawnColors = (l) => l.object.geometry.attributes.aColor.array
+    .slice(0, l.object.geometry.drawRange.count * 3);
 const range = (arr) => {
     let lo = Infinity, hi = -Infinity;
     for (let i = 0; i < arr.length; i++) { if (arr[i] < lo) lo = arr[i]; if (arr[i] > hi) hi = arr[i]; }
@@ -21,17 +21,17 @@ const range = (arr) => {
 describe('field lines', () => {
     it('starts empty and invisible', () => {
         const l = makeGravityLines();
-        expect(l.object.geometry.instanceCount).toBe(0);
-        expect(l.object.material.opacity).toBe(0);
+        expect(l.object.geometry.drawRange.count).toBe(0);
+        expect(l.object.material.uniforms.uOpacity.value).toBe(0);
         l.dispose();
     });
 
-    it('retrace fills the segment buffer and reports totals', () => {
+    it('retrace fills the vertex buffer and reports totals', () => {
         const l = makeGravityLines();
         const r = l.retrace(bodies, { ...GRAVITY_FIELD_DEFAULTS, bounds: 520 });
         expect(r.lines).toBeGreaterThan(15);
         expect(r.segments).toBeGreaterThan(0);
-        expect(l.object.geometry.instanceCount).toBe(r.segments);
+        expect(l.object.geometry.drawRange.count).toBe(r.segments * 2);
         // colour = tint * fade, so it runs from ~full tint at the body end
         // down toward the dim seed end
         const { lo, hi } = range(drawnColors(l));
@@ -41,10 +41,10 @@ describe('field lines', () => {
     });
 
     it('grows the buffer rather than dropping segments', () => {
-        const l = makeGravityLines({ initialCapacity: 80 });   // deliberately tiny
+        const l = makeGravityLines({ initialCapacity: 200 });   // deliberately tiny
         const r = l.retrace(bodies, { ...GRAVITY_FIELD_DEFAULTS, bounds: 520 });
-        expect(l.object.geometry.attributes.instanceStart.count).toBeGreaterThanOrEqual(r.segments);
-        expect(l.object.geometry.instanceCount).toBe(r.segments);
+        expect(l.object.geometry.attributes.position.count).toBeGreaterThanOrEqual(r.segments * 2);
+        expect(l.object.geometry.drawRange.count).toBe(r.segments * 2);
         l.dispose();
     });
 
@@ -75,15 +75,7 @@ describe('field lines', () => {
     it('setOpacity drives the fade', () => {
         const l = makeGravityLines();
         l.setOpacity(0.5);
-        expect(l.object.material.opacity).toBe(0.5);
-        l.dispose();
-    });
-
-    it('setResolution feeds the fat-line shader', () => {
-        const l = makeGravityLines();
-        l.setResolution(1280, 720);
-        expect(l.object.material.resolution.x).toBe(1280);
-        expect(l.object.material.resolution.y).toBe(720);
+        expect(l.object.material.uniforms.uOpacity.value).toBe(0.5);
         l.dispose();
     });
 });

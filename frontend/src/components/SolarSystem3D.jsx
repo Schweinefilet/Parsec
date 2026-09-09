@@ -961,9 +961,6 @@ const SolarSystem3D = ({
         });
         const gravLines = makeGravityLines();
         scene.add(gravGrid.mesh, gravLines.object);
-        // The fat-line shader converts its pixel width through the canvas size;
-        // keep it fed here and on every resize (see the ResizeObserver below).
-        gravLines.setResolution(w, h);
 
         // Opt-in retrace/frame logging: `localStorage['p4rsec.gravperf'] = '1'`.
         const gravPerfLog = (() => {
@@ -1917,7 +1914,6 @@ const SolarSystem3D = ({
             // area enough to matter.
             renderer.setPixelRatio(pixelRatioFor(width, height));
             renderer.setSize(width, height);
-            gravLines.setResolution(width, height);
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
         });
@@ -2954,11 +2950,9 @@ const SolarSystem3D = ({
                     }
 
                     if (fieldOn) {
-                        // 0.42, stepped down as the lines got wider (4.3.0):
-                        // additive blending piles up where the ~390 lines
-                        // converge and a fat line lights more pixels, so the
-                        // sinks blow out unless the per-line alpha comes down.
-                        gravLines.setOpacity(gFieldW * gravFocusFade * 0.42);
+                        // 0.62, not 0.85: additive blending piles up where the
+                        // ~390 hairlines converge, and the sinks were blowing out.
+                        gravLines.setOpacity(gFieldW * gravFocusFade * 0.62);
                         // Retrace only when a body has actually moved. The gate
                         // is displacement, not wall-clock: sped-up sim time
                         // moves the planets a lot per frame and the lines keep
