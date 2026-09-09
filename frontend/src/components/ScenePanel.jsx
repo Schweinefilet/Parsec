@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Orbit, Pause, Ruler, Waves, ChevronRight } from 'lucide-react';
+import { Orbit, Pause, Ruler, Waves, ChevronDown } from 'lucide-react';
 import DriftSliders from './DriftSliders';
 import { toggleTrueScale } from '../utils/scaleMode';
 import { cycleVizMode, VIZ_OFF, VIZ_GRID, VIZ_FIELD } from '../utils/vizMode';
@@ -46,11 +46,14 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
     const slide = reduced ? 'none' : 'transform 320ms cubic-bezier(0.32,0.72,0,1), inset-inline-start 320ms cubic-bezier(0.32,0.72,0,1)';
     const hiddenX = rtl ? 'translateX(100%)' : 'translateX(-100%)';
 
-    // The handle chevrons: stretched a little across the short axis, spun 180°
-    // to face back at the edge when open, and mirrored for a right-to-left
-    // layout. All three go in one transform string because `flip-rtl` (a class)
-    // would be overridden by the inline stretch.
-    const chevTransform = `scaleY(1.25)${open ? ' rotate(180deg)' : ''}${rtl ? ' scaleX(-1)' : ''}`;
+    // The handle mark is the focused-object sheet's pull handle laid on its
+    // side: the exact same doubled ChevronDown (bright then dim, overlapped by
+    // the same -24, widened by the same scaleX(1.5)), each turned a quarter
+    // turn so the pair reads as » / «. It points into the scene when closed and
+    // back at the edge when open; the direction lives in the rotation, so the
+    // bright chevron stays put and a right-to-left layout just flips which way
+    // "into the scene" is.
+    const chevDeg = (open === rtl) ? -90 : 90;
 
     const gravState = vizMode === VIZ_GRID ? 'scene.gravityStateGrid'
         : vizMode === VIZ_FIELD ? 'scene.gravityStateField'
@@ -88,7 +91,8 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
                         transition: slide,
                         pointerEvents: 'auto',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: 26, height: 78,
+                        overflow: 'hidden',
+                        width: 32, height: 78,
                         border: '1px solid rgba(255,255,255,0.16)',
                         borderStartStartRadius: 0, borderEndStartRadius: 0,
                         borderStartEndRadius: 10, borderEndEndRadius: 10,
@@ -98,26 +102,29 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
                         cursor: 'pointer',
                     }}
                 >
-                    {/* Two stacked chevrons, echoing the focused-object sheet's
-                        pull handle — bright over dim, overlapped, stretched
-                        across the short axis. They point into the scene when
-                        closed and back at the edge when open; flip-rtl is folded
-                        into the transform since it also carries the stretch. */}
+                    {/* The focused-object sheet's exact pull handle, laid on its
+                        side (see chevDeg). Same two ChevronDown, same -24
+                        overlap, same scaleX(1.5) widening, same two opacities;
+                        `direction: ltr` so the row does not reverse in Arabic —
+                        the chevrons already point the right way from chevDeg. */}
                     <span
                         aria-hidden="true"
-                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}
+                        style={{
+                            display: 'flex', alignItems: 'center', direction: 'ltr',
+                            pointerEvents: 'none', transform: 'scale(0.8)',
+                        }}
                     >
-                        <ChevronRight style={{
-                            width: 19, height: 19, marginBottom: -6,
-                            color: 'rgba(255,255,255,0.9)',
-                            transform: chevTransform,
-                            transition: reduced ? 'none' : 'transform 300ms ease',
+                        <ChevronDown style={{
+                            width: 44, height: 44, marginRight: -28, flexShrink: 0,
+                            color: 'rgba(255,255,255,0.80)',
+                            transform: `rotate(${chevDeg}deg) scaleX(1.5)`,
+                            transition: reduced ? 'none' : 'transform 320ms ease',
                         }} />
-                        <ChevronRight style={{
-                            width: 19, height: 19,
-                            color: 'rgba(255,255,255,0.42)',
-                            transform: chevTransform,
-                            transition: reduced ? 'none' : 'transform 300ms ease',
+                        <ChevronDown style={{
+                            width: 44, height: 44, flexShrink: 0,
+                            color: 'rgba(255,255,255,0.40)',
+                            transform: `rotate(${chevDeg}deg) scaleX(1.5)`,
+                            transition: reduced ? 'none' : 'transform 320ms ease',
                         }} />
                     </span>
                 </button>

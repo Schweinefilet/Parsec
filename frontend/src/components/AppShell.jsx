@@ -219,7 +219,6 @@ const AppShell = ({ children }) => {
                         data-latin
                         aria-hidden="true"
                         style={{
-                            alignSelf: 'flex-start', marginTop: 3,
                             fontSize: 9, fontWeight: 600, letterSpacing: '0.08em',
                             lineHeight: 1,
                             color: 'rgba(255,255,255,0.34)',

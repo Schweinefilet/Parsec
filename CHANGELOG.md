@@ -16,6 +16,16 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.3.4
+
+- **The scene-drawer tab is the focus-view pull handle exactly, laid on its
+  side** — the same doubled `ChevronDown`, same overlap, same widening, same
+  two opacities, just turned a quarter turn to read as » / «.
+- **The version tag drops into line with the wordmark** instead of riding above
+  its cap height.
+
+---
+
 ## 4.3.3
 
 - **Labels keep up with a drag.** The floating body names project against the
