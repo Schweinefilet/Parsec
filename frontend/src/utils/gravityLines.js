@@ -1,6 +1,6 @@
 // The field-line overlay — every traced streamline in one merged LineSegments,
-// each tinted with the colour of the body it flows into and carrying a small
-// arrowhead partway along to show which way the flow runs.
+// each tinted with the colour of the body it flows into and capped with a
+// small arrowhead at its tip to show which way the flow runs.
 //
 // Plain gl.LINES: one pixel on every platform, but a merged buffer with a
 // single draw call is close to free to refill, which matters because these
@@ -11,7 +11,7 @@
 //
 // Colour is baked per vertex: the body tint times a fade that runs from dim at
 // the seed end to full where the line plunges into the body, so the picture
-// reads as flow *into* the masses. The arrowhead sits at ARROW_AT along each
+// reads as flow *into* the masses. The arrowhead sits on the last point of the
 // line, drawn at full tint so it stands out of the faded shaft.
 
 import * as THREE from 'three';
@@ -36,12 +36,12 @@ const FRAG = /* glsl */`
     }
 `;
 
-const SEED_FADE   = 0.12;   // vertex brightness at the seed end; 1.0 where it meets the body
-const BASE_TINT   = new THREE.Color(0.62, 0.80, 1.0);   // the old single colour — fallback when a body has none
-const TINT_MIX    = 0.72;   // how far the base moves toward the body's own colour
-const ARROW_AT    = 0.55;   // fraction along each line where the arrowhead sits
-const ARROW_BARBS = 4;      // segments per arrowhead — a 4-sided splay reads from any angle
-const ARROW_FADE  = 1.0;    // arrowheads at full tint, brighter than the shaft around them
+const SEED_FADE     = 0.12;  // vertex brightness at the seed end; 1.0 where it meets the body
+const BASE_TINT     = new THREE.Color(0.62, 0.80, 1.0);   // the old single colour — fallback when a body has none
+const TINT_MIX      = 0.72;  // how far the base moves toward the body's own colour
+const ARROW_LOOKBACK = 5;    // points back from the tip used to set the arrowhead's direction and size
+const ARROW_BARBS   = 4;     // segments per arrowhead — a 4-sided splay reads from any angle
+const ARROW_FADE    = 1.0;   // arrowheads at full tint, brighter than the shaft around them
 
 const _tint = new THREE.Color();
 const _pA = new THREE.Vector3();
@@ -144,16 +144,20 @@ export function makeGravityLines({ initialCapacity = 64000 } = {}) {
                     );
                 }
 
-                // One arrowhead, pointing the way the line flows (toward the body).
+                // One arrowhead at the tip, pointing the way the line flows
+                // (into the body). Apex sits on the last point; the barbs trail
+                // back along the final approach, so the whole head is outside
+                // the body's stop sphere.
                 if (count >= 3) {
-                    const m = Math.min(count - 2, Math.max(1, Math.round((count - 1) * ARROW_AT)));
-                    _pA.set(pts[m * 3], pts[m * 3 + 1], pts[m * 3 + 2]);
-                    _pB.set(pts[(m + 1) * 3], pts[(m + 1) * 3 + 1], pts[(m + 1) * 3 + 2]);
-                    _tan.subVectors(_pB, _pA);
-                    const stepLen = _tan.length();
-                    if (stepLen > 1e-4) {
-                        _tan.multiplyScalar(1 / stepLen);
-                        const headLen = Math.min(22, Math.max(1.2, stepLen * 1.35));
+                    const e = count - 1;
+                    const k = Math.min(e, ARROW_LOOKBACK);
+                    _pA.set(pts[e * 3], pts[e * 3 + 1], pts[e * 3 + 2]);             // the tip
+                    _pB.set(pts[(e - k) * 3], pts[(e - k) * 3 + 1], pts[(e - k) * 3 + 2]);
+                    _tan.subVectors(_pA, _pB);
+                    const runLen = _tan.length();
+                    if (runLen > 1e-4) {
+                        _tan.multiplyScalar(1 / runLen);
+                        const headLen = Math.min(24, Math.max(2.4, runLen * 1.1));
                         const headW = headLen * 0.42;   // pointier than it is wide, so the barbs read as one arrow
                         // Lay the barb plane through the line's own bend — the
                         // tangent and the direction back to the body — so the
@@ -167,17 +171,18 @@ export function makeGravityLines({ initialCapacity = 64000 } = {}) {
                         }
                         _p1.copy(_radial).normalize();
                         _p2.crossVectors(_tan, _p1).normalize();
-                        const apx = _pA.x + _tan.x * headLen;
-                        const apy = _pA.y + _tan.y * headLen;
-                        const apz = _pA.z + _tan.z * headLen;
+                        // barb bases sit one headLen back down the approach
+                        const bx = _pA.x - _tan.x * headLen;
+                        const by = _pA.y - _tan.y * headLen;
+                        const bz = _pA.z - _tan.z * headLen;
                         const cr = tr * ARROW_FADE, cg = tg * ARROW_FADE, cb = tb * ARROW_FADE;
                         for (const perp of [_p1, _p2]) {
                             for (const sgn of [1, -1]) {
                                 put(
-                                    apx, apy, apz,
-                                    _pA.x + perp.x * headW * sgn,
-                                    _pA.y + perp.y * headW * sgn,
-                                    _pA.z + perp.z * headW * sgn,
+                                    _pA.x, _pA.y, _pA.z,
+                                    bx + perp.x * headW * sgn,
+                                    by + perp.y * headW * sgn,
+                                    bz + perp.z * headW * sgn,
                                     cr, cg, cb, cr, cg, cb,
                                 );
                             }

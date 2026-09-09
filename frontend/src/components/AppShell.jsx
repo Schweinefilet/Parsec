@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
+import pkg from '../../package.json';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { CATEGORY_TABS, CATEGORY_COUNTS, DEFAULT_TAB, resolveTab, getObjectById } from '../data/objectCatalog';
 import { buildShareUrl, getCameraSnapshot } from '../utils/shareView';
@@ -186,28 +187,48 @@ const AppShell = ({ children }) => {
                 {/* On a phone the open search field wants the whole bar, so the
                     wordmark steps aside for it. */}
                 {!(searchOpen && isMobile) && (
-                <Link
-                    to="/"
-                    data-app-logo
-                    aria-label={t('app.home')}
-                    className="flex items-center gap-2 flex-shrink-0 focus-ring rounded-lg"
-                    style={{
-                        color: 'rgba(255,255,255,0.92)', pointerEvents: 'auto',
-                        textShadow: '0 1px 8px rgba(0,0,0,0.9)',
-                        visibility: logoHeld ? 'hidden' : 'visible',
-                    }}
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'instant' })}
+                <div
+                    className="flex flex-col flex-shrink-0"
+                    style={{ visibility: logoHeld ? 'hidden' : 'visible' }}
                 >
-                    <Telescope className="h-5 w-5" style={{ color: 'var(--accent)' }} aria-hidden="true" />
-                    {/* Set in caps with the tracking opened up. Lowercase
-                        "p4rsec" reads as a handle; in caps the 4 sits in the
-                        run of letters as a substituted A rather than as a typo,
-                        and it matches the uppercase labels the rest of the
-                        interface already uses. */}
-                    <span data-latin style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
-                        {t('app.name')}
+                    <Link
+                        to="/"
+                        data-app-logo
+                        aria-label={t('app.home')}
+                        className="flex items-center gap-2 focus-ring rounded-lg"
+                        style={{
+                            color: 'rgba(255,255,255,0.92)', pointerEvents: 'auto',
+                            textShadow: '0 1px 8px rgba(0,0,0,0.9)',
+                        }}
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'instant' })}
+                    >
+                        <Telescope className="h-5 w-5" style={{ color: 'var(--accent)' }} aria-hidden="true" />
+                        {/* Set in caps with the tracking opened up. Lowercase
+                            "p4rsec" reads as a handle; in caps the 4 sits in the
+                            run of letters as a substituted A rather than as a typo,
+                            and it matches the uppercase labels the rest of the
+                            interface already uses. */}
+                        <span data-latin style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
+                            {t('app.name')}
+                        </span>
+                    </Link>
+                    {/* Build version, tucked under the wordmark (past the icon).
+                        Not inside the link: [data-app-logo] is what the loading
+                        screen measures to land the flown wordmark on. */}
+                    <span
+                        data-latin
+                        aria-hidden="true"
+                        style={{
+                            fontSize: 9, fontWeight: 600, letterSpacing: '0.1em',
+                            lineHeight: 1, marginTop: 2, paddingInlineStart: 28,
+                            color: 'rgba(255,255,255,0.34)',
+                            textShadow: '0 1px 6px rgba(0,0,0,0.9)',
+                            fontVariantNumeric: 'tabular-nums', pointerEvents: 'none',
+                        }}
+                    >
+                        v{pkg.version}
                     </span>
-                </Link>
+                </div>
                 )}
 
                 <div

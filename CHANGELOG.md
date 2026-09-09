@@ -16,6 +16,16 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.3.2
+
+- **The field-line arrowheads move to the tip.** They sat partway along each
+  line; now each one caps the line where it meets the body, so the picture is
+  a ring of arrows pointing into every mass.
+- **The build version shows under the wordmark** — a small `v4.3.2` tucked
+  beneath P4RSEC in the header.
+
+---
+
 ## 4.3.1
 
 - **Back to a hairline field line.** The wider line from 4.3.0 is reverted —
