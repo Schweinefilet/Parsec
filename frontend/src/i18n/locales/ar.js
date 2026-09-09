@@ -87,6 +87,14 @@ export const ar = {
         gravityStateGrid: 'شبكة منحنية',
         gravityStateField: 'خطوط المجال',
         gravityAria: 'طبقة الجاذبية: {state}. فعّلها للتنقّل بين الإيقاف والشبكة المنحنية وخطوط المجال.',
+        cameraDrift: 'انسياب الكاميرا',
+        driftAdjust: 'ضبط انسياب الكاميرا',
+        driftYaw: 'الانعراج',
+        driftPitch: 'الميلان',
+        driftRoll: 'اللف',
+        driftReset: 'إعادة تعيين',
+        driftCentre: 'في المنتصف',
+        driftPaused: 'الكاميرا ثابتة الآن — حرّك أي شريط لتشغيلها من جديد.',
     },
 
     catalog: {

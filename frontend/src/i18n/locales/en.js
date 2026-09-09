@@ -81,6 +81,14 @@ export const en = {
         gravityStateGrid: 'warped grid',
         gravityStateField: 'field lines',
         gravityAria: 'Gravity overlay: {state}. Activate to cycle through off, warped grid and field lines.',
+        cameraDrift: 'Camera drift',
+        driftAdjust: 'Adjust the camera drift',
+        driftYaw: 'Yaw',
+        driftPitch: 'Pitch',
+        driftRoll: 'Roll',
+        driftReset: 'Reset',
+        driftCentre: 'centred',
+        driftPaused: 'The drift is held still — moving a slider starts it again.',
     },
 
     catalog: {

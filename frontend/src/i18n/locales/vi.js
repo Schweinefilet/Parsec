@@ -86,6 +86,14 @@ export const vi = {
         gravityStateGrid: 'lưới cong',
         gravityStateField: 'đường sức',
         gravityAria: 'Lớp hấp dẫn: {state}. Nhấn để chuyển lần lượt giữa tắt, lưới cong và đường sức.',
+        cameraDrift: 'Trôi camera',
+        driftAdjust: 'Điều chỉnh độ trôi của camera',
+        driftYaw: 'Đảo ngang',
+        driftPitch: 'Ngóc lên xuống',
+        driftRoll: 'Nghiêng',
+        driftReset: 'Đặt lại',
+        driftCentre: 'ở giữa',
+        driftPaused: 'Camera đang được giữ yên — kéo một thanh trượt để bật lại.',
     },
 
     catalog: {

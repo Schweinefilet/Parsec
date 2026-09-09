@@ -16,6 +16,23 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.1.0
+
+- **The idle drift is yours to set.** The view has always turned slowly on its
+  own; a panel next to the Drifting pill now opens three sliders — yaw, pitch,
+  roll — that shape it. Yaw is the turntable spin. Pitch swings the elevation
+  between soft limits. Roll leans the whole scene and swings back, something
+  OrbitControls will not do on its own (it keeps the horizon level by design),
+  so it is an angle accumulated per frame and rotated onto the camera after
+  the controls have had their say — and unwound to level whenever it is set
+  back to centre, the drift is held still, or the pointer is on a body.
+
+  Each slider is a signed rate; the settings persist. The old fixed drift is
+  just the default slider positions, and "Held still" still stops everything
+  in one click.
+
+---
+
 ## 4.0.3
 
 - **Field lines were traced backwards.** Gravity only attracts, but the

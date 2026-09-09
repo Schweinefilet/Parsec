@@ -13,6 +13,7 @@ import ObjectDetailBody from '../components/ObjectDetailBody';
 import ObjectHero from '../components/ObjectHero';
 import SpacecraftViewer from '../components/SpacecraftViewer';
 import TimeControl from '../components/TimeControl';
+import DriftPanel from '../components/DriftPanel';
 import { CATEGORY_TABS, getObjectsByCategory, getObjectById, resolveTab } from '../data/objectCatalog';
 import { hasSceneBody } from '../data/solarSystemBodies';
 import { useHorizons } from '../hooks/useHorizons';
@@ -427,6 +428,14 @@ const CategoryBrowser = () => {
                                 {t(autoRotate ? 'scene.drifting' : 'scene.heldStill')}
                             </button>
                         );
+                        const driftPanel = (
+                            <DriftPanel
+                                key="driftpanel"
+                                driftOn={autoRotate}
+                                onWake={() => setAutoRotate(true)}
+                                disabled={!!id || pageScrolled}
+                            />
+                        );
                         const scaleBtn = (
                             <button
                                 key="scale"
@@ -507,6 +516,7 @@ const CategoryBrowser = () => {
                                             display: 'flex', alignItems: 'center', gap: 8,
                                         }}>
                                             {driftBtn}
+                                            {driftPanel}
                                             {scaleBtn}
                                             {gravBtn}
                                         </div>
@@ -528,7 +538,10 @@ const CategoryBrowser = () => {
                             >
                                 {sceneOptsOpen && (
                                     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
-                                        {driftBtn}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            {driftBtn}
+                                            {driftPanel}
+                                        </div>
                                         {scaleBtn}
                                         {gravBtn}
                                     </div>

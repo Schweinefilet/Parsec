@@ -28,6 +28,7 @@ import {
     advanceMoonAngle, moonOffset, DEFAULT_ORBIT_SPEED,
 } from '../utils/orbitalMotion';
 import { getVizMode, vizWeight, isVizSettling, VIZ_OFF, VIZ_GRID, VIZ_FIELD } from '../utils/vizMode';
+import { driftRates } from '../utils/driftControl';
 import { GRAVITY_BODIES, WEIGHT_CONFIG } from '../utils/gravityModel';
 import { makeGravityGrid } from '../utils/gravityGrid';
 import { makeGravityLines } from '../utils/gravityLines';
@@ -145,8 +146,10 @@ const SolarSystem3D = ({
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.enablePan     = false;
-        controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.09;
+        // The idle drift is applied by hand each frame (yaw + pitch + roll,
+        // see the "Idle camera drift" block below), not by OrbitControls'
+        // one-axis autoRotate.
+        controls.autoRotate = false;
         controls.minDistance   = 30;
         controls.maxDistance   = 1200;
 
@@ -159,13 +162,24 @@ const SolarSystem3D = ({
         let prevFocusedPlanetName  = null;
         let exitPhase      = 0; // 0=normal  1=pull-back  2=fly-to-sun
         let exitSeconds    = 0;
-        let targetAutoRotateSpeed = 0.11; // smoothly updated on hover
+        // True while the pointer (or keyboard focus) is on a body — the drift
+        // eases down to a crawl so the thing can be looked at.
+        let hoverSlow = false;
         // How much of the idle motion is running, 1 down to 0. One factor for
-        // both axes: "held still" has to mean still, and the drift is a spin
-        // about the vertical plus a slow sine on the elevation. Gating only the
-        // spin left the view rocking up and down on its own with the button
-        // saying it had stopped.
+        // all three axes: "held still" has to mean still. Gating only the yaw
+        // spin once left the view rocking up and down on its own with the
+        // button saying it had stopped.
         let driftEase = 1;
+        // Eased hover slow-down (1 normally, DRIFT_HOVER_SLOW over a body).
+        let driftScale = 1;
+        // Bounce state for the pitch and roll swings, and the current roll
+        // angle (applied to the camera each frame after controls.update).
+        let pitchDir = 1;
+        let rollDir  = 1;
+        let rollAngle = 0;
+        const DRIFT_PITCH_POLAR = { min: 0.70, max: 1.95 };  // ~40° … ~112° from straight down
+        const DRIFT_ROLL_LIMIT  = 0.55;                       // ~31° of lean either way
+        const DRIFT_HOVER_SLOW  = 0.12;
 
         // ── Focus zoom-in animation state ──────────────────────────────────────
         let focusAnimating   = false;
@@ -1828,8 +1842,8 @@ const SolarSystem3D = ({
                 // Track moon hover for orbital speed slow-down
                 hoveredMoonId = (focusedIdRef.current && MOON_DATA.some(m => m.id === hitMesh.userData.id))
                     ? hitMesh.userData.id : null;
-                // Decelerate auto-rotate only in home view (focused mode already disables it)
-                if (!focusedIdRef.current) targetAutoRotateSpeed = 0;
+                // Ease the drift down only in home view (focused mode has none)
+                if (!focusedIdRef.current) hoverSlow = true;
             } else {
                 if (activeOrbit) {
                     orbitAtRest(activeOrbit);
@@ -1837,7 +1851,7 @@ const SolarSystem3D = ({
                 }
                 renderer.domElement.style.cursor = '';
                 hoveredMoonId = null;
-                targetAutoRotateSpeed = 0.11;
+                hoverSlow = false;
             }
         };
 
@@ -1862,7 +1876,7 @@ const SolarSystem3D = ({
                 }
                 hoveredMoonId = (focusedIdRef.current && MOON_DATA.some(m => m.id === bid))
                     ? bid : null;
-                if (!focusedIdRef.current) targetAutoRotateSpeed = 0;
+                if (!focusedIdRef.current) hoverSlow = true;
             },
             leave() {
                 if (activeOrbit) {
@@ -1870,7 +1884,7 @@ const SolarSystem3D = ({
                     activeOrbit = null;
                 }
                 hoveredMoonId = null;
-                targetAutoRotateSpeed = 0.11;
+                hoverSlow = false;
             },
         };
 
@@ -2693,7 +2707,6 @@ const SolarSystem3D = ({
                 } else {
                     controls.target.lerp(targetPos, ease(0.08));
                 }
-                controls.autoRotate = false;
 
             } else if (exitPhase === 1) {
                 controls.minDistance = 30;
@@ -2710,7 +2723,6 @@ const SolarSystem3D = ({
                         .addScaledVector(dir, currentDist + 6 * frameScale);
                 }
                 if (exitSeconds >= 50 / 60) exitPhase = 2;
-                controls.autoRotate = false;
 
             } else if (exitPhase === 2) {
                 // Phase 2: smoothly fly camera back toward the sun
@@ -2722,22 +2734,13 @@ const SolarSystem3D = ({
                     const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
                     camera.position.copy(controls.target).addScaledVector(dir, nextDistance);
                 }
-                controls.autoRotate = false;
-                if (controls.target.length() < 8) {
-                    exitPhase = 0;
-                    controls.autoRotate = true;
-                }
+                if (controls.target.length() < 8) exitPhase = 0;
 
             } else {
-                // Normal home state — let the user zoom freely; only nudge the slow vertical drift
+                // Normal home state — let the user zoom freely; the drift below
+                // does the rest.
                 const defaultTarget = new THREE.Vector3(0, 0, 0);
                 controls.target.lerp(defaultTarget, ease(0.08));
-                if (!isInteracting && driftEase > 0) {
-                    // Sine wave on the vertical axis → diagonal orbit (bottom-left to top-right feel)
-                    controls.rotateUp(
-                        Math.sin(Date.now() / 10000) * 0.00018 * driftEase * frameScale);
-                }
-                controls.autoRotate = true;
             }
 
             // Eased rather than cut, so stopping looks like the scene coming
@@ -2745,17 +2748,56 @@ const SolarSystem3D = ({
             // approaches it and "almost still" is not what the button says.
             driftEase = THREE.MathUtils.lerp(driftEase, autoRotateRef.current ? 1 : 0, ease(0.05));
             if (!autoRotateRef.current && driftEase < 0.002) driftEase = 0;
+            driftScale = THREE.MathUtils.lerp(driftScale, hoverSlow ? DRIFT_HOVER_SLOW : 1, ease(0.05));
 
-            // Smoothly lerp autoRotateSpeed toward target (hover deceleration / re-acceleration).
-            controls.autoRotateSpeed = THREE.MathUtils.lerp(
-                controls.autoRotateSpeed, targetAutoRotateSpeed * driftEase, ease(0.05));
+            // ── Idle camera drift ──────────────────────────────────────────────
+            // Yaw and pitch go through OrbitControls (yaw spins, pitch swings
+            // between soft polar limits); roll it will not do — it keeps the
+            // horizon level by design — so roll is an angle accumulated here
+            // and rotated onto the camera after controls.update() below. All
+            // three scale with driftEase (the on/off button) and driftScale
+            // (the hover slow-down), and only run in the home view when the
+            // reader is not already driving.
+            {
+                const canDrift = !targetMesh && exitPhase === 0 && !focusAnimating
+                    && !isInteracting;
+                const dr = driftRates();
+                const ds = canDrift ? driftEase * driftScale : 0;
 
-            // With no argument OrbitControls assumes 1/60s has passed, so the
-            // drift ran at whatever rate the display did — half speed on the
-            // 30fps the belt used to force, and 2.4x on a 144Hz laptop once
-            // 3.5.0 unlocked the frame rate. Handing it the real delta makes
-            // the spin a rate rather than a per-frame step.
+                if (ds > 0.001 && dr.yaw !== 0) {
+                    controls.rotateLeft(dr.yaw * ds * deltaSec);
+                }
+                if (ds > 0.001 && dr.pitch !== 0) {
+                    const polar = controls.getPolarAngle();
+                    if (polar <= DRIFT_PITCH_POLAR.min) pitchDir = -1;
+                    else if (polar >= DRIFT_PITCH_POLAR.max) pitchDir = 1;
+                    // rotateUp(+) decreases the polar angle
+                    controls.rotateUp(Math.abs(dr.pitch) * Math.sign(dr.pitch || 1)
+                        * pitchDir * ds * deltaSec);
+                }
+                if (ds > 0.001 && dr.roll !== 0) {
+                    if (rollAngle >= DRIFT_ROLL_LIMIT) rollDir = -1;
+                    else if (rollAngle <= -DRIFT_ROLL_LIMIT) rollDir = 1;
+                    rollAngle += Math.abs(dr.roll) * Math.sign(dr.roll || 1)
+                        * rollDir * ds * deltaSec;
+                } else if (Math.abs(rollAngle) > 1e-4) {
+                    // Slider back to centre, drift held still, or pointer on a
+                    // body — unwind the lean.
+                    rollAngle *= 0.92;
+                }
+            }
+
+            // With no argument OrbitControls assumes 1/60s has passed. Handing
+            // it the real delta makes the drift a rate rather than a per-frame
+            // step — it ran 2.4x fast on a 144Hz laptop otherwise.
             controls.update(deltaSec);
+
+            // Roll: OrbitControls has just levelled the camera, so tip it back
+            // by the accumulated angle around its own view axis. Home view only
+            // — a focused or exiting camera is never rolled.
+            if (Math.abs(rollAngle) > 1e-4 && !targetMesh && exitPhase === 0 && !focusAnimating) {
+                camera.rotateZ(rollAngle);
+            }
 
             // Override camera position + lookAt AFTER controls.update()
             if (focusAnimating && targetMesh && !isInteracting) {
