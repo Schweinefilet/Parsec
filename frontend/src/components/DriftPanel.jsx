@@ -84,6 +84,10 @@ const DriftPanel = ({ driftOn, onWake, disabled }) => {
                         width: 232, maxWidth: 'calc(100vw - 28px)',
                         padding: '12px 14px', borderRadius: 14, zIndex: 60,
                         direction: 'ltr',
+                        // The toolbar container is pointer-events:none (so a drag
+                        // that misses a pill still orbits the scene); the popover
+                        // has to opt back in or its sliders are dead.
+                        pointerEvents: 'auto',
                     }}
                 >
                     <div style={{

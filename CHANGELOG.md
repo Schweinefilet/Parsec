@@ -16,6 +16,16 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.1.1
+
+- **The drift sliders were dead to the touch.** The toolbar they sit in is
+  `pointer-events: none` — so a drag that misses a pill still orbits the scene
+  — and each pill opts back in for itself. The drift popover opened (its
+  trigger opts in) but never re-enabled events for its own body, so the
+  sliders took the click and did nothing with it. Fixed.
+
+---
+
 ## 4.1.0
 
 - **The idle drift is yours to set.** The view has always turned slowly on its
