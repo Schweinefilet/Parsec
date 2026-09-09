@@ -10,8 +10,9 @@
 // swap is to three/examples/jsm/lines/Line2 (bundled with three, same as
 // OrbitControls), noted here rather than done pre-emptively.
 //
-// A per-vertex fade attribute dims each line from its seed to its tail, so
-// lines dissolve where they run out rather than stopping dead.
+// A per-vertex fade attribute brightens each line from its seed out on the
+// sphere to the point it plunges into a body, so the picture reads as flow
+// *into* the masses — which is the only thing gravity does.
 
 import * as THREE from 'three';
 import { traceField } from './gravityField';
@@ -36,7 +37,7 @@ const FRAG = /* glsl */`
     }
 `;
 
-const TAIL_FADE = 0.12;   // alpha a line has decayed to by its last point
+const SEED_FADE = 0.12;   // alpha at the seed end; the line brightens to 1 where it meets the body
 
 /**
  * @param {number[]} [opts.color]  rgb 0..1
@@ -106,8 +107,8 @@ export function makeGravityLines({ color = [0.62, 0.80, 1.0], initialCapacity = 
                 const count = pts.length / 3;
                 for (let i = 0; i < count - 1; i++) {
                     const a = i * 3, b = a + 3;
-                    const fa = 1 - (1 - TAIL_FADE) * (i / (count - 1));
-                    const fb = 1 - (1 - TAIL_FADE) * ((i + 1) / (count - 1));
+                    const fa = SEED_FADE + (1 - SEED_FADE) * (i / (count - 1));
+                    const fb = SEED_FADE + (1 - SEED_FADE) * ((i + 1) / (count - 1));
                     positions[v * 3] = pts[a]; positions[v * 3 + 1] = pts[a + 1]; positions[v * 3 + 2] = pts[a + 2];
                     fades[v] = fa; v++;
                     positions[v * 3] = pts[b]; positions[v * 3 + 1] = pts[b + 1]; positions[v * 3 + 2] = pts[b + 2];

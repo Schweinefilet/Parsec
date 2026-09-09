@@ -16,6 +16,25 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.0.3
+
+- **Field lines were traced backwards.** Gravity only attracts, but the
+  streamlines ran the other way — every line left its seed body and fled to
+  the scene edge, a picture of a *repelling* field. The field vector g(P) was
+  right (it points at the masses); the integrator stepped against it, from a
+  `sign: -1` default put there on a wrong mental model of what a gravity field
+  line is. Now it steps along g, and 100% of lines converge on a body and
+  terminate at its stop-sphere (was 0%), 0% run to the bounds (was 100%).
+- Seeding reworked to suit the corrected direction: each body's lines start on
+  a sphere sized to its distance from the Sun — a fraction of its own share of
+  space — so the lines are a visible length at true distances instead of
+  collapsing to a spark, and the fade now brightens toward the body a line
+  falls into rather than away from it. The corrected trace is also ~40% fewer
+  RK4 steps (lines converge instead of running the whole scene), so the
+  retrace is cheaper, not dearer, than the earlier measurement.
+
+---
+
 ## 4.0.2
 
 - **The Sun keeps its well at true distances.** The distance term that widens

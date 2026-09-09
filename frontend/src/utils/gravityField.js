@@ -7,11 +7,17 @@
 // magnitude-and-direction split does the same work and then some. `m_i` is the
 // visual field mass from gravityModel, not kilograms.
 //
-// Streamlines are traced with RK4 and an adaptive step. |g| climbs as 1/r^2
-// toward a body, so a fixed step that is fine in open space punches straight
-// through a planet. The step is a fraction of the distance to the nearest body
-// surface instead — short near a mass, long in the gaps — which is cheaper
-// than an RK4 error estimate and enough for a picture.
+// Gravity only attracts, so every streamline runs *down* the field and ends
+// on a mass — there is no term that pushes a line outward. Lines are seeded
+// on a sphere around each body (sized to that body's share of space) and
+// traced inward with RK4 until they cross a stop sphere; the rare one seeded
+// in a genuine Sun–planet saddle stalls where the field cancels.
+//
+// The step is adaptive: |g| climbs as 1/r^2 toward a body, so a fixed step
+// that is fine in open space punches straight through a planet. It is a
+// fraction of the distance to the nearest body surface instead — short near a
+// mass, long in the gaps — which is cheaper than an RK4 error estimate and
+// enough for a picture.
 //
 // Everything here is pure and runs on the CPU. It is sequential and must not
 // be called per frame; the caller retraces only when a body has moved far
@@ -56,18 +62,18 @@ function unitFieldAt(P, bodies, G, out) {
 /**
  * Trace one streamline from `seed`, stepping along the field direction.
  *
- * g points toward masses, so `sign` chooses which way the line runs:
- *   -1  outward — away from the masses (the default). Lines leave each body,
- *       most bend toward the Sun, a few escape, and the ones near a Sun–planet
- *       saddle stall where the field cancels. This is the familiar picture.
- *   +1  inward — toward the masses, converging on one of them.
+ * Gravity only attracts — g(P) points toward the masses — so a line steps
+ * *along* g and converges on whichever body ends up dominating it. `sign` is
+ * left as a hook (+1 along g, -1 against) but the only correct value for a
+ * gravity field is +1.
  *
- * Stops on: crossing into any body's stop sphere, leaving `bounds` (radius
- * from the origin), or `maxSteps` (a line trapped near a saddle). Returns a
- * flat `[x,y,z, x,y,z, …]` list, or null if it went nowhere.
+ * Stops on: crossing into a body's stop sphere (`minRadius`), the field
+ * cancelling at a saddle (`deadspot`), leaving `bounds`, or `maxSteps`.
+ * Returns `{ points, stop }` — `points` is a flat `[x,y,z, …]` list or null
+ * if the line went nowhere, `stop` is why it ended.
  */
 export function traceStreamline(seed, bodies, opts) {
-    const { G, sign = -1, step, maxSteps, bounds } = opts;
+    const { G, sign = 1, step, maxSteps, bounds } = opts;
     const boundsSq = bounds * bounds;
     // The longest step is a fraction of the scene, not a fixed number of
     // units: at true distances the useful space is 5000 units, and a 12-unit
@@ -75,6 +81,7 @@ export function traceStreamline(seed, bodies, opts) {
     const hMax = step.max ?? bounds * step.maxFrac;
     const out = [seed.x, seed.y, seed.z];
     _P.copy(seed);
+    let stop = 'maxSteps';
 
     for (let s = 0; s < maxSteps; s++) {
         // Distance to the nearest stop sphere sets the step length.
@@ -83,22 +90,22 @@ export function traceStreamline(seed, bodies, opts) {
             const gap = _probe.subVectors(_P, bodies[i].pos).length() - bodies[i].minRadius;
             if (gap < nearest) nearest = gap;
         }
-        if (nearest <= 0) break;                                 // reached a body
+        if (nearest <= 0) { stop = 'minRadius'; break; }         // reached a body
         const h = sign * Math.min(hMax, Math.max(step.min, step.k * nearest));
 
         // RK4 on dP/ds = unitField(P)
-        if (unitFieldAt(_P, bodies, G, _k1) < 1e-12) break;      // dead spot
+        if (unitFieldAt(_P, bodies, G, _k1) < 1e-12) { stop = 'deadspot'; break; }
         unitFieldAt(_probe.copy(_P).addScaledVector(_k1, h * 0.5), bodies, G, _k2);
         unitFieldAt(_probe.copy(_P).addScaledVector(_k2, h * 0.5), bodies, G, _k3);
         unitFieldAt(_probe.copy(_P).addScaledVector(_k3, h), bodies, G, _k4);
         _P.addScaledVector(_k1, h / 6).addScaledVector(_k2, h / 3)
             .addScaledVector(_k3, h / 3).addScaledVector(_k4, h / 6);
 
-        if (!Number.isFinite(_P.x)) break;
+        if (!Number.isFinite(_P.x)) { stop = 'nonfinite'; break; }
         out.push(_P.x, _P.y, _P.z);
-        if (_P.lengthSq() > boundsSq) break;                     // left the scene
+        if (_P.lengthSq() > boundsSq) { stop = 'bounds'; break; } // left the scene
     }
-    return out.length >= 6 ? out : null;
+    return { points: out.length >= 6 ? out : null, stop };
 }
 
 /**
@@ -127,41 +134,69 @@ export function seedSphere(center, radius, count, into = []) {
  * per-frame array from gravityModel, positioned from the live scene.
  * `cfg` carries the tuning constants (see GRAVITY_FIELD_DEFAULTS).
  *
- * Returns `{ lines: number[][], segmentCount, stepCount }` — a point list per
- * streamline, plus totals for the perf log.
+ * Returns `{ lines, segmentCount, stepCount, terminations }` — a point list
+ * per streamline, totals for the perf log, and a tally of how the lines
+ * ended (`terminations.minRadius` should be the large majority for a gravity
+ * field; a small `bounds` count is saddle-region lines and is expected).
  */
+/**
+ * Radius of the sphere a body's streamlines are seeded on.
+ *
+ * Lines are traced *inward* from here, so this also sets how long they are.
+ * A body's own share of space scales with how far out the layout has flung
+ * it, so the seed sphere is a fraction of its distance from the Sun — which
+ * keeps the lines a visible length at true distances, where a fixed radius
+ * would collapse to a spark. The Sun is at the centre and owns everything, so
+ * it gets a large sphere outright.
+ */
+function seedRadiusFor(body, cfg) {
+    const distToSun = body.pos.length();
+    if (distToSun < 1) return cfg.bounds * cfg.seedSunFrac;
+    return Math.min(
+        cfg.bounds * cfg.seedMaxFrac,
+        Math.max(body.minRadius * cfg.seedMinK, distToSun * cfg.seedFrac));
+}
+
 export function traceField(bodies, cfg) {
     const lines = [];
     let segmentCount = 0;
     let stepCount = 0;
+    const terminations = { minRadius: 0, bounds: 0, deadspot: 0, maxSteps: 0, nonfinite: 0, tooShort: 0 };
 
     for (let b = 0; b < bodies.length; b++) {
         const body = bodies[b];
-        const seedR = body.minRadius * cfg.seedRadiusK;
-        const seeds = seedSphere(body.pos, seedR, body.lineCount);
+        const seeds = seedSphere(body.pos, seedRadiusFor(body, cfg), body.lineCount);
         for (const seed of seeds) {
-            const pts = traceStreamline(seed, bodies, {
+            const { points, stop } = traceStreamline(seed, bodies, {
                 G: cfg.G,
                 sign: cfg.sign,
                 step: cfg.step,
                 maxSteps: cfg.maxSteps,
                 bounds: cfg.bounds,
             });
-            if (pts) {
-                lines.push(pts);
-                segmentCount += pts.length / 3 - 1;
-                stepCount += pts.length / 3;
+            terminations[points ? stop : 'tooShort']++;
+            if (points) {
+                lines.push(points);
+                segmentCount += points.length / 3 - 1;
+                stepCount += points.length / 3;
             }
         }
     }
-    return { lines, segmentCount, stepCount };
+    return { lines, segmentCount, stepCount, terminations };
 }
 
 /** Defaults for traceField's `cfg`, mirrored from WEIGHT_CONFIG where they overlap. */
 export const GRAVITY_FIELD_DEFAULTS = {
     G: 1,
-    sign: -1,                       // -1 = trace outward, away from the seed body
-    seedRadiusK: 1.5,              // seed sphere radius = minRadius * this
+    sign: 1,                        // +1 = step along g, toward the masses (the only right value)
+    // Seed sphere (see seedRadiusFor). A planet's is `seedFrac` of its
+    // distance from the Sun — enough that a few seeds land in contested space
+    // near the Sun–planet line and trace across to the Sun, the rest fall
+    // into the planet. The Sun gets `seedSunFrac` of the bounds.
+    seedFrac: 0.34,
+    seedSunFrac: 0.5,
+    seedMinK: 4,                    // floor: minRadius * this
+    seedMaxFrac: 0.5,              // ceiling: bounds * this
     step: { k: 0.25, min: 0.4, maxFrac: 0.024 },   // longest step = bounds * maxFrac
     maxSteps: 500,
     bounds: 520,                    // compressed layout; scaled with the layout at the call site
