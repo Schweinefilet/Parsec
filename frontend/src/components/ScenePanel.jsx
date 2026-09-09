@@ -78,6 +78,10 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
                 {/* The tab comes first in the DOM so a keyboard opening it then
                     tabs straight into the controls, not past them. Its place on
                     screen is set by position, not order. */}
+                {/* No box — same as the focused-object sheet's handle: a bare
+                    transparent button, the chevrons the only thing drawn. It
+                    sits a little in from the edge and bobs while closed with the
+                    sheet handle's own `scrollPromptBob`. */}
                 <button
                     onClick={() => setOpen(v => !v)}
                     aria-expanded={open}
@@ -86,46 +90,58 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
                     className="focus-ring"
                     style={{
                         position: 'absolute', top: '50%',
-                        insetInlineStart: open ? '100%' : 0,
+                        insetInlineStart: open ? '100%' : 4,
                         transform: 'translateY(-50%)',
                         transition: slide,
                         pointerEvents: 'auto',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        overflow: 'hidden',
-                        width: 32, height: 78,
-                        border: '1px solid rgba(255,255,255,0.16)',
-                        borderStartStartRadius: 0, borderEndStartRadius: 0,
-                        borderStartEndRadius: 10, borderEndEndRadius: 10,
-                        background: 'rgba(8,10,15,0.92)',
-                        backdropFilter: 'blur(14px)',
-                        WebkitBackdropFilter: 'blur(14px)',
-                        cursor: 'pointer',
+                        padding: '12px 6px',
+                        background: 'none', border: 'none', cursor: 'pointer',
                     }}
                 >
-                    {/* The focused-object sheet's exact pull handle, laid on its
-                        side (see chevDeg). Same two ChevronDown, same -24
-                        overlap, same scaleX(1.5) widening, same two opacities;
-                        `direction: ltr` so the row does not reverse in Arabic —
-                        the chevrons already point the right way from chevDeg. */}
+                    {/* Bob + fade while closed — the sheet handle's animation,
+                        on its own wrapper so it doesn't fight the scale below. */}
                     <span
-                        aria-hidden="true"
                         style={{
-                            display: 'flex', alignItems: 'center', direction: 'ltr',
-                            pointerEvents: 'none', transform: 'scale(0.8)',
+                            display: 'block', pointerEvents: 'none',
+                            animation: (open || reduced)
+                                ? 'none'
+                                : 'scrollPromptBob 1.8s ease-in-out infinite',
                         }}
                     >
-                        <ChevronDown style={{
-                            width: 44, height: 44, marginRight: -28, flexShrink: 0,
-                            color: 'rgba(255,255,255,0.80)',
-                            transform: `rotate(${chevDeg}deg) scaleX(1.5)`,
-                            transition: reduced ? 'none' : 'transform 320ms ease',
-                        }} />
-                        <ChevronDown style={{
-                            width: 44, height: 44, flexShrink: 0,
-                            color: 'rgba(255,255,255,0.40)',
-                            transform: `rotate(${chevDeg}deg) scaleX(1.5)`,
-                            transition: reduced ? 'none' : 'transform 320ms ease',
-                        }} />
+                        {/* The focused-object sheet's pull handle — two rounded
+                            ChevronDown, bright then dim, widened by scaleX(1.5)
+                            and turned by chevDeg so the pair reads » / «. Each
+                            icon overflows a tight wrapper so the row's width is
+                            the ink, not the icon's empty 44px box. `direction:
+                            ltr` keeps it from reversing in Arabic. */}
+                        <span
+                            aria-hidden="true"
+                            style={{ display: 'flex', alignItems: 'center', direction: 'ltr' }}
+                        >
+                            <span style={{
+                                width: 14, height: 34, flexShrink: 0,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <ChevronDown style={{
+                                    width: 40, height: 40, flexShrink: 0,
+                                    color: 'rgba(255,255,255,0.80)',
+                                    transform: `rotate(${chevDeg}deg) scaleX(1.5)`,
+                                    transition: 'transform 0.35s ease',
+                                }} />
+                            </span>
+                            <span style={{
+                                width: 14, height: 34, flexShrink: 0, marginInlineStart: -3,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <ChevronDown style={{
+                                    width: 40, height: 40, flexShrink: 0,
+                                    color: 'rgba(255,255,255,0.40)',
+                                    transform: `rotate(${chevDeg}deg) scaleX(1.5)`,
+                                    transition: 'transform 0.35s ease',
+                                }} />
+                            </span>
+                        </span>
                     </span>
                 </button>
 

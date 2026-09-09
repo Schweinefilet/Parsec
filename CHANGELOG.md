@@ -16,6 +16,15 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.3.5
+
+- **The scene-drawer tab loses its box.** Now it is only the chevron — no
+  pill, no border, no backdrop — sitting a little in from the edge and bobbing
+  with the focused-object sheet's own `scrollPromptBob` while it is closed,
+  exactly like that handle.
+
+---
+
 ## 4.3.4
 
 - **The scene-drawer tab is the focus-view pull handle exactly, laid on its
