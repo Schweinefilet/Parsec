@@ -16,6 +16,16 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.2.1
+
+- **The timeline opens expanded on a phone.** It used to start as a compact
+  date chip everywhere but a roomy desktop; on a phone, where it is the main
+  way to scrub through time and the expanded control is already narrow, it now
+  starts open. The mid-width desktop band still opens on request — expanded
+  there, it runs into whatever is centred on screen.
+
+---
+
 ## 4.2.0
 
 - **Scene controls fold into an edge drawer.** Drift on/off, the yaw/pitch/roll

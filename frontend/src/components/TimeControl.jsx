@@ -48,10 +48,12 @@ const TimeControl = ({ hidden }) => {
     const reducedMotion = useReducedMotion();
     const [, force] = useState(0);
     // Open where there is room for it. Expanded, this is around 500px of
-    // control anchored bottom-left, and on anything narrower than a roomy
-    // desktop it reaches the middle of the screen and sits on top of what is
-    // centred there. Below that width it opens on request instead.
-    const [open, setOpen] = useState(() => roomy);
+    // control anchored bottom-left, and on a mid-width desktop it reaches the
+    // middle of the screen and sits on top of what is centred there — so that
+    // band opens on request. A roomy desktop has the room; a phone gets it
+    // open too, where the compact build is narrow and it's the primary way to
+    // scrub.
+    const [open, setOpen] = useState(() => roomy || isMobile);
     const dragRef = useRef(false);
 
     // Repaint the readout a few times a second; the scene doesn't wait on this
