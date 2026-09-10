@@ -16,6 +16,19 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.4.4
+
+- **The grid plane sits on the ecliptic now.** It was derived from two Mars
+  position samples, which folded in Mars's own 1.85° orbital inclination and
+  left the grid — and the asteroid and Kuiper belts, which share the same
+  transform — a couple of degrees off the plane the planets orbit in. It is
+  now the exact obliquity of the ecliptic, no planet in the loop.
+- **The Sun's well is gentler at true distances.** Its depth multiplier drops
+  (`sunWellTrueScale` 3.4 → 2.3) so the wall isn't a near-vertical spike out
+  there — it grows into a broad deep bowl instead.
+
+---
+
 ## 4.4.3
 
 - The warped grid's ghost sheet is brighter — `gridPatch.outAlpha` 0.14 → 0.32.

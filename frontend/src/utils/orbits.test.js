@@ -115,17 +115,24 @@ describe('eclipticQuaternion', () => {
         expect(q.length()).toBeCloseTo(1, 9);
     });
 
-    it('tilts the belt plane by the obliquity of the ecliptic', () => {
+    it('tilts the belt plane by exactly the obliquity of the ecliptic', () => {
         // HelioVector returns J2000 *equatorial* coordinates, so an orbit plane
-        // expressed in scene space sits ~23.44° off the scene's XZ plane. Mars,
-        // whose samples derive the normal, adds its own 1.85° inclination.
-        // Pinning this range documents the frame convention: if a future change
-        // switched to ecliptic coordinates, this angle would collapse to ~0 and
-        // the belts would silently stop matching the orbit rings.
+        // expressed in scene space sits at the obliquity of the ecliptic
+        // (23.4393°) off the scene's XZ plane. Pinning this documents the frame
+        // convention: switch to ecliptic coordinates and it would collapse to
+        // ~0 and the belts would silently stop matching the orbit rings.
         const q = eclipticQuaternion();
         const tiltDeg = (2 * Math.acos(Math.min(1, Math.abs(q.w))) * 180) / Math.PI;
-        expect(tiltDeg).toBeGreaterThan(20);
-        expect(tiltDeg).toBeLessThan(27);
+        expect(tiltDeg).toBeCloseTo(23.4393, 3);
+    });
+
+    it('rotates purely about the vernal-equinox (scene x) axis', () => {
+        // No yaw or roll — a pure ecliptic tilt. The Mars-sample version it
+        // replaced drifted a little off-axis with Mars's node.
+        const q = eclipticQuaternion();
+        expect(q.y).toBeCloseTo(0, 9);
+        expect(q.z).toBeCloseTo(0, 9);
+        expect(q.x).toBeGreaterThan(0);
     });
 });
 

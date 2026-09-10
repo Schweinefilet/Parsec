@@ -80,10 +80,10 @@ export const WEIGHT_CONFIG = {
     // — which left it a small, fixed pit that the layout's zoom-out shrank
     // into insignificance next to the flung-out planet wells. It holds 99.9%
     // of the system's mass and should read that way at any scale, so its well
-    // grows with the layout. Depth grows a lot (`sunWellTrueScale`); the
-    // radius grows far less (`sunWellTrueScaleRadius`), so at true distances
-    // the Sun's well is a deep, tight spike rather than a broad crater.
-    sunWellTrueScale:       3.4,   // depth multiplier at full true scale
+    // grows with the layout. Depth and radius grow by close to the same factor
+    // now, so the wall keeps roughly the slope the compressed tuning set — a
+    // broad, deep bowl at true distances, not a near-vertical spike.
+    sunWellTrueScale:       2.3,   // depth multiplier at full true scale
     sunWellTrueScaleRadius: 1.7,   // radius multiplier at full true scale
 
     // ── Field-line mode ───────────────────────────────────────────────────

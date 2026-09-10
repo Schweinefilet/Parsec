@@ -118,28 +118,29 @@ export function buildKeplerOrbitPoints(el, sceneScale, N = 360) {
 // Scene-units/AU scale factor for each body, derived by linear interpolation
 // of the same compressed scale the planets use.
 
+// Mean obliquity of the J2000 ecliptic, radians — the tilt between the
+// celestial equator and the ecliptic (from astronomy-engine's Rotation_EQJ_ECL).
+const OBLIQUITY_J2000 = 0.40909260059599012;
+
 /**
- * Quaternion that rotates the XZ plane onto the ecliptic.
+ * Quaternion that lays a flat XZ plane — the belts, the gravity grid — onto
+ * the ecliptic, the plane the planets are drawn orbiting in.
  *
- * Derived from two Mars position samples 90 days apart: the cross product of
- * the two unit directions is the orbital plane normal in scene space, so the
- * asteroid and Kuiper belts end up in the same plane as the orbit rings rather
- * than an assumed flat XZ. Falls back to identity if the ephemeris throws.
+ * `HelioVector` gives J2000 *equatorial* coordinates, so a body orbiting in
+ * the ecliptic lands in scene space tilted by the obliquity of the ecliptic
+ * (~23.44°) about the scene x-axis, which is the vernal-equinox direction.
+ * This is exactly that: it points the plane's normal at the ecliptic pole,
+ * `(0, cos ε, sin ε)` in scene coords.
+ *
+ * An earlier version derived the normal from two Mars samples, which folded
+ * Mars's own 1.85° orbital inclination into the result and left the grid a
+ * couple of degrees off the planets' plane.
  */
-export function eclipticQuaternion(date = new Date()) {
-    const quat = new THREE.Quaternion();
-    try {
-        const toSceneUnit = (v) => {
-            const d = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-            return new THREE.Vector3(v.x / d, v.z / d, v.y / d);
-        };
-        const a = toSceneUnit(Astronomy.HelioVector('Mars', date));
-        const b = toSceneUnit(Astronomy.HelioVector('Mars', new Date(date.getTime() + 90 * 86400000)));
-        const normal = new THREE.Vector3().crossVectors(a, b).normalize();
-        if (normal.y < 0) normal.negate();          // keep it north-facing
-        quat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-    } catch { /* identity */ }
-    return quat;
+export function eclipticQuaternion() {
+    return new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3(0, Math.cos(OBLIQUITY_J2000), Math.sin(OBLIQUITY_J2000)),
+    );
 }
 
 // Probe positions and their flown tracks live in utils/probeTracks.js, which
