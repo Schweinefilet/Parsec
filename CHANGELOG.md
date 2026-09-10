@@ -16,6 +16,20 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.6.4
+
+- **A `CLAUDE.md` for anyone — or anything — arriving at the codebase cold.**
+  A one-page orientation: what the site is, where things live, the
+  release-per-commit workflow, and the handful of rules that are not obvious
+  from reading the files (the render loop is not React; every `t()` key needs
+  all three locales; the belt tilt derives from Mars samples on purpose). The
+  README is refreshed alongside it — the live URL is `p4rsec.com`, the file map
+  matches what is actually there, the satellite globe is no longer called
+  `IssGlobe`, and there are new sections on the scene-toggle singletons, the
+  gravity overlay and camera drift, and internationalisation.
+
+---
+
 ## 4.6.3
 
 - **The camera rides along with a focused body through a time change.** With a

@@ -1,15 +1,24 @@
 # Parsec
 
 An interactive 3D atlas of the solar system. Fly to any planet, moon, dwarf
-planet, asteroid or comet, watch them move on real orbits, and track the ISS
-live over a rendered Earth.
+planet, asteroid or comet, watch them move on real orbits, scrub the whole
+system through time, overlay its gravity, and track the ISS and other
+spacecraft live over a rendered Earth. The interface is available in English,
+Vietnamese and Arabic.
 
-**Live:** <https://parsec-uo4a.onrender.com/>
+**Live:** <https://p4rsec.com/> (the `parsec-uo4a.onrender.com` origin still
+works)
 
 Releases follow `MAJOR.MINOR.PATCH` — main version, big patch, minor patch. The
 current version is the newest heading in [CHANGELOG.md](CHANGELOG.md), which is
 also what `frontend/package.json` carries; that file explains what each level
 means and holds the full history.
+
+Every commit that changes behaviour ships as a release: a version bump in
+`frontend/package.json`, a `CHANGELOG.md` entry, a plain-language line in
+`src/data/whatsNew.js` if a visitor would notice, and a commit titled with the
+version. [CLAUDE.md](CLAUDE.md) has the full checklist and the things most
+likely to bite.
 
 ## Running it
 
@@ -20,12 +29,13 @@ npm run dev      # http://localhost:5173
 ```
 
 ```bash
-npm test          # vitest — 333 tests
+npm test          # vitest
 npm run lint
 npm run build     # static bundle in frontend/dist
 ```
 
-CI runs all three on every push, plus an asset-size budget.
+CI runs all three on every push, plus an asset-size budget on
+`public/textures`, `public/models` and `dist`.
 
 There is no backend — every data source is called directly from the browser.
 
@@ -35,40 +45,72 @@ in the telemetry ticker. Without one it falls back to `DEMO_KEY`.
 
 ## How it fits together
 
+There is one `<Route path="*">` (`src/App.jsx`) so `AppShell`,
+`CategoryBrowser` and `SolarSystem3D` are never remounted while navigating —
+that is what preserves the Three.js camera state and lets the exit animation
+play. `/satellites`, `/compare` and `/tonight` are the other three routes.
+
 ```text
 frontend/src/
+  App.jsx                the router; AppShell wraps every page (header, search)
+  pages/
+    CategoryBrowser.jsx  catalog + 3D scene + object detail — the home route
+    SatelliteView.jsx    the satellite tracker (/satellites)
+    ComparePage.jsx      two bodies side by side at true relative size (/compare)
+    TonightPage.jsx      what is above your horizon right now (/tonight)
   components/
-    SolarSystem3D.jsx    the main scene: planets, moons, belts, orbits, camera
-    IssGlobe.jsx         live ISS globe with a real day/night terminator
+    SolarSystem3D.jsx    the main scene: planets, moons, belts, orbits, camera,
+                         the focus camera, the gravity overlays (~3k lines)
+    SatelliteGlobe.jsx   the tracker's globe: real day/night terminator, orbit
+                         path, footprint — any tracked spacecraft, not just ISS
     SpacecraftViewer.jsx orbit-controlled viewer for spacecraft models
+    TimeControl.jsx      scrub the whole system through time
+    ScenePanel.jsx       the left-edge drawer of scene toggles (distances,
+                         gravity, drift) + DriftSliders
     ObjectCard.jsx       catalog card, with generated art when no photo exists
     ObjectDetailBody.jsx description + stats + distance chart, shared by
                          the desktop panel and the mobile sheet
     DistanceChart.jsx    inline-SVG distance-over-time chart
-    TimeControl.jsx      scrub the whole system through time
+    CoachMark.jsx        first-visit hint callouts (arrow + one line, no box)
+    WhatsNew.jsx         the "Version history" panel behind the header version
+    LanguagePicker.jsx   the language menu; SystemTitle is the scene's heading
+    LiveFeed.jsx / SpaceDataStrip.jsx   the telemetry ticker and its data
   data/
-    objectCatalog.js     the 70 objects and their stats — single source of truth
-                         for both the catalog and the category nav
+    solarSystemBodies.js the bodies the 3D scene draws, and their layout
+    objectCatalog.js     the 70 catalog objects and their stats — source of
+                         truth for the catalog and the category nav
     objectImages.js      curated, load-verified NASA image per object
+    trackedSatellites.js the spacecraft the tracker follows (one line each)
+    whatsNew.js           plain-language release notes for the in-app panel
+    systems.js            the systems the atlas can show (one today)
+  i18n/                  the translation layer — see "Internationalisation"
+  hooks/
+    useSatelliteTracking.js  every tracked spacecraft, propagated from TLEs
+    useNearViewport.js    gate expensive loads on approaching the viewport
+    useObserverLocation.js / useNearestCountry.js / useMediaQuery.js  …
   utils/
     simTime.js            the clock the scene runs on (see "Time")
+    scaleMode.js          compressed layout ⇄ true distances, and the transition
+    vizMode.js            the gravity overlay mode: off / grid / field lines
+    driftControl.js       idle camera drift rates (yaw/pitch/roll), persisted
+    assetLoading.js       what the scene is loading, for the loading screen
     orbits.js             real heliocentric + Keplerian position maths
     orbitalMotion.js      moon speed/angle arithmetic (see "Watch out for")
+    gravityModel.js       real mass → drawable field weight, for both overlays
+    gravityField.js / gravityGrid.js / gravityLines.js   the overlay renderers
     quality.js            per-device render settings — read this before adding
                           anything expensive to the scene
     proceduralTextures.js painted surface maps for bodies with no photographic
                           texture (Io's sulfur, Europa's linea, Pluto's heart)
     spacecraftModels.js   spacecraft built from primitives, no model downloads
     nearestCountry.js     which country the ISS ground point is closest to
+    celestrakElements.js  current TLEs, cached — asks once per group (see below)
     probeTracks.js        the Voyagers' flown trajectories, and the radial
                           compression every off-ring position goes through
     objectSize.js         the catalog's prose sizes as numbers, for comparing
-    skyPositions.js       altitude and azimuth from where the viewer is standing
-    scaleMode.js          compressed layout ⇄ true distances, and the transition
+    skyPositions.js / skyEvents.js   altitude/azimuth, and the sky calendar
     shareView.js          the scene's camera, clock and layout as a link
     documentHead.js       per-route <title> and canonical link (no SSR)
-    useNearViewport.js    gate expensive loads on approaching the viewport
-    useSatelliteTracking.js  every tracked spacecraft, propagated from TLEs
 ```
 
 ### Performance is a feature here
@@ -198,6 +240,28 @@ Two things to know if you touch this:
   backwards puts every moon exactly where it was. `scrubBase` carries the live
   angles across the switch so the two modes join without a jump.
 
+### The scene toggles are module singletons, not React state
+
+`simTime` is the first of a family. The scene is built once inside a
+`useEffect` with an empty dependency list, and that effect must never re-run —
+so every piece of state the render loop reads each frame lives in a plain
+module with a `subscribe`/notify API, read imperatively:
+
+| Module | Holds |
+| --- | --- |
+| `utils/simTime.js` | the simulated clock and rate |
+| `utils/scaleMode.js` | compressed layout ⇄ true distances, mid-transition |
+| `utils/vizMode.js` | the gravity overlay: off, warped grid, or field lines |
+| `utils/driftControl.js` | idle-drift rates for yaw, pitch and roll (persisted) |
+| `utils/assetLoading.js` | which textures and models are still loading |
+
+Each eases its own value — switching layouts or overlays crossfades over a few
+hundred milliseconds, which is not twenty-three React renders. The UI controls
+(`TimeControl`, `ScenePanel`, `LoadingScreen`) mirror the value into local
+state through the matching `subscribeX` so the buttons stay in sync, but the
+scene never reads React for any of it. A new toggle of this kind follows the
+same shape.
+
 ### Positions are real
 
 Planet positions come from [astronomy-engine](https://github.com/cosinekitty/astronomy)
@@ -275,6 +339,39 @@ scale Earth is four thousandths of a unit across and the view would be empty —
 a fact better said in words than demonstrated, which is what the corner caption
 now does instead of apologising.
 
+### Seeing the gravity
+
+The overlay in `ScenePanel` has two layers, cycled off → warped grid → field
+lines. Both act on the same set of bodies from `utils/gravityModel.js`, which
+exists because the real numbers do not plot. Planetary mass spans eight orders
+of magnitude, so a well depth proportional to mass gives the Sun everything and
+every planet nothing; and the scene's radii are already compressed, so real
+inverse-square falloff would collapse to a spike at each body. `gravityModel`
+maps mass to a drawable "field weight" on a curve that keeps every planet
+visible, and the overlays work in that space, not in kilograms.
+
+- **The warped grid** (`gravityGrid.js`) is a `PlaneGeometry` whose vertices
+  are pushed down by a Gaussian dimple per body in the vertex shader, with the
+  grid lines and a soft per-body window drawn in the fragment shader. Writing
+  shader code here: `patch` is a reserved word in GLSL ES (it is why the mask
+  variable is called `win`), and a backtick in a shader comment terminates the
+  JS template literal the shader lives in.
+- **The field lines** (`gravityField.js` + `gravityLines.js`) trace streamlines
+  of `g(P) = Σ −G·mᵢ·(P−Pᵢ)/|P−Pᵢ|³` with a fixed-step integrator, tint each
+  line toward the colour of the body it flows into, and cap it with a small
+  arrowhead at the tip.
+
+Both keep pace with the planets at a year a second because they read body
+positions from the same frame the scene just computed.
+
+The idle camera drift (`driftControl.js`) is the other thing `ScenePanel`
+exposes: the slow turntable spin the scene has always had, now three signed
+rate sliders — yaw, pitch, roll. There are no limits; pitch somersaults over
+the poles and roll spins freely, because the camera's up and right vectors are
+re-derived every frame and rotated along with it. OrbitControls cannot roll, so
+the drift is applied by hand after `controls.update()` as three rotations of
+the camera about its target.
+
 ### What's up tonight
 
 `/tonight` answers the question you ask outdoors rather than the one the rest of
@@ -309,6 +406,41 @@ whole catalog, including an ordering check that would fail if a unit were
 misread. Light-years are excluded on purpose: Andromeda beside Earth is not a
 comparison.
 
+### Internationalisation
+
+The interface is in English, Vietnamese and Arabic; Arabic lays the page out
+right-to-left. There is no i18n library — `src/i18n/translate.js` is forty
+lines of key lookup, one `{placeholder}` interpolation form, and
+`Intl.PluralRules` for the plural categories. react-i18next is forty kilobytes
+to reach the same place on a page that spends its budget on textures.
+
+Two things are being translated, and they are different problems:
+
+- **The interface** — ~200 strings in `src/i18n/locales/{en,vi,ar}.js`, written
+  to be translated. `en` is bundled (it is the fallback behind every missing
+  key); `vi` and `ar` are dynamic `import()` chunks, so a reader who never
+  switches never downloads them. Arabic alone is 28 KB gzipped.
+- **The catalog** — 70 objects with a name, a type, a paragraph and ~800 stat
+  *values*, which are not sentences ("2,439.7 km", "−180 to 430 °C",
+  "Herschel, 1781"). `src/i18n/localizeCatalog.js` and
+  `src/i18n/catalog/{ar,vi}.js` handle the value grammar — a number, a unit and
+  a qualifier drawn from a small vocabulary — rather than translating free
+  text. Catalog numbers stay in Western digits and English grouping.
+
+**Coverage is enforced by generated tests.** `src/i18n/i18n.test.js` fetches
+every locale and, for each non-English one, asserts it translates every key
+English has and carries none English does not — plus scene-body names, category
+labels and the prose checks. A missing key is a caught test failure, not an
+English sentence surfacing mid-page. So **adding any `t()` key means adding it
+to all three locale files** (and catalog text to both catalog files). Adding a
+whole language is a known checklist — `locales/index.js`, a `load.js` loader,
+the two locale files, the two catalog files, and a 240-entry country list;
+`i18n.test.js` and `countries.test.js` tell you what is still missing.
+
+RTL detail: the `flip-rtl` class (`index.css`) mirrors an icon in the Arabic
+layout, but any inline `transform` overrides it, so components that need both
+fold the flip into their transform string.
+
 ### Assets
 
 Textures ship at 2K, with a 1K set under `public/textures/1k/` for phones.
@@ -340,7 +472,8 @@ need to raise it, that should be a deliberate decision rather than a surprise.
 
 ### Deployment
 
-Static build, served by Render from `frontend/dist`.
+Static build, served by Render from `frontend/dist`, with Cloudflare (DNS +
+CDN) in front of `p4rsec.com`. Pushing to `main` deploys.
 
 Client-side routing needs the host to hand unknown paths back to the SPA. The
 build emits a `404.html` copy of the shell, which makes deep links work
@@ -352,3 +485,15 @@ rewrite in Render → Settings → Redirects/Rewrites:
 
 `render.yaml` declares the same rule, but it only applies automatically if the
 service was created from a blueprint.
+
+Two things that have bitten before:
+
+- **The repo-root `.gitignore` has a broad `*.txt` rule** from unrelated
+  boilerplate. A `.txt` file added under `frontend/public/` (a `robots.txt`,
+  say) is silently untracked until it is allow-listed with a `!` line. Run
+  `git status` and confirm new static files show as staged.
+- **Cloudflare caches at the edge for five minutes.** A path that 404-fell-back
+  to the SPA shell before its real file existed stays cached as `text/html`
+  until the TTL lapses or the cache is purged. Verify a deploy with a
+  cache-buster query (`?cb=…` → `cf-cache-status: MISS`); the clean URL a
+  crawler sees can lag.
