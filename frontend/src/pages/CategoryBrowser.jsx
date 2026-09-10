@@ -15,6 +15,7 @@ import SpacecraftViewer from '../components/SpacecraftViewer';
 import TimeControl from '../components/TimeControl';
 import DriftPanel from '../components/DriftPanel';
 import ScenePanel from '../components/ScenePanel';
+import CoachMark from '../components/CoachMark';
 import { CATEGORY_TABS, getObjectsByCategory, getObjectById, resolveTab } from '../data/objectCatalog';
 import { hasSceneBody } from '../data/solarSystemBodies';
 import { useHorizons } from '../hooks/useHorizons';
@@ -181,6 +182,43 @@ const CategoryBrowser = () => {
     const [moonHintVisible, setMoonHintVisible] = useState(false);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [descriptionOpen, setDescriptionOpen] = useState(false);
+
+    // ── First-visit coach marks ────────────────────────────────────────────
+    // Two hints, shown one after the other the first time someone explores the
+    // scene: where the speed lives, and where the overlay/drift/scale settings
+    // hide. `coachStep` 0 → speed, 1 → tools; a stored flag means "seen".
+    const [coachSeen, setCoachSeen] = useState(() => {
+        try { return window.localStorage.getItem('p4rsec.coach') === '1'; }
+        catch { return true; }   // no storage → don't nag
+    });
+    const [coachStep, setCoachStep] = useState(0);
+    const [coachArmed, setCoachArmed] = useState(false);
+    const endCoach = useCallback(() => {
+        setCoachSeen(true);
+        try { window.localStorage.setItem('p4rsec.coach', '1'); } catch { /* private window */ }
+    }, []);
+    const nextCoach = useCallback(() => {
+        if (coachStep === 0) setCoachStep(1);
+        else endCoach();
+    }, [coachStep, endCoach]);
+
+    // Arm a beat after the first scene interaction — the greeting has faded by
+    // then and the reader is clearly poking around.
+    useEffect(() => {
+        if (coachSeen || !hasInteracted3D) return undefined;
+        const t = setTimeout(() => setCoachArmed(true), 1400);
+        return () => clearTimeout(t);
+    }, [coachSeen, hasInteracted3D]);
+
+    // Each hint also gives up on its own; leaving the hero ends the run.
+    useEffect(() => {
+        if (coachSeen || !coachArmed) return undefined;
+        if (id || pageScrolled) { endCoach(); return undefined; }
+        const t = setTimeout(nextCoach, 9000);
+        return () => clearTimeout(t);
+    }, [coachSeen, coachArmed, coachStep, id, pageScrolled, nextCoach, endCoach]);
+
+    const showCoach = coachArmed && !coachSeen && !id && !pageScrolled;
 
     useEffect(() => {
         const onScroll = () => setPageScrolled(window.scrollY > 40);
@@ -573,6 +611,29 @@ const CategoryBrowser = () => {
                             </div>
                         );
                     })()}
+
+                    {/* First-visit coach marks — one at a time, pointing at the
+                        speed control and then the scene-settings drawer. */}
+                    {showCoach && coachStep === 0 && (
+                        <CoachMark
+                            text={t('scene.hintSpeed')}
+                            arrow="down"
+                            onDismiss={nextCoach}
+                            style={isMobile
+                                ? { insetInlineEnd: 10, bottom: 58 }
+                                : { insetInlineStart: 22, bottom: 78 }}
+                        />
+                    )}
+                    {showCoach && coachStep === 1 && (
+                        <CoachMark
+                            text={t('scene.hintTools')}
+                            arrow={isMobile ? 'down' : 'left'}
+                            onDismiss={nextCoach}
+                            style={isMobile
+                                ? { insetInlineStart: 12, bottom: 144 }
+                                : { insetInlineStart: 48, top: 'calc(50% - 24px)' }}
+                        />
+                    )}
 
                     {/* Back to solar system */}
                     {id && (

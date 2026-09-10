@@ -94,6 +94,9 @@ export const vi = {
         driftReset: 'Đặt lại',
         driftCentre: 'ở giữa',
         driftPaused: 'Camera đang được giữ yên — kéo một thanh trượt để bật lại.',
+        hintSpeed: 'Tua nhanh hoặc tua lại thời gian',
+        hintTools: 'Lớp phủ hấp dẫn, trôi camera và tỷ lệ — đều ở đây',
+        hintDismiss: 'Bỏ qua gợi ý',
     },
 
     catalog: {

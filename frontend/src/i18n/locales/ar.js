@@ -95,6 +95,9 @@ export const ar = {
         driftReset: 'إعادة تعيين',
         driftCentre: 'في المنتصف',
         driftPaused: 'الكاميرا ثابتة الآن — حرّك أي شريط لتشغيلها من جديد.',
+        hintSpeed: 'سرّع الوقت أو أرجعه',
+        hintTools: 'طبقات الجاذبية وانسياب الكاميرا والمقياس — كلها هنا',
+        hintDismiss: 'إغلاق التلميح',
     },
 
     catalog: {

@@ -89,6 +89,9 @@ export const en = {
         driftReset: 'Reset',
         driftCentre: 'centred',
         driftPaused: 'The drift is held still — moving a slider starts it again.',
+        hintSpeed: 'Speed up or rewind time',
+        hintTools: 'Gravity overlays, camera drift, and scale — all in here',
+        hintDismiss: 'Dismiss hint',
     },
 
     catalog: {

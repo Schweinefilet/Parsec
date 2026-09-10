@@ -16,6 +16,17 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.5.0
+
+- **First-visit hints.** The first time someone drags the scene around, two
+  small callouts appear one after the other — one pointing at the time
+  controls ("Speed up or rewind time"), one at the scene-settings drawer
+  ("Gravity overlays, camera drift, and scale — all in here"). Tap to move on;
+  each also times out on its own. Shown once, then never again (a flag in the
+  browser). Scrolling to the catalog or opening an object ends the run early.
+
+---
+
 ## 4.4.5
 
 - **Reverted the grid-plane change from 4.4.4.** Deriving the plane from the
