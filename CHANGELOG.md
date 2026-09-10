@@ -16,13 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.4.5
+
+- **Reverted the grid-plane change from 4.4.4.** Deriving the plane from the
+  analytic obliquity looked right on paper but not on screen — the Mars-sample
+  reference is what matches how the orbit rings actually sit in the default
+  view, and it stays.
+
+---
+
 ## 4.4.4
 
-- **The grid plane sits on the ecliptic now.** It was derived from two Mars
-  position samples, which folded in Mars's own 1.85° orbital inclination and
-  left the grid — and the asteroid and Kuiper belts, which share the same
-  transform — a couple of degrees off the plane the planets orbit in. It is
-  now the exact obliquity of the ecliptic, no planet in the loop.
+- **The grid plane sits on the ecliptic now.** *(Reverted in 4.4.5.)*
 - **The Sun's well is gentler at true distances.** Its depth multiplier drops
   (`sunWellTrueScale` 3.4 → 2.3) so the wall isn't a near-vertical spike out
   there — it grows into a broad deep bowl instead.
