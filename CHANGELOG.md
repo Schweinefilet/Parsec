@@ -16,6 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.6.3
+
+- **The camera rides along with a focused body through a time change.** With a
+  planet, moon or probe focused, scrubbing the clock — or pressing the
+  timeline's "back to now", which winds the planets home over five seconds —
+  used to leave the camera pinned in space, watching its subject shrink and
+  slide out of frame. It now follows the body frame for frame, so the framing
+  you set is the framing you keep, all the way there and back. Dragging to
+  orbit the body still works throughout.
+
+---
+
 ## 4.6.2
 
 - **The favicon is the wordmark's telescope now** — the same lucide glyph,

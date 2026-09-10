@@ -191,6 +191,20 @@ const SolarSystem3D = ({
         const focusStartTarget  = new THREE.Vector3();
         const _focusLookTarget  = new THREE.Vector3();
         const _camUpVec         = new THREE.Vector3();
+
+        // ── Chase-camera state ────────────────────────────────────────────────
+        // OrbitControls pins the camera in world space, so when the focused
+        // body travels through time — a slider scrub, or the timeline's "back
+        // to now" wind-back gliding the planets home — the camera would sit
+        // still and watch the body slide out of frame. Each frame we shift the
+        // camera by however far the body moved. Guarded by id so the jump when
+        // focus first attaches isn't chased, and capped so a layout switch
+        // (compressed ⇄ true distances) doesn't fling the camera across the
+        // scene.
+        let   focusFollowId     = null;
+        const focusFollowPrev   = new THREE.Vector3();
+        const _followDelta      = new THREE.Vector3();
+        const FOCUS_FOLLOW_MAX_STEP = 150; // scene units per frame
         // Camera position captured at click time — guarantees start pos regardless of rAF timing
         let pendingFocusCamPos = null;
 
@@ -2686,9 +2700,33 @@ const SolarSystem3D = ({
             // Hoisted so the post-controls.update() block can reference it
             const targetPos = new THREE.Vector3();
 
+            if (!targetMesh) focusFollowId = null;
+
             if (targetMesh) {
                 exitPhase = 0;
                 targetMesh.getWorldPosition(targetPos);
+
+                // Chase camera: ride along with the body as it moves through
+                // time, so a scrub or the "back to now" wind-back keeps it
+                // framed instead of leaving the camera stranded where it was.
+                // Shift the camera — and, mid fly-in, the animation's start/end
+                // anchors — by the body's per-frame world delta.
+                if (focusFollowId === currentFocusedId) {
+                    _followDelta.subVectors(targetPos, focusFollowPrev);
+                    const step2 = _followDelta.lengthSq();
+                    if (step2 > 1e-10 && step2 < FOCUS_FOLLOW_MAX_STEP * FOCUS_FOLLOW_MAX_STEP) {
+                        if (focusAnimating) {
+                            focusStartCamPos.add(_followDelta);
+                            focusEndCamPos.add(_followDelta);
+                            focusStartTarget.add(_followDelta);
+                        } else {
+                            camera.position.add(_followDelta);
+                            controls.target.add(_followDelta);
+                        }
+                    }
+                }
+                focusFollowPrev.copy(targetPos);
+                focusFollowId = currentFocusedId;
 
                 // Aim below the body by a fraction of the visible height — the
                 // body then sits that much higher in frame.

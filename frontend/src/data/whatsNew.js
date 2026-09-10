@@ -17,6 +17,7 @@ export const WHATS_NEW = [
             'This panel. Click the version number any time to see what has changed.',
             'The browser-tab icon is the wordmark’s telescope now.',
             'In Arabic, the rewind and fast-forward buttons swap sides and mirror, so the past is to the right the way it reads.',
+            'When you are focused on a planet and wind time forward or back, the camera now travels with it instead of being left behind watching it shrink away.',
         ],
     },
     {
