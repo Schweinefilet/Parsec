@@ -1,20 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <radialGradient id="p" cx="38%" cy="32%" r="72%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="45%" stop-color="#9fc4ff"/>
-      <stop offset="100%" stop-color="#2a4a8f"/>
-    </radialGradient>
-  </defs>
   <rect width="64" height="64" rx="14" fill="#05070c"/>
-  <!-- Orbit ring, tilted -->
-  <ellipse cx="32" cy="33" rx="25" ry="9.5" fill="none" stroke="#ffffff" stroke-opacity="0.42"
-           stroke-width="2.2" transform="rotate(-22 32 33)"/>
-  <!-- Planet -->
-  <circle cx="32" cy="33" r="12" fill="url(#p)"/>
-  <!-- Front half of the ring, drawn over the planet -->
-  <path d="M 8.6 27.5 A 25 9.5 0 0 0 55.4 38.5" fill="none" stroke="#ffffff" stroke-opacity="0.75"
-        stroke-width="2.2" stroke-linecap="round" transform="rotate(-22 32 33)"/>
-  <!-- Companion moon -->
-  <circle cx="52" cy="17" r="3.1" fill="#ffffff" fill-opacity="0.92"/>
+  <!-- The wordmark's telescope (lucide "telescope"), centred and scaled up. -->
+  <g transform="translate(5 8) scale(2.1)" fill="none" stroke="#ffffff"
+     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m10.065 12.493-6.18 1.318a.934.934 0 0 1-1.108-.702l-.537-2.15a1.07 1.07 0 0 1 .691-1.265l13.504-4.44"/>
+    <path d="m13.56 11.747 4.332-.924"/>
+    <path d="m16 21-3.105-6.21"/>
+    <path d="M16.485 5.94a2 2 0 0 1 1.455-2.425l1.09-.272a1 1 0 0 1 1.212.727l1.515 6.06a1 1 0 0 1-.727 1.213l-1.09.272a2 2 0 0 1-2.425-1.455z"/>
+    <path d="m6.158 8.633 1.114 4.456"/>
+    <path d="m8 21 3.105-6.21"/>
+    <circle cx="12" cy="13" r="2"/>
+  </g>
 </svg>

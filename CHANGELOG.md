@@ -16,6 +16,15 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.6.2
+
+- **The favicon is the wordmark's telescope now** — the same lucide glyph,
+  white on the dark rounded square, replacing the ringed planet. Adds a proper
+  180×180 `apple-touch-icon.png` for the iOS home screen (the tab icon stays
+  the SVG).
+
+---
+
 ## 4.6.1
 
 - The version panel is titled **"Version history"** (the subtitle is gone).
