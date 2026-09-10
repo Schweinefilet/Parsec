@@ -39,6 +39,14 @@ export const en = {
         search: 'Search objects',
         searchClose: 'Close search',
         searchShortcut: 'Search (⌘K)',
+        whatsNew: 'What’s new',
+    },
+
+    whatsNew: {
+        title: 'What’s new',
+        intro: 'A plain-language history of what has changed here.',
+        current: 'you are here',
+        close: 'Close',
     },
 
     system: {
@@ -90,7 +98,7 @@ export const en = {
         driftCentre: 'centred',
         driftPaused: 'The drift is held still — moving a slider starts it again.',
         hintSpeed: 'Speed up or rewind time',
-        hintTools: 'Gravity overlays, camera drift, and scale — all in here',
+        hintTools: 'Gravity, drift and scale settings',
         hintDismiss: 'Dismiss hint',
     },
 

@@ -45,6 +45,14 @@ export const ar = {
         search: 'ابحث عن الأجرام',
         searchClose: 'أغلق البحث',
         searchShortcut: 'بحث (⌘K)',
+        whatsNew: 'ما الجديد',
+    },
+
+    whatsNew: {
+        title: 'ما الجديد',
+        intro: 'سجلّ بلغة واضحة لكل ما تغيّر هنا.',
+        current: 'أنت هنا',
+        close: 'إغلاق',
     },
 
     system: {
@@ -96,7 +104,7 @@ export const ar = {
         driftCentre: 'في المنتصف',
         driftPaused: 'الكاميرا ثابتة الآن — حرّك أي شريط لتشغيلها من جديد.',
         hintSpeed: 'سرّع الوقت أو أرجعه',
-        hintTools: 'طبقات الجاذبية وانسياب الكاميرا والمقياس — كلها هنا',
+        hintTools: 'إعدادات الجاذبية والانسياب والمقياس',
         hintDismiss: 'إغلاق التلميح',
     },
 

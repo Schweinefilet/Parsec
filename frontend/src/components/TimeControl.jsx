@@ -103,6 +103,7 @@ const TimeControl = ({ hidden }) => {
     return (
         <div
             className="transition-opacity duration-500"
+            data-coach="time"
             style={{
                 position: 'absolute',
                 insetInlineStart: isMobile ? 12 : 20,

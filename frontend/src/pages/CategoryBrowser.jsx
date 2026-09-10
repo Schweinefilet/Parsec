@@ -184,41 +184,58 @@ const CategoryBrowser = () => {
     const [descriptionOpen, setDescriptionOpen] = useState(false);
 
     // ── First-visit coach marks ────────────────────────────────────────────
-    // Two hints, shown one after the other the first time someone explores the
-    // scene: where the speed lives, and where the overlay/drift/scale settings
-    // hide. `coachStep` 0 → speed, 1 → tools; a stored flag means "seen".
+    // Two hints the first time someone explores the scene, one after the other
+    // (`coachStep` 0 → speed, 1 → settings): each an arrow and a line of text
+    // pinned to its control (see the measure effect). A stored flag means
+    // "seen"; a plain time-out doesn't set it, so a visitor who glanced away
+    // gets one more chance next time.
     const [coachSeen, setCoachSeen] = useState(() => {
         try { return window.localStorage.getItem('p4rsec.coach') === '1'; }
         catch { return true; }   // no storage → don't nag
     });
-    const [coachStep, setCoachStep] = useState(0);
     const [coachArmed, setCoachArmed] = useState(false);
-    const endCoach = useCallback(() => {
+    const [coachStep, setCoachStep] = useState(0);
+    const [coachRects, setCoachRects] = useState(null);
+    const endCoach = useCallback((persist) => {
         setCoachSeen(true);
-        try { window.localStorage.setItem('p4rsec.coach', '1'); } catch { /* private window */ }
+        if (persist) { try { window.localStorage.setItem('p4rsec.coach', '1'); } catch { /* private window */ } }
     }, []);
-    const nextCoach = useCallback(() => {
-        if (coachStep === 0) setCoachStep(1);
-        else endCoach();
+    const nextCoach = useCallback((persist) => {
+        setCoachStep(s => (s === 0 ? 1 : s));
+        if (coachStep === 1) endCoach(persist);
     }, [coachStep, endCoach]);
 
     // Arm a beat after the first scene interaction — the greeting has faded by
     // then and the reader is clearly poking around.
     useEffect(() => {
         if (coachSeen || !hasInteracted3D) return undefined;
-        const t = setTimeout(() => setCoachArmed(true), 1400);
+        const t = setTimeout(() => setCoachArmed(true), 1300);
         return () => clearTimeout(t);
     }, [coachSeen, hasInteracted3D]);
 
-    // Each hint also gives up on its own; leaving the hero ends the run.
+    const showCoach = coachArmed && !coachSeen && !id && !pageScrolled;
+
+    // Measure the current step's control so its hint can centre on it and sit a
+    // clear gap away. Re-measured on resize and one frame later (layout settles
+    // after the toggles fade in).
+    useEffect(() => {
+        if (!showCoach) { setCoachRects(null); return undefined; }
+        const sel = coachStep === 0 ? '[data-coach="time"]' : '[data-coach="tab"]';
+        const measure = () => setCoachRects(document.querySelector(sel)?.getBoundingClientRect() ?? null);
+        measure();
+        const raf = requestAnimationFrame(measure);
+        window.addEventListener('resize', measure);
+        return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', measure); };
+    }, [showCoach, coachStep, isMobile]);
+
+    // Leaving the hero ends the run for good; otherwise each step advances on
+    // its own after a while, and the last one fades without marking itself seen.
     useEffect(() => {
         if (coachSeen || !coachArmed) return undefined;
-        if (id || pageScrolled) { endCoach(); return undefined; }
-        const t = setTimeout(nextCoach, 9000);
+        if (id || pageScrolled) { endCoach(true); return undefined; }
+        const t = setTimeout(() => nextCoach(false), 8000);
         return () => clearTimeout(t);
     }, [coachSeen, coachArmed, coachStep, id, pageScrolled, nextCoach, endCoach]);
-
-    const showCoach = coachArmed && !coachSeen && !id && !pageScrolled;
 
     useEffect(() => {
         const onScroll = () => setPageScrolled(window.scrollY > 40);
@@ -592,6 +609,7 @@ const CategoryBrowser = () => {
                                     aria-expanded={sceneOptsOpen}
                                     aria-label={t(sceneOptsOpen ? 'scene.viewOptionsClose' : 'scene.viewOptions')}
                                     inert={(!!id || pageScrolled) || undefined}
+                                    data-coach="tab"
                                     className="flex items-center justify-center rounded-full transition-opacity duration-700 focus-ring"
                                     style={{
                                         pointerEvents: id || pageScrolled ? 'none' : 'auto',
@@ -612,26 +630,36 @@ const CategoryBrowser = () => {
                         );
                     })()}
 
-                    {/* First-visit coach marks — one at a time, pointing at the
-                        speed control and then the scene-settings drawer. */}
-                    {showCoach && coachStep === 0 && (
+                    {/* First-visit coach marks — an arrow + a line, pinned to
+                        one control at a time (coachStep). */}
+                    {showCoach && coachStep === 0 && coachRects && (
                         <CoachMark
                             text={t('scene.hintSpeed')}
                             arrow="down"
-                            onDismiss={nextCoach}
-                            style={isMobile
-                                ? { insetInlineEnd: 10, bottom: 58 }
-                                : { insetInlineStart: 22, bottom: 78 }}
+                            onDismiss={() => nextCoach(true)}
+                            style={{
+                                // centred over the pill on desktop; over its
+                                // right half on a phone, where the left half has
+                                // the catalog button stacked above it
+                                left: coachRects.left + coachRects.width * (isMobile ? 0.72 : 0.5),
+                                bottom: window.innerHeight - coachRects.top + 8,
+                                transform: 'translateX(-50%)',
+                                maxWidth: 260,
+                            }}
                         />
                     )}
-                    {showCoach && coachStep === 1 && (
+                    {showCoach && coachStep === 1 && coachRects && (
                         <CoachMark
                             text={t('scene.hintTools')}
-                            arrow={isMobile ? 'down' : 'left'}
-                            onDismiss={nextCoach}
-                            style={isMobile
-                                ? { insetInlineStart: 12, bottom: 144 }
-                                : { insetInlineStart: 48, top: 'calc(50% - 24px)' }}
+                            arrow="left"
+                            onDismiss={() => nextCoach(true)}
+                            style={{
+                                left: coachRects.right + (isMobile ? 8 : 12),
+                                top: coachRects.top + coachRects.height / 2,
+                                transform: 'translateY(-50%)',
+                                whiteSpace: isMobile ? 'normal' : 'nowrap',
+                                maxWidth: isMobile ? 190 : 320,
+                            }}
                         />
                     )}
 

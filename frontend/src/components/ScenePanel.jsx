@@ -92,6 +92,7 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
                     aria-expanded={open}
                     aria-label={t(open ? 'scene.viewOptionsClose' : 'scene.viewOptions')}
                     title={t(open ? 'scene.viewOptionsClose' : 'scene.viewOptions')}
+                    data-coach="tab"
                     className="focus-ring"
                     style={{
                         position: 'absolute', top: '50%',

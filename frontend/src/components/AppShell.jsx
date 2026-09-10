@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
+import WhatsNew from './WhatsNew';
 import pkg from '../../package.json';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { CATEGORY_TABS, CATEGORY_COUNTS, DEFAULT_TAB, resolveTab, getObjectById } from '../data/objectCatalog';
@@ -104,6 +105,8 @@ const AppShell = ({ children }) => {
 
     const [searchOpen, setSearchOpen] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+    const releaseLine = pkg.version.split('.').slice(0, 2).join('.');
 
     // Everything else about the page is already in its address; only the
     // scene's camera, clock and layout are not, so those get folded in here.
@@ -212,22 +215,28 @@ const AppShell = ({ children }) => {
                             {t('app.name')}
                         </span>
                     </Link>
-                    {/* Build version, a small tag to the right of the wordmark.
-                        Not inside the link: [data-app-logo] is what the loading
-                        screen measures to land the flown wordmark on. */}
-                    <span
+                    {/* Build version — opens the "what's new" panel. Not inside
+                        the link: [data-app-logo] is what the loading screen
+                        measures to land the flown wordmark on. */}
+                    <button
+                        type="button"
                         data-latin
-                        aria-hidden="true"
+                        onClick={() => setWhatsNewOpen(true)}
+                        aria-label={t('nav.whatsNew')}
+                        title={t('nav.whatsNew')}
+                        className="focus-ring rounded"
                         style={{
+                            background: 'none', border: 'none', padding: '2px 3px', margin: '-2px -3px',
                             fontSize: 9, fontWeight: 600, letterSpacing: '0.08em',
                             lineHeight: 1,
-                            color: 'rgba(255,255,255,0.34)',
+                            color: 'rgba(255,255,255,0.36)',
                             textShadow: '0 1px 6px rgba(0,0,0,0.9)',
-                            fontVariantNumeric: 'tabular-nums', pointerEvents: 'none',
+                            fontVariantNumeric: 'tabular-nums',
+                            pointerEvents: 'auto', cursor: 'pointer',
                         }}
                     >
                         v{pkg.version}
-                    </span>
+                    </button>
                 </div>
                 )}
 
@@ -412,6 +421,12 @@ const AppShell = ({ children }) => {
                 })}
                 </div>
             </nav>
+
+            <WhatsNew
+                open={whatsNewOpen}
+                onClose={() => setWhatsNewOpen(false)}
+                currentVersion={releaseLine}
+            />
         </div>
     );
 };

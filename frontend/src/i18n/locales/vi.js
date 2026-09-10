@@ -44,6 +44,14 @@ export const vi = {
         search: 'Tìm thiên thể',
         searchClose: 'Đóng tìm kiếm',
         searchShortcut: 'Tìm kiếm (⌘K)',
+        whatsNew: 'Có gì mới',
+    },
+
+    whatsNew: {
+        title: 'Có gì mới',
+        intro: 'Lịch sử thay đổi của trang, viết dễ hiểu.',
+        current: 'bạn đang ở đây',
+        close: 'Đóng',
     },
 
     system: {
@@ -95,7 +103,7 @@ export const vi = {
         driftCentre: 'ở giữa',
         driftPaused: 'Camera đang được giữ yên — kéo một thanh trượt để bật lại.',
         hintSpeed: 'Tua nhanh hoặc tua lại thời gian',
-        hintTools: 'Lớp phủ hấp dẫn, trôi camera và tỷ lệ — đều ở đây',
+        hintTools: 'Cài đặt hấp dẫn, trôi và tỷ lệ',
         hintDismiss: 'Bỏ qua gợi ý',
     },
 

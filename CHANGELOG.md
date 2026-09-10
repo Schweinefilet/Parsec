@@ -16,6 +16,21 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.6.0
+
+- **A "what's new" panel.** Clicking the version number in the header opens a
+  curated, plain-language history of what has changed on the site —
+  `data/whatsNew.js`, newest first, with the current release marked. It is a
+  visitor's view; the full engineering log stays in this file. English entries,
+  translated frame.
+- **The first-visit hints lost their box.** They are just an arrow and a line
+  of text now, over the scene like the object labels, shown one after the
+  other and each pinned to its control by measuring it (so they centre and
+  keep a clear gap). A plain time-out no longer marks them seen, so someone
+  who glanced away gets another chance next visit.
+
+---
+
 ## 4.5.0
 
 - **First-visit hints.** The first time someone drags the scene around, two
