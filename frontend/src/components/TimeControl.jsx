@@ -142,15 +142,14 @@ const TimeControl = ({ hidden }) => {
                     </button>
                 ) : (
                     <>
-                        {/* Media transport reads left-to-right in every language —
-                            rewind on the left, fast-forward on the right, the way
-                            the icons point and the way the timeline runs — so the
-                            group is pinned `direction: ltr` and does not reverse
-                            with a right-to-left page. It still sits at the start
-                            edge of the control, which in Arabic is the right. */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, direction: 'ltr' }}>
+                        {/* The transport follows the page direction: in a
+                            right-to-left layout the row reverses (rewind moves to
+                            the right, where the past is) and the two arrow icons
+                            mirror with it via `flip-rtl`. Play/pause is symmetric
+                            and stays put. */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <button onClick={() => stepRate(-1)} style={btn(false)} aria-label={t('time.slower')}>
-                                <Rewind style={{ width: 15, height: 15 }} />
+                                <Rewind className="flip-rtl" style={{ width: 15, height: 15 }} />
                             </button>
                             <button
                                 onClick={togglePaused}
@@ -161,8 +160,13 @@ const TimeControl = ({ hidden }) => {
                                     ? <Play style={{ width: 15, height: 15 }} />
                                     : <Pause style={{ width: 15, height: 15 }} />}
                             </button>
-                            <button onClick={() => stepRate(1)} style={btn(false)} aria-label={t('time.faster')}>
-                                <FastForward style={{ width: 15, height: 15 }} />
+                            <button
+                                onClick={() => stepRate(1)}
+                                style={btn(false)}
+                                aria-label={t('time.faster')}
+                                data-coach="ff"
+                            >
+                                <FastForward className="flip-rtl" style={{ width: 15, height: 15 }} />
                             </button>
                         </div>
 

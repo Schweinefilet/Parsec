@@ -45,12 +45,11 @@ export const ar = {
         search: 'ابحث عن الأجرام',
         searchClose: 'أغلق البحث',
         searchShortcut: 'بحث (⌘K)',
-        whatsNew: 'ما الجديد',
+        whatsNew: 'سجل الإصدارات',
     },
 
     whatsNew: {
-        title: 'ما الجديد',
-        intro: 'سجلّ بلغة واضحة لكل ما تغيّر هنا.',
+        title: 'سجل الإصدارات',
         current: 'أنت هنا',
         close: 'إغلاق',
     },

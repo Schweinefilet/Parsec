@@ -50,21 +50,16 @@ const WhatsNew = ({ open, onClose, currentVersion }) => {
                 }}
             >
                 <div style={{
-                    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-                    gap: 12, padding: '20px 20px 14px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: 12, padding: '16px 16px 16px 20px',
                     borderBottom: '1px solid rgba(255,255,255,0.09)',
                 }}>
-                    <div>
-                        <h2 style={{
-                            margin: 0, fontSize: '1.15rem', fontWeight: 800,
-                            color: '#fff', letterSpacing: '-0.01em',
-                        }}>
-                            {t('whatsNew.title')}
-                        </h2>
-                        <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
-                            {t('whatsNew.intro')}
-                        </p>
-                    </div>
+                    <h2 style={{
+                        margin: 0, fontSize: '1.1rem', fontWeight: 800,
+                        color: '#fff', letterSpacing: '-0.01em',
+                    }}>
+                        {t('whatsNew.title')}
+                    </h2>
                     <button
                         onClick={onClose}
                         aria-label={t('whatsNew.close')}

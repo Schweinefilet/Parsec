@@ -16,6 +16,19 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.6.1
+
+- The version panel is titled **"Version history"** (the subtitle is gone).
+- The first-visit settings hint disappears the moment you open the drawer.
+- The first-visit speed hint points its arrow straight at the fast-forward
+  button.
+- **Arabic: the rewind and fast-forward buttons swap sides and mirror.** In a
+  right-to-left layout the past is to the right, so rewind moves there and the
+  two arrow glyphs flip with it. Play/pause stays put. The first-visit hints
+  land correctly in the mirrored layout too.
+
+---
+
 ## 4.6.0
 
 - **A "what's new" panel.** Clicking the version number in the header opens a

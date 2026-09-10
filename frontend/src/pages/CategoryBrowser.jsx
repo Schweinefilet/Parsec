@@ -127,7 +127,7 @@ const SPACECRAFT_CATEGORIES = new Set(['space-stations', 'space-telescopes', 'de
 const SHOW_SPACECRAFT_VIEWER = false;
 
 const CategoryBrowser = () => {
-    const { t, intl, object: localize, category: localizeCategory } = useI18n();
+    const { t, rtl, intl, object: localize, category: localizeCategory } = useI18n();
     const match = useMatch('/object/:id');
     const id = match?.params?.id;
     const navigate = useNavigate();
@@ -204,6 +204,13 @@ const CategoryBrowser = () => {
         setCoachStep(s => (s === 0 ? 1 : s));
         if (coachStep === 1) endCoach(persist);
     }, [coachStep, endCoach]);
+    // Opening the settings drawer ends the run — they found it.
+    const onSettingsOpened = useCallback(() => {
+        setCoachSeen((seen) => {
+            if (!seen) { try { window.localStorage.setItem('p4rsec.coach', '1'); } catch { /* empty */ } }
+            return true;
+        });
+    }, []);
 
     // Arm a beat after the first scene interaction — the greeting has faded by
     // then and the reader is clearly poking around.
@@ -220,8 +227,12 @@ const CategoryBrowser = () => {
     // after the toggles fade in).
     useEffect(() => {
         if (!showCoach) { setCoachRects(null); return undefined; }
-        const sel = coachStep === 0 ? '[data-coach="time"]' : '[data-coach="tab"]';
-        const measure = () => setCoachRects(document.querySelector(sel)?.getBoundingClientRect() ?? null);
+        // Step 0 aims at the fast-forward button when the transport is open,
+        // otherwise the whole (collapsed) time pill.
+        const pick = () => (coachStep === 0
+            ? (document.querySelector('[data-coach="ff"]') ?? document.querySelector('[data-coach="time"]'))
+            : document.querySelector('[data-coach="tab"]'));
+        const measure = () => setCoachRects(pick()?.getBoundingClientRect() ?? null);
         measure();
         const raf = requestAnimationFrame(measure);
         window.addEventListener('resize', measure);
@@ -576,6 +587,7 @@ const CategoryBrowser = () => {
                                         autoRotate={autoRotate}
                                         onToggleDrift={() => setAutoRotate(v => !v)}
                                         onWakeDrift={() => setAutoRotate(true)}
+                                        onOpen={onSettingsOpened}
                                         trueScale={trueScale}
                                         vizMode={vizMode}
                                         disabled={!!id || pageScrolled}
@@ -605,7 +617,7 @@ const CategoryBrowser = () => {
                                     </div>
                                 )}
                                 <button
-                                    onClick={() => setSceneOptsOpen(v => !v)}
+                                    onClick={() => { if (!sceneOptsOpen) onSettingsOpened(); setSceneOptsOpen(v => !v); }}
                                     aria-expanded={sceneOptsOpen}
                                     aria-label={t(sceneOptsOpen ? 'scene.viewOptionsClose' : 'scene.viewOptions')}
                                     inert={(!!id || pageScrolled) || undefined}
@@ -631,17 +643,16 @@ const CategoryBrowser = () => {
                     })()}
 
                     {/* First-visit coach marks — an arrow + a line, pinned to
-                        one control at a time (coachStep). */}
+                        one control at a time (coachStep). All geometry is
+                        viewport-absolute, from the anchor's measured rect, so it
+                        lands right in a mirrored right-to-left layout too. */}
                     {showCoach && coachStep === 0 && coachRects && (
                         <CoachMark
                             text={t('scene.hintSpeed')}
                             arrow="down"
                             onDismiss={() => nextCoach(true)}
                             style={{
-                                // centred over the pill on desktop; over its
-                                // right half on a phone, where the left half has
-                                // the catalog button stacked above it
-                                left: coachRects.left + coachRects.width * (isMobile ? 0.72 : 0.5),
+                                left: coachRects.left + coachRects.width / 2,
                                 bottom: window.innerHeight - coachRects.top + 8,
                                 transform: 'translateX(-50%)',
                                 maxWidth: 260,
@@ -651,12 +662,17 @@ const CategoryBrowser = () => {
                     {showCoach && coachStep === 1 && coachRects && (
                         <CoachMark
                             text={t('scene.hintTools')}
-                            arrow="left"
+                            arrow={rtl ? 'right' : 'left'}
                             onDismiss={() => nextCoach(true)}
                             style={{
-                                left: coachRects.right + (isMobile ? 8 : 12),
+                                // sits just outside the tab, on the side that
+                                // faces the scene — the tab hugs the leading
+                                // edge, so left of it in Arabic, right in English
+                                left: rtl
+                                    ? coachRects.left - (isMobile ? 8 : 12)
+                                    : coachRects.right + (isMobile ? 8 : 12),
                                 top: coachRects.top + coachRects.height / 2,
-                                transform: 'translateY(-50%)',
+                                transform: rtl ? 'translate(-100%, -50%)' : 'translateY(-50%)',
                                 whiteSpace: isMobile ? 'normal' : 'nowrap',
                                 maxWidth: isMobile ? 190 : 320,
                             }}

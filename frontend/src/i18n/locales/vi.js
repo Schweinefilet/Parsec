@@ -44,12 +44,11 @@ export const vi = {
         search: 'Tìm thiên thể',
         searchClose: 'Đóng tìm kiếm',
         searchShortcut: 'Tìm kiếm (⌘K)',
-        whatsNew: 'Có gì mới',
+        whatsNew: 'Lịch sử phiên bản',
     },
 
     whatsNew: {
-        title: 'Có gì mới',
-        intro: 'Lịch sử thay đổi của trang, viết dễ hiểu.',
+        title: 'Lịch sử phiên bản',
         current: 'bạn đang ở đây',
         close: 'Đóng',
     },

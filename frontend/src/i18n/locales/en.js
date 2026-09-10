@@ -39,12 +39,11 @@ export const en = {
         search: 'Search objects',
         searchClose: 'Close search',
         searchShortcut: 'Search (⌘K)',
-        whatsNew: 'What’s new',
+        whatsNew: 'Version history',
     },
 
     whatsNew: {
-        title: 'What’s new',
-        intro: 'A plain-language history of what has changed here.',
+        title: 'Version history',
         current: 'you are here',
         close: 'Close',
     },

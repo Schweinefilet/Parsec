@@ -28,6 +28,10 @@ const CoachMark = ({ text, arrow = 'down', style, onDismiss }) => {
             className="focus-ring"
             style={{
                 position: 'fixed', zIndex: 40,
+                // Fixed layout regardless of page direction — `arrow` and the
+                // parent's measured position already carry the sidedness. The
+                // translated string still resolves its own bidi run.
+                direction: 'ltr',
                 display: 'flex', flexDirection: column ? 'column' : 'row',
                 alignItems: 'center', gap: column ? 3 : 6,
                 background: 'none', border: 'none', padding: 4, margin: 0,

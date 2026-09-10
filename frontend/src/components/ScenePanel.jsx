@@ -27,10 +27,11 @@ const rowBtn = (active) => ({
     lineHeight: 1.25, textAlign: 'start', cursor: 'pointer',
 });
 
-const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode, disabled }) => {
+const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, trueScale, vizMode, disabled }) => {
     const { t, rtl } = useI18n();
     const reduced = useReducedMotion();
     const [open, setOpen] = useState(false);
+    const toggleOpen = () => { if (!open) onOpen?.(); setOpen((v) => !v); };
 
     // Collapse when the whole thing goes away (a body focused, or the page
     // scrolled past the hero) so it isn't sitting open behind the fade next time.
@@ -88,7 +89,7 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, trueScale, vizMode
                     sits a little in from the edge and bobs while closed with the
                     sheet handle's own `scrollPromptBob`. */}
                 <button
-                    onClick={() => setOpen(v => !v)}
+                    onClick={toggleOpen}
                     aria-expanded={open}
                     aria-label={t(open ? 'scene.viewOptionsClose' : 'scene.viewOptions')}
                     title={t(open ? 'scene.viewOptionsClose' : 'scene.viewOptions')}

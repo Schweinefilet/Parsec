@@ -15,6 +15,7 @@ export const WHATS_NEW = [
         version: '4.6',
         changes: [
             'This panel. Click the version number any time to see what has changed.',
+            'In Arabic, the rewind and fast-forward buttons swap sides and mirror, so the past is to the right the way it reads.',
         ],
     },
     {
