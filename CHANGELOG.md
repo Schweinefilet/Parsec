@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.6.5
+
+- **`/favicon.ico` was serving the app shell, not an icon.** With no file at
+  that path, the SPA's catch-all rewrite handed every fetcher a `200 text/html`
+  page instead of a 404 or an image — invisible in a browser, which follows the
+  `<link>` tags and never asks, but not to a search engine's favicon crawler,
+  which asks for that path directly. There is now a real multi-resolution
+  `favicon.ico` (16/32/48 px) and a 96×96 PNG, both wired in as fallbacks
+  behind the SVG (which stays the primary icon everywhere that reads it). This
+  is a bet on why Google search still shows the old ringed-planet icon for this
+  site days after 4.6.2 replaced it with the telescope — worth ruling out
+  regardless, since search engines resolve favicons by their own rules, not by
+  rendering the page.
+
+---
+
 ## 4.6.4
 
 - **A `CLAUDE.md` for anyone — or anything — arriving at the codebase cold.**

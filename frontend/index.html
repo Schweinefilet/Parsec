@@ -9,7 +9,13 @@
     <meta name="theme-color" content="#000000" />
     <meta name="color-scheme" content="dark" />
 
+    <!-- SVG first for browsers that use it (crisp at any size); favicon.ico and
+         the 96px PNG are fallbacks for everything else that resolves an icon by
+         well-known path or by raster size, search engines among them — see
+         CHANGELOG 4.6.5. -->
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon-96.png" type="image/png" sizes="96x96" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <!-- Textures and the astronomy engine come from the same origin; warm up the
