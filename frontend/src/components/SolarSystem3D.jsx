@@ -128,6 +128,15 @@ const SolarSystem3D = ({
         // noticeably different brightness in one than the other. Assigning the
         // otherwise-already-default value is what actually pins it.
         renderer.outputColorSpace = THREE.SRGBColorSpace;
+        // A flat +30% exposure. LinearToneMapping is just "multiply the linear
+        // scene colour by toneMappingExposure, then encode" — no filmic curve
+        // to fight with — so it reads as a uniform brightness lift rather than
+        // crushing contrast. Applies everywhere a material goes through three's
+        // own shader chunks (every body, every ring, the sky, the glow layers);
+        // Earth's day/night shader is raw GLSL with no `#include
+        // <tonemapping_fragment>` and does not brighten with it.
+        renderer.toneMapping = THREE.LinearToneMapping;
+        renderer.toneMappingExposure = 1.3;
         // Shadow maps are the single most expensive thing here on a mobile GPU.
         // The analytic ring and moon shadows are shader maths and stay on.
         renderer.shadowMap.enabled = q.shadows;

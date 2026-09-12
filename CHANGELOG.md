@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.6.7
+
+- **The scene is a flat 30% brighter.** `renderer.toneMapping` was
+  `NoToneMapping` (three's default), under which `toneMappingExposure` does
+  nothing at all — the exposure multiply lives inside the tonemapping shader
+  chunk, which a `NoToneMapping` renderer never includes. Switched to
+  `LinearToneMapping` (a plain exposure multiply, no filmic contrast curve to
+  fight) at `1.3`. Lifts the Sun, every planet and moon, the rings, the sky and
+  the orbit rings uniformly; Earth's day/night shader is raw GLSL outside
+  three's material system and doesn't participate, so it holds steady rather
+  than blowing out. Applied everywhere, not just Chrome — safer than trying to
+  detect a browser to treat it differently, and 4.6.6 already brought Chrome
+  and Safari closer together than they were.
+
+---
+
 ## 4.6.6
 
 - **The Sun, planets, moons and Saturn's rings were washed out — worse in

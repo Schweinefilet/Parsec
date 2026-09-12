@@ -18,7 +18,7 @@ export const WHATS_NEW = [
             'The browser-tab icon is the wordmark’s telescope now.',
             'In Arabic, the rewind and fast-forward buttons swap sides and mirror, so the past is to the right the way it reads.',
             'When you are focused on a planet and wind time forward or back, the camera now travels with it instead of being left behind watching it shrink away.',
-            'The Sun, the planets and the moons look richer and more true to their real photographs now, and consistently so between Chrome and Safari.',
+            'The Sun, the planets and the moons look brighter and richer now, and consistently so between Chrome and Safari.',
         ],
     },
     {
