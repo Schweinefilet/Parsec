@@ -288,6 +288,7 @@ const SolarSystem3D = ({
             exitStartCamPos.copy(_exitState.cameraPos);
             exitStartTarget.copy(_exitState.targetPos);
             exitStartDistance = exitStartCamPos.distanceTo(exitStartTarget);
+            camera.up.set(0, 1, 0); // see the other exit trigger's own comment on why
             exitPhase      = 1;
             exitProgress   = 0;
             prevFocusedId  = '__restored__'; // truthy — lets phase detection work correctly
@@ -2547,6 +2548,18 @@ const SolarSystem3D = ({
                     exitStartCamPos.copy(camera.position);
                     exitStartTarget.copy(controls.target);
                     exitStartDistance = exitStartCamPos.distanceTo(exitStartTarget);
+                    // Idle drift's own roll-to-level correction (below) is
+                    // suspended for as long as anything is focused, so
+                    // camera.up sits frozen at whatever residual roll it had
+                    // the instant this scene was last idling — often small,
+                    // but evaluated fresh once idle drift resumes, against
+                    // this exit's own new viewing angle rather than the one
+                    // it was measured against. That mismatch is what read as
+                    // a sudden roll correction right as the exit finished.
+                    // Levelling it here, before the exit even starts, means
+                    // there is nothing stale left to catch up on by the time
+                    // idle drift picks back up.
+                    camera.up.set(0, 1, 0);
                     exitPhase    = 1;
                     exitProgress = 0;
                 }
@@ -2922,12 +2935,27 @@ const SolarSystem3D = ({
                 controls.target.lerp(defaultTarget, ease(0.08));
             }
 
+            // Whether idle drift is even allowed to show right now — home
+            // view only, not mid-focus, mid-exit, or while the reader is
+            // driving. Computed here, ahead of the easing below, rather than
+            // inside the drift block that reads it: driftEase used to ease
+            // toward the toggle's target unconditionally, every frame,
+            // including the many seconds a focus+exit round trip can take —
+            // so by the time canDrift went true again on returning home, the
+            // ramp had usually already finished in the background, and
+            // drift resumed at full strength in a single frame instead of
+            // fading back in the way toggling it on mid-idle actually looks.
+            const canDrift = !targetMesh && exitPhase === 0 && !focusAnimating
+                && !isInteracting;
+
             // Eased rather than cut, so stopping looks like the scene coming
             // to rest. Snapped to zero at the tail, because a lerp only ever
             // approaches it and "almost still" is not what the button says.
-            driftEase = THREE.MathUtils.lerp(driftEase, autoRotateRef.current ? 1 : 0, ease(0.05));
-            if (!autoRotateRef.current && driftEase < 0.002) driftEase = 0;
-            driftScale = THREE.MathUtils.lerp(driftScale, hoverSlow ? DRIFT_HOVER_SLOW : 1, ease(0.05));
+            if (canDrift) {
+                driftEase = THREE.MathUtils.lerp(driftEase, autoRotateRef.current ? 1 : 0, ease(0.05));
+                if (!autoRotateRef.current && driftEase < 0.002) driftEase = 0;
+                driftScale = THREE.MathUtils.lerp(driftScale, hoverSlow ? DRIFT_HOVER_SLOW : 1, ease(0.05));
+            }
 
             // With no argument OrbitControls assumes 1/60s has passed. Handing
             // it the real delta makes any user-drag damping a rate rather than
@@ -2945,8 +2973,6 @@ const SolarSystem3D = ({
             // so a later drag still works. Home view only, not while the reader
             // is driving; roll relaxes to level whenever its slider is centred.
             {
-                const canDrift = !targetMesh && exitPhase === 0 && !focusAnimating
-                    && !isInteracting;
                 const dr = driftRates();
                 const ds = canDrift ? driftEase * driftScale : 0;
                 const radius = camera.position.distanceTo(controls.target);

@@ -16,6 +16,50 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.6
+
+- **The exit animation ended clean, then twitched — a sudden roll, on
+  every single return home.** Two separate bugs, both born the same way:
+  something kept quietly changing during the multi-second focus+exit round
+  trip that idle drift's own logic assumed only ever changed *while idle
+  drift itself was visibly running*.
+
+  The camera's `up` vector is only ever touched by idle drift's own roll
+  rotation and its "relax back to level" correction — both suspended the
+  entire time anything is focused or exiting, by design, so a drag or a
+  fly-in never fights the drift math for the camera. But suspended isn't
+  reset: `camera.up` stays frozen at whatever small residual roll idle
+  drift happened to leave it at the instant the reader clicked a planet,
+  then sits untouched through however long they spend there. The exit
+  measures roll error against the scene's *current* viewing direction, not
+  the one that residual was measured against — and that direction has
+  usually changed completely by the time you're heading back. A stale
+  half-degree of "roll" no camera correction ever introduced suddenly read
+  as real error the instant idle drift resumed, and got yanked toward
+  level over a handful of frames. `camera.up` is reset to dead level at
+  the moment the exit begins now, so idling never has anything stale left
+  to correct once it resumes.
+
+  Separately, `driftEase` — the ramp idle drift's on/off toggle eases
+  through, so flipping it doesn't cut motion instantly — kept lerping
+  toward its target on every single frame regardless of whether idle
+  drift was actually allowed to show, the same "kept changing while
+  nobody could see it" shape as the roll bug. A focus+exit round trip
+  easily outlasts the ~1s the ramp needs to finish, so by the time idle
+  drift resumed, the toggle's ramp had already quietly completed in the
+  background — drift came back at full strength in one frame instead of
+  the fade-in the ramp exists to provide, adding a sudden pan onto the
+  same moment as the stale-roll correction. `driftEase` now only advances
+  while idle drift can actually apply, so the ramp is still mid-flight,
+  not silently finished, whenever idling actually resumes.
+
+  Confirmed by instrumenting the roll error directly rather than by eye —
+  it read 0.24° at the first idle-drift frame after a Neptune round trip
+  before this fix, and exactly 0.000° after, with drift on and with it off
+  alike.
+
+---
+
 ## 5.0.5
 
 - **The 5.0.3 exit animation snapped at the very start; now it doesn't.**
