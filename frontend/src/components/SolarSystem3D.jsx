@@ -119,6 +119,15 @@ const SolarSystem3D = ({
         renderer.setSize(w, h);
         renderer.setPixelRatio(pixelRatioFor(w, h));
         renderer.setClearColor(0x000000, 0);
+        // Three only pins the WebGL context's drawing-buffer/unpack color space
+        // when outputColorSpace is *assigned* — the constructor writes the field
+        // directly and skips that step — so a renderer that never sets this
+        // (this one, until now) leaves the browser's own default in place, and
+        // Chrome and Safari do not reliably agree on it, particularly on a
+        // wide-gamut (P3) display: identical shader output can composite a
+        // noticeably different brightness in one than the other. Assigning the
+        // otherwise-already-default value is what actually pins it.
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
         // Shadow maps are the single most expensive thing here on a mobile GPU.
         // The analytic ring and moon shadows are shader maths and stay on.
         renderer.shadowMap.enabled = q.shadows;
@@ -443,6 +452,9 @@ const SolarSystem3D = ({
 
         loader.load(texturePath('sun.jpg'), (tex) => {
             if (!mounted) { tex.dispose(); return; }
+            // An ordinary sRGB photo, same as every other body's map — see the
+            // sky sphere below for why this needs tagging explicitly.
+            tex.colorSpace = THREE.SRGBColorSpace;
             textures.push(tex);
             sunMat.map   = tex;
             sunMat.color.set(0xffffff);
@@ -689,6 +701,7 @@ const SolarSystem3D = ({
                     texturePath(`${planet.id}.jpg`),
                     (tex) => {
                         if (!mounted) { tex.dispose(); return; }
+                        tex.colorSpace = THREE.SRGBColorSpace;
                         textures.push(tex);
                         const texMat = new THREE.MeshStandardMaterial({
                             map:       tex,
@@ -780,6 +793,7 @@ const SolarSystem3D = ({
                     texturePath('saturn_ring.png'),
                     (tex) => {
                         if (!mounted) { tex.dispose(); return; }
+                        tex.colorSpace = THREE.SRGBColorSpace;
                         textures.push(tex);
                         sRingMat.map = tex;
                         sRingMat.needsUpdate = true;
@@ -1675,6 +1689,7 @@ const SolarSystem3D = ({
             if (moon.id && MOON_TEXTURES[moon.id]) {
                 loader.load(texturePath(MOON_TEXTURES[moon.id]), (tex) => {
                     if (!mounted) { tex.dispose(); return; }
+                    tex.colorSpace = THREE.SRGBColorSpace;
                     textures.push(tex);
                     moonMat.map = tex;
                     moonMat.color.set(0xffffff);

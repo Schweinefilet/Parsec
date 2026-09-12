@@ -16,6 +16,27 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.6.6
+
+- **The Sun, planets, moons and Saturn's rings were washed out — worse in
+  Chrome than Safari.** Two gaps in the same family as the Milky Way brightness
+  split fixed back in 4.4.1, just never pulled for anything besides the sky:
+  the renderer never explicitly assigned `outputColorSpace`, which is the only
+  thing that actually pins the canvas's drawing-buffer colour space — Chrome
+  and Safari can (and did) disagree on the unset default, especially on a
+  wide-gamut display, shifting the *entire* scene's brightness against itself
+  between browsers; and every real photographic texture (`sun.jpg`, each
+  planet's map, `saturn_ring.png`, the moons) loaded untagged, so three.js
+  decoded the bytes as already-linear and re-encoded them again on output —
+  a double gamma pass that reads as pale and flat everywhere, not just on the
+  one body a complaint happened to name. Both are now set explicitly. Left
+  alone: Earth's day/night/clouds shader, which samples its textures directly
+  in custom GLSL rather than through three's material pipeline and would need
+  its own compensating decode if tagged — a separate, riskier change than this
+  one, and Earth wasn't reported as part of the problem.
+
+---
+
 ## 4.6.5
 
 - **`/favicon.ico` was serving the app shell, not an icon.** With no file at
