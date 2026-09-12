@@ -1,9 +1,25 @@
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, MapPin, Eye } from 'lucide-react';
 import NightSky3D from '../components/NightSky3D';
+import NightSkyPanel from '../components/NightSkyPanel';
 import TimeControl from '../components/TimeControl';
+import CoachMark from '../components/CoachMark';
 import { useObserverLocation } from '../hooks/useObserverLocation';
 import { useI18n } from '../i18n';
+
+// Full bleed out of AppShell's centred <main> (max-w-7xl mx-auto — 1280px on
+// a wide screen, with the rest split as equal margins). Both margins, not
+// just the leading one: with a width and a single margin set, the box is
+// over-constrained and CSS resolves that by discarding the *end* margin —
+// the trailing one in English, the leading one in Arabic — so a single
+// margin-inline-start looks right in one direction and slides the whole
+// scene off the edge in the other. Exactly CategoryBrowser.jsx's own fix for
+// its full-bleed 3D viewport, for the same reason.
+const FULL_BLEED = {
+    position: 'relative', minHeight: 'var(--app-vh, 100vh)',
+    width: '100vw', marginLeft: 'calc(-50vw + 50%)', marginRight: 'calc(-50vw + 50%)',
+};
 
 /**
  * The night sky, from your location, right now — a full-bleed 3D dome rather
@@ -15,9 +31,51 @@ import { useI18n } from '../i18n';
  * prompt — both read the same utils/useObserverLocation.js.
  */
 const NightSkyPage = () => {
-    const { t } = useI18n();
+    const { t, rtl } = useI18n();
     const navigate = useNavigate();
     const { location, error, asking, request } = useObserverLocation();
+
+    // First-visit hint pointing at the settings drawer — its own flag, not
+    // the solar-system scene's `p4rsec.coach`: having seen that one doesn't
+    // mean you've seen this page's different drawer.
+    const [coachSeen, setCoachSeen] = useState(() => {
+        try { return window.localStorage.getItem('p4rsec.coachSky') === '1'; } catch { return true; }
+    });
+    const [coachArmed, setCoachArmed] = useState(false);
+    const [coachRect, setCoachRect] = useState(null);
+    const endCoach = useCallback((persist) => {
+        setCoachSeen(true);
+        if (persist) { try { window.localStorage.setItem('p4rsec.coachSky', '1'); } catch { /* ignore */ } }
+    }, []);
+    const onSettingsOpened = useCallback(() => endCoach(true), [endCoach]);
+
+    useEffect(() => {
+        if (!location || coachSeen) return;
+        const timer = setTimeout(() => setCoachArmed(true), 1300);
+        return () => clearTimeout(timer);
+    }, [location, coachSeen]);
+
+    const showCoach = coachArmed && !coachSeen;
+
+    useEffect(() => {
+        if (!showCoach) return;
+        const measure = () => {
+            const el = document.querySelector('[data-coach="tab"]');
+            if (el) setCoachRect(el.getBoundingClientRect());
+        };
+        measure();
+        const raf = requestAnimationFrame(measure);
+        window.addEventListener('resize', measure);
+        return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', measure); };
+    }, [showCoach]);
+
+    // A miss doesn't mark it seen — the next visit gets another chance,
+    // same convention as the solar-system scene's own coach marks.
+    useEffect(() => {
+        if (!showCoach) return;
+        const timer = setTimeout(() => endCoach(false), 8000);
+        return () => clearTimeout(timer);
+    }, [showCoach, endCoach]);
 
     const backButton = (
         <button
@@ -41,7 +99,7 @@ const NightSkyPage = () => {
 
     if (!location) {
         return (
-            <div style={{ position: 'relative', minHeight: 'var(--app-vh, 100vh)' }}>
+            <div style={FULL_BLEED}>
                 {backButton}
                 <div style={{
                     position: 'absolute', inset: 0, display: 'flex',
@@ -80,13 +138,27 @@ const NightSkyPage = () => {
     }
 
     return (
-        <div style={{ position: 'relative', minHeight: 'var(--app-vh, 100vh)' }}>
+        <div style={FULL_BLEED}>
             {backButton}
             <NightSky3D location={location} />
+            <NightSkyPanel onOpen={onSettingsOpened} />
             {/* The same clock TimeControl scrubs on the solar-system page —
                 utils/simTime.js is a site-wide singleton, not scoped to a
                 route, so a date set here is still set there and back. */}
             <TimeControl />
+            {showCoach && coachRect && (
+                <CoachMark
+                    text={t('nightSky.hintSettings')}
+                    arrow={rtl ? 'right' : 'left'}
+                    onDismiss={() => endCoach(true)}
+                    style={{
+                        left: rtl ? coachRect.left - 12 : coachRect.right + 12,
+                        top: coachRect.top + coachRect.height / 2,
+                        transform: rtl ? 'translate(-100%, -50%)' : 'translateY(-50%)',
+                        maxWidth: 190,
+                    }}
+                />
+            )}
             <p
                 style={{
                     position: 'absolute', bottom: 10, insetInline: 0, zIndex: 5,

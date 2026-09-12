@@ -331,6 +331,7 @@ export const ar = {
         updateLocation: 'حدّث الموقع',
         forget: 'انسَ الموقع',
         trackSatellite: 'تتبّع قمرًا صناعيًا',
+        seeIn3d: 'شاهد السماء بتقنية ثلاثية الأبعاد',
         skyAria: 'خريطة السماء: {count} جرمًا فوق الأفق',
         nothingUp: 'لا شيء فوق أفقك الآن',
         countUp: '{count} فوق الأفق · الشريط هو المشهد كاملًا حول الأفق،'
@@ -363,6 +364,13 @@ export const ar = {
         asking: 'يجري تحديد الموقع…',
         useLocation: 'استخدم موقعي',
         credit: 'بيانات النجوم: HYG Database (CC BY-SA). خطوط الكوكبات: Stellarium (CC BY-SA).',
+        settings: 'إعدادات السماء',
+        settingsClose: 'أغلق إعدادات السماء',
+        lookNorth: 'انظر نحو الشمال',
+        lines: 'خطوط الكوكبات',
+        twinkle: 'التلألؤ',
+        starDensity: 'كثافة النجوم',
+        hintSettings: 'الخطوط والتلألؤ وعتمة السماء',
     },
 
     sky: {

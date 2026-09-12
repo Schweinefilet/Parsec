@@ -8,6 +8,7 @@ import {
     getAzimuth, getAltitude, nudgeLookDirection, subscribeLook,
 } from '../utils/skyRotation';
 import { simNow } from '../utils/simTime';
+import { getNightSkySettings } from '../utils/nightSkySettings';
 import { SKY_BODIES } from '../utils/skyPositions';
 import { PLANETS } from '../data/solarSystemBodies';
 import { useReducedMotion } from '../hooks/useMediaQuery';
@@ -51,10 +52,12 @@ const FOV_DEFAULT = 55;
 const STAR_VERTEX_SHADER = /* glsl */`
     attribute float aMag;
     attribute float aCi;
+    attribute float aIndex;
     uniform mat3 uRot;
     uniform float uPixelRatio;
     uniform float uTwinkle;
     uniform float uTime;
+    uniform float uMaxIndex;
     varying float vAlpha;
     varying float vCi;
 
@@ -62,6 +65,19 @@ const STAR_VERTEX_SHADER = /* glsl */`
         vec3 rotated = uRot * position;
         vec4 mvPosition = modelViewMatrix * vec4(rotated, 1.0);
         gl_Position = projectionMatrix * mvPosition;
+
+        // The catalog is brightest-first (see build-sky-catalog.mjs), so the
+        // "how much light pollution" slider is just a moving cutoff on this
+        // per-vertex index — turning it down never changes *which* stars are
+        // visible, only how many, dimmest first. A vertex shader can't
+        // discard, so a star past the cutoff gets a zero point size instead,
+        // which rasterizes nothing.
+        if (aIndex >= uMaxIndex) {
+            gl_PointSize = 0.0;
+            vAlpha = 0.0;
+            vCi = aCi;
+            return;
+        }
 
         float flux = pow(2.512, -aMag);
         float size = clamp(sqrt(flux) * 2.6, 1.4, 7.0) * uPixelRatio;
@@ -385,6 +401,9 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
         const mats = [groundMat, bodyMat];
         let starPoints = null;
         let starMat = null;
+        let starCount = 0;
+        let mainLinesMesh = null;
+        let thinLinesMesh = null;
         // { el, anchor: Vector3, iau, native } — anchor stays fixed (EQJ);
         // only its projection and the label text (on a locale change) update.
         let constellationLabels = [];
@@ -422,21 +441,25 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
             // Brightest-first (see build-sky-catalog.mjs), so the tier count is
             // a plain slice — no runtime sort.
             const shown = stars.slice(0, q.nightSkyStars);
+            starCount = shown.length;
             const positions = new Float32Array(shown.length * 3);
             const mags = new Float32Array(shown.length);
             const cis = new Float32Array(shown.length);
+            const indices = new Float32Array(shown.length);
             const v = new THREE.Vector3();
             shown.forEach((s, i) => {
                 eqjFromRaDec(s[0], s[1], v);
                 positions[i * 3] = v.x; positions[i * 3 + 1] = v.y; positions[i * 3 + 2] = v.z;
                 mags[i] = s[2];
                 cis[i] = s[8] ?? 0.6; // the Sun's own B-V, a reasonable default for unknowns
+                indices[i] = i;
             });
 
             const starGeo = new THREE.BufferGeometry();
             starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             starGeo.setAttribute('aMag', new THREE.BufferAttribute(mags, 1));
             starGeo.setAttribute('aCi', new THREE.BufferAttribute(cis, 1));
+            starGeo.setAttribute('aIndex', new THREE.BufferAttribute(indices, 1));
             starMat = new THREE.ShaderMaterial({
                 vertexShader: STAR_VERTEX_SHADER,
                 fragmentShader: STAR_FRAGMENT_SHADER,
@@ -446,6 +469,7 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
                     uTwinkle: { value: (q.nightSkyTwinkle && !reducedMotionRef.current) ? 1 : 0 },
                     uTime: { value: 0 },
                     uOpacity: { value: 1 },
+                    uMaxIndex: { value: starCount * getNightSkySettings().density },
                 },
                 transparent: true,
                 depthWrite: false,
@@ -490,8 +514,10 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
                     mats.push(mat);
                     return mesh;
                 };
-                makeLineMesh(concat(mainSegs), 0.32);
-                makeLineMesh(concat(thinSegs), 0.16);
+                mainLinesMesh = makeLineMesh(concat(mainSegs), 0.32);
+                thinLinesMesh = makeLineMesh(concat(thinSegs), 0.16);
+                mainLinesMesh.visible = getNightSkySettings().linesVisible;
+                thinLinesMesh.visible = getNightSkySettings().linesVisible;
             }
 
             iauByLower = new Map(constellations.map(([iau]) => [iau.toLowerCase(), iau]));
@@ -718,7 +744,17 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
                     placeLabel(bodyLabelEls[i], _bodyPos, true, true);
                 });
             }
-            if (starMat) starMat.uniforms.uTime.value = clock.getElapsedTime();
+            const settings = getNightSkySettings();
+            if (starMat) {
+                starMat.uniforms.uTime.value = clock.getElapsedTime();
+                starMat.uniforms.uMaxIndex.value = starCount * settings.density;
+                starMat.uniforms.uTwinkle.value =
+                    (q.nightSkyTwinkle && settings.twinkle && !reducedMotionRef.current) ? 1 : 0;
+            }
+            if (mainLinesMesh) {
+                mainLinesMesh.visible = settings.linesVisible;
+                thinLinesMesh.visible = settings.linesVisible;
+            }
 
             for (const l of constellationLabels) placeLabel(l.el, l.anchor, false);
             updateCrosshair();

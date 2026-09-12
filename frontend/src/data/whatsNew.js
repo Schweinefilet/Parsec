@@ -12,6 +12,14 @@
 
 export const WHATS_NEW = [
     {
+        version: '4.9',
+        changes: [
+            'The night sky view has a settings drawer now: turn constellation lines or twinkle on and off, and dial the star density up or down.',
+            'A "Look north" button snaps the view back to where it started.',
+            'A "See the sky in 3D" link on the Tonight page takes you straight into the night-sky view.',
+        ],
+    },
+    {
         version: '4.8',
         changes: [
             'The night sky now shows the Sun, Moon and planets too, and moves with the same clock you scrub the solar system with.',

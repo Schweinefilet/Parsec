@@ -479,6 +479,39 @@ names are translated (`i18n/catalog/constellations.{ar,vi}.js`, keyed by
 IAU code rather than by name — a name isn't a stable key across three
 languages the way "Ori" is); star and planet proper names are not, yet.
 
+**Phase 3 (4.9.0) is polish, not new astronomy:** a `ScenePanel`-style
+settings drawer (`NightSkyPanel.jsx`, mirroring the solar-system scene's own
+edge drawer down to the CSS) with three controls — constellation lines
+on/off, twinkle on/off, and a star-density slider that re-slices the
+already-loaded, magnitude-sorted catalog client-side (no new data, no
+network cost) — all three backed by a `utils/nightSkySettings.js` singleton
+persisted to `localStorage`, read once a frame the same way `vizMode.js` is.
+A "Look north" button resets the view to `skyRotation.js`'s own
+`DEFAULT_AZIMUTH`/`DEFAULT_ALTITUDE` constants. A first-visit `CoachMark`
+points at the drawer's closed tab, its own `p4rsec.coachSky` flag —
+independent of the solar-system scene's `p4rsec.coach` — because having
+seen one scene's hint says nothing about the other's different drawer.
+`/tonight` gained a CTA into `/sky` for the visitor who wants the immersive
+version of the same answer. A dim Milky Way band and a tap-a-star info card
+were both in the original plan's "polish" list and are deliberately still
+not built: the band needs a texture asset and a light-pollution-aware blend
+that's easy to get looking cheap rather than atmospheric, and a real info
+card needs per-star facts this catalog doesn't carry yet (HYG's
+`proper`/`bayer`/`ci` alone make a thin card) — better as their own
+follow-up than rushed into this release.
+
+One `AppShell` layout bug surfaced while building this phase, worth
+remembering for any future full-bleed route: `AppShell.jsx`'s `<main>` is
+`max-w-7xl mx-auto`, centering page content at up to 1280px — a scene meant
+to fill the viewport edge-to-edge needs to opt back out with `width: 100vw`
+plus **both** `marginLeft` and `marginRight` set to `calc(-50vw + 50%)`
+(not just the leading one, which over-constrains the box and gets its
+trailing margin silently discarded, on the wrong side depending on
+LTR/RTL). `CategoryBrowser.jsx` had already solved this once;
+`NightSkyPage.jsx`'s `FULL_BLEED` constant is the same fix applied a second
+time rather than rediscovered — worth pulling into a shared helper if a
+third full-bleed route ever shows up.
+
 ### Compare
 
 `/compare?a=jupiter&b=earth` puts two bodies side by side at true relative

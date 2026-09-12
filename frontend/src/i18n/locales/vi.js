@@ -303,6 +303,7 @@ export const vi = {
         updateLocation: 'Cập nhật vị trí',
         forget: 'Quên đi',
         trackSatellite: 'Theo dõi một vệ tinh',
+        seeIn3d: 'Xem bầu trời trong không gian 3D',
         skyAria: 'Bản đồ bầu trời: {count} thiên thể trên chân trời',
         nothingUp: 'Hiện không có gì trên chân trời của bạn',
         countUp: '{count} thiên thể trên chân trời · thanh này là toàn cảnh vòng quanh,'
@@ -335,6 +336,13 @@ export const vi = {
         asking: 'Đang định vị…',
         useLocation: 'Dùng vị trí của tôi',
         credit: 'Dữ liệu sao: HYG Database (CC BY-SA). Đường nối chòm sao: Stellarium (CC BY-SA).',
+        settings: 'Cài đặt bầu trời',
+        settingsClose: 'Đóng cài đặt bầu trời',
+        lookNorth: 'Nhìn về hướng bắc',
+        lines: 'Đường nối chòm sao',
+        twinkle: 'Lấp lánh',
+        starDensity: 'Mật độ sao',
+        hintSettings: 'Đường nối, lấp lánh và độ tối bầu trời',
     },
 
     sky: {

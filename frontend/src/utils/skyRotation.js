@@ -55,8 +55,12 @@ import * as THREE from 'three';
 const ALT_MIN = -10;
 const ALT_MAX = 90;
 
-let azimuth = 0;     // degrees, compass convention: 0 = north, 90 = east
-let altitude = 15;   // degrees above the horizon
+/** Where the view starts, and what "Look north" (NightSkyPanel.jsx) returns to. */
+export const DEFAULT_AZIMUTH = 0;
+export const DEFAULT_ALTITUDE = 15;
+
+let azimuth = DEFAULT_AZIMUTH; // degrees, compass convention: 0 = north, 90 = east
+let altitude = DEFAULT_ALTITUDE; // degrees above the horizon
 
 const rotMatrix = new THREE.Matrix3();
 let rotationReady = false;
@@ -122,8 +126,8 @@ export function subscribeLook(fn) {
 
 /** Test seam. */
 export function __resetSkyRotation() {
-    azimuth = 0;
-    altitude = 15;
+    azimuth = DEFAULT_AZIMUTH;
+    altitude = DEFAULT_ALTITUDE;
     rotMatrix.identity();
     rotationReady = false;
     listeners.clear();

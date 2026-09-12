@@ -511,6 +511,19 @@ const TonightPage = () => {
                                 {t('tonight.trackSatellite')}
                                 <ArrowUpRight className="flip-rtl" style={{ width: 14, height: 14 }} />
                             </button>
+                            <button
+                                onClick={() => navigate('/sky')}
+                                className="flex items-center gap-1.5 rounded-xl font-bold focus-ring"
+                                style={{
+                                    padding: '9px 14px', fontSize: '0.8rem',
+                                    background: 'rgba(255,209,102,0.14)',
+                                    border: '1px solid rgba(255,209,102,0.28)',
+                                    color: '#ffd166', cursor: 'pointer',
+                                }}
+                            >
+                                {t('tonight.seeIn3d')}
+                                <ArrowUpRight className="flip-rtl" style={{ width: 14, height: 14 }} />
+                            </button>
                         </div>
 
                         <p style={{ marginTop: 14, fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center' }}>

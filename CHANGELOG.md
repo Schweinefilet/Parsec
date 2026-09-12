@@ -16,6 +16,54 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.9.0
+
+- **The night sky gets a settings drawer, a way home, and a first-visit
+  hint.** Phase 3 of `/sky`, closing out the plan 4.7.0 opened: a
+  `ScenePanel`-style edge drawer (`NightSkyPanel.jsx`, the same drawer the
+  solar-system scene already uses, down to the CSS) holding three controls
+  — constellation lines on/off, twinkle on/off, and a star-density slider —
+  all backed by a new `utils/nightSkySettings.js` singleton, persisted to
+  `localStorage` and read once a frame the way every other render-loop
+  toggle in this codebase is. Density costs nothing extra to compute: it
+  re-slices the catalog that's already loaded and already magnitude-sorted,
+  client-side, no new data and no network round-trip.
+
+  - A **"Look north" button** resets the view to `skyRotation.js`'s own
+    default azimuth/altitude — verified pixel-for-pixel against the scene's
+    own fresh-load framing, not just "looks about right."
+  - A **first-visit `CoachMark`** points at the drawer's closed tab, its
+    own `p4rsec.coachSky` flag rather than the solar-system scene's
+    `p4rsec.coach` — seeing one scene's hint says nothing about having seen
+    this one's different drawer.
+  - `/tonight` gained a "See the sky in 3D" CTA into `/sky`, closing the
+    loop the plan asked for between the flat readout and the immersive
+    scene.
+  - **A real layout bug, caught and fixed:** `AppShell.jsx`'s `<main>`
+    centres page content at up to 1280px wide, which was quietly shifting
+    the *entire* `/sky` page — the back button, the drawer, everything —
+    about 80px off the true edge since Phase 1 shipped, not just something
+    Phase 3 introduced. `CategoryBrowser.jsx` had already solved this exact
+    problem for its own full-bleed viewport; `NightSkyPage.jsx` now uses
+    the same fix (`width: 100vw` plus *both* margins set to
+    `calc(-50vw + 50%)`, not just one — a single margin over-constrains the
+    box and CSS silently drops the trailing one, on the wrong side
+    depending on LTR/RTL).
+  - A dim Milky Way band and a tap-a-star info card were both on the
+    original plan's Phase 3 polish list and are deliberately **not** in
+    this release: the band needs an actual texture asset and a
+    light-pollution-aware blend worth doing properly rather than looking
+    cheap, and a real info card needs per-star facts this catalog doesn't
+    carry yet. Both are a cleaner follow-up than a rushed version of
+    either here.
+
+  This closes the `/sky` feature's three-phase plan: real stars and
+  constellations at your real location (4.7.0), the real clock and the Sun,
+  Moon and planets sharing the dome (4.8.0), and now the controls to make
+  it comfortable to actually live in (4.9.0).
+
+---
+
 ## 4.8.0
 
 - **The night sky knows the time, the planets, and what you're looking at.**

@@ -298,6 +298,7 @@ export const en = {
         updateLocation: 'Update location',
         forget: 'Forget it',
         trackSatellite: 'Track a satellite',
+        seeIn3d: 'See the sky in 3D',
         skyAria: 'Sky chart: {count} bodies above the horizon',
         nothingUp: 'Nothing above your horizon right now',
         countUp: '{count} above the horizon · the bar is the view all the way round,'
@@ -333,6 +334,13 @@ export const en = {
         asking: 'Locating…',
         useLocation: 'Use my location',
         credit: 'Star data: HYG Database (CC BY-SA). Constellation lines: Stellarium (CC BY-SA).',
+        settings: 'Sky settings',
+        settingsClose: 'Close sky settings',
+        lookNorth: 'Look north',
+        lines: 'Constellation lines',
+        twinkle: 'Twinkle',
+        starDensity: 'Star density',
+        hintSettings: 'Lines, twinkle and sky darkness',
     },
 
     sky: {
