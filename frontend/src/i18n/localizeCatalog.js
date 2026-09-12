@@ -269,6 +269,17 @@ export function countryName(name, code) {
     return CATALOGS[code]?.countries?.[name] ?? name;
 }
 
+/**
+ * A constellation's name, given its IAU three-letter code (the stable id
+ * both the star catalog and Astronomy.Constellation() use) and the Latin
+ * name to fall back to. Keyed by code rather than by name, unlike
+ * countryName() above — a name is not a stable key across languages the way
+ * "Ori" is, and English needs no table of its own: Latin *is* its name.
+ */
+export function constellationName(iau, fallback, code) {
+    return CATALOGS[code]?.constellations?.[iau] ?? fallback;
+}
+
 /** Stat labels and section names on their own, for the compare page. */
 export function statLabel(label, code) {
     return CATALOGS[code]?.statLabels?.[label] ?? label;

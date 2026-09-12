@@ -16,6 +16,49 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.8.0
+
+- **The night sky knows the time, the planets, and what you're looking at.**
+  Phase 2 of `/sky`, on the foundation 4.7.0 laid: the same clock
+  `TimeControl` scrubs on the solar-system page now turns this sky too —
+  `utils/simTime.js` is one singleton, not scoped to a route, so winding
+  time back there winds the stars back here — and the Sun, Moon and the
+  seven other planets now share the dome as small colour-coded points,
+  positioned the same way `/tonight`'s own alt-az readout is, labelled the
+  same way the constellations are.
+
+  - **88 translated constellation names**, Arabic and Vietnamese, sourced
+    and cross-checked against ar.wikipedia.org and vi.wikipedia.org's own
+    constellation lists rather than guessed — six of them (the ones this
+    site already had occasion to translate, as "which constellation is
+    this galaxy in" labels elsewhere in the catalog) checked to match what
+    was already shipped, so the same constellation reads the same word
+    everywhere on the site. Keyed by IAU code, not by name — a name isn't a
+    stable key across three languages the way "Ori" is.
+  - **"What am I looking at"**, top and centre: `Astronomy.Constellation()`,
+    the official IAU boundary lookup, fed the camera's own look direction
+    converted back to sky coordinates via the inverse — the transpose, for
+    a pure rotation — of the same matrix the stars turn by. No new data for
+    this at all.
+  - Constellation and body names are plain DOM nodes, positioned
+    imperatively every frame exactly the way `SolarSystem3D.jsx`'s own
+    planet and moon labels are, not React state — decluttered the same
+    way too, dropping whichever label loses a spot already taken.
+  - Caught two real bugs building this, both worth naming: `simNow()`
+    returns a raw millisecond number by design (so a 60Hz loop isn't
+    forced to allocate a Date every frame it doesn't need one), and passing
+    that number straight to `astronomy-engine` where a `Date` belongs
+    produced a wonderfully specific crash — `Object is too distant for
+    light-travel solver` — instead of merely wrong output. And the
+    Sun/Moon/planet markers rendered nothing at all, from any angle, at
+    any size, because their geometry's bounding sphere was computed once
+    from an all-zero initial position buffer and never recomputed as the
+    real positions came in every frame after — a stale zero-radius sphere
+    sitting exactly on the camera, silently frustum-culling nine points
+    forever. `frustumCulled = false` on nine points costs nothing.
+
+---
+
 ## 4.7.1
 
 - **README caught up to `/sky`.** A new "The night sky" section (the

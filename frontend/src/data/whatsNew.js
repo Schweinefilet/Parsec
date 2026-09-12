@@ -12,6 +12,14 @@
 
 export const WHATS_NEW = [
     {
+        version: '4.8',
+        changes: [
+            'The night sky now shows the Sun, Moon and planets too, and moves with the same clock you scrub the solar system with.',
+            'A small readout names whichever constellation you’re facing.',
+            'The 88 constellation names are translated into Arabic and Vietnamese.',
+        ],
+    },
+    {
         version: '4.7',
         changes: [
             'A new night-sky view: real stars and the traditional constellation figures, oriented to your own location, right now. Find it behind the star icon in the header. Drag to look around, scroll to zoom.',

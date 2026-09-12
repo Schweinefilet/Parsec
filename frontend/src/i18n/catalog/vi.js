@@ -22,12 +22,15 @@
 // before "Velocity" and "S-Type" before "Type".
 
 import { countries } from './countries.vi';
+import { constellations } from './constellations.vi';
 
 export const vi = {
     intl: 'vi',
     // 240 of them, in their own file — see countries.vi.js. Bundled into this
     // chunk rather than the tracker's, so the lookup stays synchronous.
     countries,
+    // The 88 IAU constellations, in their own file — see constellations.vi.js.
+    constellations,
     // "April 13, 2029" reads "13 tháng 4 2029".
     dayFirstDates: true,
     // No `rtl`: Vietnamese is left-to-right, so signed numbers need no bidi

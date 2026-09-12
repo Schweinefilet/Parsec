@@ -94,6 +94,30 @@ describe('the EQJ -> scene rotation', () => {
         }
     }
 
+    it("inverts cleanly via its own transpose — what NightSky3D's crosshair " +
+        "readout relies on to turn a look direction back into a sky " +
+        "coordinate", () => {
+        // A rotation matrix's inverse is its transpose; this is the one
+        // property the "what am I looking at" feature depends on (recovering
+        // EQJ RA/Dec from a scene-space look direction, to hand to
+        // Astronomy.Constellation()) and it is worth pinning on its own
+        // rather than trusting linear algebra folklore.
+        for (const obs of OBSERVERS) {
+            const observer = new Astronomy.Observer(obs.lat, obs.lon, 0);
+            updateSkyRotation(DATES[0], observer);
+            const rot = getSkyRotation();
+            const inv = rot.clone().transpose();
+
+            for (const star of STARS) {
+                const original = eqjVector(star.ra, star.dec);
+                const roundTrip = original.clone().applyMatrix3(rot).applyMatrix3(inv);
+                expect(roundTrip.x).toBeCloseTo(original.x, 9);
+                expect(roundTrip.y).toBeCloseTo(original.y, 9);
+                expect(roundTrip.z).toBeCloseTo(original.z, 9);
+            }
+        }
+    });
+
     it("keeps Polaris within a degree of the observer's own latitude, at any longitude or date", () => {
         for (const obs of OBSERVERS) {
             for (const date of DATES) {

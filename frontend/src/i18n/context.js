@@ -52,6 +52,7 @@ function fallback() {
             categoryBadge: (id) => id.replace(/-/g, ' '),
             bodyName: (n) => n,
             countryName: (n) => n,
+            constellationName: (iau, fallback) => fallback,
             assetLabel: (n) => n,
             statLabel: (l) => l,
             sectionLabel: (s) => s,

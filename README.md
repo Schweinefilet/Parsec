@@ -441,6 +441,44 @@ Sun's real current altitude through the same twilight boundaries
 `skyPositions.js` uses, so the two pages always agree about where night
 begins.
 
+**Time is `utils/simTime.js`** — the same singleton `TimeControl` scrubs on
+the solar-system page, not a clock of this scene's own, so the two pages
+stay in lock-step with each other with no wiring between them. Watch out for
+the difference between `simNow()` (a raw millisecond number, by design — a
+60Hz loop should not allocate a `Date` it doesn't need) and `simDate()`;
+`astronomy-engine` wants an actual `Date`, and handing it the wrong one
+doesn't fail quietly — it throws deep inside the library ("Object is too
+distant for light-travel solver") on a value that looks, superficially nowhere
+near a `Date`, like it should have worked.
+
+**The Sun, Moon and planets** share the dome as a second, much smaller
+`THREE.Points` object — nine bodies, each its own `Astronomy.Equator()` +
+`Astronomy.Horizon()` call every third frame (real ephemeris work, and
+nothing up there moves fast enough for 20 Hz to read as anything but
+smooth), positioned directly in scene space rather than through the star
+field's shared rotation matrix, since there's no batching win to chase at
+that count. Whatever you touch here, remember `Points.frustumCulled`
+defaults to `true` and a moving-geometry buffer's `boundingSphere` is
+computed once, lazily, from whatever the position buffer held at that first
+draw — for a buffer that starts at all zeros and is mutated in place every
+frame after, that is a zero-radius sphere sitting exactly on the camera,
+forever, silently culling the whole object regardless of what the shader
+would have drawn. Set `frustumCulled = false` rather than fight it for nine
+points.
+
+**Labels and the crosshair** are plain DOM nodes, positioned imperatively
+every frame — the same technique and the same reasoning as
+`SolarSystem3D.jsx`'s planet and moon labels, not React state, and
+decluttered the same way (drop whichever label loses a spot already
+taken). "What am I looking at", the small readout at the top, is
+`Astronomy.Constellation()` — the official IAU boundary lookup, already
+inside `astronomy-engine` — fed the camera's own look direction converted
+back into a sky coordinate via the inverse of the star field's rotation
+matrix, which for a pure rotation is just its transpose. Constellation
+names are translated (`i18n/catalog/constellations.{ar,vi}.js`, keyed by
+IAU code rather than by name — a name isn't a stable key across three
+languages the way "Ori" is); star and planet proper names are not, yet.
+
 ### Compare
 
 `/compare?a=jupiter&b=earth` puts two bodies side by side at true relative

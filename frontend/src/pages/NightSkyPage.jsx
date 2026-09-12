@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, MapPin, Eye } from 'lucide-react';
 import NightSky3D from '../components/NightSky3D';
+import TimeControl from '../components/TimeControl';
 import { useObserverLocation } from '../hooks/useObserverLocation';
 import { useI18n } from '../i18n';
 
@@ -82,6 +83,10 @@ const NightSkyPage = () => {
         <div style={{ position: 'relative', minHeight: 'var(--app-vh, 100vh)' }}>
             {backButton}
             <NightSky3D location={location} />
+            {/* The same clock TimeControl scrubs on the solar-system page —
+                utils/simTime.js is a site-wide singleton, not scoped to a
+                route, so a date set here is still set there and back. */}
+            <TimeControl />
             <p
                 style={{
                     position: 'absolute', bottom: 10, insetInline: 0, zIndex: 5,
