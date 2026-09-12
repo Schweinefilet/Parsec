@@ -345,7 +345,7 @@ export const en = {
         compassAltitude: 'Altitude',
         compassRoll: 'Roll',
         constellationStars: { one: '{count} star in view', other: '{count} stars in view' },
-        constellationBrightest: 'Brightest: {name}',
+        constellationNamedStars: 'Named stars: {names}',
         constellationInfoClose: 'Close',
     },
 

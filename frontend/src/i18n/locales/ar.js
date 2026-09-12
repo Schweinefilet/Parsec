@@ -382,7 +382,7 @@ export const ar = {
             many: '{count} نجمًا',
             other: '{count} نجم',
         },
-        constellationBrightest: 'ألمع نجم: {name}',
+        constellationNamedStars: 'النجوم المسمّاة: {names}',
         constellationInfoClose: 'أغلق معلومات الكوكبة',
     },
 

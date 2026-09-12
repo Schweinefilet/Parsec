@@ -224,6 +224,16 @@ const SolarSystem3D = ({
         let skyDiveProgress  = 0;
         let skyTurnAnimating = false;
         let skyTurnProgress  = 0;
+        // True for the gap between the turn finishing and the route actually
+        // changing (the curtain's fade-in + hold, SkyEntryCurtain.jsx's
+        // FADE_MS + HOLD_MS). Once skyTurnAnimating drops there is nothing
+        // left overriding the camera, so the very next frame OrbitControls'
+        // own update() reclaims it — its minDistance is still the ordinary
+        // "planet in frame" one, so it snaps the camera straight back out to
+        // a wide Earth view for that whole gap before the curtain is opaque
+        // enough to hide it. Holding position/quaternion fixed here is what
+        // stops that.
+        let skyHolding = false;
         const skyStartCamPos = new THREE.Vector3();
         const skyStartQuat   = new THREE.Quaternion();
         const skyEndQuat     = new THREE.Quaternion();
@@ -234,6 +244,9 @@ const SolarSystem3D = ({
         const skyCamPoint    = new THREE.Vector3();
         const skyLookMat     = new THREE.Matrix4();
         const skyEarthQuat   = new THREE.Quaternion();
+        const skyHoldCamPos  = new THREE.Vector3();
+        const skyHoldQuat    = new THREE.Quaternion();
+        const skyHoldTarget  = new THREE.Vector3();
 
         // ── Chase-camera state ────────────────────────────────────────────────
         // OrbitControls pins the camera in world space, so when the focused
@@ -2991,13 +3004,30 @@ const SolarSystem3D = ({
             // for the duration (see the self-rotation block above), so in
             // practice this is a still target, but nothing here depends on
             // having caught it at exactly the right frame to be one.
-            if ((skyDiveAnimating || skyTurnAnimating) && earthMesh) {
-                if (isInteracting) {
+            if ((skyDiveAnimating || skyTurnAnimating || skyHolding) && earthMesh) {
+                if (skyHolding) {
+                    // Nothing left to compute — just keep re-asserting the
+                    // exact frame the turn (or an abort, below) ended on, so
+                    // OrbitControls' own update() — which just ran, above,
+                    // with its ordinary "planet in frame" minDistance — never
+                    // gets the last word and snaps the camera back out to a
+                    // wide Earth view for the curtain's fade-in to cover.
+                    camera.position.copy(skyHoldCamPos);
+                    camera.quaternion.copy(skyHoldQuat);
+                    controls.target.copy(skyHoldTarget);
+                } else if (isInteracting) {
                     // Grabbed control mid-flight — drop the polish, keep the
                     // destination: still land on /sky, just without the rest
                     // of the choreography fighting the user for the camera.
+                    // Hold from exactly here rather than releasing straight
+                    // to OrbitControls, for the same reason a completed turn
+                    // holds instead of releasing.
                     skyDiveAnimating = false;
                     skyTurnAnimating = false;
+                    skyHolding = true;
+                    skyHoldCamPos.copy(camera.position);
+                    skyHoldQuat.copy(camera.quaternion);
+                    skyHoldTarget.copy(controls.target);
                     setSkyEntryPhase(CURTAIN);
                 } else {
                     const obs = getSkyEntryObserver();
@@ -3059,6 +3089,10 @@ const SolarSystem3D = ({
                         controls.target.copy(skyGroundPos);
                         if (skyTurnProgress >= 1) {
                             skyTurnAnimating = false;
+                            skyHolding = true;
+                            skyHoldCamPos.copy(camera.position);
+                            skyHoldQuat.copy(camera.quaternion);
+                            skyHoldTarget.copy(skyGroundPos);
                             setSkyEntryPhase(CURTAIN);
                         }
                     }

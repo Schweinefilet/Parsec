@@ -347,7 +347,7 @@ export const vi = {
         compassAltitude: 'Độ cao',
         compassRoll: 'Nghiêng',
         constellationStars: { other: '{count} sao' },
-        constellationBrightest: 'Sao sáng nhất: {name}',
+        constellationNamedStars: 'Các sao có tên: {names}',
         constellationInfoClose: 'Đóng thông tin chòm sao',
     },
 

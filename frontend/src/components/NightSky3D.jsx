@@ -45,6 +45,20 @@ const FOV_MIN = 25;
 const FOV_MAX = 70;
 const FOV_DEFAULT = 55;
 
+// The constellation info card's star list. Ursa Major alone names fourteen
+// (HYG's proper-name set, not just the Dipper) — capped so the card stays a
+// card rather than growing into a panel.
+const NAMED_STARS_CAP = 8;
+
+/** Locale-aware "A, B and C" — falls back to a plain join if Intl.ListFormat is unavailable. */
+function formatStarList(names, locale) {
+    try {
+        return new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(names);
+    } catch {
+        return names.join(', ');
+    }
+}
+
 // Pogson's ratio: each step of 5 magnitudes is a factor of 100 in flux, so
 // one magnitude is 100^(1/5). Point *area* (not radius) should track flux,
 // which is what makes Sirius (mag -1.4) read as unmistakably brighter than
@@ -53,6 +67,7 @@ const STAR_VERTEX_SHADER = /* glsl */`
     attribute float aMag;
     attribute float aCi;
     attribute float aIndex;
+    attribute float aInFigure;
     uniform mat3 uRot;
     uniform float uPixelRatio;
     uniform float uTwinkle;
@@ -81,6 +96,12 @@ const STAR_VERTEX_SHADER = /* glsl */`
 
         float flux = pow(2.512, -aMag);
         float size = clamp(sqrt(flux) * 2.6, 1.4, 7.0) * uPixelRatio;
+        // A traditional constellation figure's own stars — not the ~150
+        // background stars this catalog happens to file under the same IAU
+        // region (see the info card's own separate "stars in view" count) —
+        // read as 50% brighter, the whole size scaled rather than just the
+        // ceiling raised, so the boost holds at every magnitude alike.
+        if (aInFigure > 0.5) size *= 1.5;
 
         // A star's own per-vertex phase (from its rotated position, so it's
         // stable frame to frame without a second attribute) keeps every star
@@ -398,14 +419,14 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
             '<div class="sky-info-name"></div>',
             '<div class="sky-info-code"></div>',
             '<div class="sky-info-stat sky-info-stars"></div>',
-            '<div class="sky-info-stat sky-info-brightest"></div>',
+            '<div class="sky-info-stat sky-info-named-stars"></div>',
         ].join('');
         labelLayer.appendChild(infoCardEl);
         const infoCloseBtn = infoCardEl.querySelector('.sky-info-close');
         const infoNameEl = infoCardEl.querySelector('.sky-info-name');
         const infoCodeEl = infoCardEl.querySelector('.sky-info-code');
         const infoStarsEl = infoCardEl.querySelector('.sky-info-stars');
-        const infoBrightestEl = infoCardEl.querySelector('.sky-info-brightest');
+        const infoNamedStarsEl = infoCardEl.querySelector('.sky-info-named-stars');
         infoCloseBtn.setAttribute('aria-label', i18nRef.current.t('nightSky.constellationInfoClose'));
         infoCloseBtn.textContent = '×';
         let openIau = null;
@@ -498,6 +519,18 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
         });
         const highlightMesh = new THREE.LineSegments(highlightGeo, highlightMat);
         highlightMesh.visible = false;
+        // Starts with an empty position buffer, then gets real segments
+        // written into it on the first hover (setHoveredConstellation
+        // rewrites the attribute in place, same as mainLinesMesh/thinLinesMesh
+        // never do). The frustum check auto-computes a bounding sphere the
+        // first time it runs — against that still-empty buffer, since this
+        // mesh is added to the scene before any hover has happened — and
+        // nothing afterward ever recomputes it, so every real hover from then
+        // on gets silently culled against a stale, degenerate sphere. Skip
+        // the cull test instead of chasing a recompute after every rewrite:
+        // this geometry is a handful of segments, the whole point of it
+        // being cheap.
+        highlightMesh.frustumCulled = false;
         scene.add(highlightMesh);
 
         // ── Constellation hover + click ───────────────────────────────────────
@@ -570,6 +603,24 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
         loadSkyCatalog().then(({ stars, constellations }) => {
             if (!mounted) return;
 
+            // Which cataloged stars are actual figure vertices — the stars a
+            // reader means by "the stars of Ursa Major", not the ~150 other
+            // background stars this catalog happens to file under the same
+            // IAU region (see showConstellationInfo's own separate "stars in
+            // view" count, which does mean that). The line data only ships
+            // [ra, dec] endpoints, not HIP ids (see build-sky-catalog.mjs),
+            // but those are rounded from the exact same source float as each
+            // star's own catalog row, so a plain key match here is exact,
+            // not an epsilon-fuzzed nearest-point search. Built regardless of
+            // q.nightSkyLines/the lines toggle — a star being a figure star
+            // isn't conditional on whether its lines happen to be drawn.
+            const figureKeys = new Set();
+            for (const [, , , main, thin] of constellations) {
+                for (const strip of [...main, ...thin]) {
+                    for (const [ra, dec] of strip) figureKeys.add(`${ra},${dec}`);
+                }
+            }
+
             // Brightest-first (see build-sky-catalog.mjs), so the tier count is
             // a plain slice — no runtime sort.
             const shown = stars.slice(0, q.nightSkyStars);
@@ -578,6 +629,7 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
             const mags = new Float32Array(shown.length);
             const cis = new Float32Array(shown.length);
             const indices = new Float32Array(shown.length);
+            const inFigure = new Float32Array(shown.length);
             const v = new THREE.Vector3();
             shown.forEach((s, i) => {
                 eqjFromRaDec(s[0], s[1], v);
@@ -585,6 +637,7 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
                 mags[i] = s[2];
                 cis[i] = s[8] ?? 0.6; // the Sun's own B-V, a reasonable default for unknowns
                 indices[i] = i;
+                inFigure[i] = figureKeys.has(`${s[0]},${s[1]}`) ? 1 : 0;
             });
 
             const starGeo = new THREE.BufferGeometry();
@@ -592,6 +645,7 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
             starGeo.setAttribute('aMag', new THREE.BufferAttribute(mags, 1));
             starGeo.setAttribute('aCi', new THREE.BufferAttribute(cis, 1));
             starGeo.setAttribute('aIndex', new THREE.BufferAttribute(indices, 1));
+            starGeo.setAttribute('aInFigure', new THREE.BufferAttribute(inFigure, 1));
             starMat = new THREE.ShaderMaterial({
                 vertexShader: STAR_VERTEX_SHADER,
                 fragmentShader: STAR_FRAGMENT_SHADER,
@@ -799,9 +853,17 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
             infoStarsEl.textContent = inCon.length
                 ? tt('nightSky.constellationStars', { count: inCon.length })
                 : '';
-            const brightest = inCon.slice().sort((a, b) => a[2] - b[2]).find(s => s[5]);
-            infoBrightestEl.textContent = brightest
-                ? tt('nightSky.constellationBrightest', { name: brightest[5] })
+            // Most of a constellation's catalog stars have no proper name —
+            // HIP numbers aren't "telling you about" anything. Brightest
+            // first, capped so Ursa Major's fourteen named stars don't
+            // overflow a 260px card the way a plain comma join would.
+            const named = inCon
+                .filter(s => s[5])
+                .sort((a, b) => a[2] - b[2])
+                .slice(0, NAMED_STARS_CAP)
+                .map(s => s[5]);
+            infoNamedStarsEl.textContent = named.length
+                ? tt('nightSky.constellationNamedStars', { names: formatStarList(named, i18nRef.current.locale) })
                 : '';
             infoCardEl.style.display = 'block';
         };

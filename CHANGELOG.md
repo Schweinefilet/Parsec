@@ -16,6 +16,48 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.1
+
+- **Four fixes and one addition, reported directly from using both /sky
+  features.** The constellation hover highlight from 4.10.0 never actually drew: hovering
+  correctly detected the constellation (the cursor turned to a pointer) but
+  the highlight line mesh started life with an empty position buffer, and
+  the frustum-cull check auto-computes a bounding sphere the first time it
+  runs a frame — against that still-empty buffer, before any hover has ever
+  happened — then never recomputes it once real segments are written in on
+  each hover. Every highlight after the first was being silently culled
+  against a stale, degenerate sphere. Fixed the same way this codebase
+  already fixes it elsewhere (`gravityLines.js`, the probe tracks): skip the
+  cull test rather than chase a recompute after every rewrite.
+
+  The constellation info card now lists its named stars (locale-aware "A, B
+  and C" via `Intl.ListFormat`, capped at eight — Ursa Major alone names
+  fourteen) instead of just the single brightest one, answering "tell me
+  more about this constellation" with more than a star count.
+
+  And the 5.0.0 dive-and-turn had a snap: once the turn finished, nothing
+  was overriding the camera for the ~460ms the curtain takes to fade
+  opaque, so OrbitControls' own `update()` reclaimed it — its minDistance is
+  still the ordinary "planet in frame" one, and the camera was sitting far
+  closer to the surface than that, so it snapped straight back out to a
+  wide Earth view for that whole gap before the curtain was dark enough to
+  hide it. `SolarSystem3D.jsx` now holds the camera at the exact frame the
+  turn (or an interrupted dive/turn) ended on until the component actually
+  unmounts, rather than releasing control the moment the animation itself
+  is done.
+
+  Last, an actual addition rather than a fix: a constellation's own stars —
+  the ones a strip in `constellationLines.json` actually connects, not the
+  ~150 other background stars this catalog happens to file under the same
+  IAU region — now render 50% larger than their magnitude alone would give
+  them. Line-strip endpoints only ship `[ra, dec]` pairs, not HIP ids, but
+  those are rounded from the exact same source float as each star's own
+  catalog row (see `build-sky-catalog.mjs`), so matching a star against a
+  `Set` of every strip's endpoints is an exact key lookup, not a fuzzed
+  nearest-point search — done once when the catalog loads, not per frame.
+
+---
+
 ## 5.0.0
 
 - **A cinematic way into /sky.** Clicking the star icon, or "See it in 3D" on

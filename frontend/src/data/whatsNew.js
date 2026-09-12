@@ -15,6 +15,10 @@ export const WHATS_NEW = [
         version: '5.0',
         changes: [
             'Opening the night sky is now a journey, not a jump cut: the camera flies to Earth, dives down to your actual location on the globe, and turns to face upward before the sky fades in — from the star icon, or the Tonight page.',
+            'Fixed: hovering a constellation now actually highlights it — it silently never had, since 4.10.',
+            'The constellation info card now lists its named stars, not just the brightest one.',
+            'Fixed a flash back to a wide Earth view partway through the new dive-and-turn transition into the night sky.',
+            'A constellation’s own stars now shine 50% brighter than the background stars around them.',
         ],
     },
     {
