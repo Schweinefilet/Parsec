@@ -341,6 +341,12 @@ export const en = {
         twinkle: 'Twinkle',
         starDensity: 'Star density',
         hintSettings: 'Lines, twinkle and sky darkness',
+        compassHeading: 'Heading',
+        compassAltitude: 'Altitude',
+        compassRoll: 'Roll',
+        constellationStars: { one: '{count} star in view', other: '{count} stars in view' },
+        constellationBrightest: 'Brightest: {name}',
+        constellationInfoClose: 'Close',
     },
 
     sky: {

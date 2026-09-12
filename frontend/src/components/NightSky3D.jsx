@@ -5,7 +5,7 @@ import { loadSkyCatalog } from '../utils/skyCatalog';
 import { quality, pixelRatioFor } from '../utils/quality';
 import {
     updateSkyRotation, getSkyRotation,
-    getAzimuth, getAltitude, nudgeLookDirection, subscribeLook,
+    getAzimuth, getAltitude, nudgeLookDirection, setLookDirection, subscribeLook,
 } from '../utils/skyRotation';
 import { simNow } from '../utils/simTime';
 import { getNightSkySettings } from '../utils/nightSkySettings';
@@ -195,31 +195,43 @@ const GROUND_FRAGMENT_SHADER = /* glsl */`
     uniform vec3 uHorizonColor;
     void main() {
         float t = clamp(-vY, 0.0, 1.0);
-        vec3 color = mix(uHorizonColor, vec3(0.01, 0.012, 0.016), smoothstep(0.0, 0.6, t));
+        // A tight band right at the horizon, not the 60% of the visible
+        // ground the original 0.6 gave the glow — that read as "the ground
+        // is the sky's colour", not "the ground catches a little of its
+        // light". See horizonColorFor below for why the colour itself changed too.
+        vec3 color = mix(uHorizonColor, vec3(0.01, 0.012, 0.016), smoothstep(0.0, 0.22, t));
         gl_FragColor = vec4(color, 1.0);
     }
 `;
 
 const DOME_RADIUS = 1; // stars/lines/ground/bodies all live on this unit sphere
 
-const NIGHT   = new THREE.Color('#050608');
-const DUSK    = new THREE.Color('#241d3d');
-const SUNSET  = new THREE.Color('#e8823c');
-const DAY_SKY = new THREE.Color('#3d6ea6');
+const NIGHT       = new THREE.Color('#050608');
+const DUSK        = new THREE.Color('#241d3d');
+// Named for what they colour, not for the sky phase that drives them — this
+// used to be SUNSET (#e8823c) and DAY_SKY (#3d6ea6), the sky's own colours
+// at those altitudes, borrowed wholesale for the ground below it. By day
+// that made the ground a mirror of the blue sky, which is exactly what
+// looked wrong: the sky above the horizon is blue, but the ground under it
+// never is. GROUND_GLOW is a warm, desaturated echo of a real sunset/sunrise
+// glow on the horizon (which does look natural); DAY_GROUND is a neutral
+// dark warm-gray for full daylight, chosen specifically to not be blue.
+const GROUND_GLOW = new THREE.Color('#6b4326');
+const DAY_GROUND  = new THREE.Color('#15130f');
 const _lerpColor = new THREE.Color();
 
 /**
- * A continuous horizon tint from the Sun's altitude, ramped through the same
- * boundaries utils/skyPositions.js's twilightPhase() uses (civil/nautical/
- * astronomical twilight), so this scene's horizon and /tonight's twilight
- * label always agree about where night begins.
+ * A continuous ground-horizon tint from the Sun's altitude, ramped through
+ * the same boundaries utils/skyPositions.js's twilightPhase() uses (civil/
+ * nautical/astronomical twilight), so this scene's horizon and /tonight's
+ * twilight label always agree about where night begins.
  */
 function horizonColorFor(sunAltDeg, out) {
     if (sunAltDeg <= -18) return out.copy(NIGHT);
     if (sunAltDeg <= -6) return out.copy(NIGHT).lerp(DUSK, (sunAltDeg + 18) / 12);
-    if (sunAltDeg <= -0.833) return out.copy(DUSK).lerp(SUNSET, (sunAltDeg + 6) / 5.167);
-    if (sunAltDeg <= 10) return out.copy(SUNSET).lerp(DAY_SKY, (sunAltDeg + 0.833) / 10.833);
-    return out.copy(DAY_SKY);
+    if (sunAltDeg <= -0.833) return out.copy(DUSK).lerp(GROUND_GLOW, (sunAltDeg + 6) / 5.167);
+    if (sunAltDeg <= 10) return out.copy(GROUND_GLOW).lerp(DAY_GROUND, (sunAltDeg + 0.833) / 10.833);
+    return out.copy(DAY_GROUND);
 }
 
 /** [ra, dec] in degrees -> a J2000 (EQJ) unit vector, degrees version of the
@@ -289,16 +301,16 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
     const locationRef = useRef(location);
     const reducedMotionRef = useRef(false);
     const reducedMotion = useReducedMotion();
-    const { locale, constellationName } = useI18n();
-    const i18nRef = useRef({ locale, constellationName });
+    const { locale, constellationName, t } = useI18n();
+    const i18nRef = useRef({ locale, constellationName, t });
     const relabelRef = useRef(() => {});
 
     useEffect(() => { locationRef.current = location; }, [location]);
     useEffect(() => { reducedMotionRef.current = reducedMotion; }, [reducedMotion]);
     useEffect(() => {
-        i18nRef.current = { locale, constellationName };
+        i18nRef.current = { locale, constellationName, t };
         relabelRef.current();
-    }, [locale, constellationName]);
+    }, [locale, constellationName, t]);
 
     useEffect(() => {
         const mount = mountRef.current;
@@ -334,6 +346,74 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
         const labelLayer = document.createElement('div');
         labelLayer.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3';
         mount.appendChild(labelLayer);
+
+        // ── Orientation HUD ─────────────────────────────────────────────────
+        // A plain DOM overlay, not React state — azimuth/altitude change on
+        // every pointer-move of a drag, and this scene's whole discipline is
+        // that anything moving that often stays out of React (see the file
+        // header). Roll has no control in this scene at all (see
+        // skyRotation.js's own header: "no roll, ever") — its readout is
+        // static, included anyway so the HUD states that plainly rather than
+        // omitting the one number that never changes.
+        const compassEl = document.createElement('div');
+        compassEl.className = 'sky-compass';
+        compassEl.innerHTML = [
+            '<div class="sky-compass-dial">',
+            '<div class="sky-compass-ring">',
+            '<span class="sky-compass-n">N</span>',
+            '<span class="sky-compass-e">E</span>',
+            '<span class="sky-compass-s">S</span>',
+            '<span class="sky-compass-w">W</span>',
+            '</div>',
+            '<div class="sky-compass-needle"></div>',
+            '</div>',
+            '<div class="sky-compass-stats">',
+            '<div class="row"><span data-lbl="heading"></span><b data-val="heading"></b></div>',
+            '<div class="row"><span data-lbl="altitude"></span><b data-val="altitude"></b></div>',
+            '<div class="row"><span data-lbl="roll"></span><b data-val="roll">0°</b></div>',
+            '</div>',
+        ].join('');
+        mount.appendChild(compassEl);
+        const compassRingEl = compassEl.querySelector('.sky-compass-ring');
+        const compassHeadingEl = compassEl.querySelector('[data-val="heading"]');
+        const compassAltitudeEl = compassEl.querySelector('[data-val="altitude"]');
+        // Set directly from i18nRef here rather than left to relabel() below:
+        // relabel() only runs from the *other* effect's [locale, ...] change,
+        // which — on the very first mount — fires before this effect has had
+        // a chance to point relabelRef.current at the real relabel(), and
+        // would otherwise leave these three blank until a language switch.
+        compassEl.querySelector('[data-lbl="heading"]').textContent = i18nRef.current.t('nightSky.compassHeading');
+        compassEl.querySelector('[data-lbl="altitude"]').textContent = i18nRef.current.t('nightSky.compassAltitude');
+        compassEl.querySelector('[data-lbl="roll"]').textContent = i18nRef.current.t('nightSky.compassRoll');
+
+        // ── Constellation info card ──────────────────────────────────────────
+        // Shown on click (see "Constellation hover + click" below) — content
+        // is set imperatively for the same reason the labels are: it has to
+        // survive a locale change without the mount effect re-running.
+        const infoCardEl = document.createElement('div');
+        infoCardEl.className = 'sky-info-card';
+        infoCardEl.style.display = 'none';
+        infoCardEl.innerHTML = [
+            '<button class="sky-info-close" type="button"></button>',
+            '<div class="sky-info-name"></div>',
+            '<div class="sky-info-code"></div>',
+            '<div class="sky-info-stat sky-info-stars"></div>',
+            '<div class="sky-info-stat sky-info-brightest"></div>',
+        ].join('');
+        labelLayer.appendChild(infoCardEl);
+        const infoCloseBtn = infoCardEl.querySelector('.sky-info-close');
+        const infoNameEl = infoCardEl.querySelector('.sky-info-name');
+        const infoCodeEl = infoCardEl.querySelector('.sky-info-code');
+        const infoStarsEl = infoCardEl.querySelector('.sky-info-stars');
+        const infoBrightestEl = infoCardEl.querySelector('.sky-info-brightest');
+        infoCloseBtn.setAttribute('aria-label', i18nRef.current.t('nightSky.constellationInfoClose'));
+        infoCloseBtn.textContent = '×';
+        let openIau = null;
+        const hideInfoCard = () => {
+            openIau = null;
+            infoCardEl.style.display = 'none';
+        };
+        infoCloseBtn.addEventListener('click', hideInfoCard);
 
         // ── Ground hemisphere ────────────────────────────────────────────────
         const groundGeo = new THREE.SphereGeometry(
@@ -396,9 +476,45 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
             return el;
         });
 
+        // ── Constellation hover highlight ────────────────────────────────────
+        // One reusable LineSegments, empty until the first hover — rewritten
+        // (not recreated) each time the hovered constellation changes, the
+        // same "cheap enough on-change, not worth it every frame" reasoning
+        // SolarSystem3D.jsx uses for its own forty-hitbox resize. Shown
+        // regardless of the lines toggle in NightSkyPanel — a deliberate
+        // hover you're mid-click on should answer, even with ambient lines off.
+        const highlightGeo = new THREE.BufferGeometry();
+        highlightGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0), 3));
+        const highlightMat = new THREE.ShaderMaterial({
+            vertexShader: LINE_VERTEX_SHADER,
+            fragmentShader: LINE_FRAGMENT_SHADER,
+            uniforms: {
+                uRot: { value: getSkyRotation() },
+                uColor: { value: new THREE.Color('#ffd166') },
+                uOpacity: { value: 0.9 },
+            },
+            transparent: true,
+            depthWrite: false,
+        });
+        const highlightMesh = new THREE.LineSegments(highlightGeo, highlightMat);
+        highlightMesh.visible = false;
+        scene.add(highlightMesh);
+
+        // ── Constellation hover + click ───────────────────────────────────────
+        // The cursor's own screen-space ray, converted back to a J2000 RA/Dec
+        // and handed to Astronomy.Constellation() — the same conversion
+        // updateCrosshair() below already does for the camera's forward
+        // direction, applied here to an arbitrary pointer position instead.
+        // That makes every constellation's *true* IAU boundary the hit area,
+        // not just its drawn stick figure or an approximate radius around its
+        // label — more forgiving to hit, and no new geometry to test against.
+        const raycaster = new THREE.Raycaster();
+        const _mouseNDC = new THREE.Vector2();
+        const _hoverDir = new THREE.Vector3();
+
         // ── Stars + constellation lines + labels: built once the catalog resolves ──
-        const geos = [groundGeo, bodyGeo];
-        const mats = [groundMat, bodyMat];
+        const geos = [groundGeo, bodyGeo, highlightGeo];
+        const mats = [groundMat, bodyMat, highlightMat];
         let starPoints = null;
         let starMat = null;
         let starCount = 0;
@@ -415,6 +531,16 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
         // actually shipped, so the crosshair readout doesn't quietly fall
         // back to the untranslated Latin name for the one code that differs.
         let iauByLower = null;
+        // IAU -> { main, thin, native }, for the hover highlight and the info
+        // card — the same per-constellation records the line meshes and
+        // labels below are built from, just kept addressable afterward too.
+        let segmentsByIau = null;
+        // The full, unfiltered catalog (not `shown`, which is sliced by the
+        // density setting and quality tier) — a constellation's star count
+        // and brightest name should not change because the display density
+        // slider moved.
+        let loadedStars = null;
+        let hoveredIau = null;
 
         const stripsToSegments = (strips) => {
             const positions = [];
@@ -430,8 +556,14 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
         };
 
         const relabel = () => {
-            const { constellationName: name } = i18nRef.current;
+            const { constellationName: name, t: tt } = i18nRef.current;
             for (const l of constellationLabels) l.el.textContent = name(l.iau, l.native);
+            compassEl.querySelector('[data-lbl="heading"]').textContent = tt('nightSky.compassHeading');
+            compassEl.querySelector('[data-lbl="altitude"]').textContent = tt('nightSky.compassAltitude');
+            compassEl.querySelector('[data-lbl="roll"]').textContent = tt('nightSky.compassRoll');
+            infoCloseBtn.setAttribute('aria-label', tt('nightSky.constellationInfoClose'));
+            infoCloseBtn.textContent = '×';
+            if (openIau) showConstellationInfo(openIau, { pan: false });
         };
         relabelRef.current = relabel;
 
@@ -534,6 +666,11 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
                 labelLayer.appendChild(el);
                 return { el, anchor, iau, native };
             });
+
+            loadedStars = stars;
+            segmentsByIau = new Map(
+                constellations.map(([iau, , native, main, thin]) => [iau, { main, thin, native }]),
+            );
         });
 
         // ── Look-around controls ─────────────────────────────────────────────
@@ -541,9 +678,17 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
         // viewers): dragging right reveals what was to your left, i.e. turns
         // the view left, not right.
         let dragging = false;
+        let dragDistPx = 0;
         let lastX = 0, lastY = 0;
+        // A smooth pan to a clicked constellation's anchor — see "Constellation
+        // hover + click" below. Grabbing the sky mid-flight cancels it rather
+        // than fighting it; a new pointerdown is a clearer "I want control
+        // back" signal than any timeout could be.
+        const panAnim = { active: false, startAz: 0, deltaAz: 0, startAlt: 0, endAlt: 0, t: 0 };
         const onPointerDown = (e) => {
             dragging = true;
+            dragDistPx = 0;
+            panAnim.active = false;
             lastX = e.clientX; lastY = e.clientY;
             renderer.domElement.setPointerCapture(e.pointerId);
         };
@@ -552,6 +697,7 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
             const dx = e.clientX - lastX;
             const dy = e.clientY - lastY;
             lastX = e.clientX; lastY = e.clientY;
+            dragDistPx += Math.abs(dx) + Math.abs(dy);
             const scale = camera.fov / Math.max(1, renderer.domElement.clientWidth);
             nudgeLookDirection(-dx * scale, dy * scale);
         };
@@ -573,15 +719,105 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
                 case 'ArrowRight': nudgeLookDirection(NUDGE_DEG, 0); break;
                 case 'ArrowUp':    nudgeLookDirection(0, NUDGE_DEG); break;
                 case 'ArrowDown':  nudgeLookDirection(0, -NUDGE_DEG); break;
+                case 'Escape':     hideInfoCard(); return;
                 default: return;
             }
             e.preventDefault();
         };
+
+        // The cursor's screen position -> the IAU code of the constellation
+        // it falls inside, or null below the horizon (the ground, not the
+        // sky — scene.y is the zenith component, see skyRotation.js's header).
+        const _invRotHover = new THREE.Matrix3();
+        const constellationAtPointer = (clientX, clientY) => {
+            if (!segmentsByIau) return null;
+            const rect = renderer.domElement.getBoundingClientRect();
+            _mouseNDC.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+            _mouseNDC.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(_mouseNDC, camera);
+            _hoverDir.copy(raycaster.ray.direction);
+            if (_hoverDir.y < 0) return null;
+            _invRotHover.copy(getSkyRotation()).transpose();
+            _hoverDir.applyMatrix3(_invRotHover);
+            const ra = ((Math.atan2(_hoverDir.y, _hoverDir.x) * 180) / Math.PI + 360) % 360;
+            const dec = (Math.asin(Math.max(-1, Math.min(1, _hoverDir.z))) * 180) / Math.PI;
+            try {
+                const info = Astronomy.Constellation(ra / 15, dec);
+                return iauByLower?.get(info.symbol.toLowerCase()) ?? info.symbol;
+            } catch {
+                return null;
+            }
+        };
+        const setHoveredConstellation = (iau) => {
+            if (iau === hoveredIau) return;
+            hoveredIau = iau;
+            const entry = iau ? segmentsByIau.get(iau) : null;
+            if (entry) {
+                const segs = stripsToSegments(entry.main);
+                highlightGeo.setAttribute('position', new THREE.BufferAttribute(segs, 3));
+                highlightMesh.visible = true;
+            } else {
+                highlightMesh.visible = false;
+            }
+            renderer.domElement.style.cursor = (iau && !dragging) ? 'pointer' : '';
+        };
+        let lastHoverT = 0;
+        const onSkyMouseMove = (e) => {
+            if (dragging) { setHoveredConstellation(null); return; }
+            const now = performance.now();
+            if (now - lastHoverT < 60) return; // Astronomy.Constellation() a frame is unnecessary; a few times a second reads identically smooth
+            lastHoverT = now;
+            setHoveredConstellation(constellationAtPointer(e.clientX, e.clientY));
+        };
+
+        // Shortest signed delta so a pan from 350° to 10° turns +20°, through
+        // north, rather than -340° the long way round.
+        const startPanTo = (az, alt) => {
+            const curAz = ((getAzimuth() % 360) + 360) % 360;
+            panAnim.startAz = curAz;
+            panAnim.deltaAz = ((((az - curAz) % 360) + 540) % 360) - 180;
+            panAnim.startAlt = getAltitude();
+            panAnim.endAlt = alt;
+            panAnim.t = 0;
+            panAnim.active = true;
+        };
+        const showConstellationInfo = (iau, { pan = true } = {}) => {
+            const entry = segmentsByIau?.get(iau);
+            if (!entry) return;
+            openIau = iau;
+            if (pan) {
+                const anchor = constellationAnchor(entry.main, new THREE.Vector3());
+                const sceneDir = anchor.applyMatrix3(getSkyRotation());
+                const alt = (Math.asin(Math.max(-1, Math.min(1, sceneDir.y))) * 180) / Math.PI;
+                const az = ((Math.atan2(sceneDir.x, -sceneDir.z) * 180) / Math.PI + 360) % 360;
+                startPanTo(az, Math.max(-5, Math.min(80, alt)));
+            }
+            const { constellationName: name, t: tt } = i18nRef.current;
+            infoNameEl.textContent = name(iau, entry.native);
+            infoCodeEl.textContent = iau;
+            const inCon = (loadedStars ?? []).filter(s => s[4] === iau);
+            infoStarsEl.textContent = inCon.length
+                ? tt('nightSky.constellationStars', { count: inCon.length })
+                : '';
+            const brightest = inCon.slice().sort((a, b) => a[2] - b[2]).find(s => s[5]);
+            infoBrightestEl.textContent = brightest
+                ? tt('nightSky.constellationBrightest', { name: brightest[5] })
+                : '';
+            infoCardEl.style.display = 'block';
+        };
+        const onSkyClick = (e) => {
+            if (dragDistPx > 6) return; // a drag that ended over a constellation is not a click
+            const iau = constellationAtPointer(e.clientX, e.clientY);
+            if (iau) showConstellationInfo(iau);
+        };
+
         renderer.domElement.addEventListener('pointerdown', onPointerDown);
         renderer.domElement.addEventListener('pointermove', onPointerMove);
         renderer.domElement.addEventListener('pointerup', onPointerUp);
         renderer.domElement.addEventListener('pointercancel', onPointerUp);
         renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
+        renderer.domElement.addEventListener('mousemove', onSkyMouseMove);
+        renderer.domElement.addEventListener('click', onSkyClick);
         renderer.domElement.tabIndex = 0;
         renderer.domElement.addEventListener('keydown', onKeyDown);
 
@@ -698,11 +934,46 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
         // ── Render loop ───────────────────────────────────────────────────────
         let animId;
         let frame = 0;
+        let lastElapsed = 0;
         const clock = new THREE.Clock();
         const _bodyPos = new THREE.Vector3();
+        let lastHeadingText = '';
+        let lastAltitudeText = '';
+        const updateCompass = () => {
+            const az = ((getAzimuth() % 360) + 360) % 360;
+            const alt = getAltitude();
+            compassRingEl.style.transform = `rotate(${-az}deg)`;
+            const headingText = `${Math.round(az)}°`;
+            if (headingText !== lastHeadingText) {
+                lastHeadingText = headingText;
+                compassHeadingEl.textContent = headingText;
+            }
+            const altitudeText = `${alt >= 0 ? '+' : ''}${Math.round(alt)}°`;
+            if (altitudeText !== lastAltitudeText) {
+                lastAltitudeText = altitudeText;
+                compassAltitudeEl.textContent = altitudeText;
+            }
+        };
         const animate = () => {
             animId = requestAnimationFrame(animate);
             frame++;
+            const elapsed = clock.getElapsedTime();
+            // Clamped the same way SolarSystem3D.jsx's own deltaSec is — a
+            // backgrounded tab's first frame back would otherwise report
+            // several seconds and fling the pan animation to its end in one jump.
+            const deltaSec = Math.min(0.1, Math.max(0, elapsed - lastElapsed));
+            lastElapsed = elapsed;
+            if (panAnim.active) {
+                panAnim.t = Math.min(1, panAnim.t + deltaSec / 0.8);
+                const pt = panAnim.t;
+                const eased = pt < 0.5 ? 4 * pt * pt * pt : 1 - Math.pow(-2 * pt + 2, 3) / 2;
+                setLookDirection(
+                    panAnim.startAz + panAnim.deltaAz * eased,
+                    panAnim.startAlt + (panAnim.endAlt - panAnim.startAlt) * eased,
+                );
+                if (panAnim.t >= 1) panAnim.active = false;
+            }
+            updateCompass();
             // One crowding pass a frame, shared by bodies and constellations
             // (bodies placed first, below, so a body label wins any conflict
             // with a constellation name over the same spot).
@@ -773,7 +1044,11 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
             renderer.domElement.removeEventListener('pointerup', onPointerUp);
             renderer.domElement.removeEventListener('pointercancel', onPointerUp);
             renderer.domElement.removeEventListener('wheel', onWheel);
+            renderer.domElement.removeEventListener('mousemove', onSkyMouseMove);
+            renderer.domElement.removeEventListener('click', onSkyClick);
             renderer.domElement.removeEventListener('keydown', onKeyDown);
+            infoCloseBtn.removeEventListener('click', hideInfoCard);
+            if (mount.contains(compassEl)) mount.removeChild(compassEl);
             if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
             if (mount.contains(labelLayer)) mount.removeChild(labelLayer);
             // geos/mats already carries the ground, the bodies, the stars (once

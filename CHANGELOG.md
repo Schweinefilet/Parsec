@@ -16,6 +16,39 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.10.0
+
+- **The night sky gets a compass, a natural-looking ground, and clickable
+  constellations.** Three fixes/additions to `/sky`, reported directly from
+  using it: the ground hemisphere below the horizon used to borrow the sky's
+  own colours (a bright, saturated blue at midday, mirroring `DAY_SKY`
+  exactly), which read as "the ground is blue" rather than "the ground
+  catches a little light from the sky" — it now ramps through its own
+  warm, desaturated palette (a real amber glow at dusk/dawn, a neutral dark
+  warm-gray by day, never blue), and the horizon-glow band is a lot
+  narrower, so it reads as a glow *at* the horizon rather than a wash over
+  most of the visible ground.
+
+  - **An orientation HUD**: a small rotating compass dial plus a
+    heading/altitude/roll readout, top corner (mirrors to the other corner
+    in Arabic, no JS branching — pure CSS logical properties). Roll has no
+    control in this scene at all and reads a static 0°, included anyway so
+    the HUD says so plainly rather than silently dropping the one number
+    that never changes.
+  - **Constellations are hoverable and clickable**, the way a planet is in
+    the solar-system view: hovering brightens the figure under the cursor
+    (highlighting its own line segments, rewritten only on hover-change, not
+    every frame) and clicking pans the view smoothly to it and opens a small
+    info card — name, IAU code, how many catalog stars fall inside it, and
+    its brightest named star, when it has one. The hit-test is the
+    constellation's *true* IAU boundary (`Astronomy.Constellation()` fed the
+    cursor's own ray, the same conversion the "what am I looking at"
+    crosshair already used for the camera's forward direction) rather than
+    an approximate radius around the drawn figure — more forgiving to click,
+    and no new geometry to test against.
+
+---
+
 ## 4.9.0
 
 - **The night sky gets a settings drawer, a way home, and a first-visit

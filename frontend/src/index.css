@@ -453,6 +453,138 @@ body {
   border: 1px solid rgba(0,0,0,0.4);
 }
 
+/* NightSky3D.jsx's orientation HUD — a small rotating compass ring (rotated
+   by JS via a transform on .sky-compass-ring, everything else here is
+   static) plus a heading/altitude/roll readout underneath. inset-inline-end
+   rather than right, so it swaps sides with the rest of the chrome in
+   Arabic without any JS branching. */
+.sky-compass {
+  position: absolute;
+  top: 68px;
+  inset-inline-end: 20px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.sky-compass-dial {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.16);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.sky-compass-ring {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+.sky-compass-ring span {
+  position: absolute;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: rgba(255,255,255,0.75);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+.sky-compass-n { top: 3px; left: 50%; transform: translateX(-50%); color: #ff8a80; }
+.sky-compass-e { top: 50%; right: 4px; transform: translateY(-50%); }
+.sky-compass-s { bottom: 3px; left: 50%; transform: translateX(-50%); }
+.sky-compass-w { top: 50%; left: 4px; transform: translateY(-50%); }
+.sky-compass-needle {
+  position: absolute;
+  top: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid #ffd166;
+}
+.sky-compass-stats {
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 10px;
+  padding: 5px 9px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-size: 9.5px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.6);
+  min-width: 78px;
+}
+.sky-compass-stats .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sky-compass-stats b {
+  color: rgba(255,255,255,0.92);
+  font-weight: 700;
+}
+
+/* The constellation info card NightSky3D.jsx shows on click — centred, so
+   left/translateX(-50%) reads the same in both directions and needs no
+   logical-property treatment. sky-info-close still uses one, since it's
+   pinned to a specific corner of the card rather than centred. */
+.sky-info-card {
+  position: absolute;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  pointer-events: auto;
+  width: max-content;
+  max-width: 260px;
+  text-align: center;
+  background: rgba(10,10,14,0.72);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 14px;
+  padding: 14px 20px 12px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+}
+.sky-info-close {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.sky-info-close:hover { background: rgba(255,255,255,0.16); }
+.sky-info-name { font-size: 15px; font-weight: 800; color: #fff; margin-top: 2px; }
+.sky-info-code {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: rgba(255,209,102,0.85);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.sky-info-stat {
+  font-size: 11px;
+  color: rgba(255,255,255,0.65);
+  margin-top: 6px;
+}
+.sky-info-stat:empty { display: none; }
+
 /* ── Right-to-left ───────────────────────────────────────────── */
 /* `dir` is set on <html> by the i18n provider. Most of the layout follows on
    its own — flex rows reverse, text aligns to the start edge, and the bidi

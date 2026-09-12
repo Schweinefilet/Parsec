@@ -343,6 +343,12 @@ export const vi = {
         twinkle: 'Lấp lánh',
         starDensity: 'Mật độ sao',
         hintSettings: 'Đường nối, lấp lánh và độ tối bầu trời',
+        compassHeading: 'Hướng',
+        compassAltitude: 'Độ cao',
+        compassRoll: 'Nghiêng',
+        constellationStars: { other: '{count} sao' },
+        constellationBrightest: 'Sao sáng nhất: {name}',
+        constellationInfoClose: 'Đóng thông tin chòm sao',
     },
 
     sky: {

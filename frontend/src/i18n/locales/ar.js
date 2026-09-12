@@ -371,6 +371,19 @@ export const ar = {
         twinkle: 'التلألؤ',
         starDensity: 'كثافة النجوم',
         hintSettings: 'الخطوط والتلألؤ وعتمة السماء',
+        compassHeading: 'الاتجاه',
+        compassAltitude: 'الارتفاع',
+        compassRoll: 'الميل',
+        constellationStars: {
+            zero: '{count} نجم',
+            one: 'نجم واحد',
+            two: 'نجمان',
+            few: '{count} نجوم',
+            many: '{count} نجمًا',
+            other: '{count} نجم',
+        },
+        constellationBrightest: 'ألمع نجم: {name}',
+        constellationInfoClose: 'أغلق معلومات الكوكبة',
     },
 
     sky: {

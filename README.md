@@ -512,6 +512,24 @@ LTR/RTL). `CategoryBrowser.jsx` had already solved this once;
 time rather than rediscovered — worth pulling into a shared helper if a
 third full-bleed route ever shows up.
 
+**4.10.0** added an orientation HUD (a rotating compass dial plus a
+heading/altitude/roll readout — roll has no control in this scene at all
+and reads a static 0°) and made constellations hoverable/clickable the way
+a planet is in the solar-system view: the hit-test reuses
+`Astronomy.Constellation()` fed the cursor's own ray (the same conversion
+"what am I looking at" already used for the camera's forward direction)
+rather than testing against the drawn line geometry, so the true IAU
+boundary is the hit area, not an approximate radius around the figure.
+Clicking pans smoothly to the constellation (`skyRotation.js`'s
+`setLookDirection`, eased, cancelled by a fresh drag rather than fighting
+it) and opens a small info card sourced entirely from data already
+loaded — the catalog's own per-star `con` field for a star count, `proper`
+for a brightest named star, nothing new fetched or shipped. The same
+release also fixed the ground hemisphere borrowing the sky's own daytime
+blue for its horizon glow (`horizonColorFor` now ramps through its own
+warm/neutral ground palette, not the sky's) and narrowed that glow to a
+band at the horizon rather than a wash over most of the visible ground.
+
 ### Compare
 
 `/compare?a=jupiter&b=earth` puts two bodies side by side at true relative

@@ -12,6 +12,14 @@
 
 export const WHATS_NEW = [
     {
+        version: '4.10',
+        changes: [
+            'The ground in the night sky view no longer looks blue in daylight — it now has its own natural, neutral colour.',
+            'A compass with a heading/altitude readout, so it is easier to tell which way you are facing.',
+            'Constellations can now be clicked: it pans to face them and shows their name, star count and brightest star.',
+        ],
+    },
+    {
         version: '4.9',
         changes: [
             'The night sky view has a settings drawer now: turn constellation lines or twinkle on and off, and dial the star density up or down.',
