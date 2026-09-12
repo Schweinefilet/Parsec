@@ -16,6 +16,32 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.5
+
+- **The 5.0.3 exit animation snapped at the very start; now it doesn't.**
+  `exitPhase === 1` set `controls.minDistance = 30` unconditionally, every
+  frame, the moment the pull-back began — but the cubic ease-in-out that
+  drives the eased distance starts slow by design, so for the opening
+  stretch the animation's own intended distance was *below* 30.
+  `controls.update()`, called right after, clamps `camera.position` to
+  `minDistance` unconditionally as part of its normal spherical-coordinate
+  bookkeeping — not only in response to a drag — so it silently overrode
+  the eased value with a hard floor of 30 for as long as the ease curve
+  stayed under it, then let the real animation take over once it caught up.
+  The old two-stage version had the same unconditional `minDistance = 30`,
+  but its linear pull-back cleared 30 in about three frames — under 50ms,
+  short enough to read as nothing. Sharing one slow-starting ease curve for
+  the whole motion is what stretched that into a visible snap.
+
+  `minDistance` now tracks the animation's own in-flight distance each
+  frame (`Math.min(30, nextDistance)`) rather than jumping to its final
+  value up front, so the clamp can never sit ahead of where the ease curve
+  actually is. Confirmed frame-by-frame (not by eye) that the distance
+  `controls.update()` renders now matches the eased value exactly from the
+  first frame — no gap for a clamp to open up in.
+
+---
+
 ## 5.0.4
 
 - **The night sky's star density now starts at 50%, not 100%.** A first

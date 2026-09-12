@@ -2864,7 +2864,6 @@ const SolarSystem3D = ({
                 }
 
             } else if (exitPhase === 1) {
-                controls.minDistance = 30;
                 camera.near = 1;
                 camera.updateProjectionMatrix();
                 if (isInteracting) {
@@ -2903,6 +2902,15 @@ const SolarSystem3D = ({
                     controls.target.lerpVectors(exitStartTarget, EXIT_ORIGIN, t);
                     _exitDir.subVectors(camera.position, controls.target).normalize();
                     const nextDistance = THREE.MathUtils.lerp(exitStartDistance, 556, t);
+                    // Tracks the eased distance itself, capped at the home
+                    // view's usual 30, rather than jumping straight to 30 up
+                    // front: a fixed minDistance higher than where the ease
+                    // curve actually is yet is what controls.update() (right
+                    // below) clamps camera.position out to, snapping the
+                    // camera to that floor for as long as the cubic
+                    // ease-in's slow start keeps nextDistance under it — the
+                    // "seamless start" this was reported against.
+                    controls.minDistance = Math.min(30, nextDistance);
                     camera.position.copy(controls.target).addScaledVector(_exitDir, nextDistance);
                     if (exitProgress >= 1) exitPhase = 0;
                 }
