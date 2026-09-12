@@ -4,7 +4,7 @@ import {
     resetNightSkySettings, subscribeNightSkySettings, __resetNightSkySettingsStore,
 } from './nightSkySettings';
 
-const DEFAULTS = { linesVisible: true, twinkle: true, density: 1 };
+const DEFAULTS = { linesVisible: true, twinkle: true, density: 0.5 };
 
 beforeEach(() => {
     try { window.localStorage.clear(); } catch { /* jsdom */ }
@@ -62,8 +62,8 @@ describe('subscribers', () => {
     it('fire on a real change only, and unsubscribe cleanly', () => {
         const seen = vi.fn();
         const off = subscribeNightSkySettings(seen);
-        setStarDensity(0.5);
-        setStarDensity(0.5);   // no-op
+        setStarDensity(0.3);
+        setStarDensity(0.3);   // no-op
         expect(seen).toHaveBeenCalledTimes(1);
         off();
         setStarDensity(0.2);

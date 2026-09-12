@@ -19,7 +19,7 @@
 
 const STORAGE_KEY = 'p4rsec.nightSky';
 
-const DEFAULTS = { linesVisible: true, twinkle: true, density: 1 };
+const DEFAULTS = { linesVisible: true, twinkle: true, density: 0.5 };
 
 function load() {
     try {

@@ -16,6 +16,16 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.4
+
+- **The night sky's star density now starts at 50%, not 100%.** A first
+  visit to /sky used to show the full tier budget of stars right away —
+  `utils/nightSkySettings.js`'s own `density` default was `1`. A visitor
+  who wants the full sky still gets it, one drag of the settings drawer's
+  slider away; the starting point is just less overwhelming.
+
+---
+
 ## 5.0.3
 
 - **The zoom-out back to the solar system, from a focused planet, is one
