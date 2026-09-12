@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, MapPin, Eye } from 'lucide-react';
 import NightSky3D from '../components/NightSky3D';
 import NightSkyPanel from '../components/NightSkyPanel';
-import TimeControl from '../components/TimeControl';
 import CoachMark from '../components/CoachMark';
 import { useObserverLocation } from '../hooks/useObserverLocation';
 import { useI18n } from '../i18n';
@@ -34,6 +33,12 @@ const NightSkyPage = () => {
     const { t, rtl } = useI18n();
     const navigate = useNavigate();
     const { location, error, asking, request } = useObserverLocation();
+    // A constellation picked from the header search bar (ObjectSearch.jsx)
+    // — /sky?con=Ori — rather than a route param: constellations aren't
+    // catalog objects with an /object/:id page of their own, just a spot to
+    // pan this same scene to and open the info card for.
+    const [searchParams] = useSearchParams();
+    const targetConstellation = searchParams.get('con');
 
     // First-visit hint pointing at the settings drawer — its own flag, not
     // the solar-system scene's `p4rsec.coach`: having seen that one doesn't
@@ -140,12 +145,8 @@ const NightSkyPage = () => {
     return (
         <div style={FULL_BLEED}>
             {backButton}
-            <NightSky3D location={location} />
+            <NightSky3D location={location} targetConstellation={targetConstellation} />
             <NightSkyPanel onOpen={onSettingsOpened} />
-            {/* The same clock TimeControl scrubs on the solar-system page —
-                utils/simTime.js is a site-wide singleton, not scoped to a
-                route, so a date set here is still set there and back. */}
-            <TimeControl />
             {showCoach && coachRect && (
                 <CoachMark
                     text={t('nightSky.hintSettings')}

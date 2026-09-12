@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
-    IDLE, ARMED, DIVING, TURNING, CURTAIN,
+    IDLE, ARMED, APPROACHING, CURTAIN,
     armSkyEntry, getSkyEntryPhase, getSkyEntryObserver, setSkyEntryPhase,
     resetSkyEntry, subscribeSkyEntry, __resetSkyEntry,
 } from './skyEntry';
@@ -37,17 +37,15 @@ describe('arming', () => {
 describe('phase machine', () => {
     it('advances through the stages SolarSystem3D drives', () => {
         armSkyEntry({ lat: 0, lon: 0 });
-        setSkyEntryPhase(DIVING);
-        expect(getSkyEntryPhase()).toBe(DIVING);
-        setSkyEntryPhase(TURNING);
-        expect(getSkyEntryPhase()).toBe(TURNING);
+        setSkyEntryPhase(APPROACHING);
+        expect(getSkyEntryPhase()).toBe(APPROACHING);
         setSkyEntryPhase(CURTAIN);
         expect(getSkyEntryPhase()).toBe(CURTAIN);
     });
 
     it('clears the observer once reset to idle from any phase', () => {
         armSkyEntry({ lat: 3, lon: 4 });
-        setSkyEntryPhase(DIVING);
+        setSkyEntryPhase(APPROACHING);
         resetSkyEntry();
         expect(getSkyEntryPhase()).toBe(IDLE);
         expect(getSkyEntryObserver()).toBe(null);
@@ -73,8 +71,7 @@ describe('watchdog', () => {
 
     it('does not fire once the sequence already reached curtain on its own', () => {
         armSkyEntry({ lat: 0, lon: 0 });
-        setSkyEntryPhase(DIVING);
-        setSkyEntryPhase(TURNING);
+        setSkyEntryPhase(APPROACHING);
         setSkyEntryPhase(CURTAIN);
         const seen = vi.fn();
         subscribeSkyEntry(seen);
@@ -108,11 +105,10 @@ describe('subscribers', () => {
         const seen = vi.fn();
         const off = subscribeSkyEntry(seen);
         armSkyEntry({ lat: 0, lon: 0 });   // -> ARMED
-        setSkyEntryPhase(DIVING);
-        setSkyEntryPhase(TURNING);
-        expect(seen).toHaveBeenCalledTimes(3);
+        setSkyEntryPhase(APPROACHING);
+        expect(seen).toHaveBeenCalledTimes(2);
         off();
         setSkyEntryPhase(CURTAIN);
-        expect(seen).toHaveBeenCalledTimes(3);
+        expect(seen).toHaveBeenCalledTimes(2);
     });
 });

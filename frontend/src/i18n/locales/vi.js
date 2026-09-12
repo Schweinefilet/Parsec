@@ -120,11 +120,12 @@ export const vi = {
     },
 
     search: {
-        placeholder: 'Tìm hành tinh, mặt trăng, thiên hà…',
+        placeholder: 'Tìm hành tinh, mặt trăng, thiên hà, chòm sao…',
         label: 'Tìm thiên thể',
         clear: 'Xóa tìm kiếm',
         popular: 'Phổ biến',
         noMatches: 'Không có gì khớp với “{query}”.',
+        constellation: 'Chòm sao',
     },
 
     stats: {

@@ -1,12 +1,15 @@
 // The cinematic hand-off from the solar-system scene into /sky: focus Earth,
-// dive to the observer's real spot on the globe, turn ~180° away from the
-// ground, then let a curtain hide the cut to the night-sky route.
+// approach the observer's real spot on the globe while turning to face
+// outward, then let a curtain hide the cut to the night-sky route.
 //
 // Two components share one sequence across a route change that unmounts one
 // of them, so — same reasoning as simTime.js/driftControl.js — the state
 // lives here as a module singleton, not React state. SolarSystem3D.jsx owns
 // the camera choreography (it is the only place with the Earth mesh's live
-// transform) and drives phases 'armed' -> 'diving' -> 'turning' -> 'curtain'.
+// transform) and drives phases 'armed' -> 'approaching' -> 'curtain' — one
+// phase for the whole approach, not one per camera beat, since the position
+// (closing the distance) and the orientation (turning outward) both ease
+// across the same single span rather than as separate stitched stages.
 // SkyEntryCurtain.jsx only watches for 'curtain', fades to opaque, navigates,
 // then calls resetSkyEntry() once the fade back out finishes. Neither side
 // needs to know the other's internals, only this phase name.
@@ -20,8 +23,7 @@
 
 export const IDLE = 'idle';
 export const ARMED = 'armed';
-export const DIVING = 'diving';
-export const TURNING = 'turning';
+export const APPROACHING = 'approaching';
 export const CURTAIN = 'curtain';
 
 // If the scene never picks the armed flag up — no Earth mesh yet, a stalled
@@ -53,13 +55,13 @@ export function armSkyEntry({ lat, lon }) {
     notify();
 }
 
-/** idle | armed | diving | turning | curtain */
+/** idle | armed | approaching | curtain */
 export const getSkyEntryPhase = () => phase;
 
-/** The observer this sequence is diving toward, or null while idle. */
+/** The observer this sequence is approaching, or null while idle. */
 export const getSkyEntryObserver = () => observer;
 
-/** Advances (or aborts to) a phase. SolarSystem3D drives armed→diving→turning→curtain. */
+/** Advances (or aborts to) a phase. SolarSystem3D drives armed→approaching→curtain. */
 export function setSkyEntryPhase(next) {
     if (next === phase) return;
     phase = next;

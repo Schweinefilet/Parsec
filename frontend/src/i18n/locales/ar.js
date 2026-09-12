@@ -128,11 +128,12 @@ export const ar = {
     },
 
     search: {
-        placeholder: 'ابحث في الكواكب والأقمار والمجرات…',
+        placeholder: 'ابحث في الكواكب والأقمار والمجرات والكوكبات…',
         label: 'ابحث عن الأجرام',
         clear: 'امسح البحث',
         popular: 'الأكثر بحثًا',
         noMatches: 'لا شيء يطابق «{query}».',
+        constellation: 'كوكبة',
     },
 
     stats: {

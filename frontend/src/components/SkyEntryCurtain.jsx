@@ -11,13 +11,13 @@ import { useReducedMotion } from '../hooks/useMediaQuery';
 // second half of "turn to face the sky" across the cut the curtain hides.
 const ARRIVAL_ALTITUDE = 55;
 
-// The cut between the two scenes: SolarSystem3D.jsx dives the camera to the
-// observer's spot on Earth and turns it outward, then hands off here by
-// setting utils/skyEntry.js's phase to 'curtain'. This is the one piece of
-// that sequence that survives the route change from the catch-all route to
-// /sky — mounted in App.jsx as a sibling of <Routes>, not inside any one
-// Route's element, so it (and the timers below) are never torn down by the
-// navigate() call it is itself about to make.
+// The cut between the two scenes: SolarSystem3D.jsx eases the camera toward
+// the observer's spot on Earth while turning it to face outward, then hands
+// off here by setting utils/skyEntry.js's phase to 'curtain'. This is the
+// one piece of that sequence that survives the route change from the
+// catch-all route to /sky — mounted in App.jsx as a sibling of <Routes>, not
+// inside any one Route's element, so it (and the timers below) are never
+// torn down by the navigate() call it is itself about to make.
 //
 // Plain opacity, not a wipe or an iris — the point is to be invisible, not
 // to be noticed. A few stars fade in while it is held opaque so a beat of

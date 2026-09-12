@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, X, CornerDownLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { OBJECTS } from '../data/objectCatalog';
+import { CONSTELLATION_NAMES } from '../data/constellationNames';
 import { useI18n } from '../i18n';
 
 // Shown before the user types anything — a way in for people who don't yet
@@ -49,8 +50,22 @@ function score(obj, q, local) {
     return 0;
 }
 
+// Constellations aren't catalog objects — no page of their own, no aliases —
+// so they get their own, smaller version of score() rather than being bent
+// to fit OBJECTS' shape. The IAU code is matched alongside the name for the
+// same reason `local`/English both are above: "UMa" is a perfectly normal
+// thing to type for Ursa Major.
+function scoreConstellation(iau, latinName, q, localName) {
+    const names = [localName.toLowerCase(), latinName.toLowerCase()];
+    const code = iau.toLowerCase();
+    if (names.includes(q) || code === q) return 100;
+    if (names.some(n => n.startsWith(q)) || code.startsWith(q)) return 80;
+    if (names.some(n => n.includes(q))) return 55;
+    return 0;
+}
+
 const ObjectSearch = ({ onClose, autoFocus }) => {
-    const { t, intl, object: localize, categoryBadge } = useI18n();
+    const { t, intl, object: localize, categoryBadge, constellationName } = useI18n();
     const [query, setQuery] = useState('');
     const [open, setOpen] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
@@ -66,10 +81,20 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
 
     const results = useMemo(() => {
         const q = query.trim().toLowerCase();
-        if (!q) return POPULAR.map(localize);
-        return OBJECTS
-            .map(o => ({ o: localize(o), src: o }))
-            .map(x => ({ ...x, s: score(x.src, q, x.o.name) }))
+        // Popular stays object-only, same as before a query is typed — it's
+        // a hand-picked "don't know where to start" list, not search results,
+        // and curating a "popular constellations" set of its own is a
+        // separate decision nobody's asked for yet.
+        if (!q) return POPULAR.map(o => ({ ...localize(o), kind: 'object' }));
+        const objectHits = OBJECTS
+            .map(o => ({ o: { ...localize(o), kind: 'object' }, src: o }))
+            .map(x => ({ ...x, s: score(x.src, q, x.o.name) }));
+        const constellationHits = CONSTELLATION_NAMES.map(([iau, latinName]) => {
+            const name = constellationName(iau, latinName);
+            const o = { id: iau, name, type: iau.toUpperCase(), kind: 'constellation' };
+            return { o, s: scoreConstellation(iau, latinName, q, name) };
+        });
+        return [...objectHits, ...constellationHits]
             .filter(x => x.s > 0)
             // Ordered with the reader's own collation: Arabic does not sort
             // the way a byte comparison does, and neither does English once
@@ -77,7 +102,7 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
             .sort((a, b) => b.s - a.s || a.o.name.localeCompare(b.o.name, intl))
             .slice(0, 8)
             .map(x => x.o);
-    }, [query, localize, intl]);
+    }, [query, localize, intl, constellationName]);
 
     useEffect(() => { setActiveIndex(-1); setOpen(true); }, [query]);
 
@@ -89,8 +114,10 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const go = (id) => {
-        navigate(`/object/${id}`);
+    // Constellations have no /object/:id page of their own — just a spot in
+    // the night sky to pan to (see NightSkyPage.jsx's ?con= handling).
+    const go = (obj) => {
+        navigate(obj.kind === 'constellation' ? `/sky?con=${obj.id}` : `/object/${obj.id}`);
         setQuery('');
         setOpen(false);
         onClose?.();
@@ -108,7 +135,7 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
             setActiveIndex(i => (i - 1 + results.length) % results.length);
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            go(results[activeIndex >= 0 ? activeIndex : 0].id);
+            go(results[activeIndex >= 0 ? activeIndex : 0]);
         }
     };
 
@@ -183,10 +210,10 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                         </p>
                     ) : results.map((obj, i) => (
                         <button
-                            key={obj.id}
+                            key={obj.kind + obj.id}
                             role="option"
                             aria-selected={i === activeIndex}
-                            onMouseDown={(e) => { e.preventDefault(); go(obj.id); }}
+                            onMouseDown={(e) => { e.preventDefault(); go(obj); }}
                             onMouseEnter={() => setActiveIndex(i)}
                             className="w-full flex items-center justify-between gap-2 px-4 py-2"
                             style={{
@@ -211,7 +238,7 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                                     className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0"
                                     style={{ border: '1px solid rgba(255,255,255,0.18)', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}
                                 >
-                                    {categoryBadge(obj.category)}
+                                    {obj.kind === 'constellation' ? t('search.constellation') : categoryBadge(obj.category)}
                                 </span>
                             )}
                         </button>

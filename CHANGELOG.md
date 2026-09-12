@@ -16,6 +16,43 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.2
+
+- **Three more /sky requests.** The timeline pill — the date/scrub control
+  every other 3D view shares — no longer shows there; it stayed mounted
+  since 4.7.0 on the reasoning that a date set on /sky should still be set
+  back on the solar-system page (`utils/simTime.js` is a site-wide
+  singleton either way, so that's still true), but the control itself was
+  in the way of a page that's meant to be looked at, not scrubbed. Removed
+  outright rather than passed `hidden`, since nothing on /sky ever needs it
+  shown.
+
+  Constellations are searchable from the header's search bar now, matched
+  by Latin name or IAU code (`ori`, `uma`) alongside the catalog objects
+  that search already covered, each localized the same way the info card's
+  own name is. A new small always-bundled `data/constellationNames.js` — 88
+  `[iau, name]` pairs, hand-extracted from `constellationLines.json` and
+  parity-tested against it — carries just the names global search needs
+  without pulling /sky's full line geometry into every other route's
+  bundle, the same reasoning that keeps that file itself lazy-loaded in the
+  first place. Picking a result lands on `/sky?con=<iau>`, a query param
+  rather than a route param since a constellation has no page of its own —
+  `NightSky3D.jsx` picks it up once the catalog resolves (or immediately,
+  for a second search while already there) and pans to it, the same as a
+  click on the figure itself would.
+
+  And 5.0.0/5.0.1's dive-and-turn is one motion now instead of two stitched
+  ones: the camera closing in on the observer's spot and swinging to face
+  outward run across the same single eased span (`utils/skyEntry.js`
+  simplified from four phases to three — `armed → approaching → curtain` —
+  to match), rather than a full approach finishing before a separate turn
+  animation started from a fresh standing start. The seam between the two
+  old stages was the "not smooth" part being reported; sharing one
+  `skyApproachProgress` removes it by construction rather than papering
+  over the handoff.
+
+---
+
 ## 5.0.1
 
 - **Four fixes and one addition, reported directly from using both /sky

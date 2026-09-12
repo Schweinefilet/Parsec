@@ -115,11 +115,12 @@ export const en = {
     },
 
     search: {
-        placeholder: 'Search planets, moons, galaxies…',
+        placeholder: 'Search planets, moons, galaxies, constellations…',
         label: 'Search objects',
         clear: 'Clear search',
         popular: 'Popular',
         noMatches: 'Nothing matches “{query}”.',
+        constellation: 'Constellation',
     },
 
     stats: {

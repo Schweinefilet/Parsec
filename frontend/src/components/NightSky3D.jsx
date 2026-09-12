@@ -317,9 +317,10 @@ const BODY_LABEL_STYLE = {
     ...LABEL_STYLE, color: 'rgba(255,255,255,0.92)', fontSize: 11,
 };
 
-const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
+const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)', targetConstellation = null }) => {
     const mountRef = useRef(null);
     const locationRef = useRef(location);
+    const targetConstellationRef = useRef(targetConstellation);
     const reducedMotionRef = useRef(false);
     const reducedMotion = useReducedMotion();
     const { locale, constellationName, t } = useI18n();
@@ -327,6 +328,7 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
     const relabelRef = useRef(() => {});
 
     useEffect(() => { locationRef.current = location; }, [location]);
+    useEffect(() => { targetConstellationRef.current = targetConstellation; }, [targetConstellation]);
     useEffect(() => { reducedMotionRef.current = reducedMotion; }, [reducedMotion]);
     useEffect(() => {
         i18nRef.current = { locale, constellationName, t };
@@ -739,6 +741,14 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
         // than fighting it; a new pointerdown is a clearer "I want control
         // back" signal than any timeout could be.
         const panAnim = { active: false, startAz: 0, deltaAz: 0, startAlt: 0, endAlt: 0, t: 0 };
+        // A constellation arrived at via ?con=<iau> (the search bar) rather
+        // than a click — opened once the catalog resolves and segmentsByIau
+        // exists, and again for a later search pick that lands here without
+        // remounting (this route matches on path alone, so a fresh
+        // navigate() with a different ?con just updates the prop). Guarded
+        // by value, not a one-shot flag, so it re-fires only on an actual
+        // change of target.
+        let openedForConstellation = null;
         const onPointerDown = (e) => {
             dragging = true;
             dragDistPx = 0;
@@ -1034,6 +1044,13 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)' }) => {
                     panAnim.startAlt + (panAnim.endAlt - panAnim.startAlt) * eased,
                 );
                 if (panAnim.t >= 1) panAnim.active = false;
+            }
+            const wantCon = targetConstellationRef.current;
+            if (wantCon && wantCon !== openedForConstellation && segmentsByIau?.has(wantCon)) {
+                openedForConstellation = wantCon;
+                showConstellationInfo(wantCon);
+            } else if (!wantCon) {
+                openedForConstellation = null;
             }
             updateCompass();
             // One crowding pass a frame, shared by bodies and constellations
