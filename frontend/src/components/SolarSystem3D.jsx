@@ -182,8 +182,18 @@ const SolarSystem3D = ({
         // ── Exit-animation state (declared early so restore can pre-set them) ──
         let prevFocusedId          = null;
         let prevFocusedPlanetName  = null;
-        let exitPhase      = 0; // 0=normal  1=pull-back  2=fly-to-sun
-        let exitSeconds    = 0;
+        // One continuous eased motion back to the sun, not two stitched
+        // stages (a pull-back handing off to a separate fly-to-sun) — that
+        // seam was the "split" reported. exitPhase is just on/off now;
+        // exitProgress (0..1) drives both the camera and the target easing
+        // together, the same shape utils/skyEntry.js's own approach uses.
+        let exitPhase      = 0; // 0=normal  1=exiting
+        let exitProgress   = 0;
+        let exitStartDistance = 0;
+        const exitStartCamPos = new THREE.Vector3();
+        const exitStartTarget = new THREE.Vector3();
+        const _exitDir        = new THREE.Vector3();
+        const EXIT_ORIGIN     = new THREE.Vector3(0, 0, 0);
         // True while the pointer (or keyboard focus) is on a body — the drift
         // eases down to a crawl so the thing can be looked at.
         let hoverSlow = false;
@@ -275,8 +285,11 @@ const SolarSystem3D = ({
         if (!focusedId && _exitState.active) {
             camera.position.copy(_exitState.cameraPos);
             controls.target.copy(_exitState.targetPos);
+            exitStartCamPos.copy(_exitState.cameraPos);
+            exitStartTarget.copy(_exitState.targetPos);
+            exitStartDistance = exitStartCamPos.distanceTo(exitStartTarget);
             exitPhase      = 1;
-            exitSeconds    = 0;
+            exitProgress   = 0;
             prevFocusedId  = '__restored__'; // truthy — lets phase detection work correctly
             _exitState.active = false;
         }
@@ -2531,8 +2544,11 @@ const SolarSystem3D = ({
                 }
                 // Trigger cinematic zoom-out when going focused → home
                 if (prevFocusedId && !currentFocusedId) {
-                    exitPhase  = 1;
-                    exitSeconds = 0;
+                    exitStartCamPos.copy(camera.position);
+                    exitStartTarget.copy(controls.target);
+                    exitStartDistance = exitStartCamPos.distanceTo(exitStartTarget);
+                    exitPhase    = 1;
+                    exitProgress = 0;
                 }
                 // Refocusing away from Earth mid-sequence (another body clicked,
                 // or "back to home") abandons the sky-entry approach rather than
@@ -2851,29 +2867,45 @@ const SolarSystem3D = ({
                 controls.minDistance = 30;
                 camera.near = 1;
                 camera.updateProjectionMatrix();
-                // Phase 1: constant-velocity pull-back from the planet (50 frames ≈ 0.8s)
-                exitSeconds += deltaSec;
-                if (!isInteracting) {
-                    const currentDist = camera.position.distanceTo(controls.target);
-                    const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
-                    // Move camera 6 units further from planet every frame — always outward,
-                    // never snaps back regardless of starting distance.
-                    camera.position.copy(controls.target)
-                        .addScaledVector(dir, currentDist + 6 * frameScale);
+                if (isInteracting) {
+                    // Grabbed control mid-exit — hand off immediately rather
+                    // than fighting the drag, the same rule focus-in and the
+                    // sky-entry approach both already use.
+                    exitPhase = 0;
+                } else {
+                    // ~1.6s, cubic ease-in-out. Pulling back from the planet
+                    // and recentring on the sun happen together, across one
+                    // shared progress value, rather than a fixed-speed
+                    // pull-back stage (target frozen on the planet) handing
+                    // off to a separately-eased fly-to-sun stage (target
+                    // sliding, distance re-eased from scratch) — that
+                    // handoff was the seam being reported.
+                    //
+                    // The direction the camera backs away along is
+                    // recomputed fresh from wherever the camera and target
+                    // already are, every frame, rather than fixed once at
+                    // the start: the target is sliding toward the sun
+                    // underneath it, and a direction fixed at t=0 stays
+                    // pinned to the abandoned planet's own radial line the
+                    // whole way out — since that line already passes
+                    // through the sun, the planet and the sun would arrive
+                    // in a dead line behind one another. Re-deriving it from
+                    // the live camera position each frame is what the old
+                    // fly-to-sun stage did too (see its own git history);
+                    // only the distance below is a clean, fixed-duration
+                    // ease rather than an asymptotic one, so the whole
+                    // motion — direction, distance and target together —
+                    // reads as one continuous swing.
+                    exitProgress = Math.min(1, exitProgress + deltaSec / 1.6);
+                    const t = exitProgress < 0.5
+                        ? 4 * exitProgress * exitProgress * exitProgress
+                        : 1 - Math.pow(-2 * exitProgress + 2, 3) / 2;
+                    controls.target.lerpVectors(exitStartTarget, EXIT_ORIGIN, t);
+                    _exitDir.subVectors(camera.position, controls.target).normalize();
+                    const nextDistance = THREE.MathUtils.lerp(exitStartDistance, 556, t);
+                    camera.position.copy(controls.target).addScaledVector(_exitDir, nextDistance);
+                    if (exitProgress >= 1) exitPhase = 0;
                 }
-                if (exitSeconds >= 50 / 60) exitPhase = 2;
-
-            } else if (exitPhase === 2) {
-                // Phase 2: smoothly fly camera back toward the sun
-                const defaultTarget = new THREE.Vector3(0, 0, 0);
-                controls.target.lerp(defaultTarget, ease(0.04));
-                if (!isInteracting) {
-                    const currentDistance = camera.position.distanceTo(controls.target);
-                    const nextDistance = THREE.MathUtils.lerp(currentDistance, 556, ease(0.04));
-                    const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
-                    camera.position.copy(controls.target).addScaledVector(dir, nextDistance);
-                }
-                if (controls.target.length() < 8) exitPhase = 0;
 
             } else {
                 // Normal home state — let the user zoom freely; the drift below

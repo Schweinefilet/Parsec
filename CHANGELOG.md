@@ -16,6 +16,36 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.3
+
+- **The zoom-out back to the solar system, from a focused planet, is one
+  motion now instead of two.** It used to be a fixed-speed 0.8s pull-back
+  — camera backing straight off the planet, still looking at it, target
+  frozen — handing off to a separately-eased "fly to the sun" stage that
+  re-eased distance from scratch while the target slid to the origin. The
+  handoff between them was the seam this was reported against, on top of
+  the sky-entry approach fixed the same way in 5.0.2.
+
+  The two stages don't merge as cleanly as the sky-entry dive did, though —
+  a first attempt reused the sky-entry's own trick (freeze a direction once
+  at the start, lerp everything toward it) and broke on the very case it
+  needed to handle: a direction taken from the camera's position relative
+  to the planet is, for any planet that isn't near the observer's own
+  vantage point, *also* very nearly the direction from the sun through that
+  planet — so a fixed end position sent the camera out along that same
+  line and landed with the just-abandoned planet sitting directly between
+  the camera and the sun on arrival, for every planet, not some skewed
+  edge case. (Caught by comparing against the plain default home framing
+  at the same simulated date, not by eye — the two didn't match.) The old
+  fly-to-sun stage never had this problem because it recomputed its own
+  direction fresh every frame from the live camera position as the target
+  slid, rather than committing to one fixed at the start; that self-
+  correcting recompute is what carried over, now driving a clean
+  fixed-duration cubic ease (distance, direction and the recentring target
+  together) instead of the asymptotic one it used to run on its own.
+
+---
+
 ## 5.0.2
 
 - **Three more /sky requests.** The timeline pill — the date/scrub control

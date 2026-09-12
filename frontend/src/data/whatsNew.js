@@ -22,6 +22,7 @@ export const WHATS_NEW = [
             'The night sky view no longer shows the date/scrub control — it’s a view meant for looking, not scrubbing.',
             'Search now finds constellations too, by name or code (try "orion" or "uma") — picking one takes you straight there.',
             'Smoothed the dive-and-turn into the night sky: it’s one continuous motion now instead of two separate steps.',
+            'Zooming back out to the solar system from a focused planet is one smooth motion now too, instead of a pull-back followed by a separate swing to the sun.',
         ],
     },
     {
