@@ -58,9 +58,14 @@ frontend/src/
     SatelliteView.jsx    the satellite tracker (/satellites)
     ComparePage.jsx      two bodies side by side at true relative size (/compare)
     TonightPage.jsx      what is above your horizon right now (/tonight)
+    NightSkyPage.jsx     the night sky from your location (/sky) — lazily
+                         loaded, the only route that is (see "The night sky")
   components/
     SolarSystem3D.jsx    the main scene: planets, moons, belts, orbits, camera,
                          the focus camera, the gravity overlays (~3k lines)
+    NightSky3D.jsx       real stars + constellation figures, drag to look
+                         around — a different scene from SolarSystem3D, not a
+                         mode of it (camera never moves; the sky rotates)
     SatelliteGlobe.jsx   the tracker's globe: real day/night terminator, orbit
                          path, footprint — any tracked spacecraft, not just ISS
     SpacecraftViewer.jsx orbit-controlled viewer for spacecraft models
@@ -109,6 +114,9 @@ frontend/src/
                           compression every off-ring position goes through
     objectSize.js         the catalog's prose sizes as numbers, for comparing
     skyPositions.js / skyEvents.js   altitude/azimuth, and the sky calendar
+    skyRotation.js         the night sky's live EQJ -> scene rotation, and
+                          the look-around camera's azimuth/altitude
+    skyCatalog.js          loads the star + constellation-line tables
     shareView.js          the scene's camera, clock and layout as a link
     documentHead.js       per-route <title> and canonical link (no SSR)
 ```
@@ -389,6 +397,49 @@ point is "come back tomorrow night" cannot ask permission every time, and the
 sky does not change measurably across the kilometre that rounding costs — so
 the rest of a GPS fix is precision with no use and no business being stored.
 Nothing is sent anywhere; the positions are computed on the device.
+
+### The night sky
+
+`/sky` is `/tonight`'s immersive sibling, not a replacement — a real star
+field and the traditional constellation figures, explorable by looking
+around, instead of a flat readout of what's above the horizon. It's lazily
+loaded (`React.lazy` in `App.jsx`, the only route that is): a dedicated
+three.js scene plus a real data catalog is a cost only a visitor who
+actually clicks through should pay. Both pages share
+`hooks/useObserverLocation.js`, so granting a location on one makes it
+available on the other with no second prompt.
+
+**The data** comes from two real, separately-licensed sources, both CC
+BY-SA, joined and trimmed once by `scripts/build-sky-catalog.mjs` into
+`data/stars.json` (8,920 stars, HYG database, mag ≤ 6.5 — the same
+naked-eye ceiling `skyPositions.js`'s `visibilityFor()` already treats as
+honest) and `data/constellationLines.json` (88 IAU constellations, 674
+segments, Stellarium's western sky culture, joined to HYG on Hipparcos
+numbers). Both credited in the scene itself, per their license.
+
+**The coordinate pipeline** is the part worth understanding before touching
+this scene. A star's position is a fixed direction (J2000 equatorial),
+converted once and never touched again — what moves is a single 3×3
+rotation, rebuilt each frame from the observer's location and the real time
+via `astronomy-engine`'s own `Rotation_EQJ_HOR`, uploaded as one shader
+uniform. Thousands of stars turn with the sky as a side effect of the
+ordinary draw call, not as a per-star `Horizon()` call. `skyRotation.js`
+carries the exact axis convention (empirically confirmed, not assumed from
+prose docs) and `skyRotation.test.js` pins the whole thing against
+independent `Astronomy.Horizon()` answers for real stars — the kind of
+place a transposed matrix silently gives you a sky that's subtly wrong
+everywhere rather than obviously broken anywhere.
+
+The camera itself never moves — only its rotation does, via a small
+custom drag/scroll/keyboard control (`NightSky3D.jsx`), not `OrbitControls`
+(built for orbiting a target through world space, not looking around a
+fixed point) or `PointerLockControls` (an OS pointer-lock gesture with no
+real touch story). The ground below the horizon is a hemisphere at the same
+radius as the stars — the same "camera inside a sphere" technique
+`SolarSystem3D.jsx`'s Milky Way backdrop already uses — tinted from the
+Sun's real current altitude through the same twilight boundaries
+`skyPositions.js` uses, so the two pages always agree about where night
+begins.
 
 ### Compare
 

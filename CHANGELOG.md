@@ -16,6 +16,17 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.7.1
+
+- **README caught up to `/sky`.** A new "The night sky" section (the
+  coordinate pipeline, the two datasets and their licenses, the camera and
+  ground technique), and the file map gained `NightSkyPage.jsx`,
+  `NightSky3D.jsx`, `skyRotation.js` and `skyCatalog.js` — same posture as
+  4.6.4: a subsystem this size gets its README section in the same
+  release, and this one shipped a turn late rather than not at all.
+
+---
+
 ## 4.7.0
 
 - **The night sky, from where you're standing.** A new scene — `/sky`,
