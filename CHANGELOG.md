@@ -16,6 +16,51 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.0
+
+- **A cinematic way into /sky.** Clicking the star icon, or "See it in 3D" on
+  the Tonight page, used to be a plain route change — a cut straight from
+  whatever you were looking at to the night-sky dome. It now plays as one
+  continuous arrival: the solar-system scene focuses Earth (reusing the same
+  fly-in every other planet already gets), dives the camera down to your
+  actual saved location on the globe, turns it ~180° away from the ground —
+  the way turning around after you've landed would — and only then hands off
+  to /sky behind a curtain-fade, which is the one piece of the sequence built
+  to survive the route change itself: mounted as a sibling of `<Routes>` in
+  `App.jsx`, not inside any one route's element, so `navigate('/sky')`
+  doesn't unmount the thing driving it. /sky itself opens already looking
+  up, not at its usual near-horizon default, so the turn actually lands
+  somewhere.
+
+  The reason this earns the major version: it's the first time this app
+  hands a camera off between two completely separate Three.js scenes — the
+  solar-system canvas and the night-sky dome don't share a renderer, a
+  camera, or even a coordinate frame (one is heliocentric, the other sits at
+  the observer and never translates), and /sky is its own lazy-loaded route
+  that unmounts the solar system outright. The curtain is what makes that
+  gap invisible rather than something to solve exactly — a phase machine in
+  the new `utils/skyEntry.js` singleton is the only state that has to
+  survive the cut, and `SolarSystem3D.jsx` is left driving a camera only it
+  has the means to move: the dive/turn targets are read off Earth's own live
+  `matrixWorld` every frame (its rotation is briefly held still for the
+  dive, for the same reason the chase camera already exists — a moving
+  target makes a plain lerp toward it jitter), converted from the visitor's
+  saved lat/lon with the same convention `SatelliteGlobe.jsx` already uses
+  for the ISS ground track.
+
+  Reachable from anywhere: with a location already granted, the icon works
+  the same from the tracker, compare view or Tonight page as it does from
+  the solar system itself — it arms the sequence and lands on
+  `/object/earth`, which either continues an already-mounted scene or, from
+  a route that doesn't have one, mounts a fresh one the ordinary way a deep
+  link to any planet already does. Grabbing the camera mid-flight, refocusing
+  onto a different body, or navigating away all fall back cleanly rather than
+  fighting the interruption for control of the view, and a visitor who
+  hasn't granted a location yet still gets the plain, instant navigation
+  this used to be — there's nowhere real to dive to yet.
+
+---
+
 ## 4.10.0
 
 - **The night sky gets a compass, a natural-looking ground, and clickable

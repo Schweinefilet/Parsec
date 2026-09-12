@@ -29,6 +29,10 @@ import {
 } from '../utils/orbitalMotion';
 import { getVizMode, vizWeight, isVizSettling, VIZ_OFF, VIZ_GRID, VIZ_FIELD } from '../utils/vizMode';
 import { driftRates } from '../utils/driftControl';
+import {
+    ARMED, DIVING, TURNING, CURTAIN,
+    getSkyEntryPhase, getSkyEntryObserver, setSkyEntryPhase, resetSkyEntry,
+} from '../utils/skyEntry';
 import { GRAVITY_BODIES, WEIGHT_CONFIG } from '../utils/gravityModel';
 import { makeGravityGrid } from '../utils/gravityGrid';
 import { makeGravityLines } from '../utils/gravityLines';
@@ -209,6 +213,27 @@ const SolarSystem3D = ({
         const focusStartTarget  = new THREE.Vector3();
         const _focusLookTarget  = new THREE.Vector3();
         const _camUpVec         = new THREE.Vector3();
+
+        // ── Sky-entry cinematic (/sky's dive+turn) ───────────────────────────────
+        // utils/skyEntry.js holds the cross-route phase; the actual camera work
+        // has to live here, the one place with Earth's live matrixWorld. Armed
+        // by AppShell.jsx / TonightPage.jsx before they navigate to /object/earth
+        // (or immediately, if already there) — see the trigger check beside
+        // "Detect focus changes" below for where phase 'armed' gets picked up.
+        let skyDiveAnimating = false;
+        let skyDiveProgress  = 0;
+        let skyTurnAnimating = false;
+        let skyTurnProgress  = 0;
+        const skyStartCamPos = new THREE.Vector3();
+        const skyStartQuat   = new THREE.Quaternion();
+        const skyEndQuat     = new THREE.Quaternion();
+        const skyGroundPos   = new THREE.Vector3();
+        const skyNormal      = new THREE.Vector3();
+        const skyNorth       = new THREE.Vector3();
+        const skyFarPoint    = new THREE.Vector3();
+        const skyCamPoint    = new THREE.Vector3();
+        const skyLookMat     = new THREE.Matrix4();
+        const skyEarthQuat   = new THREE.Quaternion();
 
         // ── Chase-camera state ────────────────────────────────────────────────
         // OrbitControls pins the camera in world space, so when the focused
@@ -2491,6 +2516,15 @@ const SolarSystem3D = ({
                     exitPhase  = 1;
                     exitSeconds = 0;
                 }
+                // Refocusing away from Earth mid-sequence (another body clicked,
+                // or "back to home") abandons the sky-entry dive/turn rather than
+                // letting it fight the fresh focus animation for the camera.
+                if (currentFocusedId !== 'earth' && getSkyEntryPhase() !== 'idle'
+                        && getSkyEntryPhase() !== CURTAIN) {
+                    resetSkyEntry();
+                    skyDiveAnimating = false;
+                    skyTurnAnimating = false;
+                }
                 setMoonLabelsReady(false);
                 prevFocusedId  = currentFocusedId;
             }
@@ -2691,7 +2725,14 @@ const SolarSystem3D = ({
                 // Halley holds still while focused. Its nucleus is an irregular
                 // lump and the tails are fixed anti-sunward, so spinning it just
                 // makes the shape wobble under a static tail.
-                if (!(m.userData.id === 'halley' && currentFocusedId === 'halley')) {
+                //
+                // Earth holds still during the sky-entry dive/turn for a
+                // different reason: the ground point the camera is flying to
+                // is read off Earth's live matrixWorld every frame (below), and
+                // a still target is what makes a plain lerp toward it smooth —
+                // otherwise the dive would be chasing a slowly spinning target.
+                if (!(m.userData.id === 'halley' && currentFocusedId === 'halley')
+                        && !(m.userData.id === 'earth' && (skyDiveAnimating || skyTurnAnimating))) {
                     m.rotation.y += meshRotSpeed * frameScale;
                 }
                 // Smoothly lerp axial tilt instead of snapping (avoids surface-texture jump)
@@ -2929,6 +2970,101 @@ const SolarSystem3D = ({
                 }
             }
 
+            // ── Sky-entry: pick up the armed flag once Earth's own focus settles ──
+            // One check covers both routes in: the frame the ordinary fly-in
+            // above finishes (focusAnimating just went false) and arming while
+            // already sitting on Earth unanimated (focusAnimating was already
+            // false, so this fires the very frame armSkyEntry() ran).
+            if (currentFocusedId === 'earth' && earthMesh && !focusAnimating
+                    && getSkyEntryPhase() === ARMED) {
+                setSkyEntryPhase(DIVING);
+                skyDiveAnimating = true;
+                skyDiveProgress  = 0;
+                skyStartCamPos.copy(camera.position);
+                skyStartQuat.copy(camera.quaternion);
+            }
+
+            // ── Sky-entry: dive to the observer's spot, then turn outward ─────
+            // The ground point, its outward normal and a local "north" tangent
+            // are read off earthMesh.matrixWorld fresh every frame rather than
+            // cached at the start of each stage — Earth's own spin is frozen
+            // for the duration (see the self-rotation block above), so in
+            // practice this is a still target, but nothing here depends on
+            // having caught it at exactly the right frame to be one.
+            if ((skyDiveAnimating || skyTurnAnimating) && earthMesh) {
+                if (isInteracting) {
+                    // Grabbed control mid-flight — drop the polish, keep the
+                    // destination: still land on /sky, just without the rest
+                    // of the choreography fighting the user for the camera.
+                    skyDiveAnimating = false;
+                    skyTurnAnimating = false;
+                    setSkyEntryPhase(CURTAIN);
+                } else {
+                    const obs = getSkyEntryObserver();
+                    const lat = (obs?.lat ?? 0) * DEG2RAD;
+                    const lon = (obs?.lon ?? 0) * DEG2RAD;
+                    const R = PLANETS.find(p => p.id === 'earth')?.r ?? 1.31;
+
+                    // Local (unrotated) unit-sphere point and its "north"
+                    // tangent — same lat/lon convention as SatelliteGlobe.jsx's
+                    // toVec3 — carried into this scene by the mesh's own world
+                    // quaternion, so the dive lands on the same ground
+                    // SatelliteGlobe would draw for the same coordinates.
+                    skyGroundPos.set(
+                        Math.cos(lat) * Math.cos(lon), Math.sin(lat), -Math.cos(lat) * Math.sin(lon));
+                    skyNorth.set(
+                        -Math.sin(lat) * Math.cos(lon), Math.cos(lat), Math.sin(lat) * Math.sin(lon));
+                    earthMesh.updateMatrixWorld();
+                    earthMesh.getWorldQuaternion(skyEarthQuat);
+                    skyNorth.applyQuaternion(skyEarthQuat).normalize();
+                    skyNormal.copy(skyGroundPos).applyQuaternion(skyEarthQuat).normalize();
+                    skyGroundPos.multiplyScalar(R).applyMatrix4(earthMesh.matrixWorld);
+
+                    if (skyDiveAnimating) {
+                        // 1.1s, cubic ease-in-out — the same shape as the focus
+                        // fly-in just above.
+                        skyDiveProgress = Math.min(1, skyDiveProgress + deltaSec / 1.1);
+                        const t = skyDiveProgress < 0.5
+                            ? 4 * skyDiveProgress * skyDiveProgress * skyDiveProgress
+                            : 1 - Math.pow(-2 * skyDiveProgress + 2, 3) / 2;
+                        const hover = R * 0.35;
+                        skyCamPoint.copy(skyGroundPos).addScaledVector(skyNormal, hover);
+                        skyLookMat.lookAt(skyCamPoint, skyGroundPos, skyNorth);
+                        skyEndQuat.setFromRotationMatrix(skyLookMat);
+                        camera.position.lerpVectors(skyStartCamPos, skyCamPoint, t);
+                        camera.quaternion.slerpQuaternions(skyStartQuat, skyEndQuat, t);
+                        controls.target.copy(skyGroundPos);
+                        if (skyDiveProgress >= 1) {
+                            skyDiveAnimating = false;
+                            skyTurnAnimating = true;
+                            skyTurnProgress  = 0;
+                            skyStartCamPos.copy(camera.position);
+                            skyStartQuat.copy(camera.quaternion);
+                            setSkyEntryPhase(TURNING);
+                        }
+                    } else {
+                        // 0.9s — the ~180° turn away from the ground, easing the
+                        // camera back off the surface a little further as it
+                        // turns, the way straightening up to face the sky also
+                        // lifts you a little.
+                        skyTurnProgress = Math.min(1, skyTurnProgress + deltaSec / 0.9);
+                        const t = 1 - Math.pow(1 - skyTurnProgress, 3);
+                        const hover = R * (0.35 + 0.35 * t);
+                        skyCamPoint.copy(skyGroundPos).addScaledVector(skyNormal, hover);
+                        skyFarPoint.copy(skyCamPoint).addScaledVector(skyNormal, 40);
+                        skyLookMat.lookAt(skyCamPoint, skyFarPoint, skyNorth);
+                        skyEndQuat.setFromRotationMatrix(skyLookMat);
+                        camera.position.copy(skyCamPoint);
+                        camera.quaternion.slerpQuaternions(skyStartQuat, skyEndQuat, t);
+                        controls.target.copy(skyGroundPos);
+                        if (skyTurnProgress >= 1) {
+                            skyTurnAnimating = false;
+                            setSkyEntryPhase(CURTAIN);
+                        }
+                    }
+                }
+            }
+
             // Cheap, but there is no need to re-measure forty hitboxes every
             // frame — nothing moves far enough in a sixth of a second to matter.
             if (frameCount % 10 === 0) sizeHitboxes();
@@ -3098,6 +3234,16 @@ const SolarSystem3D = ({
                 };
             }
             mounted = false;
+            // An in-flight dive/turn has nowhere to finish if this scene is
+            // going away outside of its own curtain-triggered navigate() —
+            // e.g. the reader hit back mid-flight. Once phase reaches
+            // 'curtain' the sequence is SkyEntryCurtain's to finish (that
+            // navigate() is what unmounts this scene in the first place), so
+            // leave it alone.
+            if (getSkyEntryPhase() === ARMED || getSkyEntryPhase() === DIVING
+                    || getSkyEntryPhase() === TURNING) {
+                resetSkyEntry();
+            }
             // Nothing to share once this scene is gone
             setCameraSnapshot(null);
             cancelAnimationFrame(animId);

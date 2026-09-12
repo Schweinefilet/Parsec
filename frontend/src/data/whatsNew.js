@@ -12,6 +12,12 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.0',
+        changes: [
+            'Opening the night sky is now a journey, not a jump cut: the camera flies to Earth, dives down to your actual location on the globe, and turns to face upward before the sky fades in — from the star icon, or the Tonight page.',
+        ],
+    },
+    {
         version: '4.10',
         changes: [
             'The ground in the night sky view no longer looks blue in daylight — it now has its own natural, neutral colour.',

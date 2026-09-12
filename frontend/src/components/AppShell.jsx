@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useSearchParams, useMatch, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useMatch, useLocation } from 'react-router-dom';
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
     Crosshair, Sparkles, Satellite, Aperture, Radio, Archive, Scale, Eye as EyeIcon,
@@ -16,6 +16,8 @@ import { simDate } from '../utils/simTime';
 import { isTrueScale } from '../utils/scaleMode';
 import { subscribeLogo } from '../utils/assetLoading';
 import { syncDocumentHead } from '../utils/documentHead';
+import { armSkyEntry } from '../utils/skyEntry';
+import { useObserverLocation } from '../hooks/useObserverLocation';
 import { useI18n } from '../i18n';
 
 // Icon per category id. Kept beside the tab list rather than duplicating the
@@ -46,7 +48,22 @@ const AppShell = ({ children }) => {
     // the compare view and the sky page it was context for a list that isn't
     // there — and tapping a tab silently threw you back to the solar system.
     const { pathname } = useLocation();
+    const navigate = useNavigate();
+    const { location: skyLocation } = useObserverLocation();
     const onOwnPage = ['/satellites', '/compare', '/tonight', '/sky'].includes(pathname);
+    // The dive-to-Earth transition (utils/skyEntry.js) needs a real spot to
+    // dive to and a mounted solar-system scene to dive through. Without a
+    // remembered location there is nothing to zoom in on, so the icon just
+    // navigates — /sky's own ask-card handles the prompt from there, same as
+    // it always has. A modified click (new tab, middle-click) is left alone:
+    // the cinematic only makes sense replacing the tab you're already in.
+    const handleSkyClick = (e) => {
+        if (pathname === '/sky' || !skyLocation) return;
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        armSkyEntry(skyLocation);
+        navigate('/object/earth');
+    };
     const activeTab = resolveTab(searchParams.get('tab'));
     const setTab = (id) => {
         setSearchParams({ tab: id }, { replace: true });
@@ -291,6 +308,7 @@ const AppShell = ({ children }) => {
                     {!searchOpen && (
                         <Link
                             to="/sky"
+                            onClick={handleSkyClick}
                             title={t('nav.skyTitle')}
                             aria-label={t('nav.sky')}
                             className="flex items-center justify-center rounded-xl transition-all focus-ring"

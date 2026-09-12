@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import ErrorBoundary from './components/ErrorBoundary';
+import SkyEntryCurtain from './components/SkyEntryCurtain';
 import CategoryBrowser from './pages/CategoryBrowser';
 import SatelliteView from './pages/SatelliteView';
 import ComparePage from './pages/ComparePage';
@@ -20,6 +21,9 @@ function App() {
     return (
         <ErrorBoundary>
             <Router>
+                {/* Outside <Routes> so it survives the route swap it itself
+                    triggers — see utils/skyEntry.js and its own header comment. */}
+                <SkyEntryCurtain />
                 <Routes>
                     <Route path="/satellites" element={<AppShell><SatelliteView /></AppShell>} />
                     <Route path="/compare" element={<AppShell><ComparePage /></AppShell>} />

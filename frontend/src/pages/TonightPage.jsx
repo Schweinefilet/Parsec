@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import { useObserverLocation } from '../hooks/useObserverLocation';
+import { armSkyEntry } from '../utils/skyEntry';
 import { skyView, VISIBILITY_KEY } from '../utils/skyPositions';
 import { findEvents, whenWords, daysUntil, RANK } from '../utils/skyEvents';
 import { PLANETS } from '../data/solarSystemBodies';
@@ -512,7 +513,15 @@ const TonightPage = () => {
                                 <ArrowUpRight className="flip-rtl" style={{ width: 14, height: 14 }} />
                             </button>
                             <button
-                                onClick={() => navigate('/sky')}
+                                onClick={() => {
+                                    // The dive-to-Earth transition needs a mounted
+                                    // solar-system scene to fly through — this page
+                                    // isn't it, so arm the sequence and land on the
+                                    // catch-all route focused on Earth; SolarSystem3D
+                                    // picks the armed flag up once that focus settles.
+                                    if (location) armSkyEntry(location);
+                                    navigate(location ? '/object/earth' : '/sky');
+                                }}
                                 className="flex items-center gap-1.5 rounded-xl font-bold focus-ring"
                                 style={{
                                     padding: '9px 14px', fontSize: '0.8rem',
