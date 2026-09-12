@@ -63,6 +63,14 @@ const TIERS = {
         // matter on this tier are texture memory and fill rate, not this.
         antialias: true,
         starCount: 70,
+        // The /sky scene's real star field — a distinct knob from starCount
+        // above, which is the solar-system skybox's decorative background
+        // dots and would collide in meaning. mag ≤ ~4.5 still shows every
+        // major constellation clearly; the full mag ≤ 6.5 catalog is
+        // reserved for devices that can afford nine thousand points.
+        nightSkyStars: 2000,
+        nightSkyLines: true,     // tens of KB total — on everywhere
+        nightSkyTwinkle: false,
     },
     medium: {
         texturePath: '/textures/',
@@ -82,6 +90,9 @@ const TIERS = {
         minorTextureSize: 512,
         antialias: true,
         starCount: 140,
+        nightSkyStars: 5000,
+        nightSkyLines: true,
+        nightSkyTwinkle: true,
     },
     high: {
         texturePath: '/textures/',
@@ -104,6 +115,9 @@ const TIERS = {
         minorTextureSize: 512,
         antialias: true,
         starCount: 260,
+        nightSkyStars: 8920,   // the full mag ≤ 6.5 catalog
+        nightSkyLines: true,
+        nightSkyTwinkle: true,
     },
 };
 

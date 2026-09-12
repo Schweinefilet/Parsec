@@ -16,6 +16,7 @@ describe('tier settings', () => {
                 'beltParticles', 'beltLOD', 'beltLODRotate', 'skyTexture',
                 'heavyModels', 'heroTextureSize', 'minorTextureSize',
                 'antialias', 'starCount',
+                'nightSkyStars', 'nightSkyLines', 'nightSkyTwinkle',
             ]) {
                 expect(q, `${tier} is missing ${key}`).toHaveProperty(key);
             }
@@ -43,6 +44,12 @@ describe('tier settings', () => {
         expect(low.heavyModels).toBe(false);
         expect(med.heavyModels).toBe(true);
         expect(high.heavyModels).toBe(true);
+        // The night sky's star count scales with tier the same way; the line
+        // art is tiny (tens of KB total) and stays on everywhere.
+        expect(low.nightSkyStars).toBeLessThan(med.nightSkyStars);
+        expect(med.nightSkyStars).toBeLessThan(high.nightSkyStars);
+        expect(low.nightSkyLines).toBe(true);
+        expect(low.nightSkyTwinkle).toBe(false);
     });
 
     it('drops the Milky Way sphere on phones and gives desktop the 8K map', () => {

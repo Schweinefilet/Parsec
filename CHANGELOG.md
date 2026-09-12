@@ -16,6 +16,43 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 4.7.0
+
+- **The night sky, from where you're standing.** A new scene — `/sky`,
+  lazily loaded, nothing about it reaches anyone who doesn't click the new
+  star icon in the header — puts you on the ground looking up, instead of
+  outside the solar system looking in. Real stars, real constellation
+  figures, oriented to your actual location and the actual time, right now.
+  Drag to look around; scroll to zoom; arrow keys work too.
+
+  - **8,920 real stars**, from the HYG database (Hipparcos + Yale Bright
+    Star + Gliese), down to magnitude 6.5 — the same "dark-sky" naked-eye
+    ceiling `/tonight`'s own visibility labels already use. **674 line
+    segments** across all 88 IAU constellations, from Stellarium's western
+    sky-culture data, joined to HYG on their shared Hipparcos numbers. Both
+    sources are CC BY-SA; credited in the scene itself.
+  - Every star is a fixed J2000 direction, converted once at load and never
+    touched again. What moves is one 3×3 rotation a frame — built from the
+    observer's location and the real time via `astronomy-engine`'s own
+    `Rotation_EQJ_HOR` — uploaded as a shader uniform, so 8,920 points and
+    674 line segments turn with the sky as a side effect of the ordinary
+    draw call rather than 8,920 individual position updates. A dedicated
+    test pins the whole pipeline against independent `Astronomy.Horizon()`
+    calls for five real stars at three latitudes, to six decimal places.
+  - Point size follows Pogson's ratio — five magnitudes is a hundredfold in
+    flux — so Sirius reads as unmistakably brighter than a star at the
+    limit, not merely a shade bigger. Stars fade out within a couple of
+    degrees of the horizon rather than popping off; the ground below it is
+    a tinted hemisphere that ramps from the real Sun's current altitude
+    (the same twilight boundaries `/tonight` uses) at the horizon to near
+    black at the nadir.
+  - Camera position never changes — only its rotation, so there's no
+    parallax to get wrong. Quality tiers apply the same way they do
+    everywhere else on the site: a phone gets 2,000 stars and no twinkle, a
+    desktop the full catalog.
+
+---
+
 ## 4.6.7
 
 - **The scene is a flat 30% brighter.** `renderer.toneMapping` was

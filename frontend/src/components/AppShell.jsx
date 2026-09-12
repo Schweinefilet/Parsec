@@ -46,7 +46,7 @@ const AppShell = ({ children }) => {
     // the compare view and the sky page it was context for a list that isn't
     // there — and tapping a tab silently threw you back to the solar system.
     const { pathname } = useLocation();
-    const onOwnPage = ['/satellites', '/compare', '/tonight'].includes(pathname);
+    const onOwnPage = ['/satellites', '/compare', '/tonight', '/sky'].includes(pathname);
     const activeTab = resolveTab(searchParams.get('tab'));
     const setTab = (id) => {
         setSearchParams({ tab: id }, { replace: true });
@@ -77,7 +77,10 @@ const AppShell = ({ children }) => {
             name = obj ? localizeObject(obj).name : null;
             canonicalPath = `/object/${focusedId}`;
         } else if (onOwnPage) {
-            const key = { '/tonight': 'tonight.title', '/compare': 'compare.title', '/satellites': 'tracker.title' }[pathname];
+            const key = {
+                '/tonight': 'tonight.title', '/compare': 'compare.title',
+                '/satellites': 'tracker.title', '/sky': 'nightSky.title',
+            }[pathname];
             name = key ? t(key) : null;
             canonicalPath = pathname;
         } else {
@@ -283,6 +286,24 @@ const AppShell = ({ children }) => {
                             }}
                         >
                             <EyeIcon className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                    )}
+                    {!searchOpen && (
+                        <Link
+                            to="/sky"
+                            title={t('nav.skyTitle')}
+                            aria-label={t('nav.sky')}
+                            className="flex items-center justify-center rounded-xl transition-all focus-ring"
+                            style={{
+                                width: 36, height: 36, flexShrink: 0,
+                                background: 'rgba(0,0,0,0.42)',
+                                border: '1px solid rgba(255,255,255,0.16)',
+                                color: 'rgba(255,255,255,0.85)',
+                                backdropFilter: 'blur(14px)',
+                                WebkitBackdropFilter: 'blur(14px)',
+                            }}
+                        >
+                            <Star className="h-4 w-4" aria-hidden="true" />
                         </Link>
                     )}
                     {!searchOpen && (

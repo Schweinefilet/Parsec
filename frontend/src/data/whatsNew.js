@@ -12,6 +12,12 @@
 
 export const WHATS_NEW = [
     {
+        version: '4.7',
+        changes: [
+            'A new night-sky view: real stars and the traditional constellation figures, oriented to your own location, right now. Find it behind the star icon in the header. Drag to look around, scroll to zoom.',
+        ],
+    },
+    {
         version: '4.6',
         changes: [
             'This panel. Click the version number any time to see what has changed.',

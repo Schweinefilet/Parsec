@@ -39,6 +39,8 @@ export const vi = {
         copied: 'Đã sao chép liên kết',
         tonight: 'Bầu trời đêm nay',
         tonightTitle: 'Bầu trời đêm nay từ nơi bạn đứng',
+        sky: 'Bầu trời đêm',
+        skyTitle: 'Xem bầu trời đêm thực từ vị trí của bạn',
         compare: 'So sánh hai thiên thể',
         compareTitle: 'So sánh hai thiên thể theo kích thước tương đối thực',
         search: 'Tìm thiên thể',
@@ -323,6 +325,16 @@ export const vi = {
         setClockAria: 'Đặt Hệ Mặt Trời về thời điểm {title}',
         footnote: 'Vị trí được tính trên thiết bị của bạn từ vĩ độ và kinh độ ·'
             + ' Độ cao đã tính khúc xạ khí quyển · Cấp sao là hiện tại, không phải trung bình',
+    },
+
+    nightSky: {
+        title: 'Bầu Trời Đêm',
+        askTitle: 'Xem bầu trời đêm thực của bạn',
+        askBody: 'Các ngôi sao và chòm sao thực, định hướng theo nơi bạn đang đứng.'
+            + ' Vị trí của bạn ở lại trên thiết bị này — không có gì được gửi đi đâu cả.',
+        asking: 'Đang định vị…',
+        useLocation: 'Dùng vị trí của tôi',
+        credit: 'Dữ liệu sao: HYG Database (CC BY-SA). Đường nối chòm sao: Stellarium (CC BY-SA).',
     },
 
     sky: {

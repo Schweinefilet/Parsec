@@ -34,6 +34,8 @@ export const en = {
         copied: 'Link copied',
         tonight: 'What’s up tonight',
         tonightTitle: 'What’s up tonight from where you are',
+        sky: 'Night sky',
+        skyTitle: 'See the real night sky from your location',
         compare: 'Compare two bodies',
         compareTitle: 'Compare two bodies at true relative size',
         search: 'Search objects',
@@ -318,6 +320,19 @@ export const en = {
         setClockAria: 'Set the solar system to {title}',
         footnote: 'Positions computed on your device from your latitude and longitude ·'
             + ' Altitudes include atmospheric refraction · Magnitudes are current, not average',
+    },
+
+    // The night-sky dome (/sky) — a different page from "tonight" above, so
+    // its own strings even where the idea overlaps (asking for a location):
+    // this file groups keys by where they appear, not by what they mean.
+    nightSky: {
+        title: 'Night Sky',
+        askTitle: 'See your real night sky',
+        askBody: 'Real stars and constellations, oriented to where you’re standing.'
+            + ' Your location stays on this device — nothing is sent anywhere.',
+        asking: 'Locating…',
+        useLocation: 'Use my location',
+        credit: 'Star data: HYG Database (CC BY-SA). Constellation lines: Stellarium (CC BY-SA).',
     },
 
     sky: {

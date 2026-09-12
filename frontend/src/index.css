@@ -108,6 +108,12 @@ body::after {
   animation: fadeIn 0.35s ease both;
 }
 
+/* The /sky route's lazy-chunk Suspense fallback (App.jsx) — a plain spinner,
+   nothing this route-specific needs a dedicated component for. */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── Focus visibility ───────────────────────────────────────── */
 /* Keyboard users get a clear ring; pointer users see nothing extra. */
 .focus-ring:focus-visible,
