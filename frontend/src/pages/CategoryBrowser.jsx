@@ -773,20 +773,36 @@ const CategoryBrowser = () => {
                         </div>
                     )}
 
-                    {/* Desktop: description slides down from the top */}
+                    {/* Desktop: description slides down from the top.
+                        `max-w-2xl mx-auto` moved onto this outermost box
+                        rather than a wrapper two levels in — with `left:0;
+                        right:0` alone, this box's own hit-testable area was
+                        the full viewport width (only the card inside it was
+                        narrow), and with no pointerEvents override it sat at
+                        z-index 6 over the scene, silently eating clicks on
+                        whatever object was under that empty left/right
+                        margin — hover still worked (the scene's own
+                        mousemove-driven highlight isn't scoped to the
+                        canvas), only clicks came up dead, and only in that
+                        top strip while the description happened to be open,
+                        which is exactly what made it read as a mysterious
+                        "top of the screen" bug rather than an obvious one.
+                        pointerEvents stays none out here and only comes back
+                        on the card itself, so even the padding this box still
+                        carries can't repeat the same mistake at a smaller
+                        scale. */}
                     {!compactFocus && object && (
-                        <div style={{
+                        <div className="max-w-2xl mx-auto" style={{
                             position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6,
+                            pointerEvents: 'none',
                             transform: descriptionOpen ? 'translateY(0)' : 'translateY(-100%)',
                             transition: 'transform 0.45s cubic-bezier(0.32,0.72,0,1)',
                         }}>
                             <div style={{ padding: '36px 16px 24px' }}>
-                                <div className="max-w-2xl mx-auto">
-                                    <div className="glass p-5">
-                                        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem', margin: 0 }}>
-                                            {object.description}
-                                        </p>
-                                    </div>
+                                <div className="glass p-5" style={{ pointerEvents: 'auto' }}>
+                                    <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem', margin: 0 }}>
+                                        {object.description}
+                                    </p>
                                 </div>
                             </div>
                         </div>

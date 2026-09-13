@@ -15,6 +15,7 @@ export const WHATS_NEW = [
         version: '5.1',
         changes: [
             'On a phone, the header’s row of icon buttons (language, share, tonight, sky, compare) is now one menu button — the row had quietly grown wide enough to run off the edge of the screen. Search stays put next to it, since it’s the one you reach for most.',
+            'Fixed: a focused planet’s description card was invisibly blocking clicks on whatever else was near the top of the screen, not just the card itself.',
         ],
     },
     {

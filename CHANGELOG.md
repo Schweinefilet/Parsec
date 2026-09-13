@@ -16,6 +16,33 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.1.6
+
+- **Fixed: a focused planet's description card was blocking clicks on
+  whatever was behind it, across the full width of the screen.** On
+  desktop, the description panel that slides down 1.5s after focusing any
+  object (`CategoryBrowser.jsx`) was `position: absolute; left: 0; right:
+  0` — full viewport width — with `max-w-2xl mx-auto` two levels further
+  in centering only the *visible* glass card inside it. Neither that outer
+  box nor its padding wrapper had a `pointer-events` override, so their
+  invisible margins (everything outside the narrow card, on both sides)
+  sat at z-index 6 over the scene canvas and silently absorbed clicks —
+  hovering still worked (the scene's own hover-highlight isn't scoped to
+  the canvas), so a planet at the edge of the screen looked perfectly
+  clickable and simply wasn't, for as long as the description happened to
+  be open, which is by default and indefinitely.
+
+  `max-w-2xl mx-auto` moved onto the outermost box itself, so its own
+  hit-testable footprint now matches the visible card (672px, centered)
+  instead of the full viewport; `pointer-events: none` on that box and its
+  padding wrapper, `auto` only on the `.glass` card, the same
+  none-outside/auto-on-the-real-content pattern `AppShell.jsx`'s own
+  header already uses. Verified in headless Chrome: a point well inside
+  the old dead zone (outside the 672px card, inside the old full-width
+  box) now resolves to the canvas via `elementFromPoint`, not the wrapper.
+
+---
+
 ## 5.1.5
 
 - **A first-visit hint for the new burger menu.** 5.1.4's mobile header
