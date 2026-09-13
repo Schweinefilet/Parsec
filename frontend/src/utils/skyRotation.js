@@ -44,13 +44,22 @@ import * as THREE from 'three';
 //
 // ── The look direction ───────────────────────────────────────────────────
 //
-// Azimuth (compass degrees, unclamped, wraps) and altitude (clamped so the
-// ground stays reachable without an invisible wall) — set by dragging or
-// nudging, read every frame to orient the camera. See NightSky3D.jsx for how
-// azimuth (compass: 0=N, 90=E clockwise) becomes a three.js yaw: the scene's
-// +Z is south, and a positive rotation about +Y sweeps +X *toward* +Z (east
-// toward south, i.e. clockwise-from-north only once negated) — so the yaw
-// applied to the camera is -azimuth, not azimuth.
+// Azimuth (compass degrees, unclamped, wraps) and altitude (clamped by
+// default so the ground stays reachable without an invisible wall) — set by
+// dragging or nudging, read every frame to orient the camera. See
+// NightSky3D.jsx for how azimuth (compass: 0=N, 90=E clockwise) becomes a
+// three.js yaw: the scene's +Z is south, and a positive rotation about +Y
+// sweeps +X *toward* +Z (east toward south, i.e. clockwise-from-north only
+// once negated) — so the yaw applied to the camera is -azimuth, not azimuth.
+//
+// The default altitude floor is specifically tuned for the *virtual* dome:
+// enough down-tilt to reach the rendered ground hemisphere, not so much that
+// dragging past it wastes a gesture on empty dome with nothing left to show.
+// AR mode's own camera feed has no such ceiling on what's worth looking
+// at — the ground is real, the sky keeps going straight down to your own
+// feet — so setLookDirection takes an optional wider range for exactly that
+// caller (see NightSky3D.jsx's device-orientation subscription) rather than
+// this module picking one clamp that has to serve both.
 
 const ALT_MIN = -10;
 const ALT_MAX = 90;
@@ -106,9 +115,9 @@ export const isSkyRotationReady = () => rotationReady;
 export const getAzimuth = () => azimuth;
 export const getAltitude = () => altitude;
 
-export function setLookDirection(az, alt) {
+export function setLookDirection(az, alt, altMin = ALT_MIN, altMax = ALT_MAX) {
     const nextAz = ((az % 360) + 360) % 360;
-    const nextAlt = Math.max(ALT_MIN, Math.min(ALT_MAX, alt));
+    const nextAlt = Math.max(altMin, Math.min(altMax, alt));
     if (nextAz === azimuth && nextAlt === altitude) return;
     azimuth = nextAz;
     altitude = nextAlt;

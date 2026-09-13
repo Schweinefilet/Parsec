@@ -1319,7 +1319,16 @@ const NightSky3D = ({
 
         startDeviceOrientationTracking();
         const unsubscribeOrientation = subscribeDeviceOrientation(() => {
-            setLookDirection(getOrientationHeading(), getOrientationAltitude());
+            // The wider range is the actual point of this call: the default
+            // clamp (skyRotation.js's own ALT_MIN, -10°) exists so dragging
+            // the virtual dome can't run past its rendered ground hemisphere
+            // into empty space — with a real camera feed as the ground
+            // instead, there's no reason to stop the view early, and doing
+            // so anyway was the bug: the sensor keeps reading further down
+            // while the render freezes at -10°, so tilting back up has to
+            // "catch up" across whatever gap opened up, reading as the view
+            // dragging into place instead of tracking the phone directly.
+            setLookDirection(getOrientationHeading(), getOrientationAltitude(), -90, 90);
         });
 
         const video = document.createElement('video');

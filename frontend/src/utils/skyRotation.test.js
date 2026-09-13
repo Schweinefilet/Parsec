@@ -150,11 +150,22 @@ describe('look direction', () => {
         expect(getAzimuth()).toBe(350);
     });
 
-    it('clamps altitude to [-10, 90]', () => {
+    it('clamps altitude to [-10, 90] by default', () => {
         setLookDirection(0, 200);
         expect(getAltitude()).toBe(90);
         setLookDirection(0, -50);
         expect(getAltitude()).toBe(-10);
+    });
+
+    // AR mode's own camera feed has no rendered-dome floor to run out of —
+    // see NightSky3D.jsx's device-orientation subscription, the one caller
+    // that passes a wider range — so the clamp bounds are overridable per
+    // call rather than fixed to what suits the virtual dome.
+    it('accepts a wider altitude range for callers that need one', () => {
+        setLookDirection(0, -50, -90, 90);
+        expect(getAltitude()).toBe(-50);
+        setLookDirection(0, -95, -90, 90);
+        expect(getAltitude()).toBe(-90);
     });
 
     it('nudges relative to the current direction', () => {

@@ -16,6 +16,29 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.1.3
+
+- **Fixed AR's look-down "drag" — the view froze at -10° instead of
+  following the phone down.** `skyRotation.js`'s altitude floor
+  (`ALT_MIN`, -10°) was never meant for AR at all: it exists so dragging
+  the *virtual* dome can't run past its rendered ground hemisphere into
+  empty space below. AR mode's camera feed has no such floor — the real
+  ground just keeps going — but `setLookDirection()` clamped to it anyway,
+  since it's the same function both modes call. The result was exactly
+  what got reported: tilt the phone down, the rendered view stops at -10°
+  while the sensor keeps reading further down; tilt back up, and the view
+  has to cross that whole gap before it starts moving again, reading as
+  the sky "dragging" back into place rather than tracking the phone
+  directly. `setLookDirection(az, alt, altMin, altMax)` now takes an
+  optional range, defaulting to the existing -10°/90° for every caller
+  except AR mode's own device-orientation subscription, which passes
+  -90°/90° — the full look-straight-down-at-your-feet range a real camera
+  feed can actually support. Verified in headless Chrome by sweeping
+  synthetic tilt events from level down to -70° and back: altitude now
+  tracks the input exactly at every step, no dead zone, no catch-up lag.
+
+---
+
 ## 5.1.2
 
 - **AR milestone 4, and the last one: marker glow, tuning, and a portrait
