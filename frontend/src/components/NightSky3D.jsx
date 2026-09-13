@@ -55,6 +55,15 @@ const FOV_DEFAULT = 55;
 // card rather than growing into a panel.
 const NAMED_STARS_CAP = 8;
 
+const MAIN_LINE_OPACITY = 0.32;
+const THIN_LINE_OPACITY = 0.16;
+// AR-only tuning — see the per-frame block that applies these for why:
+// decoding a live camera feed is real cost the scene's existing device
+// tiers never budgeted for, and a real camera image carries more visual
+// noise than a flat black canvas for a constellation line to read against.
+const AR_MAX_STARS = 2000; // matches utils/quality.js's own TIERS.low.nightSkyStars
+const AR_LINE_OPACITY_BOOST = 1.7;
+
 /** Locale-aware "A, B and C" — falls back to a plain join if Intl.ListFormat is unavailable. */
 function formatStarList(names, locale) {
     try {
@@ -199,6 +208,41 @@ const BODY_FRAGMENT_SHADER = /* glsl */`
         if (r > 0.5) discard;
         float edge = 1.0 - smoothstep(0.35, 0.5, r);
         gl_FragColor = vec4(vColor, edge * vAlpha);
+    }
+`;
+
+// AR-only halo behind the sharp core dot above, sharing its same geometry
+// (position/aSize/aColor) so the two never drift apart — a second, bigger,
+// softer, additively-blended point sitting behind it, the same "layered
+// glow" idea SolarSystem3D.jsx's own GLOW_LAYERS uses around the Sun there
+// (concentric shells, since that one is a 3D mesh; one extra point-sprite
+// pass here, since these are 2D dots on a dome). Exists so a marker doesn't
+// wash out against a bright real Moon or a streetlight in the camera feed —
+// only shown while AR is active, toggled per-frame alongside the star/line
+// tuning below.
+const BODY_GLOW_VERTEX_SHADER = /* glsl */`
+    attribute float aSize;
+    attribute vec3 aColor;
+    uniform float uSizeScale;
+    varying vec3 vColor;
+    varying float vAlpha;
+    void main() {
+        vAlpha = smoothstep(-0.02, 0.05, position.y);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aSize * uSizeScale;
+        vColor = aColor;
+    }
+`;
+const BODY_GLOW_FRAGMENT_SHADER = /* glsl */`
+    precision mediump float;
+    varying vec3 vColor;
+    varying float vAlpha;
+    uniform float uGlowOpacity;
+    void main() {
+        vec2 d = gl_PointCoord - vec2(0.5);
+        float r = length(d) * 2.0; // 0 at centre, 1 at this point's own edge
+        float glow = 1.0 - smoothstep(0.0, 1.0, r);
+        gl_FragColor = vec4(vColor, glow * glow * vAlpha * uGlowOpacity);
     }
 `;
 
@@ -533,6 +577,32 @@ const NightSky3D = ({
         bodyPoints.frustumCulled = false;
         scene.add(bodyPoints);
 
+        // The AR-only halo (see BODY_GLOW_VERTEX_SHADER's own header) —
+        // shares bodyGeo/bodyPosAttr with bodyPoints above rather than a
+        // second copy, so the two positions can never drift apart; an
+        // explicit renderOrder rather than relying on insertion order
+        // (both are depthWrite:false, so draw order is what actually
+        // decides "glow behind the core dot", not depth testing) keeps it
+        // painted first regardless of where either ends up in the scene
+        // graph later. Hidden by default — only visible while arMode is
+        // true, toggled per-frame alongside the star/line AR tuning below.
+        const bodyGlowMat = new THREE.ShaderMaterial({
+            vertexShader: BODY_GLOW_VERTEX_SHADER,
+            fragmentShader: BODY_GLOW_FRAGMENT_SHADER,
+            uniforms: {
+                uSizeScale: { value: 3.4 },
+                uGlowOpacity: { value: 0.55 },
+            },
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+        });
+        const bodyGlowPoints = new THREE.Points(bodyGeo, bodyGlowMat);
+        bodyGlowPoints.frustumCulled = false;
+        bodyGlowPoints.renderOrder = -1;
+        bodyGlowPoints.visible = false;
+        scene.add(bodyGlowPoints);
+
         // One label per tracked body, always present — nine is few enough that
         // decluttering isn't worth it, unlike the constellation figures below.
         const bodyLabelEls = SKY_TRACKED.map((b) => {
@@ -593,7 +663,7 @@ const NightSky3D = ({
 
         // ── Stars + constellation lines + labels: built once the catalog resolves ──
         const geos = [groundGeo, bodyGeo, highlightGeo];
-        const mats = [groundMat, bodyMat, highlightMat];
+        const mats = [groundMat, bodyMat, bodyGlowMat, highlightMat];
         let starPoints = null;
         let starMat = null;
         let starCount = 0;
@@ -745,8 +815,8 @@ const NightSky3D = ({
                     mats.push(mat);
                     return mesh;
                 };
-                mainLinesMesh = makeLineMesh(concat(mainSegs), 0.32);
-                thinLinesMesh = makeLineMesh(concat(thinSegs), 0.16);
+                mainLinesMesh = makeLineMesh(concat(mainSegs), MAIN_LINE_OPACITY);
+                thinLinesMesh = makeLineMesh(concat(thinSegs), THIN_LINE_OPACITY);
                 mainLinesMesh.visible = getNightSkySettings().linesVisible;
                 thinLinesMesh.visible = getNightSkySettings().linesVisible;
             }
@@ -1151,16 +1221,36 @@ const NightSky3D = ({
                 });
             }
             const settings = getNightSkySettings();
+            const inAr = arModeRef.current;
             if (starMat) {
                 starMat.uniforms.uTime.value = clock.getElapsedTime();
-                starMat.uniforms.uMaxIndex.value = starCount * settings.density;
+                // Clamped to the low tier's own star budget (2000 —
+                // utils/quality.js's TIERS.low.nightSkyStars, not imported
+                // here since this is specifically an AR-only cost on top of
+                // whatever tier a device actually qualifies for, not a
+                // change to that tier system itself) while AR is active:
+                // decoding a live camera feed is real GPU/CPU cost this
+                // scene's existing tier budgets never accounted for.
+                const maxIndex = starCount * settings.density;
+                starMat.uniforms.uMaxIndex.value = inAr ? Math.min(maxIndex, AR_MAX_STARS) : maxIndex;
                 starMat.uniforms.uTwinkle.value =
                     (q.nightSkyTwinkle && settings.twinkle && !reducedMotionRef.current) ? 1 : 0;
             }
             if (mainLinesMesh) {
                 mainLinesMesh.visible = settings.linesVisible;
                 thinLinesMesh.visible = settings.linesVisible;
+                // A real camera feed — even a dark sky — carries more visual
+                // texture/noise than a flat black canvas, so the same line
+                // opacity that reads clearly in the virtual view risks
+                // washing out against it. A flat multiplier rather than new
+                // absolute values, so the main/thin relationship (and any
+                // future retuning of the base opacities) carries through
+                // unchanged.
+                const lineBoost = inAr ? AR_LINE_OPACITY_BOOST : 1;
+                mainLinesMesh.material.uniforms.uOpacity.value = MAIN_LINE_OPACITY * lineBoost;
+                thinLinesMesh.material.uniforms.uOpacity.value = THIN_LINE_OPACITY * lineBoost;
             }
+            bodyGlowPoints.visible = inAr;
 
             for (const l of constellationLabels) placeLabel(l.el, l.anchor, false);
             updateCrosshair();

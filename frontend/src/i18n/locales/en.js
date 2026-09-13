@@ -356,6 +356,7 @@ export const en = {
         arEnable: 'Enable',
         arAsking: 'Asking…',
         arRecalibrate: 'Recalibrate',
+        arRotatePortrait: 'Rotate your phone upright to keep using AR',
     },
 
     sky: {

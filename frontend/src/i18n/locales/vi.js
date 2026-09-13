@@ -358,6 +358,7 @@ export const vi = {
         arEnable: 'Bật',
         arAsking: 'Đang xin quyền…',
         arRecalibrate: 'Hiệu chỉnh lại',
+        arRotatePortrait: 'Xoay điện thoại theo chiều dọc để tiếp tục dùng AR',
     },
 
     sky: {

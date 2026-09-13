@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, MapPin, Eye, Camera } from 'lucide-react';
+import { ChevronLeft, MapPin, Eye, Camera, RotateCw } from 'lucide-react';
 import NightSky3D from '../components/NightSky3D';
 import NightSkyPanel from '../components/NightSkyPanel';
 import TimeControl from '../components/TimeControl';
@@ -24,6 +24,24 @@ const FULL_BLEED = {
     position: 'relative', minHeight: 'var(--app-vh, 100vh)',
     width: '100vw', marginLeft: 'calc(-50vw + 50%)', marginRight: 'calc(-50vw + 50%)',
 };
+
+/**
+ * AR mode is portrait-only (see utils/deviceOrientation.js's own header,
+ * "No roll, ever" / screen-orientation note): beta/gamma are reported
+ * relative to the device's *physical* frame, not the current screen
+ * orientation, and iOS/Android compensate for that differently in ways
+ * that need a real device to get right — out of scope for now, so a
+ * landscape hold gets a nudge instead of a silently misaligned sky.
+ * `screen.orientation` is preferred (explicit, unambiguous); a viewport
+ * aspect-ratio comparison is the fallback for the one browser that lacks
+ * it entirely (Safari didn't ship the Screen Orientation API until 16.4).
+ */
+function isPortraitOrientation() {
+    const type = typeof screen !== 'undefined' ? screen.orientation?.type : undefined;
+    if (type) return type.startsWith('portrait');
+    if (typeof window !== 'undefined') return window.innerHeight >= window.innerWidth;
+    return true;
+}
 
 /**
  * The night sky, from your location, right now — a full-bleed 3D dome rather
@@ -56,10 +74,26 @@ const NightSkyPage = () => {
     const [showArCard, setShowArCard] = useState(false);
     const [arBusy, setArBusy] = useState(false);
     const [arOrientationError, setArOrientationError] = useState(null);
+    const [arPortrait, setArPortrait] = useState(true);
     const {
         stream: cameraStream, error: cameraError,
         request: requestCameraStream, stop: stopCameraStream,
     } = useCameraStream();
+
+    // Only tracked while AR is actually active — no reason to listen for
+    // rotation on the virtual-dome view, which has no portrait restriction.
+    useEffect(() => {
+        if (!arMode) return;
+        const update = () => setArPortrait(isPortraitOrientation());
+        update();
+        const orientation = typeof screen !== 'undefined' ? screen.orientation : null;
+        orientation?.addEventListener('change', update);
+        window.addEventListener('resize', update);
+        return () => {
+            orientation?.removeEventListener('change', update);
+            window.removeEventListener('resize', update);
+        };
+    }, [arMode]);
 
     const openArCard = useCallback(() => {
         setArOrientationError(null);
@@ -243,6 +277,22 @@ const NightSkyPage = () => {
                     asking={arBusy}
                     error={arOrientationError || cameraError}
                 />
+            )}
+            {arMode && !arPortrait && (
+                <div
+                    style={{
+                        position: 'absolute', inset: 0, zIndex: 25,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: 20, background: 'rgba(0,0,0,0.7)', pointerEvents: 'none',
+                    }}
+                >
+                    <div className="glass" style={{ padding: 28, textAlign: 'center', maxWidth: 320 }}>
+                        <RotateCw style={{ width: 26, height: 26, color: 'var(--accent)', margin: '0 auto 10px' }} />
+                        <p style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#fff' }}>
+                            {t('nightSky.arRotatePortrait')}
+                        </p>
+                    </div>
+                </div>
             )}
             <NightSkyPanel onOpen={onSettingsOpened} arMode={arMode} />
             {/* The same clock TimeControl scrubs on the solar-system page —

@@ -16,6 +16,53 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.1.2
+
+- **AR milestone 4, and the last one: marker glow, tuning, and a portrait
+  guard.** Completes the plan's four-milestone build: the AR sky viewer
+  now has an additive halo behind each Sun/Moon/planet marker while AR is
+  active (a second `THREE.Points` pass sharing the same position/size/
+  colour buffers as the core dot, so the two can never drift apart — the
+  same layered-glow idea `SolarSystem3D.jsx`'s own `GLOW_LAYERS` uses
+  around the Sun, adapted from concentric 3D shells there to one extra
+  point-sprite pass here), so a marker doesn't wash out against a bright
+  real Moon or a streetlight in the camera feed. Constellation lines get a
+  1.7× opacity boost in AR — a real camera image carries more visual
+  texture than a flat black canvas — and the star count is capped to the
+  low device tier's own budget (2000) on top of whatever tier a device
+  otherwise qualifies for, since decoding a live camera feed is real cost
+  the scene's existing tiers never accounted for. And AR is portrait-only
+  now with an actual guard, not just a design note: a landscape hold shows
+  a "rotate your phone" nudge rather than a silently misaligned sky —
+  `beta`/`gamma` are reported relative to the device's physical frame, not
+  the current screen orientation, and getting that compensation right for
+  both iOS and Android needs a real device this session doesn't have
+  access to.
+
+  One thing worth knowing about verifying this kind of change: a first
+  pass at testing the portrait guard found it showing even in a genuinely
+  portrait-shaped viewport — headless Chrome's own emulation defaults
+  `screen.orientation.type` to `landscape-primary` unless a CDP script
+  explicitly sets it, regardless of the actual emulated width/height. The
+  app's own logic was correct throughout (rightly trusting the standards-
+  based Orientation API over a viewport-shape guess, which is exactly why
+  it's preferred over a plain `innerWidth`/`innerHeight` comparison) — the
+  test setup was the thing missing a parameter, caught and fixed before
+  trusting the result either way.
+
+  This closes out the AR constellation viewer as originally planned across
+  all four milestones (capability gate + camera compositing → sensor-
+  driven heading + declination → marker glow + tuning), built end-to-end
+  without a real-device round trip past milestone 1, at the user's own
+  request. Everything CDP-testable was tested; the whatsNew.js
+  announcement is deliberately still not written, the same call made after
+  milestones 1 and 2/3 — the entire `webkitCompassHeading`/
+  `requestPermission()` path has no headless-Chrome equivalent at all, and
+  publicly calling this "done" before it's been held up against the real
+  sky isn't a call this session gets to make on its own.
+
+---
+
 ## 5.1.1
 
 - **AR milestones 2 and 3: the sky viewer is actually compass-driven now.**

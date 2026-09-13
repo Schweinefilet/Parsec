@@ -393,6 +393,7 @@ export const ar = {
         arEnable: 'تفعيل',
         arAsking: 'جارٍ الطلب…',
         arRecalibrate: 'إعادة المعايرة',
+        arRotatePortrait: 'أدر هاتفك إلى الوضع الرأسي لمتابعة استخدام الواقع المعزز',
     },
 
     sky: {
