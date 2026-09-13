@@ -16,6 +16,25 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.1.5
+
+- **A first-visit hint for the new burger menu.** 5.1.4's mobile header
+  collapse traded five always-visible icons for one that now has to be
+  discovered — a coach mark ("Language, sharing and more", arrow pointing
+  up at the button) fixes that, on mobile only, shown once. Same shape as
+  `NightSkyPage.jsx`'s own single-target coach mark, including the "no
+  timer, no nag" rule every coach mark in this codebase follows: a stored
+  flag (`p4rsec.coachMenu`) means seen, but a plain 8-second fade doesn't
+  set one, so a visitor who glanced away gets another chance next visit.
+  Opening the menu yourself ends the hint immediately and does persist —
+  `HeaderMenu.jsx` gained an `onOpen` prop firing only on the transition
+  into open, mirroring `ScenePanel.jsx`/`NightSkyPanel.jsx`'s own
+  onOpen-ends-the-hint convention exactly. Verified in headless Chrome
+  end-to-end: appears on a fresh visit, disappears and persists the moment
+  the burger is tapped, stays gone after a reload.
+
+---
+
 ## 5.1.4
 
 - **Fixed the mobile header overflowing, by collapsing its icon row into a

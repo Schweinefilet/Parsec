@@ -32,6 +32,7 @@ export const en = {
         back: 'Go back',
         menu: 'Menu',
         menuClose: 'Close menu',
+        hintMenu: 'Language, sharing and more',
         copyLink: 'Copy a link to this view',
         copied: 'Link copied',
         tonight: 'What’s up tonight',

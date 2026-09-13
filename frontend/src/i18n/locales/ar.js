@@ -38,6 +38,7 @@ export const ar = {
         back: 'رجوع',
         menu: 'القائمة',
         menuClose: 'أغلق القائمة',
+        hintMenu: 'اللغة والمشاركة والمزيد',
         copyLink: 'انسخ رابطًا لهذا المشهد',
         copied: 'نُسخ الرابط',
         tonight: 'سماء الليلة',

@@ -37,6 +37,7 @@ export const vi = {
         back: 'Quay lại',
         menu: 'Menu',
         menuClose: 'Đóng menu',
+        hintMenu: 'Ngôn ngữ, chia sẻ và hơn thế nữa',
         copyLink: 'Sao chép liên kết đến khung nhìn này',
         copied: 'Đã sao chép liên kết',
         tonight: 'Bầu trời đêm nay',

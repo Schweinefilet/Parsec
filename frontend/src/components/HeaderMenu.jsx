@@ -33,7 +33,7 @@ const rowStyle = {
  * ScenePanel.jsx/NightSkyPanel.jsx's edge-anchored scene drawers, which are
  * built around sitting flush with a vertical screen edge, not a header row.
  */
-const HeaderMenu = ({ onShare, copied, onSkyClick }) => {
+const HeaderMenu = ({ onShare, copied, onSkyClick, onOpen }) => {
     const { t } = useI18n();
     const [open, setOpen] = useState(false);
     const wrapRef = useRef(null);
@@ -51,11 +51,17 @@ const HeaderMenu = ({ onShare, copied, onSkyClick }) => {
     }, [open]);
 
     const close = () => setOpen(false);
+    // Mirrors ScenePanel.jsx/NightSkyPanel.jsx's own toggleOpen: fires only
+    // on the transition into open, so AppShell's first-visit coach mark can
+    // end itself the moment someone finds this on their own — a visitor who
+    // already opened it once doesn't need to be told it's there.
+    const toggleOpen = () => { if (!open) onOpen?.(); setOpen(v => !v); };
 
     return (
         <div ref={wrapRef} style={{ position: 'relative', flexShrink: 0 }}>
             <button
-                onClick={() => setOpen(v => !v)}
+                onClick={toggleOpen}
+                data-coach="menu"
                 aria-haspopup="true"
                 aria-expanded={open}
                 aria-label={open ? t('nav.menuClose') : t('nav.menu')}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams, useMatch, useLocation } from 'react-router-dom';
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
@@ -8,6 +8,7 @@ import {
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
 import HeaderMenu from './HeaderMenu';
+import CoachMark from './CoachMark';
 import WhatsNew from './WhatsNew';
 import pkg from '../../package.json';
 import { useIsMobile } from '../hooks/useMediaQuery';
@@ -128,6 +129,56 @@ const AppShell = ({ children }) => {
     const [copied, setCopied] = useState(false);
     const [whatsNewOpen, setWhatsNewOpen] = useState(false);
     const releaseLine = pkg.version.split('.').slice(0, 2).join('.');
+
+    // First-visit hint pointing at the burger menu — mobile only, since
+    // that's the only place five icons turned into one that now has to be
+    // discovered rather than just seen. Same shape as NightSkyPage.jsx's
+    // own single-target coach mark (its own flag, `p4rsec.coachMenu` —
+    // having seen a *different* page's hint doesn't mean this one has been
+    // seen), including the "no timer, no nag" honesty: a stored flag means
+    // seen, a plain time-out doesn't set one, so a visitor who glanced away
+    // gets another chance next visit.
+    const [menuCoachSeen, setMenuCoachSeen] = useState(() => {
+        try { return window.localStorage.getItem('p4rsec.coachMenu') === '1'; }
+        catch { return true; }
+    });
+    const [menuCoachArmed, setMenuCoachArmed] = useState(false);
+    const [menuCoachRect, setMenuCoachRect] = useState(null);
+    const endMenuCoach = useCallback((persist) => {
+        setMenuCoachSeen(true);
+        if (persist) { try { window.localStorage.setItem('p4rsec.coachMenu', '1'); } catch { /* private window */ } }
+    }, []);
+    // Opening the menu themselves ends the run — they found it, same as
+    // ScenePanel/NightSkyPanel's own onOpen-ends-the-hint convention.
+    const onMenuOpened = useCallback(() => endMenuCoach(true), [endMenuCoach]);
+
+    useEffect(() => {
+        if (menuCoachSeen || !isMobile) return undefined;
+        const timer = setTimeout(() => setMenuCoachArmed(true), 1300);
+        return () => clearTimeout(timer);
+    }, [menuCoachSeen, isMobile]);
+
+    const showMenuCoach = menuCoachArmed && !menuCoachSeen && isMobile && !searchOpen;
+
+    useEffect(() => {
+        if (!showMenuCoach) { setMenuCoachRect(null); return undefined; }
+        const measure = () => {
+            const el = document.querySelector('[data-coach="menu"]');
+            if (el) setMenuCoachRect(el.getBoundingClientRect());
+        };
+        measure();
+        const raf = requestAnimationFrame(measure);
+        window.addEventListener('resize', measure);
+        return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', measure); };
+    }, [showMenuCoach]);
+
+    // A miss doesn't mark it seen — the next visit gets another chance,
+    // same convention as every other coach mark in this codebase.
+    useEffect(() => {
+        if (!showMenuCoach) return undefined;
+        const timer = setTimeout(() => endMenuCoach(false), 8000);
+        return () => clearTimeout(timer);
+    }, [showMenuCoach, endMenuCoach]);
 
     // Everything else about the page is already in its address; only the
     // scene's camera, clock and layout are not, so those get folded in here.
@@ -273,7 +324,10 @@ const AppShell = ({ children }) => {
                         the viewport edge). Desktop keeps the original inline row,
                         completely unchanged. */}
                     {!searchOpen && isMobile && (
-                        <HeaderMenu onShare={share} copied={copied} onSkyClick={handleSkyClick} />
+                        <HeaderMenu
+                            onShare={share} copied={copied} onSkyClick={handleSkyClick}
+                            onOpen={onMenuOpened}
+                        />
                     )}
                     {!searchOpen && !isMobile && <LanguagePicker />}
                     {!searchOpen && !isMobile && (
@@ -377,6 +431,23 @@ const AppShell = ({ children }) => {
                     </button>
                 </div>
             </header>
+
+            {/* First-visit hint at the burger menu — position:fixed, viewport-
+                absolute from the measured rect, so it lands right regardless
+                of scroll position or page direction. */}
+            {showMenuCoach && menuCoachRect && (
+                <CoachMark
+                    text={t('nav.hintMenu')}
+                    arrow="up"
+                    onDismiss={() => endMenuCoach(true)}
+                    style={{
+                        left: menuCoachRect.left + menuCoachRect.width / 2,
+                        top: menuCoachRect.bottom + 8,
+                        transform: 'translateX(-50%)',
+                        maxWidth: 190,
+                    }}
+                />
+            )}
 
             <main className="flex-1 max-w-7xl mx-auto w-full">{children}</main>
 
