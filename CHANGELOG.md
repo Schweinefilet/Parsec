@@ -16,6 +16,20 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.12
+
+- **The timeline pill is back on /sky.** 5.0.2 removed it outright on the
+  reasoning that a view meant for looking didn't need a scrub control in
+  the way — true as far as it went, but `utils/simTime.js` is a site-wide
+  singleton, so a date left scrubbed on the solar-system page (or scrubbed
+  on an earlier /sky visit — the clock doesn't reset on navigation) carried
+  straight into the night sky with nothing on screen to explain it or wind
+  it back. Restored the exact mount 5.0.2 deleted, `<TimeControl />` in
+  `NightSkyPage.jsx`, so the sky you're looking at is never a mystery and
+  "Live" is always one tap away.
+
+---
+
 ## 5.0.11
 
 - **The Milky Way skysphere was too small for true distances.** It has

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, MapPin, Eye } from 'lucide-react';
 import NightSky3D from '../components/NightSky3D';
 import NightSkyPanel from '../components/NightSkyPanel';
+import TimeControl from '../components/TimeControl';
 import CoachMark from '../components/CoachMark';
 import { useObserverLocation } from '../hooks/useObserverLocation';
 import { useI18n } from '../i18n';
@@ -147,6 +148,15 @@ const NightSkyPage = () => {
             {backButton}
             <NightSky3D location={location} targetConstellation={targetConstellation} />
             <NightSkyPanel onOpen={onSettingsOpened} />
+            {/* The same clock TimeControl scrubs on the solar-system page —
+                utils/simTime.js is a site-wide singleton, not scoped to a
+                route, so a date set here is still set there and back. Brought
+                back after 5.0.2 removed it outright: leaving /sky with no way
+                to see or undo a scrub meant a date set before arriving here —
+                or scrubbed here on an earlier visit, since the clock persists
+                across navigation — could leave the sky showing a stale sky
+                with no visible explanation and no pill to press "Live" on. */}
+            <TimeControl />
             {showCoach && coachRect && (
                 <CoachMark
                     text={t('nightSky.hintSettings')}

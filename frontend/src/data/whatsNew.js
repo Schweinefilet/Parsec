@@ -19,7 +19,6 @@ export const WHATS_NEW = [
             'The constellation info card now lists its named stars, not just the brightest one.',
             'Fixed a flash back to a wide Earth view partway through the new dive-and-turn transition into the night sky.',
             'A constellation’s own stars now shine 50% brighter than the background stars around them.',
-            'The night sky view no longer shows the date/scrub control — it’s a view meant for looking, not scrubbing.',
             'Search now finds constellations too, by name or code (try "orion" or "uma") — picking one takes you straight there.',
             'Smoothed the dive-and-turn into the night sky: it’s one continuous motion now instead of two separate steps.',
             'Zooming back out to the solar system from a focused planet is one smooth motion now too, instead of a pull-back followed by a separate swing to the sun.',
@@ -27,6 +26,7 @@ export const WHATS_NEW = [
             'Dropped the always-0° "Roll" line from the night sky’s compass.',
             'Fixed the night sky’s heading/altitude readout occasionally nudging the compass sideways when a number gained or lost a digit.',
             'Fixed the Milky Way backdrop disappearing behind a black void when you focused Voyager 1 or 2 with true distances on — the camera was flying straight out past the edge of it.',
+            'The date/time control is back in the night sky view, so a date scrubbed elsewhere doesn’t leave you looking at a mystery sky with no way back to live.',
         ],
     },
     {
