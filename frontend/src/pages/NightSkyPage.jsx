@@ -1,11 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, MapPin, Eye } from 'lucide-react';
+import { ChevronLeft, MapPin, Eye, Camera } from 'lucide-react';
 import NightSky3D from '../components/NightSky3D';
 import NightSkyPanel from '../components/NightSkyPanel';
 import TimeControl from '../components/TimeControl';
 import CoachMark from '../components/CoachMark';
+import ArPermissionCard from '../components/ArPermissionCard';
 import { useObserverLocation } from '../hooks/useObserverLocation';
+import { useCameraStream } from '../hooks/useCameraStream';
+import { isArViewerSupported } from '../utils/arSupport';
 import { useI18n } from '../i18n';
 
 // Full bleed out of AppShell's centred <main> (max-w-7xl mx-auto — 1280px on
@@ -40,6 +43,69 @@ const NightSkyPage = () => {
     // pan this same scene to and open the info card for.
     const [searchParams] = useSearchParams();
     const targetConstellation = searchParams.get('con');
+
+    // AR mode: swaps the virtual drag-to-look dome for the live camera feed,
+    // oriented by the phone's own compass/tilt instead of a drag gesture.
+    // Capability is a one-time, permission-free feature probe (see
+    // arSupport.js's own header for why it's built on (pointer: coarse)
+    // rather than useIsMobile()) — computed once, not on every render, since
+    // none of the signals it reads change mid-session.
+    const arSupported = useMemo(() => isArViewerSupported(), []);
+    const [arMode, setArMode] = useState(false);
+    const [showArCard, setShowArCard] = useState(false);
+    const [arBusy, setArBusy] = useState(false);
+    const [arOrientationError, setArOrientationError] = useState(null);
+    const {
+        stream: cameraStream, error: cameraError,
+        request: requestCameraStream, stop: stopCameraStream,
+    } = useCameraStream();
+
+    const openArCard = useCallback(() => {
+        setArOrientationError(null);
+        setShowArCard(true);
+    }, []);
+
+    const handleArCancel = useCallback(() => setShowArCard(false), []);
+
+    // The actual permission-requesting user gesture. iOS 13+ Safari gates
+    // orientation events behind their own explicit prompt, which has to run
+    // — and be answered — before getUserMedia's, the more gesture-sensitive
+    // of the two; everywhere else DeviceOrientationEvent.requestPermission
+    // simply doesn't exist and this is a no-op. Full sensor-driven heading
+    // is a follow-up — this milestone only has to get the permission
+    // sequence itself right, since that is the one part no amount of
+    // headless-Chrome testing can substitute for a real iPhone on.
+    const handleArEnable = useCallback(async () => {
+        setArBusy(true);
+        setArOrientationError(null);
+        const DOE = window.DeviceOrientationEvent;
+        if (typeof DOE?.requestPermission === 'function') {
+            try {
+                const result = await DOE.requestPermission();
+                if (result !== 'granted') {
+                    setArOrientationError('Motion & orientation access was denied');
+                    setArBusy(false);
+                    return;
+                }
+            } catch {
+                setArOrientationError('Motion & orientation access was denied');
+                setArBusy(false);
+                return;
+            }
+        }
+        const stream = await requestCameraStream();
+        setArBusy(false);
+        if (stream) { setArMode(true); setShowArCard(false); }
+    }, [requestCameraStream]);
+
+    const handleArToggle = useCallback(() => {
+        if (arMode) {
+            stopCameraStream();
+            setArMode(false);
+        } else {
+            openArCard();
+        }
+    }, [arMode, stopCameraStream, openArCard]);
 
     // First-visit hint pointing at the settings drawer — its own flag, not
     // the solar-system scene's `p4rsec.coach`: having seen that one doesn't
@@ -146,7 +212,46 @@ const NightSkyPage = () => {
     return (
         <div style={FULL_BLEED}>
             {backButton}
-            <NightSky3D location={location} targetConstellation={targetConstellation} />
+            {arSupported && (
+                <button
+                    onClick={handleArToggle}
+                    aria-pressed={arMode}
+                    aria-label={t(arMode ? 'nightSky.arClose' : 'nightSky.arOpen')}
+                    title={t(arMode ? 'nightSky.arClose' : 'nightSky.arOpen')}
+                    data-coach="ar-toggle"
+                    className="absolute flex items-center justify-center rounded-xl focus-ring"
+                    style={{
+                        // To the back button's other side, on the same row —
+                        // the compass HUD already owns the mirrored top-right
+                        // spot (NightSky3D.jsx's .sky-compass), so this can't
+                        // just mirror the back button's own position.
+                        top: 68, insetInlineStart: 68, zIndex: 20,
+                        width: 38, height: 38,
+                        background: arMode ? 'rgba(255,209,102,0.16)' : 'rgba(0,0,0,0.45)',
+                        border: '1px solid ' + (arMode ? 'rgba(255,209,102,0.34)' : 'rgba(255,255,255,0.16)'),
+                        color: arMode ? '#ffd166' : 'rgba(255,255,255,0.85)',
+                        backdropFilter: 'blur(14px)',
+                        WebkitBackdropFilter: 'blur(14px)',
+                        cursor: 'pointer',
+                    }}
+                >
+                    <Camera style={{ width: 18, height: 18 }} />
+                </button>
+            )}
+            <NightSky3D
+                location={location}
+                targetConstellation={targetConstellation}
+                arMode={arMode}
+                cameraStream={cameraStream}
+            />
+            {showArCard && (
+                <ArPermissionCard
+                    onEnable={handleArEnable}
+                    onCancel={handleArCancel}
+                    asking={arBusy}
+                    error={arOrientationError || cameraError}
+                />
+            )}
             <NightSkyPanel onOpen={onSettingsOpened} />
             {/* The same clock TimeControl scrubs on the solar-system page —
                 utils/simTime.js is a site-wide singleton, not scoped to a
@@ -157,7 +262,12 @@ const NightSkyPage = () => {
                 across navigation — could leave the sky showing a stale sky
                 with no visible explanation and no pill to press "Live" on. */}
             <TimeControl />
-            {showCoach && coachRect && (
+            {/* Suppressed while the AR card is up — CoachMark is
+                position:fixed at z-index 40, above literally everything else
+                on the page by design, which otherwise painted its "lines,
+                twinkle, sky darkness" hint straight through the card's own
+                body text the moment both happened to be armed at once. */}
+            {showCoach && coachRect && !showArCard && (
                 <CoachMark
                     text={t('nightSky.hintSettings')}
                     arrow={rtl ? 'right' : 'left'}

@@ -347,6 +347,14 @@ export const en = {
         constellationStars: { one: '{count} star in view', other: '{count} stars in view' },
         constellationNamedStars: 'Named stars: {names}',
         constellationInfoClose: 'Close',
+        arOpen: 'View sky in AR',
+        arClose: 'Exit AR view',
+        arAskTitle: 'Point your phone at the sky',
+        arAskBody: 'AR mode uses your camera and compass to line up constellations with the real'
+            + ' sky above you. Nothing is recorded or sent anywhere.',
+        arCancel: 'Cancel',
+        arEnable: 'Enable',
+        arAsking: 'Asking…',
     },
 
     sky: {

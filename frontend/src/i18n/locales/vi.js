@@ -349,6 +349,14 @@ export const vi = {
         constellationStars: { other: '{count} sao' },
         constellationNamedStars: 'Các sao có tên: {names}',
         constellationInfoClose: 'Đóng thông tin chòm sao',
+        arOpen: 'Xem bầu trời bằng AR',
+        arClose: 'Thoát chế độ AR',
+        arAskTitle: 'Hướng điện thoại của bạn lên bầu trời',
+        arAskBody: 'Chế độ AR dùng camera và la bàn của bạn để khớp các chòm sao với bầu trời'
+            + ' thực phía trên bạn. Không có gì được ghi lại hay gửi đi đâu cả.',
+        arCancel: 'Hủy',
+        arEnable: 'Bật',
+        arAsking: 'Đang xin quyền…',
     },
 
     sky: {

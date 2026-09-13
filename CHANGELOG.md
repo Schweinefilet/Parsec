@@ -16,6 +16,48 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.1.0
+
+- **First milestone of an AR constellation viewer for /sky.** The long-term
+  goal: point a phone at the real sky and see constellation lines, names,
+  and Sun/Moon/planet markers line up with it live, oriented by the
+  device's own compass and tilt rather than a drag gesture — "compass AR,"
+  not WebXR (no iOS Safari support for `immersive-ar` at all, which would
+  exclude most mobile traffic; heading + tilt is enough since sky objects
+  are effectively at infinity).
+
+  This milestone ships the capability gate, the permission flow, and the
+  camera compositing — deliberately **not** sensor-driven heading yet,
+  which is a follow-up. A new icon button next to /sky's back button (shown
+  only on a touchscreen device that actually exposes both
+  `DeviceOrientationEvent` and `getUserMedia` — `utils/arSupport.js`, built
+  on the same `(pointer: coarse)` signal `utils/quality.js` already uses to
+  mean "real touchscreen," not `useIsMobile()`'s bare width breakpoint)
+  opens an explainer card, then requests iOS's gesture-gated orientation
+  permission before the camera's — the more gesture-sensitive of the two —
+  via `hooks/useCameraStream.js`. Once granted, `NightSky3D.jsx`'s already-
+  transparent renderer composites the star/constellation canvas over the
+  live feed with no shader changes, and hides the synthetic ground
+  hemisphere (redundant once the real ground is on camera). Getting the
+  z-index layering right took an explicit `position:absolute` on the
+  canvas even outside AR mode — CSS paints unpositioned in-flow content
+  *before* positioned descendants in the same stacking context regardless
+  of DOM order, so a naively-added `<video>` behind an unpositioned canvas
+  would otherwise have painted on top of it, not behind it.
+
+  Verified in headless Chrome: capability gating across touch/mouse device
+  emulation, the permission-denial path (default headless behaviour with no
+  fake-media flags — there is no `NotAllowedError` equivalent to mock,
+  headless Chrome simply cannot show a permission prompt at all), and the
+  full compositing path against a synthetic camera feed
+  (`--use-fake-device-for-media-stream`). The entire iOS-specific half —
+  `DeviceOrientationEvent.requestPermission()`'s gesture flow — has no
+  Chrome/CDP equivalent to test against at all and needs a real iPhone,
+  which is what the next milestone's sensor-driven heading will be checked
+  against.
+
+---
+
 ## 5.0.13
 
 - **The timeline pill's date is now a picker, not just a readout.** Click it

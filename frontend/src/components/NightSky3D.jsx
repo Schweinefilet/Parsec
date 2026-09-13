@@ -317,8 +317,12 @@ const BODY_LABEL_STYLE = {
     ...LABEL_STYLE, color: 'rgba(255,255,255,0.92)', fontSize: 11,
 };
 
-const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)', targetConstellation = null }) => {
+const NightSky3D = ({
+    location, height = 'var(--app-vh, 100vh)', targetConstellation = null,
+    arMode = false, cameraStream = null,
+}) => {
     const mountRef = useRef(null);
+    const groundRef = useRef(null);
     const locationRef = useRef(location);
     const targetConstellationRef = useRef(targetConstellation);
     const reducedMotionRef = useRef(false);
@@ -354,6 +358,15 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)', targetConstella
         renderer.setClearColor(0x000000, 0);
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         mount.appendChild(renderer.domElement);
+        // Absolute + an explicit z-index even outside AR mode: CSS paints
+        // unpositioned in-flow content *before* positioned descendants in the
+        // same stacking context regardless of DOM order, so the AR <video>
+        // element added below the canvas (see the arMode effect further down)
+        // would otherwise paint on top of it rather than behind it. Harmless
+        // outside AR mode — an absolutely positioned first child with no
+        // offsets keeps its ordinary static position.
+        renderer.domElement.style.position = 'absolute';
+        renderer.domElement.style.zIndex = '1';
         renderer.domElement.setAttribute('role', 'img');
         renderer.domElement.style.touchAction = 'none'; // this scene owns drag — no browser panning/zoom fighting it
         renderer.domElement.setAttribute(
@@ -469,6 +482,7 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)', targetConstella
         });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         scene.add(ground);
+        groundRef.current = ground;
 
         // ── Sun/Moon/planets ─────────────────────────────────────────────────
         const bodyCount = SKY_TRACKED.length;
@@ -1159,8 +1173,58 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)', targetConstella
             geos.forEach(g => g.dispose());
             mats.forEach(m => m.dispose());
             renderer.dispose();
+            groundRef.current = null;
         };
     }, []);
+
+    // ── AR mode: live camera feed behind the (already-transparent) canvas ──
+    // A sibling effect, not a branch inside the one above — that one is built
+    // once with an empty dependency list and must never re-run (see the file
+    // header). Toggling AR only ever needs to add/remove a <video> element
+    // and flip the ground hemisphere's visibility (the real ground is on
+    // camera now; the synthetic one would either be redundant or paint over
+    // it), neither of which touches the scene graph's own construction.
+    useEffect(() => {
+        const mount = mountRef.current;
+        const ground = groundRef.current;
+        const canvas = mount?.querySelector('canvas');
+        if (!mount || !ground || !arMode || !cameraStream) return;
+
+        ground.visible = false;
+        // Dragging no longer directly aims the view once the compass is
+        // driving it — an accessibility-honesty detail, not cosmetic.
+        canvas?.setAttribute(
+            'aria-label',
+            'The night sky, augmented over your camera. Point your phone to look around.',
+        );
+
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.autoplay = true;
+        video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;'
+            + 'object-fit:cover;z-index:0;';
+        video.srcObject = cameraStream;
+        // First child, ahead of the canvas in DOM order — belt and suspenders
+        // alongside the canvas's own explicit z-index (set once, always, in
+        // the main effect above) for which layer is furthest back.
+        mount.insertBefore(video, mount.firstChild);
+        // Safari can reject a play() raced against layout on the very first
+        // frame; the video still plays once layout settles, so this is safe
+        // to ignore rather than surface as an error.
+        video.play().catch(() => {});
+
+        return () => {
+            video.pause();
+            video.srcObject = null;
+            if (mount.contains(video)) mount.removeChild(video);
+            ground.visible = true;
+            canvas?.setAttribute(
+                'aria-label',
+                'The night sky, looking up from your location. Drag to look around.',
+            );
+        };
+    }, [arMode, cameraStream]);
 
     return (
         <div
