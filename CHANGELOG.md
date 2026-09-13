@@ -16,6 +16,36 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.1.8
+
+- **Toned the Sun's new lens-flare down.** 5.1.7 shipped it far too hot:
+  the halo element was 420px at full opacity, landing additively on a Sun
+  that is already white-hot under five `GLOW_LAYERS` shells, which blew
+  the middle of the frame out and hid the Sun's own surface texture behind
+  a featureless white ball. The halo is now 220px and roughly half as
+  opaque, the streak is dimmer and shorter, and the ghosts are pulled back
+  to about a third of their old opacity. The Sun reads as the Sun again,
+  with the glare sitting on top of it rather than replacing it.
+- **Fixed the streak rendering as a grey rectangle.** It was drawn with
+  `fillRect` and a horizontal-only gradient, so its top and bottom edges
+  were hard lines — at any opacity that made it visible, it read as a band
+  laid over the scene rather than as light. It is now a vertically
+  squashed radial gradient, which falls off on every side and so has no
+  edges to notice.
+- **Replaced 5.1.7's `depthWrite: false` on the Sun with a moving flare
+  anchor.** Dropping the Sun out of the depth buffer did stop it occluding
+  its own flare, but it also meant nothing else in the scene could be
+  correctly ordered against it — the Milky Way sphere (transparent, drawn
+  after the opaque pass) and the background stars were free to draw over
+  the Sun's disc. The Sun's depth behaviour is back to normal; instead the
+  flare hangs off its own `Object3D`, repositioned each frame onto the
+  camera-to-Sun line just clear of the Sun's surface. Since every point on
+  that line projects to the same pixel, the flare lands exactly where it
+  did, the Sun can no longer occlude it, and a planet crossing in front
+  still snuffs it out — which is the occlusion behaviour actually wanted.
+
+---
+
 ## 5.1.7
 
 - **A camera lens-flare on the Sun.** Requested after seeing it on another

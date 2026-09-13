@@ -312,13 +312,6 @@ const SolarSystem3D = ({
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.28));
 
-        // Camera glare: a screen-space flare hanging off mainLight, which
-        // sits at the Sun's own position (the origin). three.js tracks its
-        // screen projection and occludes it against whatever's in front of
-        // the Sun on its own every frame — nothing for our render loop to do.
-        const sunFlare = q.lensFlare ? createSunLensflare() : null;
-        if (sunFlare) mainLight.add(sunFlare);
-
         // ── Orbit paths ───────────────────────────────────────────────────────
         // Drawn as pixel-width lines rather than tubes. A tube has a radius in
         // scene units, so how thick it looks depends on how far away the camera
@@ -517,14 +510,10 @@ const SolarSystem3D = ({
         };
 
         // ── Sun ────────────────────────────────────────────────────────────────
-        const sunGeo = new THREE.SphereGeometry(12, 64, 64);
-        // MeshBasicMaterial — self-luminous, not affected by scene lights.
-        // depthWrite is off (matching GLOW_LAYERS below) so the sphere's own
-        // near surface can't occlude the lens-flare's visibility probe, which
-        // sits at this mesh's exact centre — with depth writes on, that
-        // probe always loses to the sun's own facing hemisphere and the
-        // flare would never appear.
-        const sunMat = new THREE.MeshBasicMaterial({ color: '#FFF4A0', depthWrite: false });
+        const SUN_RADIUS = 12;
+        const sunGeo = new THREE.SphereGeometry(SUN_RADIUS, 64, 64);
+        // MeshBasicMaterial — self-luminous, not affected by scene lights
+        const sunMat = new THREE.MeshBasicMaterial({ color: '#FFF4A0' });
         const sunMesh = new THREE.Mesh(sunGeo, sunMat);
         sunMesh.userData = { id: 'sun', name: 'Sun' };
         scene.add(sunMesh);
@@ -622,6 +611,23 @@ const SolarSystem3D = ({
             geos.push(geo);
             mats.push(mat);
         });
+
+        // Camera glare. Lensflare hides itself when its anchor's depth loses
+        // to what is already in the depth buffer — that is how a planet
+        // crossing in front of the Sun snuffs the flare out. It is also why
+        // the anchor can't sit at the Sun's centre: the Sun's own facing
+        // hemisphere is nearer than its centre, so it would occlude the
+        // flare from every angle and nothing would ever show. The anchor
+        // instead rides just off the Sun's surface on the camera's side
+        // (moved in the render loop) — still on the camera-to-centre line,
+        // so it projects to the same pixel, just no longer behind the Sun's
+        // own skin.
+        const sunFlare = q.lensFlare ? createSunLensflare() : null;
+        const flareAnchor = new THREE.Object3D();
+        if (sunFlare) {
+            flareAnchor.add(sunFlare);
+            scene.add(flareAnchor);
+        }
 
         const planetMeshes    = [sunMesh];  // raycaster targets
         const planetGroups    = [];         // for position refresh
@@ -2799,6 +2805,13 @@ const SolarSystem3D = ({
             meshRotSpeed += (targetRotSpeed - meshRotSpeed) * ease(0.03);
             sunMesh.rotation.y      += 0.0008 * frameScale;
             if (skySphere) skySphere.rotation.y += 0.00002 * frameScale;
+            // Keep the lens-flare's anchor just clear of the Sun's surface on
+            // the camera's side — see where it's created for why.
+            if (sunFlare) {
+                flareAnchor.position.copy(camera.position)
+                    .sub(sunMesh.position).setLength(SUN_RADIUS * 1.04)
+                    .add(sunMesh.position);
+            }
             planetMeshes.forEach(m => {
                 // Halley holds still while focused. Its nucleus is an irregular
                 // lump and the tails are fixed anti-sunward, so spinning it just
