@@ -26,6 +26,14 @@ export const ARMED = 'armed';
 export const APPROACHING = 'approaching';
 export const CURTAIN = 'curtain';
 
+// Where /sky opens its look direction when arrived at through this
+// transition, rather than its own usual near-horizon default — selling the
+// second half of "turn to face the sky" across the cut the curtain hides.
+// Shared, because the approach in SolarSystem3D.jsx aims the camera at this
+// same altitude (due north, ARRIVAL_AZIMUTH) as it turns up, so the curtain
+// is covering a cut between two frames that already match.
+export const ARRIVAL_ALTITUDE = 55;
+
 // If the scene never picks the armed flag up — no Earth mesh yet, a stalled
 // mount, some edge case that isn't a plain refocus-away — this is the
 // failsafe that still lands the visitor on /sky rather than stranding the

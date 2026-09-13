@@ -31,7 +31,7 @@ import {
 import { getVizMode, vizWeight, isVizSettling, VIZ_OFF, VIZ_GRID, VIZ_FIELD } from '../utils/vizMode';
 import { driftRates } from '../utils/driftControl';
 import {
-    ARMED, APPROACHING, CURTAIN,
+    ARMED, APPROACHING, CURTAIN, ARRIVAL_ALTITUDE,
     getSkyEntryPhase, getSkyEntryObserver, setSkyEntryPhase, resetSkyEntry,
 } from '../utils/skyEntry';
 import { GRAVITY_BODIES, WEIGHT_CONFIG } from '../utils/gravityModel';
@@ -233,13 +233,37 @@ const SolarSystem3D = ({
         // "Detect focus changes" below for where phase 'armed' gets picked up.
         //
         // One continuous animation, not two stitched stages: closing in on
-        // the observer's spot and swinging the view to face outward both
-        // happen across the same eased progress, rather than a full dive
-        // finishing before a separate turn starts. A staged version of this
-        // shipped first and read as two stitched clips with a seam between
-        // them; this is the smoother replacement.
+        // the observer's spot and swinging the view to face outward run off
+        // a single progress value, rather than a full dive finishing before
+        // a separate turn starts. A staged version of this shipped first and
+        // read as two stitched clips with a seam between them. The turn is
+        // eased across its own later-starting slice of that progress (see
+        // SKY_TURN_START), which is a lag, not a seam — both are still
+        // moving, and both still land together.
         let skyApproachAnimating = false;
         let skyApproachProgress  = 0;
+        // How the dive is paced. The descent and the turn run off one
+        // progress value but not one clock: sharing the curve outright (what
+        // shipped first) swung the view off the planet while the camera was
+        // still a long way out, so the surface never got close enough to read
+        // as a descent and the shot spent its last second aimed at empty
+        // space with Earth behind the camera. Holding the turn back until the
+        // descent is under way keeps the ground in frame for the fall, and
+        // starting the curtain before the motion ends means the frame empties
+        // behind the fade instead of in front of it.
+        const SKY_DIVE_SECONDS = 2.2;
+        const SKY_TURN_START   = 0.38;
+        // Fires where the view has just come up level with the horizon and
+        // the ground still fills the bottom of the frame. The fade takes
+        // roughly another fifth of the dive to reach opaque, which is
+        // exactly the stretch where the ground drops away and the frame
+        // would otherwise empty out in plain sight.
+        const SKY_CURTAIN_AT   = 0.64;
+        const SKY_ARRIVAL_SIN  = Math.sin(ARRIVAL_ALTITUDE * DEG2RAD);
+        const SKY_ARRIVAL_COS  = Math.cos(ARRIVAL_ALTITUDE * DEG2RAD);
+        const skyEaseInOut = (x) => (x < 0.5
+            ? 4 * x * x * x
+            : 1 - Math.pow(-2 * x + 2, 3) / 2);
         // True for the gap between the approach finishing and the route
         // actually changing (the curtain's fade-in + hold, SkyEntryCurtain.jsx's
         // FADE_MS + HOLD_MS). Once skyApproachAnimating drops there is nothing
@@ -3168,23 +3192,33 @@ const SolarSystem3D = ({
                     skyNormal.copy(skyGroundPos).applyQuaternion(skyEarthQuat).normalize();
                     skyGroundPos.multiplyScalar(R).applyMatrix4(earthMesh.matrixWorld);
 
-                    // 1.8s, cubic ease-in-out — position and orientation
-                    // share this one progress value, so "zooming in" (the
-                    // position lerp closing the distance) and "turning
-                    // outward" (the quaternion slerp swinging the view away
-                    // from the ground) happen concurrently, not staged.
-                    skyApproachProgress = Math.min(1, skyApproachProgress + deltaSec / 1.8);
-                    const t = skyApproachProgress < 0.5
-                        ? 4 * skyApproachProgress * skyApproachProgress * skyApproachProgress
-                        : 1 - Math.pow(-2 * skyApproachProgress + 2, 3) / 2;
-                    const hover = R * 0.7;
+                    // Cubic ease-in-out on both, but the turn runs on its own
+                    // later-starting span — see SKY_TURN_START above for why.
+                    skyApproachProgress = Math.min(1,
+                        skyApproachProgress + deltaSec / SKY_DIVE_SECONDS);
+                    const t  = skyEaseInOut(skyApproachProgress);
+                    const tr = skyEaseInOut(Math.max(0,
+                        (skyApproachProgress - SKY_TURN_START) / (1 - SKY_TURN_START)));
+
+                    // The camera's near plane is 1 scene unit against Earth's
+                    // 1.31 radius, so there is a floor on how close this can
+                    // finish: any lower and the ground directly under the
+                    // camera is clipped away rather than filling the frame.
+                    const hover = R * 0.85;
                     skyCamPoint.copy(skyGroundPos).addScaledVector(skyNormal, hover);
-                    skyFarPoint.copy(skyCamPoint).addScaledVector(skyNormal, 40);
-                    skyLookMat.lookAt(skyCamPoint, skyFarPoint, skyNorth);
+                    // Finish on the look direction /sky itself opens at — due
+                    // north, ARRIVAL_ALTITUDE above the horizon — rather than
+                    // straight up the normal, so the curtain covers a cut
+                    // between two frames that already match.
+                    skyFarPoint.copy(skyCamPoint)
+                        .addScaledVector(skyNormal, 40 * SKY_ARRIVAL_SIN)
+                        .addScaledVector(skyNorth,  40 * SKY_ARRIVAL_COS);
+                    skyLookMat.lookAt(skyCamPoint, skyFarPoint, skyNormal);
                     skyEndQuat.setFromRotationMatrix(skyLookMat);
                     camera.position.lerpVectors(skyStartCamPos, skyCamPoint, t);
-                    camera.quaternion.slerpQuaternions(skyStartQuat, skyEndQuat, t);
+                    camera.quaternion.slerpQuaternions(skyStartQuat, skyEndQuat, tr);
                     controls.target.copy(skyGroundPos);
+                    if (skyApproachProgress >= SKY_CURTAIN_AT) setSkyEntryPhase(CURTAIN);
                     if (skyApproachProgress >= 1) {
                         skyApproachAnimating = false;
                         skyHolding = true;

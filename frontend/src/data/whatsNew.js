@@ -17,6 +17,7 @@ export const WHATS_NEW = [
             'On a phone, the header’s row of icon buttons (language, share, tonight, sky, compare) is now one menu button — the row had quietly grown wide enough to run off the edge of the screen. Search stays put next to it, since it’s the one you reach for most.',
             'Fixed: a focused planet’s description card was invisibly blocking clicks on whatever else was near the top of the screen, not just the card itself.',
             'The Sun now throws a camera lens-flare — a bright core, a streak, and a trail of small coloured ghosts, the way a real camera glares when it catches a bright light.',
+            'The flight into the night sky is a clean shot now: Earth’s description card, stats and buttons step aside for it instead of sliding in over the top, the descent holds the planet in frame the whole way down, and the fade to the night sky starts while the camera is still moving.',
         ],
     },
     {

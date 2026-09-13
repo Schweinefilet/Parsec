@@ -25,6 +25,7 @@ import {
     getVizMode, cycleVizMode, subscribeViz, VIZ_OFF, VIZ_GRID, VIZ_FIELD,
 } from '../utils/vizMode';
 import { decodeView } from '../utils/shareView';
+import { IDLE, getSkyEntryPhase, subscribeSkyEntry } from '../utils/skyEntry';
 import { setOffsetDays } from '../utils/simTime';
 import { useI18n } from '../i18n';
 
@@ -183,6 +184,15 @@ const CategoryBrowser = () => {
     const [sheetOpen, setSheetOpen] = useState(false);
     const [descriptionOpen, setDescriptionOpen] = useState(false);
 
+    // The /sky cinematic flies the camera down onto Earth's surface, and it
+    // gets there by focusing Earth — which otherwise brings this page's whole
+    // focused-object treatment with it: the description sliding in over the
+    // shot, the stats either side, the moon hint. None of that belongs on a
+    // dive, so the overlay steps aside for the length of one.
+    const [skyDiving, setSkyDiving] = useState(() => getSkyEntryPhase() !== IDLE);
+    useEffect(() => subscribeSkyEntry(
+        () => setSkyDiving(getSkyEntryPhase() !== IDLE)), []);
+
     // ── First-visit coach marks ────────────────────────────────────────────
     // Two hints the first time someone explores the scene, one after the other
     // (`coachStep` 0 → speed, 1 → settings): each an arrow and a line of text
@@ -279,6 +289,10 @@ const CategoryBrowser = () => {
         setDescriptionOpen(false);
         setMoonHintVisible(false);
         if (!id) return;
+        // Arming the cinematic while already focused on Earth doesn't change
+        // `id`, so this effect re-running on `skyDiving` is also what closes
+        // a description that was already open when the dive started.
+        if (skyDiving) return;
         const openAt = setTimeout(() => {
             setDescriptionOpen(true);
             if (compactFocus) setSheetOpen(true);
@@ -289,7 +303,7 @@ const CategoryBrowser = () => {
             timers.push(setTimeout(() => setMoonHintVisible(false), 9500));
         }
         return () => timers.forEach(clearTimeout);
-    }, [id, isSpacecraftCard, compactFocus]);
+    }, [id, isSpacecraftCard, compactFocus, skyDiving]);
 
     // Returning to the top of the page also returns the browser scroll position
     useEffect(() => { if (id) window.scrollTo({ top: 0, behavior: 'instant' }); }, [id]);
@@ -685,9 +699,15 @@ const CategoryBrowser = () => {
                             onClick={() => navigate('/')}
                             aria-label={t('scene.back')}
                             title={t('scene.backTitle')}
-                            className="absolute flex items-center justify-center rounded-xl animate-fade-in focus-ring"
+                            // The fade-in animation is `both`-filled, so it
+                            // pins opacity at 1 and an inline opacity can't
+                            // fade this out — the class has to come off.
+                            className={`absolute flex items-center justify-center rounded-xl focus-ring${skyDiving ? '' : ' animate-fade-in'}`}
                             style={{
                                 top: 68, insetInlineStart: 20, zIndex: 20,
+                                opacity: skyDiving ? 0 : 1,
+                                transition: 'opacity 600ms ease',
+                                pointerEvents: skyDiving ? 'none' : 'auto',
                                 width: 38, height: 38,
                                 background: 'rgba(0,0,0,0.45)',
                                 border: '1px solid rgba(255,255,255,0.16)',
@@ -707,9 +727,11 @@ const CategoryBrowser = () => {
                             className="absolute inset-0 pointer-events-none flex items-center justify-between px-6 md:px-16 transition-all duration-1000 ease-out"
                             style={{
                                 zIndex: 5,
-                                opacity: id ? 1 : 0,
+                                opacity: id && !skyDiving ? 1 : 0,
                                 transform: id ? 'scale(1)' : 'scale(0.96)',
-                                transitionDelay: id ? '700ms' : '0ms',
+                                // No 700ms wait on the way out — the dive is
+                                // already moving by the time this is asked to go.
+                                transitionDelay: id && !skyDiving ? '700ms' : '0ms',
                             }}
                         >
                             <div className="flex flex-col gap-8 md:gap-14 items-end"
@@ -819,9 +841,15 @@ const CategoryBrowser = () => {
                                 // lower arrow and sat the pair lower than they
                                 // needed to be. The compact handle is a 4px grab
                                 // bar and keeps 74.
-                                transform: sheetOpen
-                                    ? 'translateY(0)'
-                                    : `translateY(calc(100% - ${compactFocus ? 74 : 84}px))`,
+                                // The dive sends it all the way off rather than
+                                // leaving the peek sitting over the shot — on a
+                                // phone that peek is the biggest thing on screen
+                                // after the planet itself.
+                                transform: skyDiving
+                                    ? 'translateY(100%)'
+                                    : sheetOpen
+                                        ? 'translateY(0)'
+                                        : `translateY(calc(100% - ${compactFocus ? 74 : 84}px))`,
                                 transition: 'transform 0.45s cubic-bezier(0.32,0.72,0,1)',
                             }}
                         >

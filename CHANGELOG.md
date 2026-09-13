@@ -16,6 +16,43 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.1.9
+
+- **The focused-object overlay steps aside for the /sky dive.** The
+  cinematic gets to Earth by focusing it, which brought this page's whole
+  focus treatment along for the ride: the description card sliding in over
+  the shot 1.5s in, the name and stats flanking it, the "click a moon"
+  hint, the back button, and on a phone the detail sheet's peek card. All
+  of it now fades or slides out for the length of a dive, on both layouts.
+  `CategoryBrowser.jsx` mirrors the `skyEntry` phase into state the same
+  way it already mirrors scale and viz mode; the panel-opening effect takes
+  it as a dependency, which is also what closes a description that happened
+  to be open already when the dive started (arming while focused on Earth
+  doesn't change `id`, so nothing else would have).
+  - The back button needed its `animate-fade-in` class dropped rather than
+    just an inline `opacity: 0`: the keyframes are `both`-filled, so they
+    pin opacity at 1 and win against the inline style.
+- **Re-timed the dive so it reads as a descent.** The approach and the turn
+  shared one progress value, so the view swung off the planet while the
+  camera was still a long way out — Earth left the frame around a third of
+  the way in, and the shot spent its last second and a half pointed at
+  empty space with the planet behind the camera, UI still up, waiting for
+  the curtain. The turn now holds off until the descent is under way and
+  the camera finishes on the same look direction `/sky` itself opens at
+  (due north, 55° up) instead of straight up the local normal, so the
+  curtain is covering a cut between two frames that already match.
+- **The curtain now starts while the camera is still moving.** It used to
+  wait for the motion to finish, which is what put a dead beat on the end.
+  It begins its fade at the point where the view comes level with the
+  horizon and the ground still fills the bottom of the frame; the ground
+  drops away behind the fade rather than in front of it.
+- Hover height at the end of the dive is bounded by the camera's near
+  plane — 1 scene unit against Earth's 1.31 radius — so it stops at 0.85
+  radii above the surface. Closer would clip the ground out from under the
+  camera mid-shot rather than filling the frame with it.
+
+---
+
 ## 5.1.8
 
 - **Toned the Sun's new lens-flare down.** 5.1.7 shipped it far too hot:

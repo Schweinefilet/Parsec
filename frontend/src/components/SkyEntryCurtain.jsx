@@ -1,15 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    CURTAIN, getSkyEntryPhase, subscribeSkyEntry, resetSkyEntry,
+    CURTAIN, ARRIVAL_ALTITUDE, getSkyEntryPhase, subscribeSkyEntry, resetSkyEntry,
 } from '../utils/skyEntry';
 import { setLookDirection, DEFAULT_AZIMUTH } from '../utils/skyRotation';
 import { useReducedMotion } from '../hooks/useMediaQuery';
-
-// Where /sky opens its look direction when arrived at through this
-// transition, rather than its own usual near-horizon default — selling the
-// second half of "turn to face the sky" across the cut the curtain hides.
-const ARRIVAL_ALTITUDE = 55;
 
 // The cut between the two scenes: SolarSystem3D.jsx eases the camera toward
 // the observer's spot on Earth while turning it to face outward, then hands
