@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.8
+
+- **5.0.7's letter-uprighting fix knocked the compass off-centre.**
+  `.sky-compass-ring span` — meant to lay out the four outer N/E/S/W
+  wrapper spans — is a descendant selector, not a direct-child one, so it
+  matched the new inner `.sky-compass-letter` span too and handed it
+  `position: absolute` with no offsets of its own. An absolutely
+  positioned element with nothing telling it where to sit escapes its
+  parent's centering rather than inheriting it, which is exactly what
+  the screenshot showed: the letters right about where an un-centred
+  absolute box happens to land, not near N/E/S/W at all. Changed to
+  `.sky-compass-ring > span` so the rule only ever reaches the four
+  outer spans it was written for. Re-verified at several headings.
+
+---
+
 ## 5.0.7
 
 - **Two /sky compass fixes.** Dropped the "Roll" line from the readout —

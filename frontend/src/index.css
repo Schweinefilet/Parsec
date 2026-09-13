@@ -484,7 +484,11 @@ body {
   inset: 0;
   will-change: transform;
 }
-.sky-compass-ring span {
+/* Direct children only — .sky-compass-letter is a span too, one level
+   deeper, and inheriting position:absolute here with no offsets of its own
+   pulled it out of its parent's centering entirely instead of just sitting
+   inside it. */
+.sky-compass-ring > span {
   position: absolute;
   font-size: 9px;
   font-weight: 800;
