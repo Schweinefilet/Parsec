@@ -5,6 +5,7 @@ import {
     subscribeNightSkySettings,
 } from '../utils/nightSkySettings';
 import { setLookDirection, DEFAULT_AZIMUTH, DEFAULT_ALTITUDE } from '../utils/skyRotation';
+import { resetCalibrationOffset } from '../utils/deviceOrientation';
 import { useReducedMotion } from '../hooks/useMediaQuery';
 import { useI18n } from '../i18n';
 
@@ -27,7 +28,7 @@ const rowBtn = (active) => ({
  * plus a Look North button, since there's no other way back to a known
  * orientation once you've dragged somewhere unfamiliar.
  */
-const NightSkyPanel = ({ onOpen }) => {
+const NightSkyPanel = ({ onOpen, arMode = false }) => {
     const { t, rtl } = useI18n();
     const reduced = useReducedMotion();
     const [open, setOpen] = useState(false);
@@ -138,13 +139,23 @@ const NightSkyPanel = ({ onOpen }) => {
                         {t('nightSky.settings')}
                     </p>
 
+                    {/* In AR mode the sensor drives azimuth/altitude every
+                        frame, so resetting them directly (the virtual-view
+                        behaviour) would be overwritten on the very next
+                        reading — a confusing no-op. "Look north" becomes
+                        "trust the sensor again": it zeroes the manual
+                        calibration-offset drag instead (see
+                        NightSky3D.jsx's onPointerMove/onKeyDown, which nudge
+                        that offset while AR is active rather than the view). */}
                     <button
-                        onClick={() => setLookDirection(DEFAULT_AZIMUTH, DEFAULT_ALTITUDE)}
+                        onClick={() => (arMode
+                            ? resetCalibrationOffset()
+                            : setLookDirection(DEFAULT_AZIMUTH, DEFAULT_ALTITUDE))}
                         className="focus-ring"
                         style={rowBtn(false)}
                     >
                         <Compass style={{ width: 13, height: 13 }} aria-hidden="true" />
-                        {t('nightSky.lookNorth')}
+                        {t(arMode ? 'nightSky.arRecalibrate' : 'nightSky.lookNorth')}
                     </button>
 
                     <div style={{ height: 1, background: 'rgba(255,255,255,0.1)', margin: '12px 0' }} />

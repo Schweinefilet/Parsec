@@ -9,6 +9,7 @@ import ArPermissionCard from '../components/ArPermissionCard';
 import { useObserverLocation } from '../hooks/useObserverLocation';
 import { useCameraStream } from '../hooks/useCameraStream';
 import { isArViewerSupported } from '../utils/arSupport';
+import { requestDeviceOrientationPermission } from '../utils/deviceOrientation';
 import { useI18n } from '../i18n';
 
 // Full bleed out of AppShell's centred <main> (max-w-7xl mx-auto — 1280px on
@@ -70,28 +71,19 @@ const NightSkyPage = () => {
     // The actual permission-requesting user gesture. iOS 13+ Safari gates
     // orientation events behind their own explicit prompt, which has to run
     // — and be answered — before getUserMedia's, the more gesture-sensitive
-    // of the two; everywhere else DeviceOrientationEvent.requestPermission
-    // simply doesn't exist and this is a no-op. Full sensor-driven heading
-    // is a follow-up — this milestone only has to get the permission
-    // sequence itself right, since that is the one part no amount of
-    // headless-Chrome testing can substitute for a real iPhone on.
+    // of the two; everywhere else requestDeviceOrientationPermission()
+    // resolves true immediately (nothing to ask). Sensor-driven heading is
+    // now wired up on the other end of this (utils/deviceOrientation.js),
+    // so a grant here really does turn into a working compass, not just a
+    // permission formality.
     const handleArEnable = useCallback(async () => {
         setArBusy(true);
         setArOrientationError(null);
-        const DOE = window.DeviceOrientationEvent;
-        if (typeof DOE?.requestPermission === 'function') {
-            try {
-                const result = await DOE.requestPermission();
-                if (result !== 'granted') {
-                    setArOrientationError('Motion & orientation access was denied');
-                    setArBusy(false);
-                    return;
-                }
-            } catch {
-                setArOrientationError('Motion & orientation access was denied');
-                setArBusy(false);
-                return;
-            }
+        const orientationGranted = await requestDeviceOrientationPermission();
+        if (!orientationGranted) {
+            setArOrientationError('Motion & orientation access was denied');
+            setArBusy(false);
+            return;
         }
         const stream = await requestCameraStream();
         setArBusy(false);
@@ -252,7 +244,7 @@ const NightSkyPage = () => {
                     error={arOrientationError || cameraError}
                 />
             )}
-            <NightSkyPanel onOpen={onSettingsOpened} />
+            <NightSkyPanel onOpen={onSettingsOpened} arMode={arMode} />
             {/* The same clock TimeControl scrubs on the solar-system page —
                 utils/simTime.js is a site-wide singleton, not scoped to a
                 route, so a date set here is still set there and back. Brought

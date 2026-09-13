@@ -355,6 +355,7 @@ export const en = {
         arCancel: 'Cancel',
         arEnable: 'Enable',
         arAsking: 'Asking…',
+        arRecalibrate: 'Recalibrate',
     },
 
     sky: {

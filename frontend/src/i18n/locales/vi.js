@@ -357,6 +357,7 @@ export const vi = {
         arCancel: 'Hủy',
         arEnable: 'Bật',
         arAsking: 'Đang xin quyền…',
+        arRecalibrate: 'Hiệu chỉnh lại',
     },
 
     sky: {

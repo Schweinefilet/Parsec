@@ -16,6 +16,54 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.1.1
+
+- **AR milestones 2 and 3: the sky viewer is actually compass-driven now.**
+  `utils/deviceOrientation.js` turns `DeviceOrientationEvent` into the same
+  azimuth/altitude `utils/skyRotation.js` already accepted from a drag —
+  `setLookDirection()`/`applyLook()`/the crosshair constellation lookup all
+  keep working completely unchanged, since none of them know or care that
+  the numbers now come from a sensor. Heading prefers iOS's own
+  `webkitCompassHeading` (already in this app's own compass convention),
+  falls back to Chrome/Android's `deviceorientationabsolute`, and falls
+  back again to best-effort relative `alpha` on anything else — absorbed by
+  a manual calibration-offset drag (`nudgeCalibrationOffset`), which a drag
+  or arrow key now nudges instead of the view directly while AR is active,
+  and which `NightSkyPanel`'s "Look north" button resets (repurposed in AR
+  mode, where resetting azimuth/altitude directly would just be overwritten
+  by the next sensor reading). Magnetic declination is corrected to true
+  north via the `magvar` package (WMM 2025-2030, zero runtime deps),
+  looked up for the observer's own location using the *real* current date,
+  not the app's scrubbable simulated clock.
+
+  Two real bugs, not zero, on the way to a clean result — both caught by
+  testing rather than shipped blind: the Euler-angle heading formula's
+  East component needed its sign dropped (a first pass mirrored 90°/270°
+  across the N/S axis, caught by four independent alpha fixtures agreeing
+  on the fix at once, not just one); and headless Chrome's own device-
+  orientation emulation turned out to dispatch an empty, all-null event
+  before real values arrive — on *both* the absolute and plain event types
+  — which a naive handler processed as "phone lying flat, facing north"
+  (a real, wrong altitude of -90°) and let corrupt the smoothed state for
+  every real sample after it. Both are pinned by unit tests now, and the
+  full pipeline — sensor event to rotated star field to the compass HUD's
+  own rendered text — was confirmed end-to-end in headless Chrome by
+  dispatching synthetic orientation events directly (CDP's own
+  `DeviceOrientation.setDeviceOrientationOverride` barely re-dispatches
+  events for an unchanged value, which starves this module's smoothing of
+  the samples it needs — a quirk of that specific emulation path, not of
+  real hardware, and not of this module's own code).
+
+  Built and shipped without a real-device round trip, at the user's own
+  request after confirming milestone 1 (capability gate, camera
+  compositing, the iOS permission flow) worked well on their iPhone — the
+  entire `webkitCompassHeading`/`requestPermission()` half of this has no
+  Chrome/CDP equivalent to verify against at all, so whether it actually
+  points at the real sky is still an open question until the next
+  real-device check.
+
+---
+
 ## 5.1.0
 
 - **First milestone of an AR constellation viewer for /sky.** The long-term

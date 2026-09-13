@@ -392,6 +392,7 @@ export const ar = {
         arCancel: 'إلغاء',
         arEnable: 'تفعيل',
         arAsking: 'جارٍ الطلب…',
+        arRecalibrate: 'إعادة المعايرة',
     },
 
     sky: {

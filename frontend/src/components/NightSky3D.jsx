@@ -7,6 +7,11 @@ import {
     updateSkyRotation, getSkyRotation,
     getAzimuth, getAltitude, nudgeLookDirection, setLookDirection, subscribeLook,
 } from '../utils/skyRotation';
+import {
+    startDeviceOrientationTracking, stopDeviceOrientationTracking,
+    subscribeDeviceOrientation, getOrientationHeading, getOrientationAltitude,
+    setDeclinationLocation, nudgeCalibrationOffset,
+} from '../utils/deviceOrientation';
 import { simNow } from '../utils/simTime';
 import { getNightSkySettings } from '../utils/nightSkySettings';
 import { SKY_BODIES } from '../utils/skyPositions';
@@ -325,6 +330,12 @@ const NightSky3D = ({
     const groundRef = useRef(null);
     const locationRef = useRef(location);
     const targetConstellationRef = useRef(targetConstellation);
+    // Read by the fixed-at-mount onPointerMove/onKeyDown closures below, so
+    // a drag or arrow key branches to nudging the AR calibration offset
+    // instead of the view directly once AR mode is live — those handlers
+    // are built once in the effect with an empty dependency list and never
+    // rebuilt, so a plain prop read wouldn't see this change at all.
+    const arModeRef = useRef(arMode);
     const reducedMotionRef = useRef(false);
     const reducedMotion = useReducedMotion();
     const { locale, constellationName, t } = useI18n();
@@ -333,6 +344,7 @@ const NightSky3D = ({
 
     useEffect(() => { locationRef.current = location; }, [location]);
     useEffect(() => { targetConstellationRef.current = targetConstellation; }, [targetConstellation]);
+    useEffect(() => { arModeRef.current = arMode; }, [arMode]);
     useEffect(() => { reducedMotionRef.current = reducedMotion; }, [reducedMotion]);
     useEffect(() => {
         i18nRef.current = { locale, constellationName, t };
@@ -794,7 +806,13 @@ const NightSky3D = ({
             lastX = e.clientX; lastY = e.clientY;
             dragDistPx += Math.abs(dx) + Math.abs(dy);
             const scale = camera.fov / Math.max(1, renderer.domElement.clientWidth);
-            nudgeLookDirection(-dx * scale, dy * scale);
+            // In AR mode the sensor drives the view every frame and would
+            // instantly overwrite a raw nudge on the very next reading — a
+            // drag there nudges the calibration *offset* instead, the same
+            // fine-correction gesture "Look north" resets (see
+            // NightSkyPanel.jsx).
+            if (arModeRef.current) nudgeCalibrationOffset(-dx * scale, dy * scale);
+            else nudgeLookDirection(-dx * scale, dy * scale);
         };
         const onPointerUp = (e) => {
             dragging = false;
@@ -809,11 +827,12 @@ const NightSky3D = ({
         };
         const NUDGE_DEG = 3;
         const onKeyDown = (e) => {
+            const nudge = arModeRef.current ? nudgeCalibrationOffset : nudgeLookDirection;
             switch (e.key) {
-                case 'ArrowLeft':  nudgeLookDirection(-NUDGE_DEG, 0); break;
-                case 'ArrowRight': nudgeLookDirection(NUDGE_DEG, 0); break;
-                case 'ArrowUp':    nudgeLookDirection(0, NUDGE_DEG); break;
-                case 'ArrowDown':  nudgeLookDirection(0, -NUDGE_DEG); break;
+                case 'ArrowLeft':  nudge(-NUDGE_DEG, 0); break;
+                case 'ArrowRight': nudge(NUDGE_DEG, 0); break;
+                case 'ArrowUp':    nudge(0, NUDGE_DEG); break;
+                case 'ArrowDown':  nudge(0, -NUDGE_DEG); break;
                 case 'Escape':     hideInfoCard(); return;
                 default: return;
             }
@@ -1198,6 +1217,21 @@ const NightSky3D = ({
             'The night sky, augmented over your camera. Point your phone to look around.',
         );
 
+        // The observer's own lat/lon, for magnetic-declination correction —
+        // read once here rather than added to this effect's own dependency
+        // list, since AR doesn't need to tear down and rebuild the camera
+        // feed over a location change that, in practice, never happens
+        // mid-session (see utils/deviceOrientation.js's own header for why
+        // this uses the *real* current date rather than the app's
+        // scrubbable simulated clock).
+        const loc = locationRef.current;
+        if (loc) setDeclinationLocation(loc.lat, loc.lon);
+
+        startDeviceOrientationTracking();
+        const unsubscribeOrientation = subscribeDeviceOrientation(() => {
+            setLookDirection(getOrientationHeading(), getOrientationAltitude());
+        });
+
         const video = document.createElement('video');
         video.muted = true;
         video.playsInline = true;
@@ -1215,6 +1249,8 @@ const NightSky3D = ({
         video.play().catch(() => {});
 
         return () => {
+            unsubscribeOrientation();
+            stopDeviceOrientationTracking();
             video.pause();
             video.srcObject = null;
             if (mount.contains(video)) mount.removeChild(video);
