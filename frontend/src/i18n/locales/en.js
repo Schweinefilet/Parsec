@@ -158,7 +158,6 @@ export const en = {
     time: {
         live: 'Live',
         rateAndOffset: '{rate}, {offset}',
-        liveAt: '{time}, live',
         paused: 'paused',
         realTime: 'real time',
         now: 'now',
@@ -177,6 +176,7 @@ export const en = {
         resume: 'Resume time',
         backToNow: 'Back to now',
         scrub: 'Scrub through time',
+        pickDate: 'Pick a date',
     },
 
     loading: {

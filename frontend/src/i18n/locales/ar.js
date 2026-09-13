@@ -171,7 +171,6 @@ export const ar = {
     time: {
         live: 'مباشر',
         rateAndOffset: '{rate}، {offset}',
-        liveAt: '{time}، مباشر',
         paused: 'موقوف',
         realTime: 'الزمن الحقيقي',
         now: 'الآن',
@@ -212,6 +211,7 @@ export const ar = {
         resume: 'استأنف الزمن',
         backToNow: 'العودة إلى الآن',
         scrub: 'تنقّل عبر الزمن',
+        pickDate: 'اختر تاريخًا',
     },
 
     loading: {

@@ -16,6 +16,33 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.13
+
+- **The timeline pill's date is now a picker, not just a readout.** Click it
+  and the browser's own calendar opens — via `showPicker()` on a real but
+  invisible `<input type="date">` sitting behind the visible, locale-
+  formatted text, rather than swapping the text itself for the date input's
+  own browser-locale rendering. Picking a day keeps whatever hour the
+  simulated clock already had (a date picker only knows about the calendar
+  square, not the clock face, so it borrows the current time of day rather
+  than zeroing it to midnight) and jumps straight there via `setSimTime()`,
+  the same call the scrubber's drag ends up at. Bounded to the scrubber's
+  own ±10-year reach (`RANGE_DAYS`) via the input's `min`/`max`, so the
+  picker never offers a date the slider itself couldn't represent.
+
+  The pill also now shows the clock face, not just the calendar date: an
+  hours-and-minutes readout sits right next to the (now-clickable) date,
+  in both the live and scrubbed states. Previously the hour only ever
+  showed up while live (`"02:41 AM, live"`, folded into the second line);
+  scrubbed away from live, the pill told you the date, the rate and how
+  far you'd moved, but never the time of day you'd landed on. Promoting it
+  to sit beside the date — true in both states — meant the second line no
+  longer needed to carry it itself, so live there now just reads "Live"
+  and the now-dead `time.liveAt` locale key is gone from all three
+  languages.
+
+---
+
 ## 5.0.12
 
 - **The timeline pill is back on /sky.** 5.0.2 removed it outright on the

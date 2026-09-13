@@ -163,7 +163,6 @@ export const vi = {
     time: {
         live: 'Trực tiếp',
         rateAndOffset: '{rate}, {offset}',
-        liveAt: '{time}, trực tiếp',
         paused: 'đã tạm dừng',
         realTime: 'thời gian thực',
         now: 'bây giờ',
@@ -182,6 +181,7 @@ export const vi = {
         resume: 'Tiếp tục thời gian',
         backToNow: 'Về hiện tại',
         scrub: 'Tua qua thời gian',
+        pickDate: 'Chọn ngày',
     },
 
     loading: {

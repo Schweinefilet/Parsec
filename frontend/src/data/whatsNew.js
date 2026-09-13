@@ -27,6 +27,8 @@ export const WHATS_NEW = [
             'Fixed the night sky’s heading/altitude readout occasionally nudging the compass sideways when a number gained or lost a digit.',
             'Fixed the Milky Way backdrop disappearing behind a black void when you focused Voyager 1 or 2 with true distances on — the camera was flying straight out past the edge of it.',
             'The date/time control is back in the night sky view, so a date scrubbed elsewhere doesn’t leave you looking at a mystery sky with no way back to live.',
+            'The date in the time control is clickable now — pick any day straight from a calendar instead of only dragging the scrubber to it.',
+            'The time control now always shows the hour and minute next to the date, not just while live.',
         ],
     },
     {

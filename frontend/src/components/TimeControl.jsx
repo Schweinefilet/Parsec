@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Pause, Rewind, FastForward, RotateCcw, Clock, ChevronsLeft } from 'lucide-react';
 import {
     RATES, RANGE_DAYS, simDate, getRate, isPaused, isLive,
-    setRate, togglePaused, glideToNow, setOffsetDays, offsetDays, subscribe,
+    setRate, togglePaused, glideToNow, setOffsetDays, offsetDays, setSimTime, subscribe,
 } from '../utils/simTime';
 import { useIsMobile, useHasRoomForTimeline, useReducedMotion } from '../hooks/useMediaQuery';
 import { useI18n } from '../i18n';
@@ -24,6 +24,22 @@ function offsetLabel(days, t) {
         : a < 700 ? t('time.months', { count: Math.round(a / 30.44) })
         : t('time.years', { count: Number((a / 365.25).toFixed(1)) });
     return t('time.offset', { amount, direction });
+}
+
+/**
+ * yyyy-mm-dd in the viewer's own local time, for `<input type="date">`'s
+ * `value`/`min`/`max`.
+ *
+ * Not `date.toISOString().slice(0, 10)` — that goes through UTC first, which
+ * silently steps the date a day off from what fmtDate() (local-time
+ * toLocaleDateString) and the picker itself both show, for anyone west of
+ * Greenwich past 4pm or so, or east of it before sunrise.
+ */
+function toISODateLocal(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
 const btn = (active) => ({
@@ -55,6 +71,7 @@ const TimeControl = ({ hidden }) => {
     // scrub.
     const [open, setOpen] = useState(() => roomy || isMobile);
     const dragRef = useRef(false);
+    const dateInputRef = useRef(null);
 
     // Repaint the readout a few times a second; the scene doesn't wait on this
     useEffect(() => {
@@ -66,6 +83,39 @@ const TimeControl = ({ hidden }) => {
 
     const onScrub = useCallback((e) => {
         setOffsetDays(Number(e.target.value));
+    }, []);
+
+    // Opens the native calendar rather than just focusing the field: clicking
+    // a date input's own text in Chrome/Firefox only opens it if you land
+    // exactly on the tiny calendar-icon glyph — everywhere else in the field
+    // just selects a segment for typing. showPicker() is the one call that
+    // reliably opens it from anywhere else in the input, which is the whole
+    // point of making the visible date itself the click target. Phones
+    // already open their native date sheet on focus regardless, and a browser
+    // without showPicker() still gets a focused, keyboard-editable field.
+    const openDatePicker = useCallback(() => {
+        const el = dateInputRef.current;
+        if (!el) return;
+        if (typeof el.showPicker === 'function') {
+            try { el.showPicker(); return; } catch { /* fall through to focus */ }
+        }
+        el.focus();
+    }, []);
+
+    // <input type="date"> only ever carries a calendar date, so a pick has to
+    // borrow the clock face (hour/minute/etc.) from wherever the simulated
+    // time already was — otherwise choosing a new date would silently also
+    // reset the time of day to midnight, which is not what picking a *date*
+    // should do.
+    const onPickDate = useCallback((e) => {
+        const picked = e.target.valueAsDate;   // UTC midnight of the picked day
+        if (!picked) return;
+        const cur = simDate();
+        const next = new Date(
+            picked.getUTCFullYear(), picked.getUTCMonth(), picked.getUTCDate(),
+            cur.getHours(), cur.getMinutes(), cur.getSeconds(), cur.getMilliseconds(),
+        );
+        setSimTime(next.getTime());
     }, []);
 
     // "Back to now" winds the scene home over five seconds so the planets are
@@ -99,6 +149,11 @@ const TimeControl = ({ hidden }) => {
     // Collapsible everywhere. It is a wide control sitting across the bottom of
     // the scene, and sometimes you want to look at the scene.
     const compact = !open;
+
+    // Same ±10-year reach as the scrubber (RANGE_DAYS), so the picker never
+    // offers a date the slider itself couldn't represent.
+    const pickerMin = toISODateLocal(new Date(Date.now() - RANGE_DAYS * 86400000));
+    const pickerMax = toISODateLocal(new Date(Date.now() + RANGE_DAYS * 86400000));
 
     return (
         <div
@@ -173,17 +228,64 @@ const TimeControl = ({ hidden }) => {
                         <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.14)', margin: '0 2px' }} />
 
                         <div style={{ minWidth: isMobile ? 96 : 132, lineHeight: 1.15 }}>
-                            <div className="num-run" style={{
-                                fontSize: 12, fontWeight: 700, color: '#fff',
-                                fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
-                            }}>
-                                {fmtDate(date)}
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                                <div style={{ position: 'relative' }}>
+                                    <button
+                                        type="button"
+                                        onClick={openDatePicker}
+                                        className="num-run"
+                                        aria-label={t('time.pickDate')}
+                                        title={t('time.pickDate')}
+                                        style={{
+                                            display: 'block',
+                                            background: 'none', border: 0, padding: 0, margin: 0,
+                                            fontSize: 12, fontWeight: 700, color: '#fff',
+                                            fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        {fmtDate(date)}
+                                    </button>
+                                    {/* Invisible, but a real focusable input — not
+                                        display:none — so showPicker()/focus() above
+                                        has something to act on. Sized and placed
+                                        over the button rather than the other way
+                                        around so the visible text stays the
+                                        locale-aware fmtDate() string instead of the
+                                        date input's own browser-locale formatting. */}
+                                    <input
+                                        ref={dateInputRef}
+                                        type="date"
+                                        value={toISODateLocal(date)}
+                                        min={pickerMin}
+                                        max={pickerMax}
+                                        onChange={onPickDate}
+                                        tabIndex={-1}
+                                        aria-hidden="true"
+                                        style={{
+                                            position: 'absolute', inset: 0,
+                                            width: '100%', height: '100%',
+                                            opacity: 0, border: 0, padding: 0, margin: 0,
+                                            pointerEvents: 'none',
+                                        }}
+                                    />
+                                </div>
+                                {/* Read-only — there's no equivalent "pick a
+                                    time" gesture, so unlike the date this isn't
+                                    a button, just the clock face the date above
+                                    is at. */}
+                                <span className="num-run" style={{
+                                    fontSize: 10.5, fontWeight: 600, color: 'rgba(255,255,255,0.5)',
+                                    fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                                }}>
+                                    {fmtTime(date)}
+                                </span>
                             </div>
                             <div style={{
                                 fontSize: 9.5, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap',
                             }}>
                                 {live
-                                    ? t('time.liveAt', { time: fmtTime(date) })
+                                    ? t('time.live')
                                     : t('time.rateAndOffset', {
                                         rate: rateLabel, offset: offsetLabel(off, t),
                                     })}
