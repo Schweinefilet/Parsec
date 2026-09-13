@@ -379,24 +379,25 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)', targetConstella
         // line was reporting a number that could never do anything else —
         // not information, just a row.
         //
-        // Each cardinal letter is two nested spans: the outer one is what
-        // .sky-compass-ring's own rotation carries around the dial (pure
-        // position, set once in CSS below), the inner .sky-compass-letter is
-        // counter-rotated by the same azimuth every frame in updateCompass()
-        // so the *glyph* stays upright throughout — otherwise "N" ends up
-        // sideways or upside-down exactly when it's most useful, at 90°/180°
-        // of heading.
+        // N/E/S/W sit fixed on the dial, like the compass rose on a map —
+        // not spinning as you look around, the way an aircraft heading
+        // indicator's compass card does. That reads fine on an instrument
+        // built to be watched closely, but this is a corner-of-the-eye HUD,
+        // and a whole rotating dial is a lot more motion than "which way am
+        // I facing" needs. Only .sky-compass-needle-mount turns, in
+        // updateCompass() below, carrying just the needle around to point
+        // at whichever fixed letter matches the current heading.
         const compassEl = document.createElement('div');
         compassEl.className = 'sky-compass';
         compassEl.innerHTML = [
             '<div class="sky-compass-dial">',
-            '<div class="sky-compass-ring">',
-            '<span class="sky-compass-n"><span class="sky-compass-letter">N</span></span>',
-            '<span class="sky-compass-e"><span class="sky-compass-letter">E</span></span>',
-            '<span class="sky-compass-s"><span class="sky-compass-letter">S</span></span>',
-            '<span class="sky-compass-w"><span class="sky-compass-letter">W</span></span>',
-            '</div>',
+            '<span class="sky-compass-letter sky-compass-n">N</span>',
+            '<span class="sky-compass-letter sky-compass-e">E</span>',
+            '<span class="sky-compass-letter sky-compass-s">S</span>',
+            '<span class="sky-compass-letter sky-compass-w">W</span>',
+            '<div class="sky-compass-needle-mount">',
             '<div class="sky-compass-needle"></div>',
+            '</div>',
             '</div>',
             '<div class="sky-compass-stats">',
             '<div class="row"><span data-lbl="heading"></span><b data-val="heading"></b></div>',
@@ -404,8 +405,7 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)', targetConstella
             '</div>',
         ].join('');
         mount.appendChild(compassEl);
-        const compassRingEl = compassEl.querySelector('.sky-compass-ring');
-        const compassLetterEls = compassEl.querySelectorAll('.sky-compass-letter');
+        const compassNeedleMountEl = compassEl.querySelector('.sky-compass-needle-mount');
         const compassHeadingEl = compassEl.querySelector('[data-val="heading"]');
         const compassAltitudeEl = compassEl.querySelector('[data-val="altitude"]');
         // Set directly from i18nRef here rather than left to relabel() below:
@@ -1020,13 +1020,14 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)', targetConstella
         const updateCompass = () => {
             const az = ((getAzimuth() % 360) + 360) % 360;
             const alt = getAltitude();
-            compassRingEl.style.transform = `rotate(${-az}deg)`;
-            // Counter-rotate each letter by the same amount the ring just
-            // turned, so N/E/S/W swing to the correct point on the dial
-            // (that part is the parent ring's rotation, inherited normally)
-            // without the glyphs themselves tipping over along with it.
-            const letterRotation = `rotate(${az}deg)`;
-            compassLetterEls.forEach(el => { el.style.transform = letterRotation; });
+            // N/E/S/W stay put; the needle mount pivots around the dial's
+            // own centre (it spans the full dial, inset:0, same as the
+            // needle's fixed top-centre position always has) so the needle
+            // sweeps around to point at whichever fixed letter matches the
+            // current heading — clockwise for a clockwise (east-going) turn,
+            // the ordinary CSS rotation direction, no negation needed since
+            // nothing else is spinning in the opposite direction to cancel.
+            compassNeedleMountEl.style.transform = `rotate(${az}deg)`;
             const headingText = `${Math.round(az)}°`;
             if (headingText !== lastHeadingText) {
                 lastHeadingText = headingText;

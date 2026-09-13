@@ -16,6 +16,26 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.9
+
+- **The compass dial doesn't rotate anymore — N/E/S/W sit fixed, and a
+  needle sweeps around to point at the current heading instead.** Since
+  4.10.0 this was the other kind of compass: the whole dial spinning
+  beneath a fixed needle pointing "forward" — an aircraft heading
+  indicator's own convention. That was fine, if hard to read, while the
+  spinning letters were also garbled by the 5.0.7-and-earlier rotation bug;
+  once that got fixed and the letters turned legible, the dial's own
+  motion became the obvious thing left to notice, and for a corner-of-the-
+  eye "which way am I facing" HUD it was simply more movement than the
+  job needs. N/E/S/W are plain, non-rotating spans now, styled the same as
+  before; only `.sky-compass-needle-mount` — a full-dial wrapper the
+  needle already sat inside at its usual fixed top-centre spot, so
+  rotating the wrapper pivots the needle around the dial's own centre
+  rather than its own — turns, in `updateCompass()`, the same place the
+  ring's own rotation used to live.
+
+---
+
 ## 5.0.8
 
 - **5.0.7's letter-uprighting fix knocked the compass off-centre.**
