@@ -71,6 +71,10 @@ const TIERS = {
         nightSkyStars: 2000,
         nightSkyLines: true,     // tens of KB total — on everywhere
         nightSkyTwinkle: false,
+        // A few extra screen-space quads plus two framebuffer copies a
+        // frame while the Sun is on screen — cheap on a real GPU, not worth
+        // it on the tier that's already trimming everything else.
+        lensFlare: false,
     },
     medium: {
         texturePath: '/textures/',
@@ -93,6 +97,7 @@ const TIERS = {
         nightSkyStars: 5000,
         nightSkyLines: true,
         nightSkyTwinkle: true,
+        lensFlare: true,
     },
     high: {
         texturePath: '/textures/',
@@ -118,6 +123,7 @@ const TIERS = {
         nightSkyStars: 8920,   // the full mag ≤ 6.5 catalog
         nightSkyLines: true,
         nightSkyTwinkle: true,
+        lensFlare: true,
     },
 };
 

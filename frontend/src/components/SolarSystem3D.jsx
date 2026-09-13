@@ -14,6 +14,7 @@ import {
 } from '../utils/orbits';
 import { probeScenePos, buildProbeTrack, trackDrawCount } from '../utils/probeTracks';
 import { proceduralSurface } from '../utils/proceduralTextures';
+import { createSunLensflare } from '../utils/lensFlareTextures';
 import { simNow, isLive } from '../utils/simTime';
 import { setCameraSnapshot } from '../utils/shareView';
 import {
@@ -311,6 +312,13 @@ const SolarSystem3D = ({
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.28));
 
+        // Camera glare: a screen-space flare hanging off mainLight, which
+        // sits at the Sun's own position (the origin). three.js tracks its
+        // screen projection and occludes it against whatever's in front of
+        // the Sun on its own every frame — nothing for our render loop to do.
+        const sunFlare = q.lensFlare ? createSunLensflare() : null;
+        if (sunFlare) mainLight.add(sunFlare);
+
         // ── Orbit paths ───────────────────────────────────────────────────────
         // Drawn as pixel-width lines rather than tubes. A tube has a radius in
         // scene units, so how thick it looks depends on how far away the camera
@@ -510,8 +518,13 @@ const SolarSystem3D = ({
 
         // ── Sun ────────────────────────────────────────────────────────────────
         const sunGeo = new THREE.SphereGeometry(12, 64, 64);
-        // MeshBasicMaterial — self-luminous, not affected by scene lights
-        const sunMat = new THREE.MeshBasicMaterial({ color: '#FFF4A0' });
+        // MeshBasicMaterial — self-luminous, not affected by scene lights.
+        // depthWrite is off (matching GLOW_LAYERS below) so the sphere's own
+        // near surface can't occlude the lens-flare's visibility probe, which
+        // sits at this mesh's exact centre — with depth writes on, that
+        // probe always loses to the sun's own facing hemisphere and the
+        // flare would never appear.
+        const sunMat = new THREE.MeshBasicMaterial({ color: '#FFF4A0', depthWrite: false });
         const sunMesh = new THREE.Mesh(sunGeo, sunMat);
         sunMesh.userData = { id: 'sun', name: 'Sun' };
         scene.add(sunMesh);
@@ -3362,6 +3375,7 @@ const SolarSystem3D = ({
             renderer.domElement.removeEventListener('webglcontextrestored', onContextRestored);
             if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
             controls.dispose();
+            sunFlare?.dispose();
             geos.forEach(g => g.dispose());
             mats.forEach(m => m.dispose());
             textures.forEach(t => t.dispose());

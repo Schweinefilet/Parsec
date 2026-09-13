@@ -16,6 +16,7 @@ export const WHATS_NEW = [
         changes: [
             'On a phone, the header’s row of icon buttons (language, share, tonight, sky, compare) is now one menu button — the row had quietly grown wide enough to run off the edge of the screen. Search stays put next to it, since it’s the one you reach for most.',
             'Fixed: a focused planet’s description card was invisibly blocking clicks on whatever else was near the top of the screen, not just the card itself.',
+            'The Sun now throws a camera lens-flare — a bright core, a streak, and a trail of small coloured ghosts, the way a real camera glares when it catches a bright light.',
         ],
     },
     {

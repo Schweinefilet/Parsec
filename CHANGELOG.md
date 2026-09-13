@@ -16,6 +16,34 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.1.7
+
+- **A camera lens-flare on the Sun.** Requested after seeing it on another
+  project: the Sun now throws a proper camera-glare — a bright core, a
+  tapering horizontal streak, and a trail of small coloured "ghost"
+  elements — built on three.js's own `Lensflare` object rather than a
+  custom shader. It hangs off `mainLight` (the point light already sitting
+  at the Sun's position) and needs no per-frame code of ours: three.js
+  tracks its screen position and occludes it against nearer geometry
+  entirely through `Object3D.onBeforeRender`.
+- The flare's own textures — the halo, the streak, and four polygonal
+  ghosts — are drawn on `<canvas>` (`utils/lensFlareTextures.js`), the same
+  way every planet and moon surface in this app already is
+  (`proceduralTextures.js`), rather than shipped as image assets.
+- Fixed along the way: the Sun's own opaque sphere sits exactly at the
+  flare's light position, so its near-facing surface was failing the
+  flare's built-in occlusion probe on every frame — the flare rendered at
+  ~3% visibility, in effect invisible. `sunMat` now sets `depthWrite:
+  false` (matching the treatment its own `GLOW_LAYERS` halo already gets a
+  few lines down), so the Sun can no longer occlude a probe sitting at its
+  own centre.
+- Gated behind the quality tier (`utils/quality.js`'s new `lensFlare`
+  flag): on for medium and high, off for the phone tier, where the extra
+  screen-space quads and two framebuffer copies a frame aren't worth it on
+  a device already trimming everything else.
+
+---
+
 ## 5.1.6
 
 - **Fixed: a focused planet's description card was blocking clicks on
