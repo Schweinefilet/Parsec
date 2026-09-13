@@ -513,8 +513,7 @@ time rather than rediscovered — worth pulling into a shared helper if a
 third full-bleed route ever shows up.
 
 **4.10.0** added an orientation HUD (a rotating compass dial plus a
-heading/altitude/roll readout — roll has no control in this scene at all
-and reads a static 0°) and made constellations hoverable/clickable the way
+heading/altitude readout) and made constellations hoverable/clickable the way
 a planet is in the solar-system view: the hit-test reuses
 `Astronomy.Constellation()` fed the cursor's own ray (the same conversion
 "what am I looking at" already used for the camera's forward direction)

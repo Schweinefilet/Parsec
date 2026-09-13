@@ -374,7 +374,6 @@ export const ar = {
         hintSettings: 'الخطوط والتلألؤ وعتمة السماء',
         compassHeading: 'الاتجاه',
         compassAltitude: 'الارتفاع',
-        compassRoll: 'الميل',
         constellationStars: {
             zero: '{count} نجم',
             one: 'نجم واحد',

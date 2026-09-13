@@ -16,6 +16,20 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.7
+
+- **Two /sky compass fixes.** Dropped the "Roll" line from the readout —
+  this scene never introduces roll (see `skyRotation.js`'s own "no roll,
+  ever"), so it was always a static 0°, a row that could never tell anyone
+  anything. And the N/E/S/W letters no longer tip over as the dial turns:
+  they're carried around the ring by the same rotation as before (that
+  part was always right — turn to face east and E correctly slides to the
+  top), but each glyph now sits in its own inner span that gets counter-
+  rotated by the same amount every frame, so the letter itself stays
+  upright at every heading instead of only reading cleanly at 0°.
+
+---
+
 ## 5.0.6
 
 - **The exit animation ended clean, then twitched — a sudden roll, on

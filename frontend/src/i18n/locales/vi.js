@@ -346,7 +346,6 @@ export const vi = {
         hintSettings: 'Đường nối, lấp lánh và độ tối bầu trời',
         compassHeading: 'Hướng',
         compassAltitude: 'Độ cao',
-        compassRoll: 'Nghiêng',
         constellationStars: { other: '{count} sao' },
         constellationNamedStars: 'Các sao có tên: {names}',
         constellationInfoClose: 'Đóng thông tin chòm sao',

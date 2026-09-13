@@ -374,40 +374,47 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)', targetConstella
         // A plain DOM overlay, not React state — azimuth/altitude change on
         // every pointer-move of a drag, and this scene's whole discipline is
         // that anything moving that often stays out of React (see the file
-        // header). Roll has no control in this scene at all (see
-        // skyRotation.js's own header: "no roll, ever") — its readout is
-        // static, included anyway so the HUD states that plainly rather than
-        // omitting the one number that never changes.
+        // header). No roll readout: this scene never introduces roll (see
+        // skyRotation.js's own header: "no roll, ever"), so a static "0°"
+        // line was reporting a number that could never do anything else —
+        // not information, just a row.
+        //
+        // Each cardinal letter is two nested spans: the outer one is what
+        // .sky-compass-ring's own rotation carries around the dial (pure
+        // position, set once in CSS below), the inner .sky-compass-letter is
+        // counter-rotated by the same azimuth every frame in updateCompass()
+        // so the *glyph* stays upright throughout — otherwise "N" ends up
+        // sideways or upside-down exactly when it's most useful, at 90°/180°
+        // of heading.
         const compassEl = document.createElement('div');
         compassEl.className = 'sky-compass';
         compassEl.innerHTML = [
             '<div class="sky-compass-dial">',
             '<div class="sky-compass-ring">',
-            '<span class="sky-compass-n">N</span>',
-            '<span class="sky-compass-e">E</span>',
-            '<span class="sky-compass-s">S</span>',
-            '<span class="sky-compass-w">W</span>',
+            '<span class="sky-compass-n"><span class="sky-compass-letter">N</span></span>',
+            '<span class="sky-compass-e"><span class="sky-compass-letter">E</span></span>',
+            '<span class="sky-compass-s"><span class="sky-compass-letter">S</span></span>',
+            '<span class="sky-compass-w"><span class="sky-compass-letter">W</span></span>',
             '</div>',
             '<div class="sky-compass-needle"></div>',
             '</div>',
             '<div class="sky-compass-stats">',
             '<div class="row"><span data-lbl="heading"></span><b data-val="heading"></b></div>',
             '<div class="row"><span data-lbl="altitude"></span><b data-val="altitude"></b></div>',
-            '<div class="row"><span data-lbl="roll"></span><b data-val="roll">0°</b></div>',
             '</div>',
         ].join('');
         mount.appendChild(compassEl);
         const compassRingEl = compassEl.querySelector('.sky-compass-ring');
+        const compassLetterEls = compassEl.querySelectorAll('.sky-compass-letter');
         const compassHeadingEl = compassEl.querySelector('[data-val="heading"]');
         const compassAltitudeEl = compassEl.querySelector('[data-val="altitude"]');
         // Set directly from i18nRef here rather than left to relabel() below:
         // relabel() only runs from the *other* effect's [locale, ...] change,
         // which — on the very first mount — fires before this effect has had
         // a chance to point relabelRef.current at the real relabel(), and
-        // would otherwise leave these three blank until a language switch.
+        // would otherwise leave these blank until a language switch.
         compassEl.querySelector('[data-lbl="heading"]').textContent = i18nRef.current.t('nightSky.compassHeading');
         compassEl.querySelector('[data-lbl="altitude"]').textContent = i18nRef.current.t('nightSky.compassAltitude');
-        compassEl.querySelector('[data-lbl="roll"]').textContent = i18nRef.current.t('nightSky.compassRoll');
 
         // ── Constellation info card ──────────────────────────────────────────
         // Shown on click (see "Constellation hover + click" below) — content
@@ -595,7 +602,6 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)', targetConstella
             for (const l of constellationLabels) l.el.textContent = name(l.iau, l.native);
             compassEl.querySelector('[data-lbl="heading"]').textContent = tt('nightSky.compassHeading');
             compassEl.querySelector('[data-lbl="altitude"]').textContent = tt('nightSky.compassAltitude');
-            compassEl.querySelector('[data-lbl="roll"]').textContent = tt('nightSky.compassRoll');
             infoCloseBtn.setAttribute('aria-label', tt('nightSky.constellationInfoClose'));
             infoCloseBtn.textContent = '×';
             if (openIau) showConstellationInfo(openIau, { pan: false });
@@ -1015,6 +1021,12 @@ const NightSky3D = ({ location, height = 'var(--app-vh, 100vh)', targetConstella
             const az = ((getAzimuth() % 360) + 360) % 360;
             const alt = getAltitude();
             compassRingEl.style.transform = `rotate(${-az}deg)`;
+            // Counter-rotate each letter by the same amount the ring just
+            // turned, so N/E/S/W swing to the correct point on the dial
+            // (that part is the parent ring's rotation, inherited normally)
+            // without the glyphs themselves tipping over along with it.
+            const letterRotation = `rotate(${az}deg)`;
+            compassLetterEls.forEach(el => { el.style.transform = letterRotation; });
             const headingText = `${Math.round(az)}°`;
             if (headingText !== lastHeadingText) {
                 lastHeadingText = headingText;

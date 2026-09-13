@@ -344,7 +344,6 @@ export const en = {
         hintSettings: 'Lines, twinkle and sky darkness',
         compassHeading: 'Heading',
         compassAltitude: 'Altitude',
-        compassRoll: 'Roll',
         constellationStars: { one: '{count} star in view', other: '{count} stars in view' },
         constellationNamedStars: 'Named stars: {names}',
         constellationInfoClose: 'Close',

@@ -496,6 +496,11 @@ body {
 .sky-compass-e { top: 50%; right: 4px; transform: translateY(-50%); }
 .sky-compass-s { bottom: 3px; left: 50%; transform: translateX(-50%); }
 .sky-compass-w { top: 50%; left: 4px; transform: translateY(-50%); }
+/* The outer n/e/s/w span above only positions the letter on the ring —
+   NightSky3D.jsx's updateCompass() sets this inner span's own rotation
+   every frame to cancel the ring's, so the glyph stays upright while its
+   position still swings around the dial with everything else. */
+.sky-compass-letter { display: inline-block; will-change: transform; }
 .sky-compass-needle {
   position: absolute;
   top: 1px;
