@@ -16,6 +16,32 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.10
+
+- **5.0.9 solved the wrong problem — reverted, with the actual bug fixed
+  instead.** The report was "the compass is moving around when the
+  direction changes," and 5.0.9's diagnosis was that a rotating dial reads
+  as motion, so it swapped to a fixed dial with a sweeping needle. But
+  measuring `.sky-compass`/`.sky-compass-dial`'s own bounding boxes across
+  headings — the actual verification for that release — held heading
+  steady enough via drag that the digit count of the heading readout barely
+  changed, and altitude sat at a constant two digits the whole time, so the
+  real bug never showed up in that testing. It was `.sky-compass-stats`,
+  the heading/altitude text box: its width was never reserved, only ever
+  as wide as its current digits, so a change like `9°` → `10°` or `+9°` →
+  `+10°` grew the box, and since `.sky-compass` sizes itself to its widest
+  child and only pins its *right* edge (`inset-inline-end`), growth pushed
+  the whole column — dial included — further left. That reads exactly like
+  "the compass moving," rotating or not. Reverted the dial back to 5.0.8's
+  rotating-ring-with-upright-letters design (N still red), and this time
+  fixed the readout itself: `.sky-compass-stats b` now reserves `4ch` with
+  `text-align: end` and `tabular-nums`, wide enough for the longest values
+  either field produces (`359°`, `-90°`), so the box's own width — and
+  everything centred above it — never moves again regardless of digit
+  count.
+
+---
+
 ## 5.0.9
 
 - **The compass dial doesn't rotate anymore — N/E/S/W sit fixed, and a

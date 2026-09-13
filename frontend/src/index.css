@@ -453,12 +453,9 @@ body {
   border: 1px solid rgba(0,0,0,0.4);
 }
 
-/* NightSky3D.jsx's orientation HUD — a fixed compass dial, N/E/S/W parked
-   like a compass rose on a map, plus a heading/altitude readout underneath.
-   Only .sky-compass-needle-mount turns (rotated by JS via a transform,
-   updateCompass()) — the whole dial doesn't, on purpose: an aircraft-style
-   rotating compass card puts a lot more of the screen in motion than a
-   corner HUD showing "which way am I facing" needs. inset-inline-end
+/* NightSky3D.jsx's orientation HUD — a small rotating compass ring (rotated
+   by JS via a transform on .sky-compass-ring, everything else here is
+   static) plus a heading/altitude readout underneath. inset-inline-end
    rather than right, so it swaps sides with the rest of the chrome in
    Arabic without any JS branching. */
 .sky-compass {
@@ -482,7 +479,16 @@ body {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
-.sky-compass-letter {
+.sky-compass-ring {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+/* Direct children only — .sky-compass-letter is a span too, one level
+   deeper, and inheriting position:absolute here with no offsets of its own
+   pulled it out of its parent's centering entirely instead of just sitting
+   inside it. */
+.sky-compass-ring > span {
   position: absolute;
   font-size: 9px;
   font-weight: 800;
@@ -490,19 +496,20 @@ body {
   color: rgba(255,255,255,0.75);
   text-shadow: 0 1px 3px rgba(0,0,0,0.9);
 }
-.sky-compass-n { top: 3px; left: 50%; transform: translateX(-50%); color: #ff8a80; }
+/* Qualified with the type+parent-class combo (matching .sky-compass-ring >
+   span's own specificity) rather than the bare class above — a bare
+   .sky-compass-n loses to that rule's color on specificity alone, no matter
+   which one is written later in the file, and N quietly rendered the same
+   white as the rest of the ring. */
+.sky-compass-ring > span.sky-compass-n { top: 3px; left: 50%; transform: translateX(-50%); color: #ff8a80; }
 .sky-compass-e { top: 50%; right: 4px; transform: translateY(-50%); }
 .sky-compass-s { bottom: 3px; left: 50%; transform: translateX(-50%); }
 .sky-compass-w { top: 50%; left: 4px; transform: translateY(-50%); }
-/* Spans the whole dial (inset:0), same box the needle's own top:1px;
-   left:50% already sits in — so rotating this pivots the needle around the
-   dial's centre rather than its own, sweeping it around like a real needle
-   instead of spinning it in place near the rim. */
-.sky-compass-needle-mount {
-  position: absolute;
-  inset: 0;
-  will-change: transform;
-}
+/* The outer n/e/s/w span above only positions the letter on the ring —
+   NightSky3D.jsx's updateCompass() sets this inner span's own rotation
+   every frame to cancel the ring's, so the glyph stays upright while its
+   position still swings around the dial with everything else. */
+.sky-compass-letter { display: inline-block; will-change: transform; }
 .sky-compass-needle {
   position: absolute;
   top: 1px;
@@ -531,9 +538,18 @@ body {
   justify-content: space-between;
   gap: 10px;
 }
+/* display:inline-block + a reserved min-width so a digit-count change (9°
+   -> 10°, or altitude crossing +/-9° into double digits) never resizes this
+   row. Skipping that once let the readout's own width changes drag the
+   whole .sky-compass column sideways with it, dial included, since nothing
+   else pins the column's width — it read as "the compass moving". */
 .sky-compass-stats b {
+  display: inline-block;
+  min-width: 4ch;
+  text-align: end;
   color: rgba(255,255,255,0.92);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 /* The constellation info card NightSky3D.jsx shows on click — centred, so

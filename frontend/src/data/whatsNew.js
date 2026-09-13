@@ -24,7 +24,8 @@ export const WHATS_NEW = [
             'Smoothed the dive-and-turn into the night sky: it’s one continuous motion now instead of two separate steps.',
             'Zooming back out to the solar system from a focused planet is one smooth motion now too, instead of a pull-back followed by a separate swing to the sun.',
             'The night sky now starts at half star density instead of full — turn it up from the settings drawer if you want every star the sky has.',
-            'Dropped the always-0° "Roll" line from the night sky’s compass, and changed how it points: N/E/S/W now stay fixed in place, like a compass rose on a map, while a needle sweeps around to point at your current heading.',
+            'Dropped the always-0° "Roll" line from the night sky’s compass.',
+            'Fixed the night sky’s heading/altitude readout occasionally nudging the compass sideways when a number gained or lost a digit.',
         ],
     },
     {

@@ -512,9 +512,8 @@ LTR/RTL). `CategoryBrowser.jsx` had already solved this once;
 time rather than rediscovered — worth pulling into a shared helper if a
 third full-bleed route ever shows up.
 
-**4.10.0** added an orientation HUD (a compass dial with a rotating needle —
-N/E/S/W stay fixed, like the compass rose on a map — plus a heading/altitude
-readout) and made constellations hoverable/clickable the way
+**4.10.0** added an orientation HUD (a rotating compass dial plus a
+heading/altitude readout) and made constellations hoverable/clickable the way
 a planet is in the solar-system view: the hit-test reuses
 `Astronomy.Constellation()` fed the cursor's own ray (the same conversion
 "what am I looking at" already used for the camera's forward direction)
