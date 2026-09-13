@@ -16,6 +16,23 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.0.11
+
+- **The Milky Way skysphere was too small for true distances.** It has
+  always been a fixed 8,000-unit sphere, sized for the compressed layout's
+  own scale (Pluto's ring sits at 410 units there). True distances puts
+  Voyager 1 and 2 out around 165-170 AU — 16,000+ scene units, at 96 units
+  per AU — so focusing either probe put the camera well outside the sphere.
+  A `BackSide` material only draws from inside, so the camera crossing that
+  boundary made the whole backdrop vanish: a flat black void instead of the
+  Milky Way. Now scaled up to 24,000 units over the same transition that
+  already drives `controls.maxDistance` and the camera's far plane, which
+  also had to move out from 30,000 to 50,000 so it does not clip the larger
+  sphere. The geometry itself is untouched — this is a mesh scale, not a
+  rebuild, so it costs nothing per frame.
+
+---
+
 ## 5.0.10
 
 - **5.0.9 solved the wrong problem — reverted, with the actual bug fixed

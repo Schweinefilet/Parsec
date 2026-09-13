@@ -26,6 +26,7 @@ export const WHATS_NEW = [
             'The night sky now starts at half star density instead of full — turn it up from the settings drawer if you want every star the sky has.',
             'Dropped the always-0° "Roll" line from the night sky’s compass.',
             'Fixed the night sky’s heading/altitude readout occasionally nudging the compass sideways when a number gained or lost a digit.',
+            'Fixed the Milky Way backdrop disappearing behind a black void when you focused Voyager 1 or 2 with true distances on — the camera was flying straight out past the edge of it.',
         ],
     },
     {

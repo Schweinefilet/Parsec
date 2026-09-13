@@ -541,10 +541,20 @@ const SolarSystem3D = ({
         //
         // Built on first use rather than up front, so a tablet that starts in
         // portrait never spends the download or the texture memory at all.
+        // Radius the geometry is actually built at. True distances puts Voyager
+        // 1/2 out around 165-170 AU — 16,000+ scene units at AU_UNITS=96 — so a
+        // sphere sized for the compressed layout leaves the camera outside it,
+        // BackSide-culled into a plain black void, the moment either probe is
+        // focused with true distances on. SKY_TRUE_RADIUS is where it's scaled
+        // out to instead (see the per-frame sync below); the geometry itself
+        // stays at the smaller radius since a mesh scale is free and a second
+        // sphere this size isn't.
+        const SKY_RADIUS = 8000;
+        const SKY_TRUE_RADIUS = 24000;
         let skySphere = null;
         const buildSky = () => {
             if (skySphere || !q.skyTexture || !mounted) return;
-            const skyGeo = new THREE.SphereGeometry(8000, q.skySegments, q.skySegments);
+            const skyGeo = new THREE.SphereGeometry(SKY_RADIUS, q.skySegments, q.skySegments);
             const skyTex = loader.load('/textures/' + q.skyTexture);
             // The Milky Way plate is an ordinary sRGB photo. Without this flag
             // three treats its bytes as linear and re-encodes them on output —
@@ -2357,10 +2367,19 @@ const SolarSystem3D = ({
             // below, or controls.update clamps the camera every frame and it
             // never gets far enough to see what moved.
             controls.maxDistance = 1200 + (6000 - 1200) * scaleT;
-            const wantFar = 10000 + (30000 - 10000) * scaleT;
+            // 50,000 rather than a smaller value tied tightly to SKY_TRUE_RADIUS:
+            // the far plane has to clear not just the sphere but the camera's own
+            // distance from its centre, and a camera parked out near Voyager with
+            // room left to zoom further out again needs more headroom than the
+            // sphere's radius alone would suggest.
+            const wantFar = 10000 + (50000 - 10000) * scaleT;
             if (Math.abs(camera.far - wantFar) > 50) {
                 camera.far = wantFar;
                 camera.updateProjectionMatrix();
+            }
+            if (skySphere) {
+                const skyScale = 1 + (SKY_TRUE_RADIUS / SKY_RADIUS - 1) * scaleT;
+                if (Math.abs(skySphere.scale.x - skyScale) > 0.001) skySphere.scale.setScalar(skyScale);
             }
 
 
