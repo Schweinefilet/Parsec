@@ -35,6 +35,8 @@ export const vi = {
     nav: {
         categories: 'Nhóm thiên thể',
         back: 'Quay lại',
+        menu: 'Menu',
+        menuClose: 'Đóng menu',
         copyLink: 'Sao chép liên kết đến khung nhìn này',
         copied: 'Đã sao chép liên kết',
         tonight: 'Bầu trời đêm nay',

@@ -30,6 +30,8 @@ export const en = {
     nav: {
         categories: 'Object categories',
         back: 'Go back',
+        menu: 'Menu',
+        menuClose: 'Close menu',
         copyLink: 'Copy a link to this view',
         copied: 'Link copied',
         tonight: 'What’s up tonight',

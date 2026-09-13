@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
+import HeaderMenu from './HeaderMenu';
 import WhatsNew from './WhatsNew';
 import pkg from '../../package.json';
 import { useIsMobile } from '../hooks/useMediaQuery';
@@ -265,8 +266,17 @@ const AppShell = ({ children }) => {
                     className="flex items-center gap-2"
                     style={{ pointerEvents: 'auto', ...(searchOpen && isMobile ? { flex: 1 } : {}) }}
                 >
-                    {!searchOpen && <LanguagePicker />}
-                    {!searchOpen && (
+                    {/* Below the (max-width: 767px) breakpoint these five collapse
+                        behind one burger button — at a ~390px viewport the six
+                        icon buttons plus the wordmark measurably overflowed the
+                        header (the search button's own right edge landed past
+                        the viewport edge). Desktop keeps the original inline row,
+                        completely unchanged. */}
+                    {!searchOpen && isMobile && (
+                        <HeaderMenu onShare={share} copied={copied} onSkyClick={handleSkyClick} />
+                    )}
+                    {!searchOpen && !isMobile && <LanguagePicker />}
+                    {!searchOpen && !isMobile && (
                         <button
                             onClick={share}
                             title={copied ? t('nav.copied') : t('nav.copyLink')}
@@ -287,7 +297,7 @@ const AppShell = ({ children }) => {
                                 : <Link2 className="h-4 w-4" aria-hidden="true" />}
                         </button>
                     )}
-                    {!searchOpen && (
+                    {!searchOpen && !isMobile && (
                         <Link
                             to="/tonight"
                             title={t('nav.tonightTitle')}
@@ -305,7 +315,7 @@ const AppShell = ({ children }) => {
                             <EyeIcon className="h-4 w-4" aria-hidden="true" />
                         </Link>
                     )}
-                    {!searchOpen && (
+                    {!searchOpen && !isMobile && (
                         <Link
                             to="/sky"
                             onClick={handleSkyClick}
@@ -324,7 +334,7 @@ const AppShell = ({ children }) => {
                             <Star className="h-4 w-4" aria-hidden="true" />
                         </Link>
                     )}
-                    {!searchOpen && (
+                    {!searchOpen && !isMobile && (
                         <Link
                             to="/compare"
                             title={t('nav.compareTitle')}

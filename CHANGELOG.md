@@ -16,6 +16,44 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.1.4
+
+- **Fixed the mobile header overflowing, by collapsing its icon row into a
+  burger menu.** At a ~390px viewport the six 36×36 header buttons
+  (language, share, tonight, sky, compare, search) plus the wordmark
+  genuinely overflowed the header's own width — confirmed with
+  `getBoundingClientRect()`, not just eyeballed: the search button's right
+  edge landed measurably past the viewport edge, on every route (the
+  header is one component, `AppShell.jsx`, shared everywhere). Below the
+  `(max-width: 767px)` breakpoint (`useIsMobile()`, already used elsewhere
+  in the same file), the first five now collapse behind a `Menu` icon;
+  search stays its own always-visible button next to it, since it's likely
+  the most frequently reached-for of the six and already replaces the
+  whole row with a full-width input when opened — nesting it too would
+  cost every search an extra tap for no benefit. Desktop is byte-for-byte
+  unchanged, gated on the same `isMobile` check.
+
+  New `components/HeaderMenu.jsx` mirrors `LanguagePicker.jsx`'s own
+  "36×36 glass button that opens a dropdown hanging off itself" shape —
+  down to reusing its exact outside-pointerdown/Escape close handling —
+  rather than the edge-anchored vertical drawers `ScenePanel.jsx`/
+  `NightSkyPanel.jsx` use elsewhere, whose geometry is built around sitting
+  flush with a scene's vertical edge and doesn't map onto a header row
+  item. `LanguagePicker` itself gained a `variant="row"` prop so it can sit
+  as one more full-width labelled row inside the burger panel instead of
+  looking like a stray square icon among the other four — language-
+  switching logic itself stays defined in exactly one place either way.
+
+  Verified in headless Chrome: the overflow is gone (`maxRight: 391` at a
+  411px viewport, down from `428`), every menu interaction works (open,
+  outside-click close, Escape close, tapping a row both navigates and
+  closes the menu), desktop shows the original six-icon row unchanged, and
+  Arabic (RTL) mirrors correctly with zero RTL-specific code needed — the
+  existing logical properties (`insetInlineEnd`, `text-align: start`) and
+  ordinary flexbox already flip under `dir="rtl"` on their own.
+
+---
+
 ## 5.1.3
 
 - **Fixed AR's look-down "drag" — the view froze at -10° instead of

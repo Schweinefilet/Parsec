@@ -14,8 +14,16 @@ import { useI18n } from '../i18n';
  * Hidden entirely while there is one language, the same way SystemTitle hides
  * its chevron: a control that opens to reveal the thing you already have is a
  * dead control.
+ *
+ * `variant="row"` (HeaderMenu.jsx's mobile burger menu) swaps only the
+ * trigger — a full-width labelled row instead of a standalone 36×36 icon
+ * button — so it sits flush among that menu's other full-width rows rather
+ * than as a stray square. Everything below the trigger (open state, the
+ * outside-click/Escape handling, the dropdown itself) is untouched by the
+ * variant: language-switching stays defined in exactly one place regardless
+ * of where the control is mounted.
  */
-const LanguagePicker = () => {
+const LanguagePicker = ({ variant = 'icon' }) => {
     const { locale, locales, setLocale, t } = useI18n();
     const [open, setOpen] = useState(false);
     const wrapRef = useRef(null);
@@ -36,25 +44,44 @@ const LanguagePicker = () => {
 
     return (
         <div ref={wrapRef} style={{ position: 'relative', flexShrink: 0 }}>
-            <button
-                onClick={() => setOpen(v => !v)}
-                aria-haspopup="listbox"
-                aria-expanded={open}
-                aria-label={t('language.choose')}
-                title={t('language.label')}
-                className="flex items-center justify-center rounded-xl transition-all focus-ring"
-                style={{
-                    width: 36, height: 36,
-                    background: open ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.42)',
-                    border: '1px solid rgba(255,255,255,0.16)',
-                    color: 'rgba(255,255,255,0.85)',
-                    backdropFilter: 'blur(14px)',
-                    WebkitBackdropFilter: 'blur(14px)',
-                    cursor: 'pointer',
-                }}
-            >
-                <Languages className="h-4 w-4" aria-hidden="true" />
-            </button>
+            {variant === 'row' ? (
+                <button
+                    onClick={() => setOpen(v => !v)}
+                    aria-haspopup="listbox"
+                    aria-expanded={open}
+                    aria-label={t('language.choose')}
+                    className="w-full flex items-center gap-3 focus-ring"
+                    style={{
+                        padding: '10px 12px', borderRadius: 10, border: 'none',
+                        background: open ? 'rgba(255,255,255,0.08)' : 'none',
+                        color: 'rgba(255,255,255,0.9)',
+                        cursor: 'pointer', textAlign: 'start',
+                    }}
+                >
+                    <Languages style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
+                    <span style={{ fontSize: '0.92rem', fontWeight: 700 }}>{t('language.label')}</span>
+                </button>
+            ) : (
+                <button
+                    onClick={() => setOpen(v => !v)}
+                    aria-haspopup="listbox"
+                    aria-expanded={open}
+                    aria-label={t('language.choose')}
+                    title={t('language.label')}
+                    className="flex items-center justify-center rounded-xl transition-all focus-ring"
+                    style={{
+                        width: 36, height: 36,
+                        background: open ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.42)',
+                        border: '1px solid rgba(255,255,255,0.16)',
+                        color: 'rgba(255,255,255,0.85)',
+                        backdropFilter: 'blur(14px)',
+                        WebkitBackdropFilter: 'blur(14px)',
+                        cursor: 'pointer',
+                    }}
+                >
+                    <Languages className="h-4 w-4" aria-hidden="true" />
+                </button>
+            )}
 
             {open && (
                 <div

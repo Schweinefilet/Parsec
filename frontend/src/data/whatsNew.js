@@ -12,6 +12,12 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.1',
+        changes: [
+            'On a phone, the header’s row of icon buttons (language, share, tonight, sky, compare) is now one menu button — the row had quietly grown wide enough to run off the edge of the screen. Search stays put next to it, since it’s the one you reach for most.',
+        ],
+    },
+    {
         version: '5.0',
         changes: [
             'Opening the night sky is now a journey, not a jump cut: the camera flies to Earth, dives down to your actual location on the globe, and turns to face upward before the sky fades in — from the star icon, or the Tonight page.',
