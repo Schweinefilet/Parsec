@@ -16,6 +16,27 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.2.4
+
+- **Fixed the night sky lurching mid-drag on a phone.** Reported from an
+  iPhone 15 (Chrome/iOS): spinning around to find north would make the view
+  jump unpredictably, as if the drag kept losing track of itself. It was —
+  `/sky`'s look-around handler tracked "am I dragging" as a plain
+  yes/no, not *which* touch started the drag, so a second, incidental touch
+  landing mid-gesture (a palm edge, a second finger brushing the glass —
+  exactly the kind of thing a fast spin invites) reset the drag's reference
+  point to the new touch's position without ending the first touch's drag.
+  The first finger's very next move was then measured against the wrong
+  origin: one large, wrong step, which read as the sky lurching. Fixed by
+  tracking the actual pointer ID the drag started with and ignoring any
+  other pointer's events until it lifts — confirmed against a simulated
+  mid-drag second touch in headless Chrome, which no longer perturbs the
+  heading at all. Note this is the touch-drag control specifically, not
+  the AR sensor-tracking path 5.2.3 already tuned separately — the two
+  share no code.
+
+---
+
 ## 5.2.3
 
 - **Fixed: leaving the night sky flew back down onto a focused Earth
@@ -902,7 +923,6 @@ Every release is a commit titled with its version. The version in
   fighting the interruption for control of the view, and a visitor who
   hasn't granted a location yet still gets the plain, instant navigation
   this used to be — there's nowhere real to dive to yet.
-
 ---
 
 ## 4.10.0

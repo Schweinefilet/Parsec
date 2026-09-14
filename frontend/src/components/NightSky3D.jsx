@@ -849,6 +849,18 @@ const NightSky3D = ({
         let dragging = false;
         let dragDistPx = 0;
         let lastX = 0, lastY = 0;
+        // The pointer this drag belongs to — not just a boolean. A fast spin
+        // on a touchscreen is exactly when a second, incidental touch shows
+        // up (a palm edge, a second finger brushing the glass): without this,
+        // that second pointer's own 'pointerdown' silently reset lastX/lastY
+        // to *its* position while `dragging` stayed true, so the first
+        // finger's very next move was measured against the wrong origin —
+        // one huge, wrong delta, which read as the whole sky lurching.
+        // Reported from an iPhone 15 (Chrome/iOS, so WebKit underneath, more
+        // touch-event quirks than desktop) — ignoring any pointerId but the
+        // one that started the drag fixes it regardless of how the second
+        // touch arrived.
+        let activePointerId = null;
         // A smooth pan to a clicked constellation's anchor — see "Constellation
         // hover + click" below. Grabbing the sky mid-flight cancels it rather
         // than fighting it; a new pointerdown is a clearer "I want control
@@ -863,6 +875,8 @@ const NightSky3D = ({
         // change of target.
         let openedForConstellation = null;
         const onPointerDown = (e) => {
+            if (activePointerId !== null) return; // already tracking a different touch/pointer
+            activePointerId = e.pointerId;
             dragging = true;
             dragDistPx = 0;
             panAnim.active = false;
@@ -870,10 +884,11 @@ const NightSky3D = ({
             renderer.domElement.setPointerCapture(e.pointerId);
         };
         const onPointerMove = (e) => {
-            if (!dragging) return;
+            if (!dragging || e.pointerId !== activePointerId) return;
             const dx = e.clientX - lastX;
             const dy = e.clientY - lastY;
             lastX = e.clientX; lastY = e.clientY;
+            if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
             dragDistPx += Math.abs(dx) + Math.abs(dy);
             const scale = camera.fov / Math.max(1, renderer.domElement.clientWidth);
             // In AR mode the sensor drives the view every frame and would
@@ -885,7 +900,9 @@ const NightSky3D = ({
             else nudgeLookDirection(-dx * scale, dy * scale);
         };
         const onPointerUp = (e) => {
+            if (e.pointerId !== activePointerId) return;
             dragging = false;
+            activePointerId = null;
             if (renderer.domElement.hasPointerCapture?.(e.pointerId)) {
                 renderer.domElement.releasePointerCapture(e.pointerId);
             }

@@ -20,6 +20,7 @@ export const WHATS_NEW = [
             'Fixed: leaving the night sky flew back down onto a focused Earth instead of reversing the dive out. It now pulls back to the wide solar-system view, undoing the trip in rather than replaying it.',
             'Reworked the night sky’s compass into a proper pointer fixed to the rim, the way an actual ship’s or aircraft’s compass shows your own heading against a rotating dial — the old one only lined up with “N” by coincidence, and drifted from it the moment you turned.',
             'AR mode’s sky tracking should feel steadier now — less jumpy when the phone moves quickly, less laggy when it doesn’t.',
+            'Fixed the night sky view sometimes jumping around while dragging to look around on a phone — a second, incidental touch (a palm edge, a stray finger) could throw off the drag.',
         ],
     },
     {
