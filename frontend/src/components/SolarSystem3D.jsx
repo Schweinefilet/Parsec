@@ -836,6 +836,16 @@ const SolarSystem3D = ({
             // stays visible, the opposite of "everything hides on any focus"
             // the ring itself follows.
             orbitLine.userData.ownerId = planet.id;
+            // Both this ring's own dimming and the trail's own visibility
+            // are otherwise only ever set from inside orbitAtRest, called
+            // on a hover, a focus change, or the trails toggle — never once
+            // at plain startup. That was invisible while trails defaulted
+            // off (an un-dimmed ring and an invisible, target-opacity-0
+            // trail both look identical to "trails not built yet"), but
+            // trails now default on, so a fresh load needs this call to
+            // establish the correct starting state instead of waiting for
+            // the first hover/focus/toggle to happen to fix it.
+            orbitAtRest(orbitLine);
 
             // Planet sphere
             const geo      = new THREE.SphereGeometry(planet.r, q.planetSegments, q.planetSegments);

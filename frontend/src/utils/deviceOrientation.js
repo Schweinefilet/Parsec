@@ -144,9 +144,17 @@ import { magvar } from 'magvar';
 // magnetometer reading the web does not expose, so the Euler-angle
 // (headingFromEuler) and webkitCompassHeading paths for heading are
 // unchanged; only altitude, which every path already depends on regardless
-// of heading source, gets the more robust signal. Same standing caveat as
-// the rest of this module: reasoned and unit-tested, not yet confirmed
-// against the real device that reported the bug.
+// of heading source, gets the more robust signal.
+//
+// The real-device round trip this needed did happen, fast: the very first
+// version had gz's sign backwards (see altitudeFromGravity's own header),
+// which read as "looking down behaves like looking up" — a real device is
+// genuinely the only way that particular bug surfaces, since
+// accelerationIncludingGravity's sign convention is a widely documented
+// point of confusion the spec text and hand-worked geometry alike can't
+// substitute for. Fixed and reasoned through independently (two separate
+// physical rotations checked by hand, not just re-reading the same
+// algebra), but still worth another real-device pass to confirm.
 
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
@@ -256,16 +264,26 @@ function altitudeFromBetaGamma(betaDeg, gammaDeg) {
  * see the module header for why. The device's back camera points along
  * local (0,0,-1); gravity's reaction, normalized, IS local "up" with no
  * decomposition needed to get there, so altitude is just the angle between
- * the two: asin(dot((0,0,-1), normalize(g))) = asin(-gz/|g|).
+ * the two: asin(dot((0,0,-1), normalize(g))).
  *
- * Verified against the exact three cases altitudeFromBetaGamma() was
- * checked against: flat, screen up (g ~ (0,0,+1)) -> asin(-1) = -90, the
- * back camera facing down through the table; flat, screen down
- * (g ~ (0,0,-1)) -> asin(+1) = +90, zenith; upright "magic window"
+ * That dot product is +gz/|g|, not -gz/|g| — this sign was wrong in the
+ * first version of this function, caught by a real-device report ("when I
+ * look down, the scene behaves as if I looked up"): a full inversion,
+ * exactly what a flipped z sign here produces, since altitude only ever
+ * reads gz. This is not a re-derivation mistake so much as a landmine in
+ * the underlying browser API itself — accelerationIncludingGravity's sign
+ * convention (whether flat-screen-up reports z ~ +9.8 or ~ -9.8) is a
+ * genuinely, widely documented point of confusion, inconsistent across
+ * sources and reportedly across implementations, and no amount of hand-
+ * verified geometry here can substitute for what a real device actually
+ * sends — only a real report can. Verified against the exact three cases
+ * altitudeFromBetaGamma() was checked against, using the sign this bug
+ * report established rather than the original (backwards) assumption:
+ * flat, screen up (g ~ (0,0,-1) in *this* convention) -> asin(-1) = -90,
+ * the back camera facing down through the table; flat, screen down
+ * (g ~ (0,0,+1)) -> asin(+1) = +90, zenith; upright "magic window"
  * (g ~ (0,+1,0), gravity felt along the length of the phone, none along its
- * depth) -> asin(0) = 0. All three match by hand, independent of this
- * formula's own algebra, the same standard this module holds every other
- * piece of geometry to.
+ * depth) -> asin(0) = 0.
  *
  * Returns null for a degenerate reading (near-zero magnitude — momentary
  * free-fall, or no real data yet) so the caller can fall back rather than
@@ -274,7 +292,7 @@ function altitudeFromBetaGamma(betaDeg, gammaDeg) {
 function altitudeFromGravity(gx, gy, gz) {
     const mag = Math.sqrt(gx * gx + gy * gy + gz * gz);
     if (!(mag > 1e-6)) return null;
-    return Math.asin(Math.max(-1, Math.min(1, -gz / mag))) * RAD2DEG;
+    return Math.asin(Math.max(-1, Math.min(1, gz / mag))) * RAD2DEG;
 }
 
 /** Magnetic heading (0=N, 90=E) from raw Euler angles — only used when

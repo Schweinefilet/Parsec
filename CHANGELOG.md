@@ -16,6 +16,35 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.2
+
+- **Fixed AR mode's altitude reading straight up/down backwards** — reported
+  directly, immediately after 5.3.1 shipped: "when I look down, the scene
+  is as I have looked up instead." The 5.3.1 fix moved altitude onto the
+  phone's raw gravity reading specifically to escape a real instability in
+  the alternative (see 5.3.1's own entry), and every hand-worked case that
+  reasoning was checked against still held — the actual bug was one level
+  up: `accelerationIncludingGravity`'s sign convention (whether a phone
+  lying flat, screen up, reports its z-axis reading as roughly +9.8 or
+  roughly -9.8) is a genuinely, widely documented point of confusion across
+  browsers and even reference docs, not something re-reading the same
+  geometry again could have caught — only a real device actually saying
+  which way it goes could, and this report is exactly that. One sign
+  flipped, both directions re-verified against the same three hand-worked
+  cases with the corrected convention, unit tests updated to match.
+- **Trails are on by default now**, by request — every fresh visit shows
+  them without needing to find the toggle first. Surfaced a real, if
+  minor, gap while making the change: the orbit ring's trails-on dimming
+  and the trail's own visibility were both only ever set from inside the
+  same function a hover, a focus change, or the toggle itself already
+  calls — never once at plain startup. Invisible while trails defaulted
+  off (an undimmed ring and an invisible trail both looked identical to
+  "not built yet"), but real now that the very first thing a visitor sees
+  is trails already on — fixed by calling it once per planet right after
+  creation too.
+
+---
+
 ## 5.3.1
 
 - **The Sun's lens-flare now shows on phones too.** It was specifically

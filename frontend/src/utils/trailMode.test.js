@@ -4,28 +4,28 @@ import { getTrailsOn, setTrailsOn, toggleTrails, subscribeTrails, __resetTrails 
 beforeEach(() => { __resetTrails(); });
 
 describe('trailMode', () => {
-    it('starts off', () => {
-        expect(getTrailsOn()).toBe(false);
+    it('starts on by default', () => {
+        expect(getTrailsOn()).toBe(true);
     });
 
     it('toggles', () => {
         toggleTrails();
-        expect(getTrailsOn()).toBe(true);
-        toggleTrails();
         expect(getTrailsOn()).toBe(false);
+        toggleTrails();
+        expect(getTrailsOn()).toBe(true);
     });
 
     it('setTrailsOn sets an explicit value', () => {
-        setTrailsOn(true);
-        expect(getTrailsOn()).toBe(true);
-        setTrailsOn(true); // idempotent
-        expect(getTrailsOn()).toBe(true);
+        setTrailsOn(false);
+        expect(getTrailsOn()).toBe(false);
+        setTrailsOn(false); // idempotent
+        expect(getTrailsOn()).toBe(false);
     });
 
     it('notifies subscribers only on a real change', () => {
         const seen = vi.fn();
         const off = subscribeTrails(seen);
-        setTrailsOn(false); // already off — no-op
+        setTrailsOn(true); // already on — no-op
         expect(seen).not.toHaveBeenCalled();
         toggleTrails();
         expect(seen).toHaveBeenCalledTimes(1);

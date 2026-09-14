@@ -65,14 +65,22 @@ describe('deviceOrientation', () => {
         // deliberately wrong beta/gamma alongside the gravity reading, to
         // prove gravity is what actually won, not a coincidence of the
         // fallback agreeing with it.
-        it('flat, screen up (g ~ (0,0,+9.8)) reads altitude -90', () => {
-            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
+        //
+        // The z sign in the flat cases below is the OPPOSITE of this
+        // function's first version — caught by a real-device report ("look
+        // down, the scene behaves as if I looked up"), not by anything
+        // re-checkable from this file alone. See altitudeFromGravity's own
+        // header: accelerationIncludingGravity's sign convention is a
+        // genuinely, widely documented point of confusion, and this is the
+        // sign a real device actually reported.
+        it('flat, screen up (g ~ (0,0,-9.8)) reads altitude -90', () => {
+            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 0, z: -9.8 } });
             __injectOrientationEvent({ alpha: 0, beta: 45, gamma: 30 }, { absolute: true });
             expect(getOrientationAltitude()).toBeCloseTo(-90, 4);
         });
 
-        it('flat, screen down (g ~ (0,0,-9.8)) reads altitude +90 (zenith)', () => {
-            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 0, z: -9.8 } });
+        it('flat, screen down (g ~ (0,0,+9.8)) reads altitude +90 (zenith)', () => {
+            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
             __injectOrientationEvent({ alpha: 0, beta: 45, gamma: 30 }, { absolute: true });
             expect(getOrientationAltitude()).toBeCloseTo(90, 4);
         });

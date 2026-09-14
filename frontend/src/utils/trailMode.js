@@ -3,9 +3,10 @@
 // reads, not React state, since the scene effect must never re-run for it.
 // Not persisted (matching vizMode.js, not driftControl.js) — this is a
 // decorative view toggle in the same family as the gravity overlay, not a
-// standing preference like drift rate.
+// standing preference like drift rate. On by default, per request — every
+// fresh visitor sees trails without having to find the toggle first.
 
-let on = false;
+let on = true;
 
 const listeners = new Set();
 const notify = () => listeners.forEach(fn => fn());
@@ -29,6 +30,6 @@ export function subscribeTrails(fn) {
 
 /** Test seam. */
 export function __resetTrails() {
-    on = false;
+    on = true;
     listeners.clear();
 }
