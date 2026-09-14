@@ -23,6 +23,7 @@ export const WHATS_NEW = [
             'Fixed the night sky view sometimes jumping around while dragging to look around on a phone — a second, incidental touch (a palm edge, a stray finger) could throw off the drag.',
             'Orbit paths now fade out when you focus a planet or moon instead of vanishing all at once.',
             'Removed the "What’s up tonight" icon from the header for now.',
+            'Fixed the ISS’s selection ring dwarfing Earth and the Moon at true distances + sizes — it now shrinks along with everything else.',
         ],
     },
     {

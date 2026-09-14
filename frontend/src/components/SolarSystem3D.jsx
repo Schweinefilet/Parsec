@@ -412,7 +412,7 @@ const SolarSystem3D = ({
         // comment for why a snap reads as disorienting the moment
         // something is focused and every ring in the scene vanishes at once.
         const fadingOrbits = [];
-        const ORBIT_FADE_RATE = 0.15; // ~90% of the way there in a quarter second at 60fps
+        const ORBIT_FADE_RATE = 0.075; // ~90% of the way there in ~1.2s at 60fps (half the rate, ~2x the time)
         // How to rebuild each ring, kept beside the mesh rather than in its
         // userData: every caller assigns userData wholesale for the hover
         // state, and a spec stored there is silently wiped by the next line.
@@ -1818,6 +1818,8 @@ const SolarSystem3D = ({
 
         // ── Moon meshes (MOON_DATA) ────────────────────────────────────────────
         let issOrbitMat  = null; // fades in/out with Earth focus
+        let issOrbitLine = null; // its geometry is a fixed moon.orbitR circle — see the true-sizes scaling below
+        let issMoonData  = null; // the MOON_DATA entry itself, for moonOrbitFactor()
         let issRingMesh  = null; // billboard selection ring at ISS position
         let issRingMat   = null;
         // Assigned when the ISS mesh is built. The phone tier holds it back and
@@ -1983,7 +1985,8 @@ const SolarSystem3D = ({
                 issOrbitMat = new THREE.LineBasicMaterial({
                     color: '#7799bb', transparent: true, opacity: 0, depthWrite: false,
                 });
-                const issOrbitLine = new THREE.LineLoop(orbitLineGeo, issOrbitMat);
+                issOrbitLine = new THREE.LineLoop(orbitLineGeo, issOrbitMat);
+                issMoonData = moon;
                 parentGroup.add(issOrbitLine);
                 geos.push(orbitLineGeo);
                 mats.push(issOrbitMat);
@@ -3063,6 +3066,16 @@ const SolarSystem3D = ({
             if (issOrbitMat) {
                 const tgt = (earthFocused || issFocused) ? 0.35 : 0;
                 issOrbitMat.opacity += (tgt - issOrbitMat.opacity) * ease(0.08);
+                // Its geometry is a fixed moon.orbitR circle, built once at
+                // creation — never rebuilt for true sizes the way a body's
+                // own drawn radius is. Scaling the line object itself by the
+                // same factor its own orbital *position* already uses keeps
+                // the ring honestly sized instead of a fixed compressed-mode
+                // circle that's comically huge once everything else has
+                // shrunk to true proportions.
+                if (issOrbitLine && issMoonData) {
+                    issOrbitLine.scale.setScalar(moonOrbitFactor(issMoonData, sizeT));
+                }
             }
             if (issRingMesh && issRingMat) {
                 const issMesh = moonMeshRefs.get('ISS');
@@ -3070,6 +3083,13 @@ const SolarSystem3D = ({
                     issRingMesh.position.copy(issMesh.position);
                     issRingMesh.quaternion.copy(camera.quaternion);
                 }
+                // Same fixed-geometry issue as the orbit line above, but more
+                // visible: a flat RingGeometry(0.152, 0.216) built once, never
+                // rescaled — at true sizes it dwarfed Earth, the Moon and the
+                // ISS model it's meant to merely highlight. Scaled by the same
+                // factor the ISS mesh's own drawn radius already uses, so the
+                // selection ring stays sized *relative to what it's selecting*.
+                issRingMesh.scale.setScalar(bodyScaleFactor('iss', sizeT));
                 const tgt = issFocused ? 0 : issHovered ? 0.92 : earthFocused ? 0.42 : 0;
                 issRingMat.opacity += (tgt - issRingMat.opacity) * ease(0.1);
             }

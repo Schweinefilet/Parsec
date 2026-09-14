@@ -16,6 +16,29 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.2.6
+
+- **Fixed the ISS's selection ring dwarfing Earth (and the Moon) at true
+  distances + sizes.** The billboard ring that highlights the ISS when
+  Earth is focused (`RingGeometry(0.152, 0.216)`) was built once at a fixed
+  size and never touched again — fine at compressed distances, where
+  everything else on screen is also at a fixed compressed scale, but at
+  true sizes every *body* shrinks toward its real proportion of the scene's
+  unit scale while this ring stayed exactly as large as before, so it
+  ended up dwarfing Earth, the Moon, everything. It's now scaled by the
+  same factor the ISS's own model already uses to shrink for true sizes,
+  so the ring stays sized *relative to what it's highlighting* instead of
+  fixed in absolute scene units. The actual ISS orbit-path line had the
+  same bug, less visibly (a thin line rather than a filled ring) — fixed
+  the same way, scaled by the same factor its own orbital distance uses.
+  Confirmed numerically, not just by eye: the ring's effective radius at
+  true sizes drops from a fixed 0.216 scene units to about 2×10⁻⁷,
+  matching the ISS's own true, minuscule share of the scene.
+- **The orbit-path fade from 5.2.5 now takes about twice as long** (~1.2s
+  instead of ~0.6s) to reach a body's usual resting opacity.
+
+---
+
 ## 5.2.5
 
 - **Orbit paths now fade out when you focus a body, instead of vanishing
