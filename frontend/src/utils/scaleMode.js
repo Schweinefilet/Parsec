@@ -1,15 +1,22 @@
-// Compressed layout, or true distances.
+// How honest the scene's layout is, in three stages.
 //
 // The scene is drawn with its radii squeezed — Earth's ring at 96 units and
-// Neptune's at 340, where the real ratio is 1 to 30. That is what makes a
-// picture of the solar system legible, and it is also a lie the "*not to scale"
-// note in the corner has been apologising for. This is the toggle that tells
-// the truth instead.
+// Neptune's at 340, where the real ratio is 1 to 30 — and with every body far
+// too big for the space it sits in. That is what makes a picture of the solar
+// system legible, and it is also a lie the "*not to scale" note in the corner
+// has been apologising for. These are the stages that tell the truth instead:
 //
-// Only distances change. Bodies keep their drawn sizes, because at true scale
-// Earth would be four thousandths of a scene unit across and there would be
-// nothing on screen at all — which is a fact worth stating in words rather than
-// demonstrating with an empty view. The label says which half is honest.
+//   0  compressed          the drawn layout, legible and false
+//   1  true distances      rings move to their real radii, bodies stay drawn
+//   2  true distances+sizes  one single scale for the whole scene
+//
+// Stage 2 is deliberately merciless. At one scale a unit is 1.56 million km,
+// so Earth is four thousandths of a unit across while its orbit is ninety-six
+// — every body in the scene is far below a pixel from the default view, and
+// what is left on screen is orbit rings, labels and a great deal of nothing.
+// That emptiness is the honest picture, and nothing here props it up with a
+// minimum dot size: fly to a body and it grows into its real proportions,
+// which is the only way anything in this solar system is ever actually seen.
 //
 // Held here rather than in React state for the same reason simTime is: the
 // render loop reads it every frame, and a two-second transition should not be
@@ -19,11 +26,26 @@
  *  inner system stays put and the outer planets are the ones that move. */
 export const AU_UNITS = 96;
 
+/** IAU astronomical unit, in km. */
+export const AU_KM = 149_597_870.7;
+
+/** Kilometres to a scene unit once the whole scene is on one scale. */
+export const KM_PER_UNIT = AU_KM / AU_UNITS;
+
+export const SCALE_COMPRESSED = 0;
+export const SCALE_DISTANCES  = 1;
+export const SCALE_SIZES      = 2;
+export const SCALE_STAGES     = 3;
+
 const DURATION_MS = 2200;
 
-let from = 0;          // where the transition started
-let to = 0;            // 0 compressed, 1 true
+// Two channels — how true the distances are, and how true the sizes are —
+// eased on one shared clock. Cycling from stage 2 back to 0 moves both at
+// once, which is the only case where they travel together.
+let distFrom = 0, distTo = 0;
+let sizeFrom = 0, sizeTo = 0;
 let startedAt = -Infinity;
+let stage = SCALE_COMPRESSED;
 
 const listeners = new Set();
 const notify = () => listeners.forEach(fn => fn());
@@ -31,30 +53,62 @@ const notify = () => listeners.forEach(fn => fn());
 // Smooth at both ends, so the planets set off and arrive without a jerk
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
+const channel = (from, to, now) => {
+    if (now >= startedAt + DURATION_MS) return to;
+    const t = Math.max(0, (now - startedAt) / DURATION_MS);
+    return from + (to - from) * ease(t);
+};
+
+/** 0 compressed, 1 true distances, 2 true distances and sizes. */
+export const getScaleStage = () => stage;
+
 /** Whether true distances are selected — not whether the move has finished. */
 export function isTrueScale() {
-    return to === 1;
+    return distTo === 1;
+}
+
+/** Whether true sizes are selected — not whether the move has finished. */
+export function isTrueSize() {
+    return sizeTo === 1;
 }
 
 /** 0 fully compressed, 1 fully true, in between while it is moving. */
 export function scaleProgress(now = Date.now()) {
-    if (now >= startedAt + DURATION_MS) return to;
-    const t = Math.max(0, (now - startedAt) / DURATION_MS);
-    return from + (to - from) * ease(t);
+    return channel(distFrom, distTo, now);
 }
 
-/** True while the scene is still moving between the two layouts. */
+/** 0 drawn sizes, 1 true sizes, in between while it is moving. */
+export function sizeProgress(now = Date.now()) {
+    return channel(sizeFrom, sizeTo, now);
+}
+
+/** True while the scene is still moving between layouts. */
 export function isScaleSettling(now = Date.now()) {
     return now < startedAt + DURATION_MS;
 }
 
-export function setTrueScale(on, now = Date.now()) {
-    const next = on ? 1 : 0;
-    if (next === to) return;
-    from = scaleProgress(now);      // reverse mid-flight without a jump
-    to = next;
+export function setScaleStage(next, now = Date.now()) {
+    const clamped = Math.max(0, Math.min(SCALE_STAGES - 1, Math.round(next)));
+    if (clamped === stage) return;
+    // Catch both channels where they actually are, so reversing or skipping
+    // mid-flight starts from the frame on screen rather than jumping.
+    distFrom = scaleProgress(now);
+    sizeFrom = sizeProgress(now);
+    stage    = clamped;
+    distTo   = clamped >= SCALE_DISTANCES ? 1 : 0;
+    sizeTo   = clamped >= SCALE_SIZES ? 1 : 0;
     startedAt = now;
     notify();
+}
+
+/** compressed → true distances → true distances and sizes → compressed. */
+export function cycleScaleStage() {
+    setScaleStage((stage + 1) % SCALE_STAGES);
+}
+
+/** Distances only, leaving sizes drawn. The shared-view link's older form. */
+export function setTrueScale(on, now = Date.now()) {
+    setScaleStage(on ? SCALE_DISTANCES : SCALE_COMPRESSED, now);
 }
 
 export function toggleTrueScale() {
@@ -79,9 +133,26 @@ export function radialFactor(compressedUnits, au, progress) {
     return 1 + (trueUnits / compressedUnits - 1) * progress;
 }
 
-/** Test seam: drop straight to one layout or the other. */
-export function __setScaleImmediate(on) {
-    from = to = on ? 1 : 0;
+/**
+ * The factor to scale something drawn at `drawnUnits` scene units whose true
+ * radius (or separation) is `km`, at size-progress `progress`.
+ *
+ * Same shape as radialFactor, and used the same way: a body, its atmosphere
+ * shell, its rings and its moons' orbits all take one of these, so a system
+ * shrinks as a piece rather than coming apart.
+ */
+export function sizeFactor(drawnUnits, km, progress) {
+    if (!(drawnUnits > 0) || !(km > 0)) return 1;
+    const trueUnits = km / KM_PER_UNIT;
+    return 1 + (trueUnits / drawnUnits - 1) * progress;
+}
+
+/** Test seam: drop straight to a stage. Accepts the old boolean too. */
+export function __setScaleImmediate(next) {
+    const s = next === true ? SCALE_DISTANCES : next === false ? SCALE_COMPRESSED : next;
+    stage    = Math.max(0, Math.min(SCALE_STAGES - 1, Math.round(s)));
+    distFrom = distTo = stage >= SCALE_DISTANCES ? 1 : 0;
+    sizeFrom = sizeTo = stage >= SCALE_SIZES ? 1 : 0;
     startedAt = -Infinity;
     notify();
 }

@@ -35,7 +35,7 @@ const round = (n, places) => Number(n.toFixed(places));
  * just the address — and a link that carries three parameters is carrying
  * three deliberate choices.
  */
-export function encodeView({ camera, simDate, trueScale, now = new Date() } = {}) {
+export function encodeView({ camera, simDate, trueScale, scaleStage, now = new Date() } = {}) {
     const params = new URLSearchParams();
     if (camera && Number.isFinite(camera.theta)) {
         params.set(CAM, [
@@ -47,14 +47,20 @@ export function encodeView({ camera, simDate, trueScale, now = new Date() } = {}
     if (simDate && Math.abs(simDate.getTime() - now.getTime()) > 60_000) {
         params.set(TIME, simDate.toISOString().slice(0, 16) + 'Z');
     }
-    if (trueScale) params.set(SCALE, 'true');
+    // `true` is the older, distances-only value, and links carrying it are
+    // still out there — so it keeps its meaning and the third stage gets a
+    // name of its own rather than a number that would have been ambiguous
+    // against them.
+    const stage = scaleStage ?? (trueScale ? 1 : 0);
+    if (stage >= 2) params.set(SCALE, 'sizes');
+    else if (stage >= 1) params.set(SCALE, 'true');
     return params;
 }
 
 /** Read back whatever a link carries, ignoring anything malformed. */
 export function decodeView(search) {
     const params = new URLSearchParams(search);
-    const out = { camera: null, at: null, trueScale: false };
+    const out = { camera: null, at: null, trueScale: false, scaleStage: 0 };
 
     const cam = params.get(CAM);
     if (cam) {
@@ -70,7 +76,9 @@ export function decodeView(search) {
         if (!Number.isNaN(d.getTime())) out.at = d;
     }
 
-    out.trueScale = params.get(SCALE) === 'true';
+    const scale = params.get(SCALE);
+    out.scaleStage = scale === 'sizes' ? 2 : scale === 'true' ? 1 : 0;
+    out.trueScale  = out.scaleStage >= 1;
     return out;
 }
 

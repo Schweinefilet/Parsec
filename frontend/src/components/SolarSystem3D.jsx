@@ -18,8 +18,10 @@ import { createSunLensflare } from '../utils/lensFlareTextures';
 import { simNow, isLive } from '../utils/simTime';
 import { setCameraSnapshot } from '../utils/shareView';
 import {
-    scaleProgress, radialFactor, AU_UNITS, isScaleSettling, subscribeScale, isTrueScale,
+    scaleProgress, sizeProgress, radialFactor, sizeFactor, AU_UNITS,
+    isScaleSettling, subscribeScale, getScaleStage, SCALE_DISTANCES, SCALE_SIZES,
 } from '../utils/scaleMode';
+import { bodyRadiusKm, moonOrbitKm } from '../utils/trueSize';
 import { quality, texturePath, pixelRatioFor, skyAllowed } from '../utils/quality';
 import {
     assetStarted, assetFinished, assetsSceneReady, __resetAssets,
@@ -59,12 +61,12 @@ const SolarSystem3D = ({
     // focus does; the positions are written straight to the DOM by the render
     // loop (see "Object labels" below), so a frame costs no React work.
     const [labelRoster, setLabelRoster] = useState([]);
-    // Only the caption needs this in React; the scene reads the layout itself
-    // isTrueScale, not the animation: subscribeScale fires when a transition
+    // Only the caption needs this in React; the scene reads the layout itself.
+    // The stage, not the animation: subscribeScale fires when a transition
     // *starts*, at which point the progress still reads the layout being left.
     // Asking the progress meant the caption latched on and never came back.
-    const [trueScale, setTrueScale] = useState(isTrueScale);
-    useEffect(() => subscribeScale(() => setTrueScale(isTrueScale())), []);
+    const [scaleStage, setScaleStageUI] = useState(getScaleStage);
+    useEffect(() => subscribeScale(() => setScaleStageUI(getScaleStage())), []);
     const [moonLabelsReady, setMoonLabelsReady] = useState(false);
     const labelElsRef = useRef(new Map());
     // Filled by the scene effect with { enter(id), leave() } so the floating
@@ -540,7 +542,13 @@ const SolarSystem3D = ({
         const sunMat = new THREE.MeshBasicMaterial({ color: '#FFF4A0' });
         const sunMesh = new THREE.Mesh(sunGeo, sunMat);
         sunMesh.userData = { id: 'sun', name: 'Sun' };
-        scene.add(sunMesh);
+        // Everything that makes up the Sun's disc hangs off one group so true
+        // sizes can shrink the lot together — the sphere here, the glow shells
+        // below. Its hitbox deliberately stays outside, for the same reason
+        // the planets' do.
+        const sunScale = new THREE.Group();
+        sunScale.add(sunMesh);
+        scene.add(sunScale);
 
         loader.load(texturePath('sun.jpg'), (tex) => {
             if (!mounted) { tex.dispose(); return; }
@@ -631,10 +639,22 @@ const SolarSystem3D = ({
                 depthWrite: false,
                 blending: THREE.AdditiveBlending,
             });
-            scene.add(new THREE.Mesh(geo, mat));
+            sunScale.add(new THREE.Mesh(geo, mat));
             geos.push(geo);
             mats.push(mat);
         });
+
+        // The Sun's own click target. At true sizes it is 0.45 units across
+        // against an orbit of 96, so without this there is nothing left to
+        // aim at — sizeHitboxes() below holds it at a constant angular size
+        // the same way it does every planet's.
+        const sunHitGeo  = new THREE.SphereGeometry(SUN_RADIUS, 8, 8);
+        const sunHitMat  = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+        const sunHitMesh = new THREE.Mesh(sunHitGeo, sunHitMat);
+        sunHitMesh.userData = sunMesh.userData;   // shared reference — same id and name
+        scene.add(sunHitMesh);
+        geos.push(sunHitGeo);
+        mats.push(sunHitMat);
 
         // Camera glare. Lensflare hides itself when its anchor's depth loses
         // to what is already in the depth buffer — that is how a planet
@@ -653,12 +673,13 @@ const SolarSystem3D = ({
             scene.add(flareAnchor);
         }
 
-        const planetMeshes    = [sunMesh];  // raycaster targets
+        const planetMeshes    = [sunMesh, sunHitMesh];  // raycaster targets
         const planetGroups    = [];         // for position refresh
         const planetMeshRefs  = new Map();  // name → group, for moon positioning
         const planetHitboxRefs  = new Map(); // planet.name → hitbox mesh
         const smallBodyHitRefs  = new Map(); // body.id → hitbox mesh
         const smallBodyHitRadii = new Map(); // body.id → hitbox geometry radius
+        const smallBodyMeshRefs = new Map(); // body.id → visual mesh (for true sizes)
         const moonMeshRefs      = new Map();  // moon.name → visual mesh
         const moonHitRefs      = new Map();  // moon.name → hitbox mesh (scene-direct, position synced each frame)
         const moonHitRadii     = new Map();  // moon.name → hitbox geometry radius (for scale restoration)
@@ -740,9 +761,15 @@ const SolarSystem3D = ({
                 mats.push(atmoMat);
             }
 
-            // Group: sphere + optional rings move together on position update
+            // Group: sphere + optional rings move together on position update.
+            // `bodyScale` sits between the two so true sizes can resize the
+            // body and its rings as one piece — the hitbox hangs off `group`
+            // instead, because a planet that has shrunk to a speck still has
+            // to be clickable.
             const group = new THREE.Group();
-            group.add(mesh);
+            const bodyScale = new THREE.Group();
+            group.add(bodyScale);
+            bodyScale.add(mesh);
 
             // Falls back to a painted surface, whether we skipped the request
             // outright or the file failed to load.
@@ -904,7 +931,7 @@ const SolarSystem3D = ({
                 sRing.rotation.z    = 0.2;
                 sRing.castShadow    = false;
                 sRing.receiveShadow = false;
-                group.add(sRing);
+                bodyScale.add(sRing);
                 geos.push(sRingGeo);
                 mats.push(sRingMat);
 
@@ -954,7 +981,7 @@ const SolarSystem3D = ({
                 jRing.rotation.x = Math.PI / 2;
                 jRing.rotation.z = AXIAL_TILT_DEG['Jupiter'] * DEG2RAD;
                 geos.push(jGeo); mats.push(jMat);
-                group.add(jRing);
+                bodyScale.add(jRing);
             }
 
             // ── Uranus rings — 5 narrow bands, ~vertical at 97.77° tilt ──────────
@@ -999,7 +1026,7 @@ const SolarSystem3D = ({
                     const uRingMesh = new THREE.Mesh(uGeo, uMat);
                     uRingMesh.rotation.y = Math.PI / 2;
                     geos.push(uGeo); mats.push(uMat);
-                    group.add(uRingMesh);
+                    bodyScale.add(uRingMesh);
                 });
             }
 
@@ -1047,7 +1074,7 @@ const SolarSystem3D = ({
                     nRingMesh.rotation.x = Math.PI / 2;
                     nRingMesh.rotation.z = nTiltZ;
                     geos.push(nGeo); mats.push(nMat);
-                    group.add(nRingMesh);
+                    bodyScale.add(nRingMesh);
                 };
 
                 // Full rings: Galle (diffuse), Le Verrier (narrow), Lassell (haze), Adams (narrow)
@@ -1083,7 +1110,7 @@ const SolarSystem3D = ({
             planetHitboxRefs.set(planet.name, pHitMesh);
 
             planetMeshRefs.set(planet.name, group);
-            planetGroups.push({ group, planet, orbitLine });
+            planetGroups.push({ group, bodyScale, planet, orbitLine });
         });
 
         // ── Belt orientation ───────────────────────────────────────────────────
@@ -1639,6 +1666,7 @@ const SolarSystem3D = ({
             planetMeshes.push(hitMesh);
             smallBodyHitRefs.set(body.id, hitMesh);
             smallBodyHitRadii.set(body.id, hitR);
+            smallBodyMeshRefs.set(body.id, mesh);
 
             smallBodyGroups.push({ group, body, orbitLine });
         });
@@ -2174,7 +2202,67 @@ const SolarSystem3D = ({
             probeGroups.forEach(({ group, hit }) => {
                 fit(hit, group, hit?.geometry?.parameters?.radius);
             });
+            fit(sunHitMesh, sunHitMesh, SUN_RADIUS);
         };
+
+        // ── True sizes ─────────────────────────────────────────────────────────
+        // Stage 2 of the scale control puts the whole scene on one scale, and
+        // that is a brutal thing to do to a body: Earth goes from 1.31 units
+        // across to four thousandths of one, against an orbit of ninety-six.
+        //
+        // Applied as a scale on the group holding each body — not by rebuilding
+        // geometry — so it can ease rather than snap, and so a body's rings and
+        // atmosphere come with it while its hitbox, which hangs off the parent,
+        // does not. Moons take two factors: one for the moon, and one for how
+        // far out it orbits, because a true-size Earth with the Moon still at
+        // its drawn distance would be a speck with a speck three hundred times
+        // its own width away.
+        // Every body the scene draws at a chosen size, by id. The probes are
+        // deliberately absent: a spacecraft's true size is a rounding error
+        // even against Phobos, and those markers are wayfinding — the same job
+        // the labels do — rather than anything claiming to be to scale.
+        const DRAWN_RADIUS = new Map([
+            ['sun', SUN_RADIUS],
+            ...PLANETS.map(p => [p.id, p.r]),
+            ...SMALL_BODIES.map(b => [b.id, b.r]),
+            ...MOON_DATA.map(m => [m.id, m.radius]),
+        ]);
+
+        /** Multiplier from a body's drawn radius to what it is drawn at now. */
+        const bodyScaleFactor = (id, t) => sizeFactor(DRAWN_RADIUS.get(id), bodyRadiusKm(id), t);
+        /** The radius a body is actually drawn at now, in scene units. */
+        const scaledRadius = (id, t) => (DRAWN_RADIUS.get(id) ?? 0) * bodyScaleFactor(id, t);
+        const moonOrbitFactor = (moon, t) => sizeFactor(moon.orbitR, moonOrbitKm(moon.id), t);
+
+        // Where the focused body is right now, for the camera correction that
+        // follows it through a change of size stage. The body's own position,
+        // not controls.target — on a fresh mount arriving straight into a
+        // focus, the target has not caught up to it yet.
+        const _sizePivot = new THREE.Vector3();
+        const focusedWorldPos = (id, out) => {
+            const moonName = MOON_DATA.find(m => m.id === id)?.name;
+            const mesh = (moonName && moonMeshRefs.get(moonName))
+                ?? planetMeshes.find(m => m.userData.id === id);
+            if (!mesh) return null;
+            mesh.getWorldPosition(out);
+            return out;
+        };
+
+        const applyTrueSizes = (t) => {
+            planetGroups.forEach(({ bodyScale, planet }) => {
+                bodyScale.scale.setScalar(bodyScaleFactor(planet.id, t));
+            });
+            sunScale.scale.setScalar(bodyScaleFactor('sun', t));
+            SMALL_BODIES.forEach(body => {
+                const mesh = smallBodyMeshRefs.get(body.id);
+                if (mesh) mesh.scale.setScalar(bodyScaleFactor(body.id, t));
+            });
+            MOON_DATA.forEach(moon => {
+                const mesh = moonMeshRefs.get(moon.name);
+                if (mesh) mesh.scale.setScalar(bodyScaleFactor(moon.id, t));
+            });
+        };
+        applyTrueSizes(sizeProgress());
 
         const _labelProj = new THREE.Vector3();
         // Where labels have already landed this pass. Two bodies can be a pixel
@@ -2241,6 +2329,13 @@ const SolarSystem3D = ({
         const PROBE_LIFT_AXIS = new THREE.Vector3(0, 1, 0);
         // -1 so the first frame always applies the layout, whichever it is
         let lastScaleT = -1;
+        let lastSizeT  = sizeProgress();
+        // The size factor the focused body was last framed at, and the framing
+        // distance it was given in drawn-size units — see the camera correction
+        // beside applyTrueSizes() in the loop.
+        let lastFocusSizeF  = 1;
+        let focusDistDrawn  = 0;
+        let sizeSettlePending = false;
         // What the rings were last built for.
         let ringsScaleT = 0;
         let ringsWeight = 1;
@@ -2401,6 +2496,64 @@ const SolarSystem3D = ({
 
             }
 
+            const sizeT = sizeProgress();
+            if (sizeT !== lastSizeT) {
+                lastSizeT = sizeT;
+                applyTrueSizes(sizeT);
+                // Switching stage while focused has to bring the camera in
+                // with the body, or changing to true sizes leaves you parked
+                // three units off something four thousandths of a unit across,
+                // watching it disappear. Scaling the camera's offset from the
+                // body by the same ratio the body changed by keeps whatever
+                // framing the reader had, including one they zoomed themselves
+                // — and the fly-in's destination has to come too, since that
+                // was fixed at the size the body was when it set off.
+                const focusId = focusedIdRef.current;
+                if (focusId && lastFocusSizeF > 0) {
+                    const f = bodyScaleFactor(focusId, sizeT);
+                    const pivot = focusedWorldPos(focusId, _sizePivot);
+                    if (f > 0 && f !== lastFocusSizeF && pivot) {
+                        const ratio = f / lastFocusSizeF;
+                        camera.position.sub(pivot).multiplyScalar(ratio).add(pivot);
+                        focusEndCamPos.sub(pivot).multiplyScalar(ratio).add(pivot);
+                        lastFocusSizeF = f;
+                    }
+                }
+                sizeSettlePending = true;
+            }
+
+            // The ratchet above only smooths what it actually sees, and it can
+            // see very little: a fresh load arriving straight into a focused
+            // body spends most of the transition with the main thread decoding
+            // textures, and the whole 2.2 seconds can pass in four frames. So
+            // the framing is settled here from the stored distance instead of
+            // accumulated — this is the part that is allowed to be authoritative.
+            if (sizeSettlePending && !isScaleSettling()) {
+                const focusId = focusedIdRef.current;
+                const pivot = focusId ? focusedWorldPos(focusId, _sizePivot) : null;
+                if (!focusId) {
+                    sizeSettlePending = false;   // nothing focused, nothing to re-frame
+                } else if (pivot && focusDistDrawn > 0) {
+                    const want = focusDistDrawn * bodyScaleFactor(focusId, sizeT);
+                    // Mid fly-in it is the destination that needs correcting,
+                    // not where the camera has got to — and the flag is held
+                    // until that flight lands, because a load that arrives
+                    // straight into a focus sets its course before the stage
+                    // has finished moving under it.
+                    const from = focusAnimating ? focusEndCamPos : camera.position;
+                    const cur  = from.distanceTo(pivot);
+                    if (want > 0 && cur > 1e-9) {
+                        const ratio = want / cur;
+                        focusEndCamPos.sub(pivot).multiplyScalar(ratio).add(pivot);
+                        if (!focusAnimating) {
+                            camera.position.sub(pivot).multiplyScalar(ratio).add(pivot);
+                        }
+                    }
+                    lastFocusSizeF = bodyScaleFactor(focusId, sizeT);
+                    if (!focusAnimating) sizeSettlePending = false;
+                }
+            }
+
             // True distances put Pluto at 3,790 units where the compressed
             // layout had it at 410, so the camera has to be allowed out that
             // far and the far plane has to follow. Keyed on the layout rather
@@ -2498,22 +2651,30 @@ const SolarSystem3D = ({
                     // orbitAtRest reads the focus itself, so this also clears any
                     // hover tint left on a ring the pointer was over.
                     planetMeshes.forEach(m => orbitAtRest(m.userData.orbitLine));
-                    // Shrink all hitboxes to 1× visual radius when anything is focused
-                    PLANETS.forEach(p => {
-                        const hb = planetHitboxRefs.get(p.name);
-                        const hr = hb?.geometry?.parameters?.radius ?? 1;
-                        if (hb) hb.scale.setScalar(p.r / hr);
-                    });
-                    SMALL_BODIES.forEach(b => {
-                        const hb = smallBodyHitRefs.get(b.id);
-                        const hr = smallBodyHitRadii.get(b.id) ?? 1;
-                        if (hb) hb.scale.setScalar(b.r / hr);
-                    });
-                    MOON_DATA.forEach(moon => {
-                        const hm = moonHitRefs.get(moon.name);
-                        const hr = moonHitRadii.get(moon.name) ?? 1;
-                        if (hm) hm.scale.setScalar((moon.hitRadius ?? moon.radius) * 2 / hr);
-                    });
+                    // Shrink all hitboxes to 1× visual radius when anything is
+                    // focused — the visual radius as currently drawn, so at
+                    // true sizes they close in with the bodies instead of
+                    // leaving a planet-sized target around a speck.
+                    {
+                        const hitT = sizeProgress();
+                        PLANETS.forEach(p => {
+                            const hb = planetHitboxRefs.get(p.name);
+                            const hr = hb?.geometry?.parameters?.radius ?? 1;
+                            if (hb) hb.scale.setScalar(p.r * bodyScaleFactor(p.id, hitT) / hr);
+                        });
+                        SMALL_BODIES.forEach(b => {
+                            const hb = smallBodyHitRefs.get(b.id);
+                            const hr = smallBodyHitRadii.get(b.id) ?? 1;
+                            if (hb) hb.scale.setScalar(b.r * bodyScaleFactor(b.id, hitT) / hr);
+                        });
+                        MOON_DATA.forEach(moon => {
+                            const hm = moonHitRefs.get(moon.name);
+                            const hr = moonHitRadii.get(moon.name) ?? 1;
+                            const mr = (moon.hitRadius ?? moon.radius) * bodyScaleFactor(moon.id, hitT);
+                            if (hm) hm.scale.setScalar(mr * 2 / hr);
+                        });
+                        sunHitMesh.scale.setScalar(bodyScaleFactor('sun', hitT));
+                    }
                     // Compute smooth focus animation — starts from current camera,
                     // ends at 30° elevation above the planet at the correct zoom distance
                     if (newMesh) {
@@ -2546,9 +2707,19 @@ const SolarSystem3D = ({
                         // view, so a distance framed for landscape pushes the body off
                         // both edges. Back off in proportion, with a ceiling so phones
                         // don't end up looking at a distant speck.
-                        const dist = baseDist * (camera.aspect < 1
+                        // Every distance above was tuned against the drawn
+                        // radii, so true sizes just take the whole framing down
+                        // by the same factor the body went down by — the body
+                        // fills exactly the fraction of the frame it always did,
+                        // from proportionally closer in.
+                        lastFocusSizeF = bodyScaleFactor(currentFocusedId, sizeProgress());
+                        // Kept unscaled as well, so a later change of stage can
+                        // work out the framing from scratch rather than having
+                        // to have watched every frame of the change.
+                        focusDistDrawn = baseDist * (camera.aspect < 1
                             ? Math.min(2.0, Math.pow(1 / camera.aspect, 0.8))
                             : 1);
+                        const dist = focusDistDrawn * lastFocusSizeF;
                         // Normally the user's azimuth is kept, which is right
                         // for a planet: whichever side you approached from is
                         // the side you meant. A probe is tens of AU out with
@@ -2727,7 +2898,7 @@ const SolarSystem3D = ({
                     );
                 }
                 moonAngles.set(moon.name, angle);
-                const off = moonOffset(moon, angle);
+                const off = moonOffset(moon, angle, moonOrbitFactor(moon, sizeT));
                 const mx = parentGroup.position.x + off.x;
                 const my = parentGroup.position.y + off.y;
                 const mz = parentGroup.position.z + off.z;
@@ -2833,7 +3004,8 @@ const SolarSystem3D = ({
             // the camera's side — see where it's created for why.
             if (sunFlare) {
                 flareAnchor.position.copy(camera.position)
-                    .sub(sunMesh.position).setLength(SUN_RADIUS * 1.04)
+                    .sub(sunMesh.position)
+                    .setLength(SUN_RADIUS * sunScale.scale.x * 1.04)
                     .add(sunMesh.position);
             }
             planetMeshes.forEach(m => {
@@ -2922,12 +3094,19 @@ const SolarSystem3D = ({
                     ?? SMALL_BODIES.find(b => b.id === currentFocusedId)
                     ?? MOON_DATA.find(b => b.id === currentFocusedId)
                     ?? PROBES.find(b => b.id === currentFocusedId);
-                const planetRadius = bodyDef?.r ?? bodyDef?.radius ?? 3.5;
+                // The body's radius as currently drawn, so focusing still frames
+                // it at true sizes — where the unscaled 1.31 would park the
+                // camera three units off a four-thousandths-of-a-unit Earth.
+                const planetRadius = Math.max(1e-4,
+                    scaledRadius(currentFocusedId, sizeT)
+                        || (bodyDef?.r ?? bodyDef?.radius ?? 3.5));
                 controls.minDistance = planetRadius * 2.5;
                 // Near plane must stay smaller than the closest moon can get to the camera.
                 // e.g. Saturn r=3.56 → cam at 14.46, Mimas orbitR=13 → gap=1.46.
                 // Using 0.1× radius keeps near well below that gap for all planet/moon combos.
-                camera.near = Math.max(0.01, planetRadius * 0.1);
+                // The floor drops with true sizes for the same reason the rest
+                // of this does — at 0.01 it would clip a true-size Earth away.
+                camera.near = Math.max(Math.min(0.01, planetRadius * 0.02), planetRadius * 0.1);
                 camera.updateProjectionMatrix();
 
                 if (focusAnimating) {
@@ -3175,7 +3354,10 @@ const SolarSystem3D = ({
                     const obs = getSkyEntryObserver();
                     const lat = (obs?.lat ?? 0) * DEG2RAD;
                     const lon = (obs?.lon ?? 0) * DEG2RAD;
-                    const R = PLANETS.find(p => p.id === 'earth')?.r ?? 1.31;
+                    // Earth's radius as drawn right now — the dive lands on the
+                    // surface at true sizes too, just a great deal closer in.
+                    const R = scaledRadius('earth', sizeProgress())
+                        || (PLANETS.find(p => p.id === 'earth')?.r ?? 1.31);
 
                     // Local (unrotated) unit-sphere point and its "north"
                     // tangent — same lat/lon convention as SatelliteGlobe.jsx's
@@ -3460,7 +3642,9 @@ const SolarSystem3D = ({
                     maxWidth: 220,
                     textAlign: 'end',
                 }}>
-                    {t(trueScale ? 'scene.distancesToScale' : 'scene.notToScale')}
+                    {t(scaleStage === SCALE_SIZES ? 'scene.allToScale'
+                        : scaleStage === SCALE_DISTANCES ? 'scene.distancesToScale'
+                            : 'scene.notToScale')}
                 </div>
 
                 {/* Floating object labels — each one a button that flies to its

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Orbit, Pause, Ruler, Waves, ChevronDown } from 'lucide-react';
 import DriftSliders from './DriftSliders';
-import { toggleTrueScale } from '../utils/scaleMode';
+import { cycleScaleStage, SCALE_COMPRESSED, SCALE_DISTANCES, SCALE_SIZES } from '../utils/scaleMode';
 import { cycleVizMode, VIZ_OFF, VIZ_GRID, VIZ_FIELD } from '../utils/vizMode';
 import { useReducedMotion } from '../hooks/useMediaQuery';
 import { useI18n } from '../i18n';
@@ -27,7 +27,7 @@ const rowBtn = (active) => ({
     lineHeight: 1.25, textAlign: 'start', cursor: 'pointer',
 });
 
-const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, trueScale, vizMode, disabled }) => {
+const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage, vizMode, disabled }) => {
     const { t, rtl } = useI18n();
     const reduced = useReducedMotion();
     const [open, setOpen] = useState(false);
@@ -43,6 +43,13 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, trueScale,
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
     }, [open]);
+
+    // Cycled compressed → true distances → true distances and sizes, the same
+    // shape the gravity row below already uses: the label carries the state,
+    // because a cycle button otherwise gives no clue what it does.
+    const scaleLabel = scaleStage === SCALE_SIZES ? 'scene.trueDistancesSizes'
+        : scaleStage === SCALE_DISTANCES ? 'scene.trueDistances'
+            : 'scene.compressedDistances';
 
     const slide = reduced ? 'none' : 'transform 320ms cubic-bezier(0.32,0.72,0,1), inset-inline-start 320ms cubic-bezier(0.32,0.72,0,1)';
     const hiddenX = rtl ? 'translateX(100%)' : 'translateX(-100%)';
@@ -209,14 +216,14 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, trueScale,
                     <div style={{ height: 1, background: 'rgba(255,255,255,0.1)', margin: '12px 0' }} />
 
                     <button
-                        onClick={toggleTrueScale}
-                        aria-pressed={trueScale}
-                        aria-label={t(trueScale ? 'scene.compressedAria' : 'scene.trueScaleAria')}
+                        onClick={cycleScaleStage}
+                        aria-pressed={scaleStage !== SCALE_COMPRESSED}
+                        aria-label={t('scene.scaleAria', { state: t(scaleLabel) })}
                         className="focus-ring"
-                        style={rowBtn(trueScale)}
+                        style={rowBtn(scaleStage !== SCALE_COMPRESSED)}
                     >
                         <Ruler style={{ width: 13, height: 13 }} aria-hidden="true" />
-                        {t(trueScale ? 'scene.trueDistances' : 'scene.compressedDistances')}
+                        {t(scaleLabel)}
                     </button>
 
                     <button

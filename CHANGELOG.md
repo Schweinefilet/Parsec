@@ -16,6 +16,55 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.2.0
+
+- **True sizes, as a third setting on the distances toggle.** The layout
+  control is no longer on/off but a three-stage cycle — compressed
+  distances → true distances → true distances *and* sizes — mirroring the
+  gravity pill beside it, which has carried its state in its own label
+  since 4.0. Stage two is unchanged from what shipped in 2.0. Stage three
+  puts the entire scene on one scale.
+- **It is deliberately merciless.** One scale means a scene unit is 1.56
+  million km, so Earth is four thousandths of a unit across while its orbit
+  is ninety-six. Every body in the scene falls far below a pixel from the
+  default view and what is left is orbit rings, labels and a great deal of
+  nothing. There is no minimum dot size propping it up — that emptiness is
+  the honest picture of the solar system, and the way to see anything in it
+  is the way it has always been: fly to it. Focus a body and it grows into
+  its real proportions, with its moons at their real separations. The ISS
+  ends up skimming Earth's surface, which is where it actually is.
+- The real radii come out of `objectCatalog.js` rather than being written
+  down a second time (`utils/trueSize.js`) — the scene and the object page
+  beside it now cannot disagree about how big Jupiter is. Diameters are
+  halved on the way through; the handful the catalog states in a shape
+  nothing can parse (Haumea's three axes, Halley's nucleus, the ISS) have
+  named fallbacks. A test pins that every body the scene draws resolves to
+  a real number, so a reworded stat row fails loudly instead of quietly
+  dropping a body back to its drawn size.
+- Two things do not shrink, for the same reason the labels don't. Hitboxes
+  hold a constant angular size, so a planet that is now a speck is still
+  the same click target it always was — the Sun gained one of its own,
+  since it had been relying on being twelve units wide. And the probe
+  markers stay markers: a spacecraft's true size is a rounding error
+  against Phobos, and those are wayfinding rather than anything claiming to
+  be to scale.
+- Focus framing follows the stage. Every focus distance was tuned against
+  the drawn radii, so it is taken down by the same factor the body was,
+  and a body fills exactly the fraction of the frame it always did from
+  proportionally closer in. Changing stage while focused brings the camera
+  with it rather than leaving you parked three units off something four
+  thousandths of a unit across.
+  - The per-frame follow could not be the authority on that: a load
+    arriving straight into a focused body spends most of the transition
+    with the main thread decoding textures, and the whole 2.2 seconds can
+    pass in four frames. The framing is settled from a stored distance once
+    the stage stops moving *and* the fly-in has landed, which is what makes
+    a shared link into stage three land correctly.
+- Shared links carry the stage: `scale=sizes` alongside the `scale=true`
+  that older links already use, which keeps its old meaning.
+
+---
+
 ## 5.1.9
 
 - **The focused-object overlay steps aside for the /sky dive.** The

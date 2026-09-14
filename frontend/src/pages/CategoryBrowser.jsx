@@ -20,7 +20,10 @@ import { CATEGORY_TABS, getObjectsByCategory, getObjectById, resolveTab } from '
 import { hasSceneBody } from '../data/solarSystemBodies';
 import { useHorizons } from '../hooks/useHorizons';
 import { useIsMobile, useIsShortViewport } from '../hooks/useMediaQuery';
-import { isTrueScale, toggleTrueScale, subscribeScale, setTrueScale as setSceneScale } from '../utils/scaleMode';
+import {
+    getScaleStage, cycleScaleStage, subscribeScale, setScaleStage as setSceneStage,
+    SCALE_COMPRESSED, SCALE_DISTANCES, SCALE_SIZES,
+} from '../utils/scaleMode';
 import {
     getVizMode, cycleVizMode, subscribeViz, VIZ_OFF, VIZ_GRID, VIZ_FIELD,
 } from '../utils/vizMode';
@@ -160,8 +163,14 @@ const CategoryBrowser = () => {
     // button can show which way it is set.
     // The scene drifts slowly by default; this holds it still.
     const [autoRotate, setAutoRotate] = useState(true);
-    const [trueScale, setTrueScaleUI] = useState(isTrueScale);
-    useEffect(() => subscribeScale(() => setTrueScaleUI(isTrueScale())), []);
+    const [scaleStage, setScaleStageUI] = useState(getScaleStage);
+    useEffect(() => subscribeScale(() => setScaleStageUI(getScaleStage())), []);
+    // One pill cycled compressed → true distances → true distances and sizes,
+    // the same shape the gravity pill beside it already uses: the label carries
+    // the state, because a cycle button otherwise gives no clue what it does.
+    const scaleLabel = scaleStage === SCALE_SIZES ? 'scene.trueDistancesSizes'
+        : scaleStage === SCALE_DISTANCES ? 'scene.trueDistances'
+            : 'scene.compressedDistances';
     const [vizMode, setVizModeUI] = useState(getVizMode);
     useEffect(() => subscribeViz(() => setVizModeUI(getVizMode())), []);
 
@@ -170,7 +179,7 @@ const CategoryBrowser = () => {
     // would yank the view back every time the URL changed for another reason.
     const [sharedView] = useState(() => decodeView(window.location.search));
     useEffect(() => {
-        if (sharedView.trueScale) setSceneScale(true);
+        if (sharedView.scaleStage) setSceneStage(sharedView.scaleStage);
         if (sharedView.at) {
             setOffsetDays((sharedView.at.getTime() - Date.now()) / 86400000);
         }
@@ -521,20 +530,20 @@ const CategoryBrowser = () => {
                         const scaleBtn = (
                             <button
                                 key="scale"
-                                onClick={toggleTrueScale}
-                                aria-pressed={trueScale}
-                                aria-label={t(trueScale ? 'scene.compressedAria' : 'scene.trueScaleAria')}
-                                title={t(trueScale ? 'scene.trueScaleTitle' : 'scene.compressedTitle')}
+                                onClick={cycleScaleStage}
+                                aria-pressed={scaleStage !== SCALE_COMPRESSED}
+                                aria-label={t('scene.scaleAria', { state: t(scaleLabel) })}
+                                title={t('scene.scaleAria', { state: t(scaleLabel) })}
                                 inert={(!!id || pageScrolled) || undefined}
                                 className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
-                                style={pill(trueScale)}
+                                style={pill(scaleStage !== SCALE_COMPRESSED)}
                             >
                                 <Ruler style={{ width: 13, height: 13 }} />
-                                {/* Both halves name a layout, so the pair reads as
-                                    one setting with two values rather than as a
+                                {/* Every value names a layout, so the three read as
+                                    one setting with three settings rather than as a
                                     verb one way and a noun the other. "To scale"
                                     was also ambiguous about which state it meant. */}
-                                {t(trueScale ? 'scene.trueDistances' : 'scene.compressedDistances')}
+                                {t(scaleLabel)}
                             </button>
                         );
                         // One pill, cycled off → warped grid → field lines → off.
@@ -602,7 +611,7 @@ const CategoryBrowser = () => {
                                         onToggleDrift={() => setAutoRotate(v => !v)}
                                         onWakeDrift={() => setAutoRotate(true)}
                                         onOpen={onSettingsOpened}
-                                        trueScale={trueScale}
+                                        scaleStage={scaleStage}
                                         vizMode={vizMode}
                                         disabled={!!id || pageScrolled}
                                     />
@@ -611,7 +620,7 @@ const CategoryBrowser = () => {
                         }
 
                         // ── Phone: a start-aligned column above the time control ──
-                        const anyActive = !autoRotate || trueScale || vizMode !== VIZ_OFF;
+                        const anyActive = !autoRotate || scaleStage !== SCALE_COMPRESSED || vizMode !== VIZ_OFF;
                         return (
                             <div
                                 style={{

@@ -70,14 +70,19 @@ export function targetIssSpeed({ issMoon, focusedId, hoveredMoonId, parentFocuse
  * Position of a moon relative to its parent, in scene units.
  * Returns the parent's own position for a non-finite angle rather than
  * propagating NaN into the scene graph.
+ *
+ * `radiusScale` shrinks the orbit without touching its shape or phase — how
+ * true sizes pull a moon system in around a planet that has just become its
+ * real size. Defaults to 1, which is the drawn layout.
  */
-export function moonOffset(moon, angle) {
+export function moonOffset(moon, angle, radiusScale = 1) {
     if (!Number.isFinite(angle)) return { x: 0, y: 0, z: 0 };
     const incRad = (moon.inc * Math.PI) / 180;
+    const r = moon.orbitR * (Number.isFinite(radiusScale) ? radiusScale : 1);
     return {
-        x: Math.cos(angle) * moon.orbitR,
-        y: Math.sin(angle) * moon.orbitR * Math.sin(incRad),
-        z: Math.sin(angle) * moon.orbitR * Math.cos(incRad),
+        x: Math.cos(angle) * r,
+        y: Math.sin(angle) * r * Math.sin(incRad),
+        z: Math.sin(angle) * r * Math.cos(incRad),
     };
 }
 

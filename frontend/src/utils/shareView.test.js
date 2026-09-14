@@ -42,7 +42,19 @@ describe('decodeView', () => {
     });
 
     it('gives defaults for an empty query', () => {
-        expect(decodeView('')).toEqual({ camera: null, at: null, trueScale: false });
+        expect(decodeView('')).toEqual({
+            camera: null, at: null, trueScale: false, scaleStage: 0,
+        });
+    });
+
+    it('carries the true-sizes stage, and still reads the older true-distances links', () => {
+        expect(decodeView('scale=sizes').scaleStage).toBe(2);
+        expect(decodeView('scale=true').scaleStage).toBe(1);
+        expect(decodeView('scale=true').trueScale).toBe(true);
+        expect(decodeView('scale=nonsense').scaleStage).toBe(0);
+        expect(encodeView({ scaleStage: 2 }).get('scale')).toBe('sizes');
+        expect(encodeView({ scaleStage: 1 }).get('scale')).toBe('true');
+        expect(encodeView({ scaleStage: 0 }).get('scale')).toBeNull();
     });
 
     it('discards nonsense rather than flying the camera into the Sun', () => {

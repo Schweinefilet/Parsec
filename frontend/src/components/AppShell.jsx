@@ -15,7 +15,7 @@ import { useIsMobile } from '../hooks/useMediaQuery';
 import { CATEGORY_TABS, CATEGORY_COUNTS, DEFAULT_TAB, resolveTab, getObjectById } from '../data/objectCatalog';
 import { buildShareUrl, getCameraSnapshot } from '../utils/shareView';
 import { simDate } from '../utils/simTime';
-import { isTrueScale } from '../utils/scaleMode';
+import { getScaleStage } from '../utils/scaleMode';
 import { subscribeLogo } from '../utils/assetLoading';
 import { syncDocumentHead } from '../utils/documentHead';
 import { armSkyEntry } from '../utils/skyEntry';
@@ -187,7 +187,7 @@ const AppShell = ({ children }) => {
             href: window.location.href,
             camera: getCameraSnapshot(),
             simDate: simDate(),
-            trueScale: isTrueScale(),
+            scaleStage: getScaleStage(),
         });
         try {
             await navigator.clipboard.writeText(url);

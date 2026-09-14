@@ -1,7 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import {
-    AU_UNITS, isTrueScale, scaleProgress, setTrueScale, toggleTrueScale,
-    radialFactor, subscribeScale, isScaleSettling, __setScaleImmediate,
+    AU_UNITS, KM_PER_UNIT, isTrueScale, isTrueSize, scaleProgress, sizeProgress,
+    setTrueScale, toggleTrueScale, radialFactor, sizeFactor, subscribeScale,
+    isScaleSettling, __setScaleImmediate, getScaleStage, setScaleStage,
+    cycleScaleStage, SCALE_COMPRESSED, SCALE_DISTANCES, SCALE_SIZES,
 } from './scaleMode';
 import { PLANETS } from '../data/solarSystemBodies';
 
@@ -42,6 +44,92 @@ describe('scaleMode', () => {
         off();
         toggleTrueScale();
         expect(calls).toBe(1);
+    });
+});
+
+describe('the three stages', () => {
+    it('cycles compressed → distances → distances and sizes → compressed', () => {
+        expect(getScaleStage()).toBe(SCALE_COMPRESSED);
+        cycleScaleStage();
+        expect(getScaleStage()).toBe(SCALE_DISTANCES);
+        cycleScaleStage();
+        expect(getScaleStage()).toBe(SCALE_SIZES);
+        cycleScaleStage();
+        expect(getScaleStage()).toBe(SCALE_COMPRESSED);
+    });
+
+    it('only moves sizes on the second step, leaving distances where they are', () => {
+        const t0 = 3_000_000;
+        setScaleStage(SCALE_DISTANCES, t0);
+        expect(scaleProgress(t0 + 5000)).toBe(1);
+        expect(sizeProgress(t0 + 5000)).toBe(0);
+
+        setScaleStage(SCALE_SIZES, t0 + 5000);
+        // Distances are already true and stay there for the whole size move
+        expect(scaleProgress(t0 + 6000)).toBe(1);
+        expect(sizeProgress(t0 + 5000)).toBeCloseTo(0, 5);
+        expect(sizeProgress(t0 + 10000)).toBe(1);
+    });
+
+    it('brings both home together when cycling straight back to compressed', () => {
+        const t0 = 4_000_000;
+        __setScaleImmediate(SCALE_SIZES);
+        expect(scaleProgress()).toBe(1);
+        expect(sizeProgress()).toBe(1);
+        setScaleStage(SCALE_COMPRESSED, t0);
+        expect(scaleProgress(t0 + 5000)).toBe(0);
+        expect(sizeProgress(t0 + 5000)).toBe(0);
+    });
+
+    it('reports each half of the layout separately', () => {
+        __setScaleImmediate(SCALE_DISTANCES);
+        expect(isTrueScale()).toBe(true);
+        expect(isTrueSize()).toBe(false);
+        __setScaleImmediate(SCALE_SIZES);
+        expect(isTrueScale()).toBe(true);
+        expect(isTrueSize()).toBe(true);
+    });
+
+    it('ignores a stage it is already on, and clamps nonsense', () => {
+        let calls = 0;
+        const off = subscribeScale(() => calls++);
+        setScaleStage(SCALE_COMPRESSED);
+        expect(calls).toBe(0);
+        setScaleStage(99);
+        expect(getScaleStage()).toBe(SCALE_SIZES);
+        setScaleStage(-4);
+        expect(getScaleStage()).toBe(SCALE_COMPRESSED);
+        off();
+    });
+});
+
+describe('sizeFactor', () => {
+    it('leaves every body at its drawn size at rest', () => {
+        for (const p of PLANETS) expect(sizeFactor(p.r, 6371, 0)).toBe(1);
+    });
+
+    it('lands a body on its real radius in scene units', () => {
+        // Earth: 6,371 km at 1.56 million km to the unit
+        const earth = PLANETS.find(p => p.id === 'earth');
+        const drawn = earth.r * sizeFactor(earth.r, 6371, 1);
+        expect(drawn).toBeCloseTo(6371 / KM_PER_UNIT, 9);
+        // …which is the four-thousandths-of-a-unit the mode is named for
+        expect(drawn).toBeGreaterThan(0.004);
+        expect(drawn).toBeLessThan(0.005);
+    });
+
+    it('keeps the bodies honest against each other', () => {
+        const earth   = PLANETS.find(p => p.id === 'earth');
+        const jupiter = PLANETS.find(p => p.id === 'jupiter');
+        const at = (p, km) => p.r * sizeFactor(p.r, km, 1);
+        // Jupiter is 10.97 Earth radii, whatever the two were drawn at
+        expect(at(jupiter, 69911) / at(earth, 6371)).toBeCloseTo(69911 / 6371, 6);
+    });
+
+    it('leaves anything it has no real radius for alone', () => {
+        expect(sizeFactor(2, null, 1)).toBe(1);
+        expect(sizeFactor(2, 0, 1)).toBe(1);
+        expect(sizeFactor(0, 6371, 1)).toBe(1);
     });
 });
 
