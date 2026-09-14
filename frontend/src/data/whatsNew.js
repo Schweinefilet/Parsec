@@ -24,6 +24,7 @@ export const WHATS_NEW = [
             'Orbit paths now fade out when you focus a planet or moon instead of vanishing all at once.',
             'Removed the "What’s up tonight" icon from the header for now.',
             'Fixed the ISS’s selection ring dwarfing Earth and the Moon at true distances + sizes — it now shrinks along with everything else.',
+            'At true distances + sizes, focusing any body now frames the Sun to the upper left, the same way for every planet, moon, dwarf planet, asteroid or comet — it used to land dead-centre above the body, and only for planets.',
         ],
     },
     {

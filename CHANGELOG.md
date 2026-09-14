@@ -16,6 +16,31 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.2.7
+
+- **The Sun now lands upper-left, not dead centre above the body, when
+  focusing anything at true distances + sizes — and every focusable body
+  gets this framing now, not just planets.** The 5.2.0 fix that put the
+  Sun in the shot only offset the camera straight along a "lift" axis that
+  reduces to almost exactly world-up for any near-ecliptic body, landing
+  the Sun at screen "12 o'clock" every time — the body reading as
+  eclipsing the Sun rather than sharing the frame with it. The offset now
+  blends in a horizontal component too, moving it to "10 o'clock", and the
+  exact ratio between the two is the same for every body (only the
+  underlying 3-D directions change with where the body actually is) — the
+  sign that lands on-screen *left* rather than right was checked against a
+  real render, not assumed from the vector math. Also broadened from
+  planets-only to every non-probe, non-Sun body, so a focused moon, dwarf
+  planet, asteroid or comet gets the same treatment a planet already did.
+  Confirmed in headless Chrome across five bodies (Mars, Europa, Ceres,
+  Vesta, Pallas): the Sun lands upper-left for all of them, though small
+  bodies — whose orbits sit at higher and more varied inclinations than a
+  planet's — shift by a smaller margin than planets and moons do; a real
+  consequence of the fixed reference axis this offset is built from, not
+  a bug.
+
+---
+
 ## 5.2.6
 
 - **Fixed the ISS's selection ring dwarfing Earth (and the Moon) at true

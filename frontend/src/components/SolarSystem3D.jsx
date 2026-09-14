@@ -2846,15 +2846,19 @@ const SolarSystem3D = ({
                         // looking further out, at empty sky. Sit beyond it on
                         // the far side from the Sun instead, so the system it
                         // left is in the shot behind it with its own track
-                        // running back into it. A planet gets exactly the same
-                        // problem once true sizes shrink it to a speck at the
-                        // far end of a true-distance orbit, so it earns the
-                        // same fix there: the Sun rides in the frame the way
-                        // it does for the Voyagers, on the body it actually
-                        // belongs to.
+                        // running back into it. Every other body gets exactly
+                        // the same problem once true sizes shrinks it to a
+                        // speck at the far end of a true-distance orbit, so
+                        // they all earn the same fix: the Sun rides in the
+                        // frame the way it does for the Voyagers, on the body
+                        // it actually belongs to — not just planets, so a
+                        // focused moon, dwarf planet, asteroid or comet reads
+                        // the same way. The Sun itself is excluded (nothing to
+                        // frame it against) and so is anything already
+                        // sun-relative for another reason (a probe).
                         const isProbe = PROBES.some(b => b.id === currentFocusedId);
                         const sunFramed = isProbe || (getScaleStage() === SCALE_SIZES
-                            && PLANETS.some(p => p.id === currentFocusedId));
+                            && currentFocusedId !== 'sun');
                         if (sunFramed) {
                             // Along the body's actual position vector, not its
                             // compass bearing: the scene is equatorial and the
@@ -2863,20 +2867,40 @@ const SolarSystem3D = ({
                             // left the Sun far enough off axis to fall out of
                             // frame, which is the whole thing this is for.
                             const outward = planetPos.clone().normalize();
-                            // Lift off that exact line, so the body is not
-                            // sitting directly in front of the Sun it is being
-                            // shown with.
+                            // An orthonormal pair perpendicular to `outward` —
+                            // `side` roughly horizontal (screen left/right),
+                            // `up2` roughly vertical (screen up/down), in that
+                            // order so the cross product's handedness is
+                            // established once and reused below rather than
+                            // re-derived and risking a sign flip.
                             const side = new THREE.Vector3()
                                 .crossVectors(outward, PROBE_LIFT_AXIS);
                             if (side.lengthSq() < 1e-8) side.set(1, 0, 0);
-                            const lift = new THREE.Vector3()
-                                .crossVectors(side.normalize(), outward).normalize();
-                            // 12°, not 30: at 30 the Sun sits outside the 22.5°
-                            // half-angle of a 45° field and drops off the top.
-                            const sunTilt = 12 * Math.PI / 180;
+                            side.normalize();
+                            const up2 = new THREE.Vector3()
+                                .crossVectors(side, outward).normalize();
+                            // Offsetting straight along `up2` alone (this
+                            // scene's old behaviour) put the Sun dead centre
+                            // above the body every time — screen "12 o'clock",
+                            // reading as the body eclipsing the Sun rather
+                            // than the two sharing the frame. Blending in
+                            // `side` moves that to "10 o'clock" (up and to the
+                            // left) instead, and consistently so: `side` and
+                            // `up2` are the same two directions for every
+                            // body, only `outward` (and so the exact 3-D
+                            // vectors they resolve to) changes with position —
+                            // the ratio between them, and so where in frame
+                            // the Sun lands, does not. The sign that actually
+                            // lands on-screen *left* rather than right was
+                            // checked against a real render, not assumed from
+                            // the cross products' handedness.
+                            const sunTilt = 12 * Math.PI / 180; // 12°, not 30: at 30 the Sun sits outside the 22.5° half-angle of a 45° field and drops off the top
+                            const ROLL = 35 * Math.PI / 180; // how far around from straight up, toward the left
+                            const perp = up2.multiplyScalar(Math.cos(ROLL))
+                                .addScaledVector(side, Math.sin(ROLL));
                             focusEndCamPos.copy(planetPos).addScaledVector(
                                 outward.multiplyScalar(Math.cos(sunTilt))
-                                    .addScaledVector(lift, Math.sin(sunTilt)),
+                                    .addScaledVector(perp, Math.sin(sunTilt)),
                                 dist);
                         } else {
                             focusEndCamPos.set(
