@@ -16,6 +16,50 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.2.2
+
+- **Fixed: focusing a distant body used to visibly centre on the Sun before
+  swinging round to the actual target.** The camera's look-AT point was
+  lerped through raw 3D space from wherever `controls.target` last was to
+  the new body. Idle at the wide home view, that target eases toward the
+  origin — which is exactly where the Sun sits — so a fresh focus from
+  there started this lerp *at the Sun*, and for a real stretch of the
+  flight the camera aimed at a point on the straight line between the Sun
+  and the new body, which for the first chunk of that line *is* the Sun.
+  Replaced with a quaternion slerp between two orientations that both
+  already look at the target — one from the start camera position, one
+  from the landing spot — so the body stays roughly in view for the whole
+  flight and the Sun is never an accidental waypoint. Two positions that
+  are genuinely far apart in parallax (planet to planet, mostly) still
+  rotate smoothly rather than cutting; a home-view launch, which had no
+  strongly-anchored gaze to preserve continuity with anyway, just starts
+  already facing the destination.
+- **True distances + sizes: focusing a planet now frames the Sun in shot,
+  off to one side — the same treatment the Voyagers and New Horizons
+  already had.** Once a planet's own true-sized disc is dwarfed by its
+  true-distance orbit, "keep the user's approach azimuth" has exactly the
+  probes' old problem — it can land the camera looking at empty sky — so
+  planets get the probes' fix there too: sit beyond the body on the far
+  side from the Sun, lifted 12° off that line so the Sun isn't dead centre.
+  Only in that one mode; every other layout is unchanged.
+- **The same true-sizes flight now takes 2.4s instead of 1.2.** However
+  well the previous release eased its final stretch, doing a 20,000×-plus
+  zoom (Earth's, roughly) in the same time it takes to cross a planet's own
+  diameter still read as a flinch. Longer specifically at that stage, not
+  generally.
+- **Fixed: Saturn's ring shadow covered half the ring instead of the strip
+  actually behind the planet, at true sizes.** The shadow shader compares
+  each ring point's distance from the Sun-Saturn line against Saturn's own
+  radius — and that radius uniform was set once, to the *drawn* 3.56 units,
+  and never updated. At true sizes the ring itself (a child of the same
+  scaled group as the planet) shrinks to a few hundredths of a unit, so
+  every point on it fell inside the now wildly stale 3.56-unit test radius,
+  and the shadow term was 1.0 across the entire Sun-facing half rather than
+  the narrow ellipse actually behind the disc. The uniform now updates
+  every frame alongside Saturn's already-live world position.
+
+---
+
 ## 5.2.1
 
 - **Fixed: flying to a true-size body felt like it slammed to a stop.** The

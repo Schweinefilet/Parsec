@@ -15,6 +15,8 @@ export const WHATS_NEW = [
         version: '5.2',
         changes: [
             'True sizes. The distances toggle has a third setting now — compressed distances, true distances, then true distances *and* sizes. That last one puts the whole scene on one scale, and it is unforgiving: a scene unit becomes 1.56 million km, so every planet drops far below a pixel and the view is orbit rings, names and a lot of nothing. That is what the solar system actually looks like. Fly to a body and it grows into its real proportions, with its moons at their real distances — the ISS turns out to skim Earth’s surface, because it does.',
+            'At true sizes, focusing a planet now frames the Sun in the shot, off to one side — the same treatment the Voyagers and New Horizons already got. The flight out there is smoother and a little slower, too, and no longer swings past the Sun on its way to the planet.',
+            'Fixed: Saturn’s ring shadow covered half the ring at true sizes, instead of just the part actually behind the planet.',
         ],
     },
     {

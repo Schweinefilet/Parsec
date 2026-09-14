@@ -221,17 +221,32 @@ const SolarSystem3D = ({
         // ── Focus zoom-in animation state ──────────────────────────────────────
         let focusAnimating   = false;
         let focusProgress    = 0;
+        // How long the current flight takes, in seconds — set when the flight
+        // starts (see FOCUS_FLY_SECONDS below) and held fixed for its
+        // duration, so toggling the scale stage mid-flight can't change the
+        // pace out from under it.
+        let focusFlySeconds  = 1.2;
         const focusStartCamPos  = new THREE.Vector3();
         const focusEndCamPos    = new THREE.Vector3();
-        const focusStartTarget  = new THREE.Vector3();
         const _focusLookTarget  = new THREE.Vector3();
         const _camUpVec         = new THREE.Vector3();
+        // The camera's facing at each end of the flight — see the per-frame
+        // update below for why this replaced lerping a look-at point through
+        // raw 3D space.
+        const focusStartQuat    = new THREE.Quaternion();
+        const focusEndQuat      = new THREE.Quaternion();
+        const _focusLookMat     = new THREE.Matrix4();
+        const _focusGazeDir     = new THREE.Vector3();
         // Scratch for the fly-in's log-space distance easing — see its own
         // comment below for why a straight position lerp isn't enough once
         // true sizes are in play.
         const _focusStartOffset = new THREE.Vector3();
         const _focusEndOffset   = new THREE.Vector3();
         const _focusDir         = new THREE.Vector3();
+        // Scratch for reading the camera's own bearing when a new focus
+        // starts — see its own comment below for why that replaced the old
+        // position-difference trick.
+        const _focusApproachDir = new THREE.Vector3();
 
         // ── Sky-entry cinematic (/sky's approach) ─────────────────────────────
         // utils/skyEntry.js holds the cross-route phase; the actual camera work
@@ -2728,37 +2743,75 @@ const SolarSystem3D = ({
                         const dist = focusDistDrawn * lastFocusSizeF;
                         // Normally the user's azimuth is kept, which is right
                         // for a planet: whichever side you approached from is
-                        // the side you meant. A probe is tens of AU out with
-                        // nothing around it, and that rule lands the camera
-                        // beside it looking further out — at empty sky. Put it
-                        // beyond the probe instead, on the far side from the
-                        // Sun, so the whole system it left is in the shot
-                        // behind it with its own track running back into it.
-                        const isProbe = PROBES.some(b => b.id === currentFocusedId);
-                        const TILT   = 30 * Math.PI / 180; // 30° above equatorial = looking 30° down
+                        // the side you meant. Read off the camera's own current
+                        // orientation for that, rather than the old trick of
+                        // subtracting the new target's position from the old
+                        // camera position. That trick is fine when the two are
+                        // close together, but a fresh focus from the wide home
+                        // view starts the camera near the origin while a
+                        // true-distance planet can be thousands of units out —
+                        // the difference is then dominated by the target's own
+                        // position, and the "azimuth" it produces is really
+                        // just the bearing back toward the Sun. The camera
+                        // would arrive close to the planet from that
+                        // accidental direction first (this fly-in's own
+                        // distance closes in log space, so a lot of that
+                        // happens early), then visibly swing round to the true
+                        // one as the direction lerp further down caught up —
+                        // reading as "centres on the Sun, then the planet."
+                        // The camera's own facing has no such degenerate case:
+                        // it is a well-formed bearing at any scale.
+                        const camForward = camera.getWorldDirection(_focusApproachDir);
+                        const az   = Math.atan2(-camForward.x, -camForward.z);
+                        const TILT = 30 * Math.PI / 180; // 30° above equatorial = looking 30° down
                         const startCamPos = pendingFocusCamPos ?? camera.position;
                         pendingFocusCamPos = null;
-                        const diff   = startCamPos.clone().sub(planetPos);
-                        const az     = Math.atan2(diff.x, diff.z); // maintain user's azimuth
                         focusStartCamPos.copy(startCamPos);
-                        focusStartTarget.copy(controls.target);
-                        if (isProbe) {
-                            // A probe is tens of AU out with nothing around it,
-                            // so keeping the user's azimuth lands the camera
-                            // beside it looking further out, at empty sky. Sit
-                            // beyond it on the far side from the Sun instead,
-                            // and the system it left is in the shot behind it
-                            // with its own track running back into it.
-                            //
-                            // Along the probe's actual position vector, not its
+                        // Not the camera's actual current facing — where the
+                        // slerp below starts is "looking at the body from
+                        // here," the same way focusEndQuat is "looking at it
+                        // from the landing spot." The camera's real pre-click
+                        // orientation can be pointed anywhere (idle at the
+                        // home view, it is generally facing the system's
+                        // centre — the Sun), and slerping FROM that would
+                        // mean the whole flight rotates through however much
+                        // of the sky separates it from the target, spending
+                        // real time on whatever lay in between. Deriving both
+                        // ends from the same "look at the target" keeps the
+                        // body roughly in view for the entire flight, and the
+                        // two ends still meaningfully differ — and so still
+                        // rotate smoothly rather than cutting — whenever the
+                        // parallax between the two camera positions is large
+                        // enough to matter, which is exactly the planet-to-
+                        // planet case this was built for.
+                        _focusLookMat.lookAt(focusStartCamPos, planetPos, camera.up);
+                        focusStartQuat.setFromRotationMatrix(_focusLookMat);
+
+                        // A probe is tens of AU out with nothing around it, so
+                        // keeping the user's azimuth lands the camera beside it
+                        // looking further out, at empty sky. Sit beyond it on
+                        // the far side from the Sun instead, so the system it
+                        // left is in the shot behind it with its own track
+                        // running back into it. A planet gets exactly the same
+                        // problem once true sizes shrink it to a speck at the
+                        // far end of a true-distance orbit, so it earns the
+                        // same fix there: the Sun rides in the frame the way
+                        // it does for the Voyagers, on the body it actually
+                        // belongs to.
+                        const isProbe = PROBES.some(b => b.id === currentFocusedId);
+                        const sunFramed = isProbe || (getScaleStage() === SCALE_SIZES
+                            && PLANETS.some(p => p.id === currentFocusedId));
+                        if (sunFramed) {
+                            // Along the body's actual position vector, not its
                             // compass bearing: the scene is equatorial and the
-                            // probes are near the ecliptic, so 23.4° of where
+                            // planets sit near the ecliptic, so 23.4° of where
                             // they are lives in Y. Matching only the bearing
                             // left the Sun far enough off axis to fall out of
                             // frame, which is the whole thing this is for.
                             const outward = planetPos.clone().normalize();
-                            // Lift off that exact line, so the marker is not
-                            // sitting on top of the Sun it is being shown with.
+                            // Lift off that exact line, so the body is not
+                            // sitting directly in front of the Sun it is being
+                            // shown with.
                             const side = new THREE.Vector3()
                                 .crossVectors(outward, PROBE_LIFT_AXIS);
                             if (side.lengthSq() < 1e-8) side.set(1, 0, 0);
@@ -2766,10 +2819,10 @@ const SolarSystem3D = ({
                                 .crossVectors(side.normalize(), outward).normalize();
                             // 12°, not 30: at 30 the Sun sits outside the 22.5°
                             // half-angle of a 45° field and drops off the top.
-                            const probeTilt = 12 * Math.PI / 180;
+                            const sunTilt = 12 * Math.PI / 180;
                             focusEndCamPos.copy(planetPos).addScaledVector(
-                                outward.multiplyScalar(Math.cos(probeTilt))
-                                    .addScaledVector(lift, Math.sin(probeTilt)),
+                                outward.multiplyScalar(Math.cos(sunTilt))
+                                    .addScaledVector(lift, Math.sin(sunTilt)),
                                 dist);
                         } else {
                             focusEndCamPos.set(
@@ -2778,8 +2831,21 @@ const SolarSystem3D = ({
                                 planetPos.z + dist * Math.cos(TILT) * Math.cos(az)
                             );
                         }
+                        // The orientation to land on — looking from
+                        // focusEndCamPos at the body — captured once here as a
+                        // quaternion rather than as a point to aim at. See the
+                        // per-frame update for why.
+                        _focusLookMat.lookAt(focusEndCamPos, planetPos, camera.up);
+                        focusEndQuat.setFromRotationMatrix(_focusLookMat);
                         focusProgress  = 0;
                         focusAnimating = true;
+                        // True sizes turns this flight into a far bigger zoom
+                        // than the same fly-in has ever had to cover — Earth's
+                        // is on the order of 20,000x — and doing that in the
+                        // same 1.2s it takes to cross a planet's own diameter
+                        // reads as a flinch no matter how the easing curve is
+                        // shaped. Slower here specifically, not generally.
+                        focusFlySeconds = getScaleStage() === SCALE_SIZES ? 2.4 : 1.2;
                     }
                 }
                 // Trigger cinematic zoom-out when going focused → home
@@ -3076,7 +3142,12 @@ const SolarSystem3D = ({
                         if (focusAnimating) {
                             focusStartCamPos.add(_followDelta);
                             focusEndCamPos.add(_followDelta);
-                            focusStartTarget.add(_followDelta);
+                            // Orientations aren't touched here: both quats
+                            // are pure rotations, and a chase-follow shift is
+                            // a pure translation shared by the camera and the
+                            // body it is flying to, so the direction between
+                            // them — what a rotation actually encodes — is
+                            // unchanged by it.
                         } else {
                             camera.position.add(_followDelta);
                             controls.target.add(_followDelta);
@@ -3287,10 +3358,11 @@ const SolarSystem3D = ({
 
             // Override camera position + lookAt AFTER controls.update()
             if (focusAnimating && targetMesh && !isInteracting) {
-                // 1.2 seconds, in seconds — it used to be 72 frames, which is
-                // 1.2s at 60Hz, 0.6s at 120 and 0.3s on a 240Hz display, where
-                // flying to a planet stopped reading as travel at all.
-                focusProgress = Math.min(1, focusProgress + deltaSec / 1.2);
+                // 1.2 seconds ordinarily (used to be 72 frames, which is 1.2s
+                // at 60Hz, 0.6s at 120 and 0.3s on a 240Hz display, where
+                // flying to a planet stopped reading as travel at all) — longer
+                // at true sizes, set where the flight started (focusFlySeconds).
+                focusProgress = Math.min(1, focusProgress + deltaSec / focusFlySeconds);
                 // Cubic ease-in-out: slow start → accelerates → gentle brake
                 const t = focusProgress < 0.5
                     ? 4 * focusProgress * focusProgress * focusProgress
@@ -3319,10 +3391,33 @@ const SolarSystem3D = ({
                 } else {
                     camera.position.lerpVectors(focusStartCamPos, focusEndCamPos, t);
                 }
-                // Gradually rotate toward the planet instead of snapping the look direction
-                _focusLookTarget.lerpVectors(focusStartTarget, targetPos, t);
+                // Gradually rotate toward the planet instead of snapping the
+                // look direction — by slerping the camera's *orientation*
+                // between focusStartQuat and focusEndQuat (both "looking at
+                // the body," just from the start and end camera positions —
+                // see where focusStartQuat is set for why), not by lerping a
+                // look-at point through raw 3D space. That was the earlier
+                // approach, and it had a real bug: the camera's resting
+                // look-target when unfocused eases toward the origin (see
+                // "defaultTarget" below), so a fresh focus from the wide home
+                // view started the lerp at the Sun's own position, and for a
+                // good stretch of the flight the camera aimed at a point on
+                // the straight line between the Sun and the new body — which
+                // for the first chunk of that line *is* the Sun. Every fresh
+                // focus visibly centred on the Sun before swinging round to
+                // the actual target.
+                camera.quaternion.slerpQuaternions(focusStartQuat, focusEndQuat, t);
+                // controls.target still needs a value — anything reading it
+                // this frame, and OrbitControls itself if the user grabs
+                // control mid-flight — so it is derived from the same
+                // orientation: the point straight ahead, as far out as the
+                // body currently is. That converges on the body exactly at
+                // t=1, since by then the camera already sits at
+                // focusEndCamPos facing exactly it.
+                camera.getWorldDirection(_focusGazeDir);
+                _focusLookTarget.copy(camera.position)
+                    .addScaledVector(_focusGazeDir, camera.position.distanceTo(targetPos));
                 controls.target.copy(_focusLookTarget);
-                camera.lookAt(_focusLookTarget);
                 if (focusProgress >= 1) {
                     focusAnimating = false;
                     controls.target.copy(targetPos);
@@ -3510,6 +3605,18 @@ const SolarSystem3D = ({
                 sRingRefs.group.getWorldPosition(
                     sRingRefs.mat.userData.shader.uniforms.uSaturnPos.value
                 );
+                // The shadow test compares this against oc/d2, which are
+                // measured off vRingWorldPos — the ring's actual world-space
+                // extent, already shrunk by true sizes since the ring hangs
+                // off bodyScale. uSaturnRadius has to shrink with it or the
+                // radius stays at its full drawn size (3.56) while the ring
+                // it is supposedly the silhouette of is a hundredth of a unit
+                // across — every point within that now-enormous stale radius
+                // reads as shadowed, which in practice is the whole half of
+                // the ring facing away from the Sun rather than the narrow
+                // strip actually behind the planet.
+                sRingRefs.mat.userData.shader.uniforms.uSaturnRadius.value =
+                    scaledRadius('saturn', sizeT);
             }
 
             // Publish where the camera is, so a share link can carry it. Every
