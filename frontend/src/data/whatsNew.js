@@ -21,6 +21,8 @@ export const WHATS_NEW = [
             'Reworked the night sky’s compass into a proper pointer fixed to the rim, the way an actual ship’s or aircraft’s compass shows your own heading against a rotating dial — the old one only lined up with “N” by coincidence, and drifted from it the moment you turned.',
             'AR mode’s sky tracking should feel steadier now — less jumpy when the phone moves quickly, less laggy when it doesn’t.',
             'Fixed the night sky view sometimes jumping around while dragging to look around on a phone — a second, incidental touch (a palm edge, a stray finger) could throw off the drag.',
+            'Orbit paths now fade out when you focus a planet or moon instead of vanishing all at once.',
+            'Removed the "What’s up tonight" icon from the header for now.',
         ],
     },
     {

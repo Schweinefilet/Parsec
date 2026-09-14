@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Eye as EyeIcon, Star, Scale, Link2, Check } from 'lucide-react';
+import { Menu, Star, Scale, Link2, Check } from 'lucide-react';
 import LanguagePicker from './LanguagePicker';
 import { useI18n } from '../i18n';
 
@@ -103,10 +103,8 @@ const HeaderMenu = ({ onShare, copied, onSkyClick, onOpen }) => {
                         {copied ? t('nav.copied') : t('nav.copyLink')}
                     </button>
 
-                    <Link role="menuitem" to="/tonight" onClick={close} style={rowStyle}>
-                        <EyeIcon style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
-                        {t('nav.tonight')}
-                    </Link>
+                    {/* "What's up tonight" is stashed for now — see AppShell.jsx's
+                        own comment where its desktop icon used to be. */}
 
                     <Link role="menuitem" to="/sky" onClick={(e) => { onSkyClick(e); close(); }} style={rowStyle}>
                         <Star style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />

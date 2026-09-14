@@ -401,6 +401,18 @@ const SolarSystem3D = ({
             2 ** Math.round(Math.log2(Math.max(dist, 1) / TUBE_REF_DIST));
 
         const orbitLines = [];
+        // Every orbit path that orbitAtRest()/orbitHovered() can touch —
+        // planets' and small bodies' rings (both built by makeOrbitPath
+        // below, and already in orbitLines) plus the Voyagers' flight
+        // tracks (a plain THREE.Line, built separately, never added to
+        // orbitLines — that array exists for the distance-based tube
+        // rebuild, an unrelated concern). Read once a frame to ease
+        // material.opacity/color toward whatever target those two
+        // functions last set, rather than snapping to it — see their own
+        // comment for why a snap reads as disorienting the moment
+        // something is focused and every ring in the scene vanishes at once.
+        const fadingOrbits = [];
+        const ORBIT_FADE_RATE = 0.15; // ~90% of the way there in a quarter second at 60fps
         // How to rebuild each ring, kept beside the mesh rather than in its
         // userData: every caller assigns userData wholesale for the hover
         // state, and a spec stored there is silently wiped by the next line.
@@ -472,6 +484,13 @@ const SolarSystem3D = ({
         const orbitTint = (hex, amount = ORBIT_HOVER_TINT) =>
             new THREE.Color(0xffffff).lerp(new THREE.Color(hex), amount);
 
+        // Both functions used to write straight to orbit.material — instant,
+        // which read as fine for a single hovered ring but disorienting the
+        // moment something is focused and every ring in the scene (sixteen
+        // or more) vanishes on the same frame. They now only set a target;
+        // the per-frame step below (see fadingOrbits) eases material toward
+        // it, so a single hover and "everything just got focused" both read
+        // as a deliberate fade rather than a snap, at the same shared rate.
         const orbitAtRest = (orbit) => {
             if (!orbit) return;
             const focused = focusedIdRef.current;
@@ -482,21 +501,21 @@ const SolarSystem3D = ({
             const mine = !!focused && orbit.userData.ownerId === focused;
             const keep = mine && orbit.userData.keepOnFocus;
             if (focused && !keep) {
-                orbit.material.opacity = 0;
-                orbit.material.color.copy(orbit.userData.baseColor ?? ORBIT_WHITE);
+                orbit.userData.targetOpacity = 0;
+                orbit.userData.targetColor.copy(orbit.userData.baseColor ?? ORBIT_WHITE);
                 return;
             }
-            orbit.material.opacity = keep
+            orbit.userData.targetOpacity = keep
                 ? (orbit.userData.hoverOpacity ?? ORBIT_HOVER_OPACITY)
                 : (orbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY);
-            orbit.material.color.copy(
+            orbit.userData.targetColor.copy(
                 keep ? (orbit.userData.hoverColor ?? ORBIT_WHITE)
                      : (orbit.userData.baseColor ?? ORBIT_WHITE));
         };
         const orbitHovered = (orbit) => {
             if (!orbit || focusedIdRef.current) return;
-            orbit.material.opacity = orbit.userData.hoverOpacity ?? ORBIT_HOVER_OPACITY;
-            if (orbit.userData.hoverColor) orbit.material.color.copy(orbit.userData.hoverColor);
+            orbit.userData.targetOpacity = orbit.userData.hoverOpacity ?? ORBIT_HOVER_OPACITY;
+            if (orbit.userData.hoverColor) orbit.userData.targetColor.copy(orbit.userData.hoverColor);
         };
 
         // ── Shared loader + texture list (declared early for sun texture) ──────
@@ -724,7 +743,9 @@ const SolarSystem3D = ({
             orbitLine.userData = {
                 baseOpacity: ORBIT_BASE_OPACITY, hoverOpacity: ORBIT_HOVER_OPACITY,
                 baseColor: ORBIT_WHITE, hoverColor: orbitTint(planet.color),
+                targetOpacity: ORBIT_BASE_OPACITY, targetColor: ORBIT_WHITE.clone(),
             };
+            fadingOrbits.push(orbitLine);
             const orbitGeo = orbitLine.geometry;
             const orbitMat = orbitLine.material;
 
@@ -1510,7 +1531,9 @@ const SolarSystem3D = ({
                 baseOpacity: ORBIT_BASE_OPACITY * MINOR_OPACITY,
                 hoverOpacity: ORBIT_HOVER_OPACITY,
                 baseColor: ORBIT_WHITE, hoverColor: orbitTint(body.color),
+                targetOpacity: ORBIT_BASE_OPACITY * MINOR_OPACITY, targetColor: ORBIT_WHITE.clone(),
             };
+            fadingOrbits.push(orbitLine);
             const orbitGeo = orbitLine.geometry;
             const orbitMat = orbitLine.material;
             scene.add(orbitLine);
@@ -1769,12 +1792,14 @@ const SolarSystem3D = ({
                 // Which probe this belongs to, so focusing that probe keeps it.
                 ownerId: probe.id,
                 keepOnFocus: true,
+                targetOpacity: ORBIT_BASE_OPACITY * MINOR_OPACITY, targetColor: ORBIT_WHITE.clone(),
             };
             // The path runs far outside anything else in the scene, so leave it
             // out of frustum culling rather than have three.js compute a bound
             // that spans the whole solar system for it.
             track.frustumCulled = false;
             scene.add(track);
+            fadingOrbits.push(track);
             geos.push(trackGeo); mats.push(trackMat);
 
             // Generous hitbox — the marker itself is a few pixels from anywhere
@@ -2620,6 +2645,32 @@ const SolarSystem3D = ({
                     ringsHidden = false;
                 }
                 drainRingQueue();
+            }
+
+            // Ease every orbit path's opacity/colour toward whatever
+            // orbitAtRest()/orbitHovered() last targeted, rather than the
+            // snap those two functions used to apply directly — most
+            // visible the moment something is focused, when every ring in
+            // the scene (planets, small bodies, probe tracks) targets 0 on
+            // the same frame; a snap there read as the whole scene flickering
+            // out rather than a deliberate "getting these out of your way".
+            // Skipped once a path is close enough to its target that another
+            // step would be imperceptible, the same threshold-then-stop
+            // shape as the axial-tilt lerp above.
+            for (const orbit of fadingOrbits) {
+                const mat = orbit.material;
+                const { targetOpacity, targetColor } = orbit.userData;
+                const opacityDiff = targetOpacity - mat.opacity;
+                if (Math.abs(opacityDiff) < 0.001) mat.opacity = targetOpacity;
+                else mat.opacity += opacityDiff * ease(ORBIT_FADE_RATE);
+
+                if (Math.abs(targetColor.r - mat.color.r) < 0.001
+                    && Math.abs(targetColor.g - mat.color.g) < 0.001
+                    && Math.abs(targetColor.b - mat.color.b) < 0.001) {
+                    mat.color.copy(targetColor);
+                } else {
+                    mat.color.lerp(targetColor, ease(ORBIT_FADE_RATE));
+                }
             }
 
             // While the layout is moving, ease the camera to a distance that

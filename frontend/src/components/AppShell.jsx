@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams, useMatch, useLocation } from 'react-router-dom';
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
-    Crosshair, Sparkles, Satellite, Aperture, Radio, Archive, Scale, Eye as EyeIcon,
+    Crosshair, Sparkles, Satellite, Aperture, Radio, Archive, Scale,
     Link2, Check,
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
@@ -351,24 +351,10 @@ const AppShell = ({ children }) => {
                                 : <Link2 className="h-4 w-4" aria-hidden="true" />}
                         </button>
                     )}
-                    {!searchOpen && !isMobile && (
-                        <Link
-                            to="/tonight"
-                            title={t('nav.tonightTitle')}
-                            aria-label={t('nav.tonight')}
-                            className="flex items-center justify-center rounded-xl transition-all focus-ring"
-                            style={{
-                                width: 36, height: 36, flexShrink: 0,
-                                background: 'rgba(0,0,0,0.42)',
-                                border: '1px solid rgba(255,255,255,0.16)',
-                                color: 'rgba(255,255,255,0.85)',
-                                backdropFilter: 'blur(14px)',
-                                WebkitBackdropFilter: 'blur(14px)',
-                            }}
-                        >
-                            <EyeIcon className="h-4 w-4" aria-hidden="true" />
-                        </Link>
-                    )}
+                    {/* The "What's up tonight" nav icon is stashed for now — see
+                        HeaderMenu.jsx for its mobile-menu counterpart. The route,
+                        page and its own header entry (onOwnPage/the title map
+                        below) are untouched, so a direct link still works. */}
                     {!searchOpen && !isMobile && (
                         <Link
                             to="/sky"

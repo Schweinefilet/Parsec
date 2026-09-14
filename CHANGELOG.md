@@ -16,6 +16,29 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.2.5
+
+- **Orbit paths now fade out when you focus a body, instead of vanishing
+  on the same frame.** `orbitAtRest()`/`orbitHovered()` used to write
+  straight to each ring's `material.opacity`/`color` — fine for a single
+  hovered ring, but the moment something is focused, every ring in the
+  scene (planets, small bodies, the Voyagers' flight tracks — sixteen or
+  more) snapped to invisible on the same frame, which read as the whole
+  scene flickering rather than a deliberate "getting these out of your
+  way". Both functions now only set a target; a per-frame step eases
+  `material.opacity`/`color` toward it (a plain time-based ease, ~90% of
+  the way there in a quarter second), so a focus transition and an
+  ordinary hover both read as a fade rather than a snap. Confirmed via a
+  temporary debug hook sampling every orbit's live opacity right after
+  focusing Earth: a clean decay from 0.27 to under 0.001 over ~600ms,
+  removed before shipping.
+- **Stashed the "What's up tonight" nav icon**, on both the desktop header
+  and the mobile burger menu — not deleted: the `/tonight` route, its
+  page, and its own header entry all still work for a direct link, only
+  the two navigational entry points into it are gone for now.
+
+---
+
 ## 5.2.4
 
 - **Fixed the night sky lurching mid-drag on a phone.** Reported from an
