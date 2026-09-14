@@ -16,6 +16,35 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.0
+
+- **Planets can leave a trail behind them on their orbit.** A new "Trails"
+  toggle in the scene drawer (and the phone's own toggle column) puts a
+  short, fading arc behind each planet — 9% of its orbit, tinted the same
+  half-strength colour the orbit ring already turns on hover, tapering to
+  nothing at the tail. Built from the same 256-point orbit sample the
+  static ring already draws (a nearest-point search against the planet's
+  live position, then a fixed run of samples immediately before it,
+  rescaled for whichever distance mode is active) rather than a recorded
+  position history, so the trail is instantly the right shape and length
+  the moment the toggle turns on instead of growing in from nothing. The
+  taper is colour only, not width — plain WebGL lines are always 1px, and
+  this codebase already tried fat lines for the gravity-field overlay and
+  reverted to a hairline; a fading hairline reads as tapering off well
+  enough against the black background without repeating that experiment.
+  Toggling fades in/out over the same ~1.2s the 5.2.5/5.2.6 orbit-fade
+  work already established, not a hard cut. Verified past the "does the
+  code look right" stage: a temporary debug hook confirmed the exact
+  vertex count, an exact position match between the trail's head and the
+  planet's own live position, and a proper colour ramp; then a pixel-level
+  check — projecting real trail vertices through the live camera to
+  screen coordinates and sampling those exact pixels in a screenshot —
+  confirmed a genuine warm reddish tint fading smoothly to neutral dark
+  along Mars's own trail, not just correct data sitting unrendered. Both
+  removed before this commit.
+
+---
+
 ## 5.2.7
 
 - **The Sun now lands upper-left, not dead centre above the body, when

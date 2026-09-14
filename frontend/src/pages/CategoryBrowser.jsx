@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate, useMatch } from 'react-router-dom';
-import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause, SlidersHorizontal, Waves } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause, SlidersHorizontal, Waves, Waypoints } from 'lucide-react';
 // STASHED StarfieldBg — uncomment this and the <StarfieldBg /> below to restore it.
 // import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
@@ -27,6 +27,7 @@ import {
 import {
     getVizMode, cycleVizMode, subscribeViz, VIZ_OFF, VIZ_GRID, VIZ_FIELD,
 } from '../utils/vizMode';
+import { getTrailsOn, toggleTrails, subscribeTrails } from '../utils/trailMode';
 import { decodeView } from '../utils/shareView';
 import { IDLE, getSkyEntryPhase, subscribeSkyEntry } from '../utils/skyEntry';
 import { setOffsetDays } from '../utils/simTime';
@@ -173,6 +174,8 @@ const CategoryBrowser = () => {
             : 'scene.compressedDistances';
     const [vizMode, setVizModeUI] = useState(getVizMode);
     useEffect(() => subscribeViz(() => setVizModeUI(getVizMode())), []);
+    const [trailsOn, setTrailsOnUI] = useState(getTrailsOn);
+    useEffect(() => subscribeTrails(() => setTrailsOnUI(getTrailsOn())), []);
 
     // A shared link carries the camera, the clock and the layout. Read once, on
     // mount, because after that they belong to whoever is driving — rereading
@@ -569,6 +572,21 @@ const CategoryBrowser = () => {
                                     : `${t('scene.gravity')} · ${t(gravState)}`}
                             </button>
                         );
+                        const trailsBtn = (
+                            <button
+                                key="trails"
+                                onClick={toggleTrails}
+                                aria-pressed={trailsOn}
+                                aria-label={t(trailsOn ? 'scene.trailsOnAria' : 'scene.trailsOffAria')}
+                                title={t(trailsOn ? 'scene.trailsOnAria' : 'scene.trailsOffAria')}
+                                inert={(!!id || pageScrolled) || undefined}
+                                className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
+                                style={pill(trailsOn)}
+                            >
+                                <Waypoints style={{ width: 13, height: 13 }} />
+                                {t('scene.trails')}
+                            </button>
+                        );
                         const exploreBtn = (
                             <button
                                 onClick={scrollToCatalog}
@@ -613,6 +631,7 @@ const CategoryBrowser = () => {
                                         onOpen={onSettingsOpened}
                                         scaleStage={scaleStage}
                                         vizMode={vizMode}
+                                        trailsOn={trailsOn}
                                         disabled={!!id || pageScrolled}
                                     />
                                 </>
@@ -620,7 +639,7 @@ const CategoryBrowser = () => {
                         }
 
                         // ── Phone: a start-aligned column above the time control ──
-                        const anyActive = !autoRotate || scaleStage !== SCALE_COMPRESSED || vizMode !== VIZ_OFF;
+                        const anyActive = !autoRotate || scaleStage !== SCALE_COMPRESSED || vizMode !== VIZ_OFF || trailsOn;
                         return (
                             <div
                                 style={{
@@ -637,6 +656,7 @@ const CategoryBrowser = () => {
                                         </div>
                                         {scaleBtn}
                                         {gravBtn}
+                                        {trailsBtn}
                                     </div>
                                 )}
                                 <button

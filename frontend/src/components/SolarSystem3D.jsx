@@ -31,6 +31,7 @@ import {
     advanceMoonAngle, moonOffset, DEFAULT_ORBIT_SPEED,
 } from '../utils/orbitalMotion';
 import { getVizMode, vizWeight, isVizSettling, VIZ_OFF, VIZ_GRID, VIZ_FIELD } from '../utils/vizMode';
+import { getTrailsOn, subscribeTrails } from '../utils/trailMode';
 import { driftRates } from '../utils/driftControl';
 import {
     ARMED, APPROACHING, CURTAIN, ARRIVAL_ALTITUDE,
@@ -413,6 +414,22 @@ const SolarSystem3D = ({
         // something is focused and every ring in the scene vanishes at once.
         const fadingOrbits = [];
         const ORBIT_FADE_RATE = 0.075; // ~90% of the way there in ~1.2s at 60fps (half the rate, ~2x the time)
+
+        // Orbit trails (toggle): each planet's orbitLine.userData carries
+        // { trailGeo, trailColor, orbitPointsBaseline } — see the "Orbit
+        // trail" block below for how each is built, and updatePlanetPositions
+        // for how they're refreshed. TRAIL_REACH static orbitPoints samples
+        // behind the planet's live position, plus that live position itself
+        // as the final vertex — see the trail's own update function for why
+        // the live position isn't just "one more static sample".
+        const TRAIL_REACH = 24; // ~9% of the 256-sample orbit ellipse
+        const TRAIL_OPACITY = 0.55;
+        // Each trail's own THREE.Line, so the toggle subscription below can
+        // flip every one's userData.targetOpacity — separate from
+        // fadingOrbits, which only needs the shared base type to ease
+        // material.opacity/color and has no reason to know which of its
+        // entries are trails versus rings.
+        const trailLines = [];
         // How to rebuild each ring, kept beside the mesh rather than in its
         // userData: every caller assigns userData wholesale for the hover
         // state, and a spec stored there is silently wiped by the next line.
@@ -752,6 +769,49 @@ const SolarSystem3D = ({
             scene.add(orbitLine);
             geos.push(orbitGeo);
             mats.push(orbitMat);
+
+            // ── Orbit trail (toggle) ─────────────────────────────────────────
+            // A short arc of the same baseline orbitPoints, immediately behind
+            // the planet's live position, tinted the same half-strength colour
+            // as the hovered orbit ring (orbitLine.userData.hoverColor, reused
+            // directly rather than a second orbitTint() call). Rebuilt from
+            // orbitPoints — a fixed 256-point sample of the whole ellipse,
+            // already scaled to the compressed-layout baseline — rather than
+            // from a recorded position history, so the trail is instantly the
+            // right shape the moment the toggle turns on instead of growing in
+            // from nothing over real time. The taper is colour only, not
+            // width: plain WebGL lines are always 1px, and this codebase
+            // already tried fat lines for the gravity-field overlay and
+            // reverted to a hairline (see gravityLines.js) — a fading hairline
+            // reads as tapering off well enough against the black background
+            // without repeating that experiment.
+            const trailPositions = new Float32Array((TRAIL_REACH + 1) * 3);
+            const trailColors = new Float32Array((TRAIL_REACH + 1) * 3);
+            const trailGeo = new THREE.BufferGeometry();
+            trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3).setUsage(THREE.DynamicDrawUsage));
+            trailGeo.setAttribute('color', new THREE.BufferAttribute(trailColors, 3).setUsage(THREE.DynamicDrawUsage));
+            const trailMat = new THREE.LineBasicMaterial({
+                vertexColors: true, transparent: true, opacity: 0, depthWrite: false,
+            });
+            const trailLine = new THREE.Line(trailGeo, trailMat);
+            // The trail's own colour ramp is already baked per vertex; the
+            // fade-on-toggle below only ever eases material.opacity, so its
+            // colour target is plain white — anything else would retint an
+            // already-tinted trail.
+            trailLine.userData = { targetOpacity: 0, targetColor: new THREE.Color(0xffffff) };
+            fadingOrbits.push(trailLine);
+            trailLines.push(trailLine);
+            scene.add(trailLine);
+            geos.push(trailGeo);
+            mats.push(trailMat);
+            // Stashed on the *ring's* userData, not a parallel array keyed by
+            // index — planetGroups and any such array are only ever built in
+            // the same PLANETS.forEach pass, but keying through orbitLine
+            // (already carried per-planet on each planetGroups entry) means
+            // there's no index-alignment to keep correct by hand at all.
+            orbitLine.userData.trailGeo = trailGeo;
+            orbitLine.userData.trailColor = orbitLine.userData.hoverColor;
+            orbitLine.userData.orbitPointsBaseline = orbitPoints;
 
             // Planet sphere
             const geo      = new THREE.SphereGeometry(planet.r, q.planetSegments, q.planetSegments);
@@ -2016,15 +2076,67 @@ const SolarSystem3D = ({
         // its share of a belt all travel together because they share the factor.
         const planetFactor = (planet, t) => radialFactor(planet.orbitR, planet.au, t);
 
+        // Nearest static orbitPoints sample to the planet's just-computed
+        // live position, then TRAIL_REACH samples immediately before it
+        // (wrapping past index 0 if needed) scaled up to the same factor,
+        // plus the live position itself as the final vertex — a static
+        // sample can be a hair off the real position at this factor, and the
+        // trail's head should touch the body exactly, not almost. Skipped
+        // entirely, cheaply, whenever the toggle is off.
+        const updateTrail = (orbitLine, worldPos, factor) => {
+            const { trailGeo, trailColor, orbitPointsBaseline: pts } = orbitLine.userData;
+            const n = pts.length;
+            let bestI = 0, bestD = Infinity;
+            for (let i = 0; i < n; i++) {
+                const s = pts[i];
+                const dx = s.x * factor - worldPos.x;
+                const dy = s.y * factor - worldPos.y;
+                const dz = s.z * factor - worldPos.z;
+                const d = dx * dx + dy * dy + dz * dz;
+                if (d < bestD) { bestD = d; bestI = i; }
+            }
+            const posAttr = trailGeo.attributes.position;
+            const colorAttr = trailGeo.attributes.color;
+            for (let k = 0; k < TRAIL_REACH; k++) {
+                const idx = ((bestI - (TRAIL_REACH - k)) % n + n) % n;
+                const s = pts[idx];
+                posAttr.setXYZ(k, s.x * factor, s.y * factor, s.z * factor);
+                // Quadratic, not linear: a gentle taper-off near the tail
+                // rather than an even ramp, closer to how a real comet tail
+                // or motion trail reads.
+                const fade = k / TRAIL_REACH;
+                const eased = fade * fade;
+                colorAttr.setXYZ(k, trailColor.r * eased, trailColor.g * eased, trailColor.b * eased);
+            }
+            posAttr.setXYZ(TRAIL_REACH, worldPos.x, worldPos.y, worldPos.z);
+            colorAttr.setXYZ(TRAIL_REACH, trailColor.r, trailColor.g, trailColor.b);
+            posAttr.needsUpdate = true;
+            colorAttr.needsUpdate = true;
+        };
+
         const updatePlanetPositions = (date, t = scaleProgress()) => {
-            planetGroups.forEach(({ group, planet }) => {
-                const p = computePlanetPos(planet.name, planet.orbitR * planetFactor(planet, t), date);
+            const trailsOn = getTrailsOn();
+            planetGroups.forEach(({ group, planet, orbitLine }) => {
+                const f = planetFactor(planet, t);
+                const p = computePlanetPos(planet.name, planet.orbitR * f, date);
                 group.position.set(p.x, p.y, p.z);
+                if (trailsOn) updateTrail(orbitLine, p, f);
             });
         };
         const posInterval = setInterval(() => {
             if (mounted && isLive()) updatePlanetPositions(new Date());
         }, 60000);
+        const unsubTrails = subscribeTrails(() => {
+            const on = getTrailsOn();
+            for (const line of trailLines) line.userData.targetOpacity = on ? TRAIL_OPACITY : 0;
+            // updateTrail only ever runs from inside updatePlanetPositions,
+            // which otherwise only fires on the minute interval (while live)
+            // or while actively scrubbing — so turning the toggle on while
+            // paused on a still frame would leave every trail geometry at
+            // its untouched, all-zero initial buffer until one of those
+            // happened to fire next. Force one immediate pass right on the flip.
+            if (on) updatePlanetPositions(new Date(simNow()));
+        });
 
         // ── Raycaster helpers ──────────────────────────────────────────────────
         const raycaster    = new THREE.Raycaster();
@@ -3826,6 +3938,7 @@ const SolarSystem3D = ({
             cancelAnimationFrame(animId);
             idleTimers.forEach(cancel => cancel());
             clearInterval(posInterval);
+            unsubTrails();
             ro.disconnect();
             orientationMQ?.removeEventListener('change', syncSky);
             renderer.domElement.removeEventListener('click',     handleClick);

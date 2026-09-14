@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Orbit, Pause, Ruler, Waves, ChevronDown } from 'lucide-react';
+import { Orbit, Pause, Ruler, Waves, Waypoints, ChevronDown } from 'lucide-react';
 import DriftSliders from './DriftSliders';
 import { cycleScaleStage, SCALE_COMPRESSED, SCALE_DISTANCES, SCALE_SIZES } from '../utils/scaleMode';
 import { cycleVizMode, VIZ_OFF, VIZ_GRID, VIZ_FIELD } from '../utils/vizMode';
+import { toggleTrails } from '../utils/trailMode';
 import { useReducedMotion } from '../hooks/useMediaQuery';
 import { useI18n } from '../i18n';
 
@@ -27,7 +28,7 @@ const rowBtn = (active) => ({
     lineHeight: 1.25, textAlign: 'start', cursor: 'pointer',
 });
 
-const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage, vizMode, disabled }) => {
+const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage, vizMode, trailsOn, disabled }) => {
     const { t, rtl } = useI18n();
     const reduced = useReducedMotion();
     const [open, setOpen] = useState(false);
@@ -237,6 +238,17 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage
                         {vizMode === VIZ_OFF
                             ? t('scene.gravity')
                             : `${t('scene.gravity')} · ${t(gravState)}`}
+                    </button>
+
+                    <button
+                        onClick={toggleTrails}
+                        aria-pressed={trailsOn}
+                        aria-label={t(trailsOn ? 'scene.trailsOnAria' : 'scene.trailsOffAria')}
+                        className="focus-ring"
+                        style={{ ...rowBtn(trailsOn), marginTop: 8 }}
+                    >
+                        <Waypoints style={{ width: 13, height: 13 }} aria-hidden="true" />
+                        {t('scene.trails')}
                     </button>
                 </div>
             </div>
