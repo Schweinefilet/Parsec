@@ -875,6 +875,13 @@ const NightSky3D = ({
         // change of target.
         let openedForConstellation = null;
         const onPointerDown = (e) => {
+            // AR mode is sensor-driven only now — no drag-to-nudge, calibration
+            // or otherwise. It used to nudge a manual calibration offset (the
+            // same correction "Look north" resets), but that gave a phone
+            // held up to the sky a second, touch-based way to move the view
+            // fighting the sensor's own, which read as the scene fighting
+            // itself rather than as two deliberate controls.
+            if (arModeRef.current) return;
             if (activePointerId !== null) return; // already tracking a different touch/pointer
             activePointerId = e.pointerId;
             dragging = true;
@@ -891,13 +898,7 @@ const NightSky3D = ({
             if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
             dragDistPx += Math.abs(dx) + Math.abs(dy);
             const scale = camera.fov / Math.max(1, renderer.domElement.clientWidth);
-            // In AR mode the sensor drives the view every frame and would
-            // instantly overwrite a raw nudge on the very next reading — a
-            // drag there nudges the calibration *offset* instead, the same
-            // fine-correction gesture "Look north" resets (see
-            // NightSkyPanel.jsx).
-            if (arModeRef.current) nudgeCalibrationOffset(-dx * scale, dy * scale);
-            else nudgeLookDirection(-dx * scale, dy * scale);
+            nudgeLookDirection(-dx * scale, dy * scale);
         };
         const onPointerUp = (e) => {
             if (e.pointerId !== activePointerId) return;

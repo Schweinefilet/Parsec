@@ -424,12 +424,11 @@ const SolarSystem3D = ({
         // the live position isn't just "one more static sample".
         const TRAIL_REACH = 24; // ~9% of the 256-sample orbit ellipse
         const TRAIL_OPACITY = 0.55;
-        // Each trail's own THREE.Line, so the toggle subscription below can
-        // flip every one's userData.targetOpacity — separate from
-        // fadingOrbits, which only needs the shared base type to ease
-        // material.opacity/color and has no reason to know which of its
-        // entries are trails versus rings.
-        const trailLines = [];
+        // How much of the ring's normal resting opacity survives while
+        // trails are on — a faint guide rather than a competing bright
+        // line, so the colour-tinted trail is what actually reads. Not
+        // applied on hover, which still shows the full bright highlight.
+        const TRAIL_RING_DIM = 0.35;
         // How to rebuild each ring, kept beside the mesh rather than in its
         // userData: every caller assigns userData wholesale for the hover
         // state, and a spec stored there is silently wiped by the next line.
@@ -520,14 +519,32 @@ const SolarSystem3D = ({
             if (focused && !keep) {
                 orbit.userData.targetOpacity = 0;
                 orbit.userData.targetColor.copy(orbit.userData.baseColor ?? ORBIT_WHITE);
-                return;
+            } else {
+                // Dimmed at rest (not on hover — that's still the full
+                // bright highlight) while trails are on, so the plain white
+                // ring reads as a faint guide and the colour-tinted trail is
+                // what actually draws the eye, rather than the two
+                // competing at similar brightness.
+                const dimForTrails = getTrailsOn() && orbit.userData.trailGeo;
+                orbit.userData.targetOpacity = keep
+                    ? (orbit.userData.hoverOpacity ?? ORBIT_HOVER_OPACITY)
+                    : dimForTrails
+                        ? (orbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY) * TRAIL_RING_DIM
+                        : (orbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY);
+                orbit.userData.targetColor.copy(
+                    keep ? (orbit.userData.hoverColor ?? ORBIT_WHITE)
+                         : (orbit.userData.baseColor ?? ORBIT_WHITE));
             }
-            orbit.userData.targetOpacity = keep
-                ? (orbit.userData.hoverOpacity ?? ORBIT_HOVER_OPACITY)
-                : (orbit.userData.baseOpacity ?? ORBIT_BASE_OPACITY);
-            orbit.userData.targetColor.copy(
-                keep ? (orbit.userData.hoverColor ?? ORBIT_WHITE)
-                     : (orbit.userData.baseColor ?? ORBIT_WHITE));
+            // Trail visibility is the opposite of the ring's: the
+            // specifically-focused planet's own trail hides (it's what
+            // you're looking straight at — its own recent path underfoot
+            // isn't the point), while every *other* planet's trail stays
+            // visible, unlike the ring, which hides for all of them the
+            // moment anything is focused.
+            if (orbit.userData.trailLine) {
+                orbit.userData.trailLine.userData.targetOpacity =
+                    (getTrailsOn() && !mine) ? TRAIL_OPACITY : 0;
+            }
         };
         const orbitHovered = (orbit) => {
             if (!orbit || focusedIdRef.current) return;
@@ -800,7 +817,6 @@ const SolarSystem3D = ({
             // already-tinted trail.
             trailLine.userData = { targetOpacity: 0, targetColor: new THREE.Color(0xffffff) };
             fadingOrbits.push(trailLine);
-            trailLines.push(trailLine);
             scene.add(trailLine);
             geos.push(trailGeo);
             mats.push(trailMat);
@@ -812,6 +828,14 @@ const SolarSystem3D = ({
             orbitLine.userData.trailGeo = trailGeo;
             orbitLine.userData.trailColor = orbitLine.userData.hoverColor;
             orbitLine.userData.orbitPointsBaseline = orbitPoints;
+            orbitLine.userData.trailLine = trailLine;
+            // Not read by orbitAtRest's own mine/keep check (which is
+            // {ownerId, keepOnFocus} together, the probes' own exception) —
+            // read directly, on its own, by the trail-visibility rule below:
+            // the focused planet's trail hides while every other planet's
+            // stays visible, the opposite of "everything hides on any focus"
+            // the ring itself follows.
+            orbitLine.userData.ownerId = planet.id;
 
             // Planet sphere
             const geo      = new THREE.SphereGeometry(planet.r, q.planetSegments, q.planetSegments);
@@ -2127,15 +2151,19 @@ const SolarSystem3D = ({
             if (mounted && isLive()) updatePlanetPositions(new Date());
         }, 60000);
         const unsubTrails = subscribeTrails(() => {
-            const on = getTrailsOn();
-            for (const line of trailLines) line.userData.targetOpacity = on ? TRAIL_OPACITY : 0;
+            // Routed through orbitAtRest, the same function focus changes
+            // already call, rather than a blanket on/off here — the correct
+            // opacity for a given planet's trail depends on whether *that*
+            // planet is the focused one too (see orbitAtRest's own trail
+            // rule), not just on the toggle.
+            planetGroups.forEach(({ orbitLine }) => orbitAtRest(orbitLine));
             // updateTrail only ever runs from inside updatePlanetPositions,
             // which otherwise only fires on the minute interval (while live)
             // or while actively scrubbing — so turning the toggle on while
             // paused on a still frame would leave every trail geometry at
             // its untouched, all-zero initial buffer until one of those
             // happened to fire next. Force one immediate pass right on the flip.
-            if (on) updatePlanetPositions(new Date(simNow()));
+            if (getTrailsOn()) updatePlanetPositions(new Date(simNow()));
         });
 
         // ── Raycaster helpers ──────────────────────────────────────────────────

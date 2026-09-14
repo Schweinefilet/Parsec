@@ -71,10 +71,14 @@ const TIERS = {
         nightSkyStars: 2000,
         nightSkyLines: true,     // tens of KB total — on everywhere
         nightSkyTwinkle: false,
-        // A few extra screen-space quads plus two framebuffer copies a
-        // frame while the Sun is on screen — cheap on a real GPU, not worth
-        // it on the tier that's already trimming everything else.
-        lensFlare: false,
+        // Was off on this tier — a few extra screen-space quads while the
+        // Sun is on screen read as not worth it next to everything else this
+        // tier already trims. Turned back on by request: it's the same
+        // three.js Lensflare technique the medium tier already runs, and
+        // medium already covers plenty of real phones (four cores or fewer,
+        // or a coarse pointer on a bigger screen) without issue, so there
+        // was never real evidence this tier specifically couldn't afford it.
+        lensFlare: true,
     },
     medium: {
         texturePath: '/textures/',

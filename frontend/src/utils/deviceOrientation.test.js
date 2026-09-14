@@ -11,7 +11,8 @@ import {
     getOrientationHeading, getOrientationAltitude, isOrientationAbsolute,
     nudgeCalibrationOffset, resetCalibrationOffset, setDeclinationLocation,
     needsOrientationPermission, requestDeviceOrientationPermission,
-    subscribeDeviceOrientation, __injectOrientationEvent, __resetDeviceOrientation,
+    subscribeDeviceOrientation, __injectOrientationEvent, __injectMotionEvent,
+    __resetDeviceOrientation,
 } from './deviceOrientation.js';
 
 describe('deviceOrientation', () => {
@@ -52,6 +53,68 @@ describe('deviceOrientation', () => {
             __resetDeviceOrientation();
             __injectOrientationEvent({ alpha: 260, beta: 90, gamma: 0 });
             expect(getOrientationAltitude()).toBeCloseTo(withAlpha37, 5);
+        });
+    });
+
+    describe('altitude from gravity (devicemotion), preferred over beta/gamma when available', () => {
+        // The same three hand-worked cases altitudeFromBetaGamma() is
+        // pinned against above (see deviceOrientation.js's own header for
+        // why this second source exists at all: the beta/gamma Euler
+        // decomposition is unstable exactly near beta=90, this app's own
+        // default AR holding orientation). Each case here also feeds a
+        // deliberately wrong beta/gamma alongside the gravity reading, to
+        // prove gravity is what actually won, not a coincidence of the
+        // fallback agreeing with it.
+        it('flat, screen up (g ~ (0,0,+9.8)) reads altitude -90', () => {
+            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
+            __injectOrientationEvent({ alpha: 0, beta: 45, gamma: 30 }, { absolute: true });
+            expect(getOrientationAltitude()).toBeCloseTo(-90, 4);
+        });
+
+        it('flat, screen down (g ~ (0,0,-9.8)) reads altitude +90 (zenith)', () => {
+            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 0, z: -9.8 } });
+            __injectOrientationEvent({ alpha: 0, beta: 45, gamma: 30 }, { absolute: true });
+            expect(getOrientationAltitude()).toBeCloseTo(90, 4);
+        });
+
+        it('upright "magic window" (g ~ (0,+9.8,0)) reads altitude 0', () => {
+            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 9.8, z: 0 } });
+            __injectOrientationEvent({ alpha: 0, beta: 45, gamma: 30 }, { absolute: true });
+            expect(getOrientationAltitude()).toBeCloseTo(0, 4);
+        });
+
+        it('does not depend on alpha or beta/gamma at all, same as the Euler formula', () => {
+            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 9.8, z: 0 } });
+            __injectOrientationEvent({ alpha: 12, beta: 3, gamma: -60 }, { absolute: true });
+            const withOneOrientation = getOrientationAltitude();
+            __resetDeviceOrientation();
+            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 9.8, z: 0 } });
+            __injectOrientationEvent({ alpha: 300, beta: 179, gamma: 88 }, { absolute: true });
+            expect(getOrientationAltitude()).toBeCloseTo(withOneOrientation, 4);
+        });
+
+        it('falls back to beta/gamma when no motion event has arrived yet', () => {
+            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0 }, { absolute: true });
+            expect(getOrientationAltitude()).toBeCloseTo(0, 4);
+        });
+
+        it('falls back when the gravity reading is degenerate (all zero)', () => {
+            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 0, z: 0 } });
+            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0 }, { absolute: true });
+            expect(getOrientationAltitude()).toBeCloseTo(0, 4); // the Euler answer for this beta/gamma, not NaN
+        });
+
+        it('ignores a motion event with no accelerationIncludingGravity at all', () => {
+            __injectMotionEvent({ accelerationIncludingGravity: null });
+            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0 }, { absolute: true });
+            expect(getOrientationAltitude()).toBeCloseTo(0, 4);
+        });
+
+        it('keeps the last good gravity reading rather than clearing it on a bad one', () => {
+            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 9.8, z: 0 } });
+            __injectMotionEvent({ accelerationIncludingGravity: null });
+            __injectOrientationEvent({ alpha: 0, beta: 45, gamma: 30 }, { absolute: true });
+            expect(getOrientationAltitude()).toBeCloseTo(0, 4); // still the upright reading, not the (wrong) Euler fallback
         });
     });
 
@@ -298,6 +361,43 @@ describe('deviceOrientation', () => {
             const restore = withRequestPermission(() => Promise.reject(new Error('nope')));
             await expect(requestDeviceOrientationPermission()).resolves.toBe(false);
             restore();
+        });
+
+        // DeviceMotionEvent has its own, separate requestPermission() static
+        // — altitudeFromGravity's own reading depends on it, even though
+        // iOS's own system UI often shows one combined prompt for both.
+        const withMotionRequestPermission = (impl) => {
+            const original = window.DeviceMotionEvent;
+            window.DeviceMotionEvent = impl
+                ? Object.assign(function DeviceMotionEvent() {}, { requestPermission: impl })
+                : undefined;
+            return () => { window.DeviceMotionEvent = original; };
+        };
+
+        it('also requests motion permission when both exist, and still resolves true on an orientation grant', async () => {
+            const motionRequest = vi.fn(() => Promise.resolve('granted'));
+            const restoreOrientation = withRequestPermission(() => Promise.resolve('granted'));
+            const restoreMotion = withMotionRequestPermission(motionRequest);
+            expect(await requestDeviceOrientationPermission()).toBe(true);
+            expect(motionRequest).toHaveBeenCalledTimes(1);
+            restoreMotion();
+            restoreOrientation();
+        });
+
+        it('a denied or missing motion permission does not fail an otherwise-successful orientation grant', async () => {
+            const restoreOrientation = withRequestPermission(() => Promise.resolve('granted'));
+            const restoreMotion = withMotionRequestPermission(() => Promise.reject(new Error('nope')));
+            expect(await requestDeviceOrientationPermission()).toBe(true);
+            restoreMotion();
+            restoreOrientation();
+        });
+
+        it('skips the motion request cleanly when DeviceMotionEvent does not exist', async () => {
+            const restoreOrientation = withRequestPermission(() => Promise.resolve('granted'));
+            const restoreMotion = withMotionRequestPermission(null);
+            expect(await requestDeviceOrientationPermission()).toBe(true);
+            restoreMotion();
+            restoreOrientation();
         });
     });
 

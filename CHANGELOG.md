@@ -16,6 +16,58 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.1
+
+- **The Sun's lens-flare now shows on phones too.** It was specifically
+  disabled on the `low` quality tier (any phone) as a performance
+  precaution when it shipped in 5.1.x — but it's the same three.js
+  `Lensflare` technique the `medium` tier already runs without issue, and
+  `medium` already covers plenty of real phones (four cores or fewer, or a
+  coarse pointer on a bigger screen), so there was never real evidence
+  this tier specifically couldn't afford it.
+- **AR mode no longer responds to drag at all.** It used to nudge a manual
+  calibration offset — a second, touch-based way to move the view,
+  fighting the sensor's own, on a phone held up to the sky. That read as
+  the scene fighting itself rather than as two deliberate controls. AR is
+  sensor-driven only now.
+- **Fixed AR mode's altitude tracking losing its footing near the top of
+  its range** — reported as "the scene tweaks out after pointing the phone
+  all the way up" and "can't do one complete revolution without it
+  misunderstanding directions." Root cause: `DeviceOrientationEvent`'s
+  alpha/beta/gamma Euler decomposition is well documented to become
+  unstable and can jump discontinuously exactly near beta = ±90° — which
+  is this app's own default AR holding orientation ("magic window", phone
+  upright, looking at the horizon), not a rare edge case. This is the real
+  answer to "how does Google do it and we can't": native apps read a
+  hardware-fused rotation vector as a quaternion, which has no such
+  singularity, ever; the web's equivalent (the Generic Sensor API's
+  `AbsoluteOrientationSensor`) exists on Chrome/Android but was never
+  implemented by WebKit, so it isn't reachable from an iPhone regardless of
+  which browser app wraps it. Altitude is now derived from the phone's raw
+  gravity reading (`devicemotion`'s `accelerationIncludingGravity`)
+  instead, whenever that's available — a signal that never passes through
+  the unstable Euler decomposition at all, verified against the same three
+  hand-worked geometric cases the old formula was checked against, with
+  the old formula kept as an automatic fallback for devices or permission
+  states where motion data isn't available. Heading is a separate problem
+  (a fully gravity-and-magnetometer "tilt-compensated" heading needs a raw
+  magnetometer reading the web doesn't expose) and is unchanged; iOS's own
+  `webkitCompassHeading`, already in use there, is Apple's own internal
+  computation and was not implicated by this specific report. Reasoned and
+  unit-tested against hand-worked cases, same standing caveat as the rest
+  of this module: not yet confirmed against the real device that reported
+  the bug.
+- **Trail-visibility tuning**, both from direct feedback on 5.3.0: the
+  plain white orbit ring now dims to roughly a third of its usual
+  brightness while trails are on, so the colour-tinted trail is what
+  actually draws the eye instead of the two competing at similar
+  brightness; and focusing a planet now hides only *that* planet's own
+  trail (its recent path underfoot isn't the point when you're looking
+  straight at it) while every other planet's trail stays visible, the
+  opposite of the ring's own "hide all of them on any focus" rule.
+
+---
+
 ## 5.3.0
 
 - **Planets can leave a trail behind them on their orbit.** A new "Trails"

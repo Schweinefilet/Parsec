@@ -15,6 +15,10 @@ export const WHATS_NEW = [
         version: '5.3',
         changes: [
             'Planets can leave a trail behind them now — a "Trails" toggle in the scene drawer puts a short, fading, colour-tinted arc behind each one as it moves along its orbit.',
+            'The orbit ring dims while trails are on, so the trail itself stands out more, and focusing a planet now hides only that planet’s own trail — every other one stays visible.',
+            'The Sun’s lens-flare now shows on phones too.',
+            'AR mode no longer responds to dragging the screen — it’s sensor-driven only now.',
+            'Fixed AR mode losing track of direction after pointing the phone straight up or turning all the way around — altitude now reads from the phone’s own tilt sensor instead of a calculation that got unreliable in that position.',
         ],
     },
     {

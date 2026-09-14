@@ -112,6 +112,41 @@ import { magvar } from 'magvar';
 // or offset error is a quick manual correction rather than an unusable
 // feature — but it should still be checked against reality at the next
 // opportunity.
+//
+// ── Altitude from gravity, not beta/gamma — why, and why it's still here ──
+//
+// A real-device report ("the scene tweaks out after pointing the phone all
+// the way up", "can't do one complete revolution without it losing track")
+// pointed at a well-documented, genuine limitation of the alpha/beta/gamma
+// Euler decomposition DeviceOrientationEvent hands us: it becomes unstable
+// and can jump discontinuously exactly near beta = +/-90 degrees — which is
+// this app's own default AR holding orientation ("magic window", phone
+// upright, looking at the horizon), not a rare edge case reached only by
+// pointing at the zenith. This is the actual answer to "how does Google do
+// it and we can't": native apps (and ARCore) read a hardware-fused rotation
+// vector as a quaternion, which has no such singularity, ever. The web's
+// equivalent — the Generic Sensor API's AbsoluteOrientationSensor, which
+// also exposes a raw quaternion — exists on Chrome/Android, but WebKit has
+// never implemented it, so it is not reachable from an iPhone no matter
+// which browser app wraps it.
+//
+// What *is* reachable everywhere DeviceOrientationEvent is: the raw
+// accelerometer, via a separate `devicemotion` event's own
+// accelerationIncludingGravity. That single physical vector — which way
+// gravity pulls, expressed in the device's own axes — never passes through
+// any Euler decomposition at all, so it carries none of the beta=90
+// instability. altitudeFromGravity() below derives altitude from it
+// directly and is preferred whenever a motion reading is available,
+// verified against the exact same three hand-worked cases
+// altitudeFromBetaGamma() already was (see its own header): flat screen-up,
+// flat screen-down, and upright. Heading is a separate problem — a truly
+// gravity-and-magnetometer "tilt-compensated" heading needs a raw
+// magnetometer reading the web does not expose, so the Euler-angle
+// (headingFromEuler) and webkitCompassHeading paths for heading are
+// unchanged; only altitude, which every path already depends on regardless
+// of heading source, gets the more robust signal. Same standing caveat as
+// the rest of this module: reasoned and unit-tested, not yet confirmed
+// against the real device that reported the bug.
 
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
@@ -145,6 +180,13 @@ let magHeading = 0;     // magnetic heading, degrees, smoothed
 let altitude = 0;       // degrees above horizon, smoothed
 let smoothed = false;   // false until the first real sample seeds the EMA
 let lastSampleAt = 0;   // ms, same clock as event.timeStamp — see timeWeight()
+
+// Most recent usable accelerationIncludingGravity, device-local axes — null
+// until the first real devicemotion sample arrives (or if motion permission
+// was never granted/the browser never fires it), in which case altitude
+// falls back to the beta/gamma formula. See the module header's own section
+// on why this is preferred when available.
+let lastGravity = null;
 
 let calibrationAz = 0;  // manual correction, added on top of the sensor reading
 let calibrationAlt = 0;
@@ -205,6 +247,34 @@ function altitudeFromBetaGamma(betaDeg, gammaDeg) {
     const gamma = gammaDeg * DEG2RAD;
     const z = -Math.cos(beta) * Math.cos(gamma);
     return Math.asin(Math.max(-1, Math.min(1, z))) * RAD2DEG;
+}
+
+/**
+ * Degrees above the horizon, from the device's own raw gravity reading
+ * (devicemotion's accelerationIncludingGravity, device-local axes: x right,
+ * y up the screen, z out of the screen face) rather than from beta/gamma —
+ * see the module header for why. The device's back camera points along
+ * local (0,0,-1); gravity's reaction, normalized, IS local "up" with no
+ * decomposition needed to get there, so altitude is just the angle between
+ * the two: asin(dot((0,0,-1), normalize(g))) = asin(-gz/|g|).
+ *
+ * Verified against the exact three cases altitudeFromBetaGamma() was
+ * checked against: flat, screen up (g ~ (0,0,+1)) -> asin(-1) = -90, the
+ * back camera facing down through the table; flat, screen down
+ * (g ~ (0,0,-1)) -> asin(+1) = +90, zenith; upright "magic window"
+ * (g ~ (0,+1,0), gravity felt along the length of the phone, none along its
+ * depth) -> asin(0) = 0. All three match by hand, independent of this
+ * formula's own algebra, the same standard this module holds every other
+ * piece of geometry to.
+ *
+ * Returns null for a degenerate reading (near-zero magnitude — momentary
+ * free-fall, or no real data yet) so the caller can fall back rather than
+ * feed asin() a divide-by-zero.
+ */
+function altitudeFromGravity(gx, gy, gz) {
+    const mag = Math.sqrt(gx * gx + gy * gy + gz * gz);
+    if (!(mag > 1e-6)) return null;
+    return Math.asin(Math.max(-1, Math.min(1, -gz / mag))) * RAD2DEG;
 }
 
 /** Magnetic heading (0=N, 90=E) from raw Euler angles — only used when
@@ -274,7 +344,13 @@ function handleOrientation(event, isAbsolute) {
     const rawMagHeading = hasWebkitHeading
         ? event.webkitCompassHeading
         : headingFromEuler(alpha, beta, gamma);
-    const rawAltitude = altitudeFromBetaGamma(beta, gamma);
+    // Gravity first (see the module header), falling back to beta/gamma
+    // when no motion reading has arrived yet — a denied/unsupported
+    // devicemotion is a degradation, not a failure.
+    const gravityAltitude = lastGravity
+        ? altitudeFromGravity(lastGravity.x, lastGravity.y, lastGravity.z)
+        : null;
+    const rawAltitude = gravityAltitude ?? altitudeFromBetaGamma(beta, gamma);
 
     // event.timeStamp on a real DeviceOrientationEvent is a
     // DOMHighResTimeStamp already on the same clock as performance.now() —
@@ -326,6 +402,23 @@ function onRelativeEvent(event) {
     handleOrientation(event, event.absolute === true);
 }
 
+/** Just records the latest gravity reading for altitudeFromGravity() to use
+ *  on the next orientation event — devicemotion and deviceorientation are
+ *  two separate, independently-timed event streams, so this doesn't itself
+ *  recompute or notify anything. A motion event with no
+ *  accelerationIncludingGravity at all (some devices only ever populate
+ *  the gravity-excluded `acceleration` field) leaves the last good reading
+ *  in place rather than clearing it. */
+function handleMotion(event) {
+    const g = event.accelerationIncludingGravity;
+    if (!g) return;
+    const x = Number.isFinite(g.x) ? g.x : 0;
+    const y = Number.isFinite(g.y) ? g.y : 0;
+    const z = Number.isFinite(g.z) ? g.z : 0;
+    if (x === 0 && y === 0 && z === 0) return; // nothing usable — see altitudeFromGravity's own degenerate-magnitude guard
+    lastGravity = { x, y, z };
+}
+
 /** True on iOS 13+ Safari, where orientation data is gated behind an
  *  explicit, gesture-triggered permission prompt. False (nothing to ask)
  *  everywhere else, including desktop browsers that lack the API outright —
@@ -336,19 +429,41 @@ export function needsOrientationPermission() {
         && typeof window.DeviceOrientationEvent?.requestPermission === 'function';
 }
 
+/** Same gate as needsOrientationPermission(), for the separate
+ *  DeviceMotionEvent API altitudeFromGravity's own reading depends on —
+ *  iOS ties the two to independent requestPermission() statics even though
+ *  its own system UI often shows one combined prompt for both. */
+function needsMotionPermission() {
+    return typeof window !== 'undefined'
+        && typeof window.DeviceMotionEvent?.requestPermission === 'function';
+}
+
 /**
  * The actual permission-requesting call — must run inside a direct user
- * gesture handler on iOS. Resolves true when tracking can proceed (either
- * granted, or nothing needed to ask in the first place).
+ * gesture handler on iOS. Resolves true when orientation tracking can
+ * proceed (either granted, or nothing needed to ask in the first place).
+ * Motion permission is requested too, best-effort: a denial there only
+ * costs the more robust gravity-based altitude (see the module header),
+ * not the whole feature, so it never turns an otherwise-successful
+ * orientation grant into a reported failure.
  */
 export async function requestDeviceOrientationPermission() {
-    if (!needsOrientationPermission()) return true;
-    try {
-        const result = await window.DeviceOrientationEvent.requestPermission();
-        return result === 'granted';
-    } catch {
-        return false;
+    let granted = true;
+    if (needsOrientationPermission()) {
+        try {
+            granted = (await window.DeviceOrientationEvent.requestPermission()) === 'granted';
+        } catch {
+            granted = false;
+        }
     }
+    if (needsMotionPermission()) {
+        try {
+            await window.DeviceMotionEvent.requestPermission();
+        } catch {
+            // Degrades to the beta/gamma altitude fallback — not fatal.
+        }
+    }
+    return granted;
 }
 
 export function startDeviceOrientationTracking() {
@@ -356,8 +471,10 @@ export function startDeviceOrientationTracking() {
     tracking = true;
     smoothed = false;
     receivedAbsolute = false;
+    lastGravity = null;
     window.addEventListener('deviceorientationabsolute', onAbsoluteEvent);
     window.addEventListener('deviceorientation', onRelativeEvent);
+    window.addEventListener('devicemotion', handleMotion);
 }
 
 export function stopDeviceOrientationTracking() {
@@ -365,6 +482,7 @@ export function stopDeviceOrientationTracking() {
     tracking = false;
     window.removeEventListener('deviceorientationabsolute', onAbsoluteEvent);
     window.removeEventListener('deviceorientation', onRelativeEvent);
+    window.removeEventListener('devicemotion', handleMotion);
 }
 
 /** Recomputes declination only when the location actually changes — cheap,
@@ -439,12 +557,19 @@ export function __injectOrientationEvent(event, { absolute = false } = {}) {
     else onRelativeEvent(event);
 }
 
+/** Test seam: feed a plain fixture through the real devicemotion handler,
+ *  same reasoning as __injectOrientationEvent above. */
+export function __injectMotionEvent(event) {
+    handleMotion(event);
+}
+
 /** Test seam. */
 export function __resetDeviceOrientation() {
     magHeading = 0;
     altitude = 0;
     smoothed = false;
     lastSampleAt = 0;
+    lastGravity = null;
     calibrationAz = 0;
     calibrationAlt = 0;
     declinationDeg = 0;
