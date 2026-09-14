@@ -16,6 +16,39 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.3
+
+- **Chrome was noticeably darker than Safari, and not just in the main
+  scene** — reported on this Mac specifically: "I want Chrome to be as
+  bright as Safari." The main solar-system view (`SolarSystem3D.jsx`)
+  already carries the fix for this, from 4.6.6/4.6.7: `renderer.
+  outputColorSpace` assigned explicitly through its setter rather than left
+  to whatever a fresh `WebGLRenderer` defaults to (the two browsers don't
+  agree, especially on this machine's wide-gamut P3 display), plus
+  `LinearToneMapping` with `toneMappingExposure = 1.3` so that assignment
+  actually does something — exposure is a silent no-op under the default
+  `NoToneMapping`. Auditing every other place this app creates a
+  `WebGLRenderer` found three more, each missing some or all of the same
+  fix: the satellite tracker's globe (`SatelliteGlobe.jsx`) had neither
+  line; the night sky (`NightSky3D.jsx`) had the color-space line but not
+  the tone-mapping pair; the spacecraft model viewer (`SpacecraftViewer.jsx`,
+  currently unshipped behind a feature flag but fixed anyway for whenever
+  it's re-enabled) had neither. All three now carry the exact same two
+  lines already proven correct in the main scene. Also checked every
+  `CanvasTexture` in the app for the untagged-color-space bug this same
+  issue traced back to in 4.6.6 — found several more (the Sun's lens-flare
+  elements, the outer planets' ring-glow gradients), but these are thin
+  additive-blend overlays already living inside the one scene that's had
+  the full fix the longest, not photographic surface maps, and tagging them
+  to match would change how they're sampled by the GPU in a way that's not
+  established to be correct here — left alone rather than guessed at.
+  Verified in headless Chrome that all three views still render correctly
+  after the change (the satellite globe, the night sky once past its
+  location prompt); Safari itself isn't something this environment can
+  check directly, so full confirmation is still on the user's own Mac.
+
+---
+
 ## 5.3.2
 
 - **Fixed AR mode's altitude reading straight up/down backwards** — reported

@@ -413,6 +413,8 @@ const NightSky3D = ({
         renderer.setPixelRatio(pixelRatioFor(w, h));
         renderer.setClearColor(0x000000, 0);
         renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.LinearToneMapping;
+        renderer.toneMappingExposure = 1.3;
         mount.appendChild(renderer.domElement);
         // Absolute + an explicit z-index even outside AR mode: CSS paints
         // unpositioned in-flow content *before* positioned descendants in the

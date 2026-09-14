@@ -21,6 +21,7 @@ export const WHATS_NEW = [
             'Fixed AR mode losing track of direction after pointing the phone straight up or turning all the way around — altitude now reads from the phone’s own tilt sensor instead of a calculation that got unreliable in that position.',
             'Fixed AR mode reading up and down backwards after the above fix — looking down now looks down.',
             'Trails are on by default now.',
+            'Fixed the satellite tracker and night sky looking noticeably darker in Chrome than Safari on a Mac — the same brightness fix the main view already had.',
         ],
     },
     {
