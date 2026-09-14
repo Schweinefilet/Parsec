@@ -510,16 +510,38 @@ body {
    every frame to cancel the ring's, so the glyph stays upright while its
    position still swings around the dial with everything else. */
 .sky-compass-letter { display: inline-block; will-change: transform; }
+/* The one fixed mark on this rotating dial — a lubber line, in the sense an
+   actual ship's or aircraft's compass uses the term: a mark fixed to the
+   rim showing your own current heading, which the rotating card of
+   direction letters turns past underneath it. It used to be a small
+   triangle floating a little inside the rim rather than sitting on it,
+   which happened to sit right next to the "N" letter at a heading of zero
+   and nowhere near it otherwise — the ring turns, the letters move on, and
+   a marker with no visible tie to the rim itself just looked like it had
+   drifted off whatever it was meant to be pointing at. Straddling the rim,
+   with a short stem reaching toward the centre, reads unambiguously as a
+   fixed mark on the dial's edge instead. */
 .sky-compass-needle {
   position: absolute;
-  top: 1px;
+  top: -3px;
   left: 50%;
-  transform: translateX(-50%);
   width: 0;
   height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-bottom: 7px solid #ffd166;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 8px solid #ffd166;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55));
+}
+.sky-compass-needle::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 2px;
+  height: 6px;
+  background: #ffd166;
+  transform: translateX(-50%);
 }
 .sky-compass-stats {
   background: rgba(0,0,0,0.45);

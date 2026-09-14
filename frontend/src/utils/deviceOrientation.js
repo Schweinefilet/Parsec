@@ -116,17 +116,35 @@ import { magvar } from 'magvar';
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
 
-// Per-event exponential-moving-average weight. A fixed per-sample weight
-// rather than utils/simTime.js's frame-time-normalized `ease()` pattern —
-// sensor events arrive at a roughly OS-controlled rate, not a variable
-// render-loop frame time, so there is no equivalent "how much of a 60fps
-// frame actually elapsed" correction to make here. Picked by feel pending
-// a real device to tune it against; smaller = smoother but laggier.
-const SMOOTHING = 0.15;
+// Exponential-moving-average time constant, in milliseconds — how long it
+// takes the smoothed heading/altitude to close roughly two-thirds of the
+// gap to a new raw reading. This used to be a flat per-*event* weight
+// (0.15, applied in full on every sample regardless of how much real time
+// it covered) on the reasoning that there was no render-loop frame time to
+// normalize against, the way utils/simTime.js's own `ease()` does — but
+// sensor events are not actually evenly spaced in practice. Real devices
+// batch and throttle them under load (exactly the load this feature
+// itself creates: camera passthrough plus WebGL plus sensor processing all
+// competing for the same main thread), so the gap between two events
+// swings between a few milliseconds and several hundred. A flat per-event
+// weight bakes in a *different* effective time constant every time that
+// gap changes size: a burst of closely-spaced events let raw sensor noise
+// through nearly undamped (each one still gets the full 15%, so five
+// events in 10ms move the average more than five events *should* in that
+// little real time), which is what reads as jumpiness, while a gap in
+// delivery leaves the average stuck since nothing arrives to nudge it,
+// then several more flat-weighted steps are needed to claw back to
+// wherever the phone actually is by the time events resume — which is
+// what reads as lag. Weighting by the *actual* elapsed time between
+// samples (below) collapses both symptoms into one fix: a burst is
+// correctly damped because almost no time passed, and a gap is correctly
+// caught up in a single larger step because a lot of time did.
+const TAU_MS = 120;
 
 let magHeading = 0;     // magnetic heading, degrees, smoothed
 let altitude = 0;       // degrees above horizon, smoothed
 let smoothed = false;   // false until the first real sample seeds the EMA
+let lastSampleAt = 0;   // ms, same clock as event.timeStamp — see timeWeight()
 
 let calibrationAz = 0;  // manual correction, added on top of the sensor reading
 let calibrationAlt = 0;
@@ -156,6 +174,28 @@ function shortestDelta(from, to) {
 
 function emaHeading(current, target, weight) {
     return norm360(current + shortestDelta(current, target) * weight);
+}
+
+/** Wall-clock ms, same clock a real event's own timeStamp uses (both are
+ *  DOMHighResTimeStamps) — the fallback for the (test-only) fixtures that
+ *  don't carry one. */
+function now() {
+    return typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
+}
+
+/**
+ * EMA weight for a sample arriving `dt` ms after the last one, given time
+ * constant `tauMs` — the continuous-time exponential-smoothing formula, so
+ * the *rate* of convergence stays the same however irregularly samples
+ * actually arrive (see TAU_MS's own header for why that matters here).
+ * dt <= 0 (a malformed or out-of-order timestamp) returns 0: no movement,
+ * rather than letting a negative dt invert the exponent into a weight
+ * greater than 1 and overshoot the target.
+ */
+function timeWeight(dt, tauMs) {
+    return dt > 0 ? 1 - Math.exp(-dt / tauMs) : 0;
 }
 
 /** Degrees above the horizon. No alpha term — identical regardless of
@@ -236,14 +276,30 @@ function handleOrientation(event, isAbsolute) {
         : headingFromEuler(alpha, beta, gamma);
     const rawAltitude = altitudeFromBetaGamma(beta, gamma);
 
+    // event.timeStamp on a real DeviceOrientationEvent is a
+    // DOMHighResTimeStamp already on the same clock as performance.now() —
+    // preferred over reading the clock fresh here, since that would also
+    // include however long the event sat queued before this handler ran.
+    // Test fixtures can set it explicitly to get a deterministic dt; the
+    // now() fallback is for the ones that don't bother, which mostly means
+    // "however little real time the test itself took."
+    const sampleAt = Number.isFinite(event.timeStamp) ? event.timeStamp : now();
+
     if (!smoothed) {
         magHeading = rawMagHeading;
         altitude = rawAltitude;
         smoothed = true;
     } else {
-        magHeading = emaHeading(magHeading, rawMagHeading, SMOOTHING);
-        altitude += (rawAltitude - altitude) * SMOOTHING;
+        const weight = timeWeight(sampleAt - lastSampleAt, TAU_MS);
+        magHeading = emaHeading(magHeading, rawMagHeading, weight);
+        altitude += (rawAltitude - altitude) * weight;
     }
+    // Never lets the clock run backward: an out-of-order or clock-skewed
+    // timestamp earlier than the last accepted one already produced a
+    // weight of 0 above (no movement), and letting it overwrite
+    // lastSampleAt too would inflate the *next* real sample's dt by
+    // whatever gap this one opened up, double-counting the same anomaly.
+    lastSampleAt = Math.max(lastSampleAt, sampleAt);
     notify();
     return true;
 }
@@ -388,6 +444,7 @@ export function __resetDeviceOrientation() {
     magHeading = 0;
     altitude = 0;
     smoothed = false;
+    lastSampleAt = 0;
     calibrationAz = 0;
     calibrationAlt = 0;
     declinationDeg = 0;

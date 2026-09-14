@@ -142,14 +142,73 @@ describe('deviceOrientation', () => {
         });
 
         it('eases toward a new heading via the short way around the 0/360 seam', () => {
-            __injectOrientationEvent({ alpha: 350, beta: 90, gamma: 0 }, { absolute: true });
-            __injectOrientationEvent({ alpha: 10, beta: 90, gamma: 0 }, { absolute: true });
+            __injectOrientationEvent({ alpha: 350, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
+            __injectOrientationEvent({ alpha: 10, beta: 90, gamma: 0, timeStamp: 100 }, { absolute: true });
             const h = getOrientationHeading();
             // A naive lerp from 350 toward 10 without wraparound would move
             // *away* from 10 first (350 -> lower numbers, through 180) —
             // the correct short path instead moves up through 360/0.
             const wrappedDistanceFrom350 = Math.min(Math.abs(h - 350), 360 - Math.abs(h - 350));
+            expect(wrappedDistanceFrom350).toBeGreaterThan(0);
             expect(wrappedDistanceFrom350).toBeLessThan(15);
+        });
+
+        // These three pin the actual point of switching from a flat per-event
+        // weight to a time-based one — see TAU_MS's own header in
+        // deviceOrientation.js. A flat weight applied to every event
+        // regardless of how much real time it covered is what read as
+        // "jumpy" during a burst (each one still nudges the full amount, so
+        // several events arriving almost at once move the average far more
+        // than the little real time between them warrants) and "laggy"
+        // after a gap (a stretch with no events left the average stuck, and
+        // it took several more flat-weighted steps to close a distance that
+        // opened up all at once).
+        it('a burst of samples a couple of milliseconds apart barely moves the average', () => {
+            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
+            __injectOrientationEvent({ alpha: 90, beta: 90, gamma: 0, timeStamp: 2 }, { absolute: true });
+            // 2ms against a 120ms time constant: barely any weight at all.
+            expect(getOrientationHeading()).toBeLessThan(5);
+        });
+
+        it('a long gap since the last sample lets one new reading catch nearly all the way up', () => {
+            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
+            __injectOrientationEvent({ alpha: 90, beta: 90, gamma: 0, timeStamp: 5000 }, { absolute: true });
+            // 5s against a 120ms time constant: the old value is stale and
+            // the new one should be trusted almost outright.
+            expect(getOrientationHeading()).toBeGreaterThan(89);
+        });
+
+        it('altitude follows the same time-based weighting as heading', () => {
+            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
+            __injectOrientationEvent({ alpha: 0, beta: 0, gamma: 0, timeStamp: 5000 }, { absolute: true });
+            // beta=90 -> altitude 0, beta=0 -> altitude -90 (see the
+            // hand-worked special cases above); a 5s gap should land close
+            // to the new -90 reading rather than lingering near 0.
+            expect(getOrientationAltitude()).toBeLessThan(-89);
+        });
+
+        it('a malformed timestamp behind the last one moves the average not at all, rather than overshooting', () => {
+            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0, timeStamp: 1000 }, { absolute: true });
+            // An out-of-order or clock-skewed timestamp earlier than the
+            // last accepted sample must not compute a negative dt — that
+            // would invert the exponent into a weight above 1 and overshoot
+            // past the new reading rather than easing toward it.
+            __injectOrientationEvent({ alpha: 90, beta: 90, gamma: 0, timeStamp: 500 }, { absolute: true });
+            expect(getOrientationHeading()).toBeCloseTo(0, 4);
+        });
+
+        it('does not let an out-of-order timestamp inflate the next real sample\'s dt', () => {
+            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0, timeStamp: 1000 }, { absolute: true });
+            __injectOrientationEvent({ alpha: 90, beta: 90, gamma: 0, timeStamp: 500 }, { absolute: true }); // ignored
+            // Only 10ms after the *real* last sample (timeStamp: 1000) — a
+            // small enough dt that this should barely move the average. If
+            // lastSampleAt had instead regressed to the ignored event's 500,
+            // this would compute as 510ms since "last sample" instead, long
+            // enough to snap most of the way to 100 — so this only passes
+            // if the regression genuinely didn't happen, not just because
+            // both outcomes would look similar.
+            __injectOrientationEvent({ alpha: 100, beta: 90, gamma: 0, timeStamp: 1010 }, { absolute: true });
+            expect(getOrientationHeading()).toBeLessThan(20);
         });
     });
 

@@ -17,6 +17,9 @@ export const WHATS_NEW = [
             'True sizes. The distances toggle has a third setting now — compressed distances, true distances, then true distances *and* sizes. That last one puts the whole scene on one scale, and it is unforgiving: a scene unit becomes 1.56 million km, so every planet drops far below a pixel and the view is orbit rings, names and a lot of nothing. That is what the solar system actually looks like. Fly to a body and it grows into its real proportions, with its moons at their real distances — the ISS turns out to skim Earth’s surface, because it does.',
             'At true sizes, focusing a planet now frames the Sun in the shot, off to one side — the same treatment the Voyagers and New Horizons already got. The flight out there is smoother and a little slower, too, and no longer swings past the Sun on its way to the planet.',
             'Fixed: Saturn’s ring shadow covered half the ring at true sizes, instead of just the part actually behind the planet.',
+            'Fixed: leaving the night sky flew back down onto a focused Earth instead of reversing the dive out. It now pulls back to the wide solar-system view, undoing the trip in rather than replaying it.',
+            'Reworked the night sky’s compass into a proper pointer fixed to the rim, the way an actual ship’s or aircraft’s compass shows your own heading against a rotating dial — the old one only lined up with “N” by coincidence, and drifted from it the moment you turned.',
+            'AR mode’s sky tracking should feel steadier now — less jumpy when the phone moves quickly, less laggy when it doesn’t.',
         ],
     },
     {

@@ -9,7 +9,7 @@ import {
 } from '../utils/skyRotation';
 import {
     startDeviceOrientationTracking, stopDeviceOrientationTracking,
-    subscribeDeviceOrientation, getOrientationHeading, getOrientationAltitude,
+    getOrientationHeading, getOrientationAltitude,
     setDeclinationLocation, nudgeCalibrationOffset,
 } from '../utils/deviceOrientation';
 import { simNow } from '../utils/simTime';
@@ -1171,6 +1171,31 @@ const NightSky3D = ({
                 );
                 if (panAnim.t >= 1) panAnim.active = false;
             }
+            // AR: apply the sensor heading once per rendered frame, reading
+            // whatever deviceOrientation.js's own EMA currently holds, rather
+            // than reacting to each raw sensor event as it arrives (the
+            // arMode effect used to subscribe and call setLookDirection
+            // straight from that callback). Sensor events don't arrive in
+            // step with rendered frames — they can fire several times
+            // between two rAF ticks, or not at all for a stretch under load
+            // — so applying every single one was, at best, wasted work the
+            // display could never show, and, whenever they arrived in an
+            // uneven clump, however many happened to land inside one visual
+            // frame. Reading the smoothed value fresh each tick keeps this
+            // in step with the same clock everything else in the scene
+            // already reads from. The wider range is the actual point of the
+            // call: the default clamp (skyRotation.js's own ALT_MIN, -10°)
+            // exists so dragging the virtual dome can't run past its
+            // rendered ground hemisphere into empty space — with a real
+            // camera feed as the ground instead, there's no reason to stop
+            // the view early, and doing so anyway was an old bug: the sensor
+            // keeps reading further down while the render freezes at -10°,
+            // so tilting back up has to "catch up" across whatever gap
+            // opened up, reading as the view dragging into place instead of
+            // tracking the phone directly.
+            if (arModeRef.current) {
+                setLookDirection(getOrientationHeading(), getOrientationAltitude(), -90, 90);
+            }
             const wantCon = targetConstellationRef.current;
             if (wantCon && wantCon !== openedForConstellation && segmentsByIau?.has(wantCon)) {
                 openedForConstellation = wantCon;
@@ -1317,19 +1342,12 @@ const NightSky3D = ({
         const loc = locationRef.current;
         if (loc) setDeclinationLocation(loc.lat, loc.lon);
 
+        // The camera itself isn't applied here — see the main animate loop's
+        // own "AR: apply the sensor heading" block for why that moved out of
+        // this subscription and onto the render loop instead. Tracking still
+        // starts here: this is what actually turns the browser's sensor
+        // listeners on, independent of who reads the result.
         startDeviceOrientationTracking();
-        const unsubscribeOrientation = subscribeDeviceOrientation(() => {
-            // The wider range is the actual point of this call: the default
-            // clamp (skyRotation.js's own ALT_MIN, -10°) exists so dragging
-            // the virtual dome can't run past its rendered ground hemisphere
-            // into empty space — with a real camera feed as the ground
-            // instead, there's no reason to stop the view early, and doing
-            // so anyway was the bug: the sensor keeps reading further down
-            // while the render freezes at -10°, so tilting back up has to
-            // "catch up" across whatever gap opened up, reading as the view
-            // dragging into place instead of tracking the phone directly.
-            setLookDirection(getOrientationHeading(), getOrientationAltitude(), -90, 90);
-        });
 
         const video = document.createElement('video');
         video.muted = true;
@@ -1348,7 +1366,6 @@ const NightSky3D = ({
         video.play().catch(() => {});
 
         return () => {
-            unsubscribeOrientation();
             stopDeviceOrientationTracking();
             video.pause();
             video.srcObject = null;

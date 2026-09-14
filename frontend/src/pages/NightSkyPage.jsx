@@ -177,7 +177,7 @@ const NightSkyPage = () => {
 
     const backButton = (
         <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/')}
             aria-label={t('nav.back')}
             className="absolute flex items-center justify-center rounded-xl focus-ring"
             style={{

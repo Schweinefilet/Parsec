@@ -16,6 +16,65 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.2.3
+
+- **Fixed: leaving the night sky flew back down onto a focused Earth
+  instead of reversing the dive out.** The back button called
+  `navigate(-1)`, which pops browser history — and the entry cinematic's
+  own navigation left `/object/earth` sitting right underneath `/sky` on
+  that stack (armed from wherever you started, it visits `/object/earth`
+  first and only reaches `/sky` after the dive), so leaving landed back on
+  a freshly re-focused Earth and replayed the *ordinary* focus fly-in from
+  the wide solar-system view. It now navigates straight to `/`. The scene
+  already had everything needed to reverse the dive instead: unmounting
+  while a body is still focused snapshots the live camera position so a
+  remount can play an exit animation from it — built for React Router
+  remounting the scene unexpectedly, but it turns out to describe exactly
+  this case too, since `/sky` living on its own route means the dive
+  genuinely does unmount the solar-system scene mid-flight. Landing on `/`
+  unfocused is what lets that existing mechanism fire, pulling back from
+  Earth's surface to the wide view instead of flying in from it.
+- **Reworked the night sky's compass pointer, and fixed why it read as
+  lopsided.** It was a fixed triangle that happened to sit beside the "N"
+  label only at a heading of exactly zero — turn at all and the ring (with
+  its N/E/S/W letters) rotates on as it always has, while the triangle
+  stays put, no longer next to anything, which is what read as broken
+  rather than just plain. Redrawn as a lubber line — the term an actual
+  ship's or aircraft's compass uses for exactly this: a mark fixed to the
+  rim showing your own current heading, which the rotating card of
+  direction letters turns past underneath it. Straddling the rim with a
+  short stem toward the centre reads unambiguously as a fixed mark on the
+  dial's edge, in a way a small floating triangle didn't.
+- **AR mode: the sky tracking the phone should no longer feel jumpy in
+  bursts and laggy in between.** Both turned out to be the same underlying
+  bug. The heading/altitude smoothing was a flat 15%-per-*event* average,
+  not a real time constant — fine on the assumption that sensor events
+  arrive at a roughly steady rate, which in practice they don't: real
+  devices batch and throttle them under exactly the load this feature
+  itself creates (camera passthrough, WebGL and sensor processing all
+  competing for the same main thread), so the gap between two events
+  swings from a few milliseconds to several hundred. A flat per-event
+  weight bakes in a *different* effective response time every time that
+  gap changes size — a burst of closely-spaced events let raw sensor noise
+  through nearly undamped (jumpy), while a gap left the average stuck
+  until several more flat-weighted steps clawed it back to wherever the
+  phone actually was (laggy). Smoothing is weighted by the real elapsed
+  time between samples now, so a burst is correctly damped (barely any
+  real time passed) and a gap is correctly caught up in one larger step
+  (a lot did) — collapsing both symptoms into one fix. Also moved the
+  camera update itself off the raw sensor-event callback and onto the
+  render loop, reading whatever the current smoothed value is once a
+  rendered frame rather than once a sensor sample — sensor events don't
+  arrive in step with rendered frames, so applying every single one was,
+  at best, work the display could never show and, at worst, several
+  updates landing inside one visual frame whenever they happened to clump.
+  Verified against a real browser (synthetic sensor events over CDP, with
+  genuine timing gaps rather than a fixed dispatch interval) rather than
+  only the unit tests — but, as this module's own header has said since
+  the AR viewer first shipped, not yet against real hardware.
+
+---
+
 ## 5.2.2
 
 - **Fixed: focusing a distant body used to visibly centre on the Sun before
