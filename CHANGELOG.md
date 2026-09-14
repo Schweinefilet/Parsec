@@ -16,6 +16,36 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.2.1
+
+- **Fixed: flying to a true-size body felt like it slammed to a stop.** The
+  fly-in interpolated raw camera *position* — start point to end point,
+  cubic ease-in-out — which decelerates smoothly in absolute scene units.
+  That was unnoticeable while every landing distance sat within an order
+  of magnitude of where the flight began, but true sizes can land the
+  camera thousands of times closer than its start (Earth's is ~23,000×).
+  On a linear path, easing the raw distance smoothly to zero still leaves
+  nearly all of the *relative* closing — the only part the eye actually
+  tracks — compressed into the last handful of frames: measured against
+  the old code, the frame-to-frame distance ratio sat around 0.7–0.9 for
+  most of the flight and then collapsed to 0.17–0.5 in the final three or
+  four frames.
+- Distance from the target now eases in log space instead — the camera
+  closes by the same *ratio* on every step of eased progress, not the same
+  absolute amount. Direction is still a simple lerp between the start and
+  end offsets (azimuth was already preserved, so the two rarely differ by
+  much). Measured the same way, the new final-stretch ratios climb
+  smoothly toward 1.0 (0.92 → 0.96 → 0.98 → 0.996 → 0.999) instead of
+  collapsing, which is what actually reads as a landing rather than a
+  lurch. Falls back to the old plain lerp if either endpoint sits on the
+  target itself, which never happens in practice but would make log
+  distance undefined.
+- Applies to every fly-in, not just true-size ones — the improvement is
+  only visible where the zoom ratio is large, so ordinary compressed-layout
+  focusing looks unchanged.
+
+---
+
 ## 5.2.0
 
 - **True sizes, as a third setting on the distances toggle.** The layout

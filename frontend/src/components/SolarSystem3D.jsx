@@ -226,6 +226,12 @@ const SolarSystem3D = ({
         const focusStartTarget  = new THREE.Vector3();
         const _focusLookTarget  = new THREE.Vector3();
         const _camUpVec         = new THREE.Vector3();
+        // Scratch for the fly-in's log-space distance easing — see its own
+        // comment below for why a straight position lerp isn't enough once
+        // true sizes are in play.
+        const _focusStartOffset = new THREE.Vector3();
+        const _focusEndOffset   = new THREE.Vector3();
+        const _focusDir         = new THREE.Vector3();
 
         // ── Sky-entry cinematic (/sky's approach) ─────────────────────────────
         // utils/skyEntry.js holds the cross-route phase; the actual camera work
@@ -3289,7 +3295,30 @@ const SolarSystem3D = ({
                 const t = focusProgress < 0.5
                     ? 4 * focusProgress * focusProgress * focusProgress
                     : 1 - Math.pow(-2 * focusProgress + 2, 3) / 2;
-                camera.position.lerpVectors(focusStartCamPos, focusEndCamPos, t);
+                // Distance from the target eases in log space rather than a
+                // straight position lerp. A plain lerp decelerates smoothly in
+                // absolute units, which was fine while every landing distance
+                // sat within an order of magnitude of the start — but true
+                // sizes can land the camera thousands of times closer than
+                // where it set off, and on a linear path nearly all of that
+                // *relative* closing — the only part the eye actually tracks —
+                // still happens in the last handful of frames, however gently
+                // the raw distance itself tapers to zero. Closing by the same
+                // ratio on every step of eased progress instead means the
+                // final stretch reads as a landing rather than a lurch.
+                _focusStartOffset.subVectors(focusStartCamPos, targetPos);
+                _focusEndOffset.subVectors(focusEndCamPos, targetPos);
+                const startDist = _focusStartOffset.length();
+                const endDist   = _focusEndOffset.length();
+                if (startDist > 1e-6 && endDist > 1e-6) {
+                    const dist = startDist * Math.pow(endDist / startDist, t);
+                    _focusDir.copy(_focusStartOffset).divideScalar(startDist)
+                        .lerp(_focusEndOffset.divideScalar(endDist), t)
+                        .normalize();
+                    camera.position.copy(targetPos).addScaledVector(_focusDir, dist);
+                } else {
+                    camera.position.lerpVectors(focusStartCamPos, focusEndCamPos, t);
+                }
                 // Gradually rotate toward the planet instead of snapping the look direction
                 _focusLookTarget.lerpVectors(focusStartTarget, targetPos, t);
                 controls.target.copy(_focusLookTarget);
