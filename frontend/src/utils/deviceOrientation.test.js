@@ -35,21 +35,21 @@ describe('deviceOrientation', () => {
             expect(getOrientationAltitude()).toBeCloseTo(0, 5);
         });
 
-        it('beta=0, gamma=0 (flat on a table, screen up) reads altitude +90', () => {
+        it('beta=0, gamma=0 (flat on a table, screen up) reads altitude -90', () => {
             // The back camera, on the underside, faces straight down through
             // the table.
             __injectOrientationEvent({ alpha: 0, beta: 0, gamma: 0 });
-            expect(getOrientationAltitude()).toBeCloseTo(90, 5);
+            expect(getOrientationAltitude()).toBeCloseTo(-90, 5);
         });
 
-        it('beta=180, gamma=0 (flat, screen down) reads altitude -90 (nadir)', () => {
+        it('beta=180, gamma=0 (flat, screen down) reads altitude +90 (zenith)', () => {
             __injectOrientationEvent({ alpha: 0, beta: 180, gamma: 0 });
-            expect(getOrientationAltitude()).toBeCloseTo(-90, 5);
+            expect(getOrientationAltitude()).toBeCloseTo(90, 5);
         });
 
         it('continues past zenith when beta exceeds 180 degrees', () => {
             __injectOrientationEvent({ alpha: 0, beta: 190, gamma: 0 });
-            expect(getOrientationAltitude()).toBeCloseTo(-100, 5);
+            expect(getOrientationAltitude()).toBeCloseTo(100, 5);
         });
 
         it('does not depend on alpha at all', () => {
@@ -78,16 +78,16 @@ describe('deviceOrientation', () => {
         // header: accelerationIncludingGravity's sign convention is a
         // genuinely, widely documented point of confusion, and this is the
         // sign a real device actually reported.
-        it('flat, screen up (g ~ (0,0,-9.8)) reads altitude +90', () => {
+        it('flat, screen up (g ~ (0,0,-9.8)) reads altitude -90', () => {
             __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 0, z: -9.8 } });
             __injectOrientationEvent({ alpha: 0, beta: 45, gamma: 30 }, { absolute: true });
-            expect(getOrientationAltitude()).toBeCloseTo(90, 4);
+            expect(getOrientationAltitude()).toBeCloseTo(-90, 4);
         });
 
-        it('flat, screen down (g ~ (0,0,+9.8)) reads altitude -90 (nadir)', () => {
+        it('flat, screen down (g ~ (0,0,+9.8)) reads altitude +90 (zenith)', () => {
             __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
             __injectOrientationEvent({ alpha: 0, beta: 45, gamma: 30 }, { absolute: true });
-            expect(getOrientationAltitude()).toBeCloseTo(-90, 4);
+            expect(getOrientationAltitude()).toBeCloseTo(90, 4);
         });
 
         it('upright "magic window" (g ~ (0,+9.8,0)) reads altitude 0', () => {
@@ -210,25 +210,25 @@ describe('deviceOrientation', () => {
             expect(isOrientationAbsolute()).toBe(true);
         });
 
-        it('inverts webkitCompassHeading only between iOS switches at beta 45 and 135', () => {
-            // beta=90 is inside the flat-mode interval.
+        it('inverts webkitCompassHeading only between altitude 45 and 135', () => {
+            // beta=150 gives altitude 60, inside the flat-mode interval.
             // iOS sends 180° offset in flat mode (e.g. 217° instead of 37°)
-            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0, webkitCompassHeading: 217 });
+            __injectOrientationEvent({ alpha: 0, beta: 150, gamma: 0, webkitCompassHeading: 217 });
             expect(getOrientationHeading()).toBeCloseTo((217 + 180) % 360, 4);
         });
 
         it('crosses both iOS heading switches without a 180-degree pole jump', () => {
-            // Before beta=45, iOS reports the portrait heading directly.
-            __injectOrientationEvent({ alpha: 0, beta: 40, gamma: 0, webkitCompassHeading: 10, timeStamp: 0 });
+            // Below altitude 45, iOS reports the portrait heading directly.
+            __injectOrientationEvent({ alpha: 0, beta: 130, gamma: 0, webkitCompassHeading: 10, timeStamp: 0 });
             expect(getOrientationHeading()).toBeCloseTo(10, 4);
 
-            // Between beta=45 and beta=135, iOS flips to 190° and Parsec
+            // Between altitude 45 and altitude 135, iOS flips to 190° and Parsec
             // un-flips it back to 10°.
-            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0, webkitCompassHeading: 190, timeStamp: 5000 });
+            __injectOrientationEvent({ alpha: 0, beta: 150, gamma: 0, webkitCompassHeading: 190, timeStamp: 5000 });
             expect(getOrientationHeading()).toBeCloseTo(10, 4);
 
-            // After beta=135, iOS returns to the portrait vector.
-            __injectOrientationEvent({ alpha: 0, beta: 140, gamma: 0, webkitCompassHeading: 10, timeStamp: 10000 });
+            // Above altitude 135, iOS returns to the portrait vector.
+            __injectOrientationEvent({ alpha: 0, beta: -100, gamma: 0, webkitCompassHeading: 10, timeStamp: 10000 });
             expect(getOrientationHeading()).toBeCloseTo(10, 4);
         });
     });
@@ -279,10 +279,10 @@ describe('deviceOrientation', () => {
         it('altitude follows the same time-based weighting as heading', () => {
             __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
             __injectOrientationEvent({ alpha: 0, beta: 0, gamma: 0, timeStamp: 5000 }, { absolute: true });
-            // beta=90 -> altitude 0, beta=0 -> altitude +90 (see the
+            // beta=90 -> altitude 0, beta=0 -> altitude -90 (see the
             // hand-worked special cases above); a 5s gap should land close
             // to the new -90 reading rather than lingering near 0.
-            expect(getOrientationAltitude()).toBeGreaterThan(89);
+            expect(getOrientationAltitude()).toBeLessThan(-89);
         });
 
         it('a malformed timestamp behind the last one moves the average not at all, rather than overshooting', () => {
@@ -377,23 +377,23 @@ describe('deviceOrientation', () => {
 
         it('altitude keeps tracking smoothly through the same sweep past zenith', () => {
             sweepToward225();
-            // Tracks continuously past the -90 nadir as beta continues past
-            // 180 (e.g. to -150) rather than folding back up.
-            expect(getOrientationAltitude()).toBeLessThan(-90);
-            expect(getOrientationAltitude()).toBeGreaterThan(-130);
+            // Tracks continuously past the +90 zenith as beta continues past
+            // 180 (e.g. to -150) rather than folding back down.
+            expect(getOrientationAltitude()).toBeGreaterThan(90);
+            expect(getOrientationAltitude()).toBeLessThan(130);
         });
 
         it('pitching past the perpendicular line (zenith, +90) continues past 90 without reversing', () => {
             // devicemotion: 10 degrees past zenith (gz = 9.65, gy = -1.7, gx = 0)
             __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: -1.7, z: 9.65 } });
             __injectOrientationEvent({ alpha: 0, beta: 180, gamma: 0 });
-            expect(getOrientationAltitude()).toBeCloseTo(-100, 0);
+            expect(getOrientationAltitude()).toBeCloseTo(100, 0);
 
             // 30 degrees past zenith (gz = 8.49, gy = -4.9, gx = 0)
             __resetDeviceOrientation();
             __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: -4.9, z: 8.49 } });
             __injectOrientationEvent({ alpha: 0, beta: 180, gamma: 0 });
-            expect(getOrientationAltitude()).toBeCloseTo(-120, 0);
+            expect(getOrientationAltitude()).toBeCloseTo(120, 0);
         });
 
         it('is unaffected well away from the pole (ordinary tracking preserved)', () => {

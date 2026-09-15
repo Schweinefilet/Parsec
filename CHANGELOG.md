@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.6
+
+- **Corrected the final AR orientation signs and the +135° compass boundary.** Looking down at the floor now produces negative altitude and looking up produces positive altitude again. The iOS heading correction is based on the complete +45° to +135° altitude interval, preventing the remaining pole swap at +135°.
+
+---
+
 ## 5.3.5
 
 - **Corrected AR pitch direction and the second iOS compass reversal.** The previous AR altitude correction tracked the phone upside down; pitch is now inverted consistently for both orientation and gravity readings. iOS heading compensation now covers the complete beta 45° to 135° flat-mode interval, so North and South no longer jump at either boundary.

@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.3',
         changes: [
+            'Fixed the remaining AR compass reversal around +135° and corrected the pitch direction so looking at the floor reads down and looking at the sky reads up.',
             'Corrected AR mode tracking pitch upside down and fixed the second compass reversal around 135° on iPhone and iPad.',
             'Fixed AR mode on iPhone and iPad reversing the poles around 45° and flipping direction after pointing straight up — the compass now stays continuous and the view follows the phone smoothly through the zenith.',
             'Planets can leave a trail behind them now — a "Trails" toggle in the scene drawer puts a short, fading, colour-tinted arc behind each one as it moves along its orbit.',
