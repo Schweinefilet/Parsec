@@ -452,7 +452,7 @@ function handleOrientation(event, isAbsolute) {
     } else {
         const weight = timeWeight(sampleAt - lastSampleAt, TAU_MS);
         magHeading = emaHeading(magHeading, rawMagHeading, weight);
-        altitude += (rawAltitude - altitude) * weight;
+        altitude += shortestDelta(altitude, rawAltitude) * weight;
     }
     // Never lets the clock run backward: an out-of-order or clock-skewed
     // timestamp earlier than the last accepted one already produced a

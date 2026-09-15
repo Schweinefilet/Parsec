@@ -1038,9 +1038,8 @@ const NightSky3D = ({
         // through this component's own state) and again every frame, since
         // the render loop is the source of truth for what's actually drawn.
         const applyLook = () => {
-            const altitude = getAltitude();
             camera.rotation.set(
-                ((arModeRef.current ? -altitude : altitude) * Math.PI) / 180,
+                (getAltitude() * Math.PI) / 180,
                 (-getAzimuth() * Math.PI) / 180,
                 0,
                 'YXZ',
@@ -1215,7 +1214,7 @@ const NightSky3D = ({
             // opened up, reading as the view dragging into place instead of
             // tracking the phone directly.
             if (arModeRef.current) {
-                setLookDirection(getOrientationHeading(), getOrientationAltitude(), -180, 180);
+                setLookDirection(getOrientationHeading(), getOrientationAltitude(), -360, 360);
             }
             const wantCon = targetConstellationRef.current;
             if (wantCon && wantCon !== openedForConstellation && segmentsByIau?.has(wantCon)) {

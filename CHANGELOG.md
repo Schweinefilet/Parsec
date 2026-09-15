@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.8
+
+- **Fixed the final AR pitch behavior.** Positive altitude now uses the same scene direction as the sky viewer, so looking up moves the constellation overlay down and keeps it over the real sky. Altitude smoothing now unwraps through 180° instead of snapping across the signed-angle seam.
+
+---
+
 ## 5.3.7
 
 - **Reworked AR orientation around all four sensor boundaries.** Altitude no longer branches at 0° or 180°, so looking between floor and sky does not spin the view. Heading now follows the continuous compass candidate across both iOS reference changes at 45° and 135°. The AR camera pitch is reversed separately from the numeric altitude, so looking up moves the rendered sky down and keeps markers aligned with the real world.

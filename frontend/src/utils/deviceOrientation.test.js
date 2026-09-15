@@ -52,6 +52,13 @@ describe('deviceOrientation', () => {
             expect(getOrientationAltitude()).toBeCloseTo(100, 5);
         });
 
+        it('continues through the signed 180-degree altitude seam', () => {
+            __injectOrientationEvent({ alpha: 0, beta: -91, gamma: 0, timeStamp: 0 });
+            __injectOrientationEvent({ alpha: 0, beta: -90, gamma: 0, timeStamp: 5000 });
+            __injectOrientationEvent({ alpha: 0, beta: -89, gamma: 0, timeStamp: 10000 });
+            expect(getOrientationAltitude()).toBeGreaterThan(180);
+        });
+
         it('does not depend on alpha at all', () => {
             __injectOrientationEvent({ alpha: 37, beta: 90, gamma: 0 });
             const withAlpha37 = getOrientationAltitude();
