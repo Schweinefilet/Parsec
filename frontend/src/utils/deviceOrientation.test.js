@@ -283,50 +283,80 @@ describe('deviceOrientation', () => {
         });
     });
 
-    describe('heading confidence near the poles', () => {
-        // Pins the fix for a real-device report: pitching smoothly from the
-        // horizon, through pointing straight at the sky, to the horizon on
-        // the opposite side flipped the reported heading ~180 degrees and
-        // left it wrong until the phone came back down. See
-        // deviceOrientation.js's own "Heading confidence near the poles"
-        // header for the diagnosis — headingFromEuler's east/north outputs
-        // shrink to zero near altitude +/-90 (they're literally zero for
-        // every alpha at beta=180,gamma=0, the exact case below), so a
-        // heading computed there is the angle of noise, not signal.
-        it('barely moves the smoothed heading for a sample near true zenith', () => {
-            __injectOrientationEvent({ alpha: 45, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
-            expect(getOrientationHeading()).toBeCloseTo(45, 4);
-            // beta=180, gamma=0 -> altitude +90 (see the hand-worked cases
-            // above) and, per the module header, east=north=0 regardless of
-            // alpha here — alpha=225 is a deliberately wildly different
-            // heading a noisy real sample could report at the pole. A 5s
-            // gap would normally let one sample catch almost all the way up
-            // (see the "smoothing" tests above) — it should not here.
-            __injectOrientationEvent({ alpha: 225, beta: 180, gamma: 0, timeStamp: 5000 }, { absolute: true });
-            expect(getOrientationHeading()).toBeCloseTo(45, 1);
+    describe('heading through the pole (pitching past vertical)', () => {
+        // Pins the *correct* fix for a real-device report: pitching
+        // smoothly from the horizon, through pointing straight at the sky,
+        // to the horizon on the opposite side flipped the reported heading
+        // ~180 degrees and left it wrong until the phone came back down.
+        // See deviceOrientation.js's own "Heading through the pole" header
+        // for the full diagnosis and the earlier, *wrong* fix this
+        // replaces: freezing the heading EMA near the pole (confidence-
+        // gating it by altitude) doesn't protect anything real — for any
+        // physically realistic grip (gamma not exactly 0), headingFromEuler
+        // already sweeps smoothly through the intermediate compass points
+        // as beta crosses 180 — and freezing it instead hands the EMA a
+        // sudden ~180 degree gap to close later, which its shortestDelta()
+        // tie-break resolves the same wrong way every time, sweeping
+        // through the far three quarters of the compass before landing on
+        // the right answer. These tests inject that same smooth sweep (a
+        // small, realistic gamma=2°, not the perfectly roll-free gamma=0
+        // that would make the raw signal jump outright) and pin that the
+        // smoothed heading tracks it rather than freezing or overshooting.
+        const sweepToward225 = () => {
+            // alpha=45, gamma=2 fixed; beta sweeps 150 -> 180 -> -150 (the
+            // spec-legal wrap for "continuing past vertical"), 1 degree and
+            // ~16ms (a plausible ~60Hz sensor rate) per sample — see the
+            // module header for why gamma=2 (not 0) is the realistic case.
+            let t = 0;
+            for (let b = 150; b <= 180; b += 1) {
+                __injectOrientationEvent({ alpha: 45, beta: b, gamma: 2, timeStamp: t }, { absolute: true });
+                t += 16;
+            }
+            for (let b = -179; b <= -150; b += 1) {
+                __injectOrientationEvent({ alpha: 45, beta: b, gamma: 2, timeStamp: t }, { absolute: true });
+                t += 16;
+            }
+        };
+
+        it('never sweeps through the wrong side of the compass', () => {
+            // headingFromEuler(45, b, 2) for b in this sweep eases smoothly
+            // from ~49 up through the 100s and 200s (see the module
+            // header's own worked example) — it never needs to pass through
+            // the 300s or the single digits. A smoothed heading landing
+            // there at any point would mean the EMA swung the wrong way
+            // around, the exact failure the confidence-gate fix caused.
+            let sawWrongSide = false;
+            let t = 0;
+            const check = (b) => {
+                __injectOrientationEvent({ alpha: 45, beta: b, gamma: 2, timeStamp: t }, { absolute: true });
+                t += 16;
+                const h = getOrientationHeading();
+                if (h > 300 || h < 20) sawWrongSide = true;
+            };
+            for (let b = 150; b <= 180; b += 1) check(b);
+            for (let b = -179; b <= -150; b += 1) check(b);
+            expect(sawWrongSide).toBe(false);
         });
 
-        it('resumes tracking a genuine large change once back in a well-conditioned range', () => {
-            __injectOrientationEvent({ alpha: 45, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
-            __injectOrientationEvent({ alpha: 225, beta: 180, gamma: 0, timeStamp: 5000 }, { absolute: true });
-            // Back near the horizon (altitude 0, full confidence) with the
-            // same alpha=225 a real semicircle pitch-over would leave it
-            // at — not rejected for being a ~180 degree change, and not
-            // stuck at the frozen 45 from the pole sample.
-            __injectOrientationEvent({ alpha: 225, beta: 90, gamma: 0, timeStamp: 10000 }, { absolute: true });
-            expect(getOrientationHeading()).toBeGreaterThan(200);
+        it('lands close to the far-side heading once clearly past the pole', () => {
+            sweepToward225();
+            // Not pinned to an exact number (ordinary EMA lag is expected
+            // and fine) — just confirms it actually got there, rather than
+            // sticking near the original 45 or wandering off the wrong way.
+            const h = getOrientationHeading();
+            const distanceFrom225 = Math.min(Math.abs(h - 225), 360 - Math.abs(h - 225));
+            expect(distanceFrom225).toBeLessThan(90);
         });
 
-        it('does not affect altitude, which keeps tracking through the same samples', () => {
-            __injectOrientationEvent({ alpha: 45, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
-            __injectOrientationEvent({ alpha: 225, beta: 180, gamma: 0, timeStamp: 5000 }, { absolute: true });
-            // Confidence-gating is heading-only (see the smoothing block in
-            // handleOrientation) — altitude should still have moved almost
-            // all the way to the new beta=180 reading of +90.
-            expect(getOrientationAltitude()).toBeGreaterThan(89);
+        it('altitude keeps tracking smoothly through the same sweep', () => {
+            sweepToward225();
+            // Comes back down from the +90 peak (beta=180) as beta
+            // continues past — see the hand-worked altitude cases above.
+            expect(getOrientationAltitude()).toBeGreaterThan(50);
+            expect(getOrientationAltitude()).toBeLessThan(90);
         });
 
-        it('is unaffected well away from the poles (existing behaviour preserved)', () => {
+        it('is unaffected well away from the pole (ordinary tracking preserved)', () => {
             __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
             __injectOrientationEvent({ alpha: 90, beta: 90, gamma: 0, timeStamp: 5000 }, { absolute: true });
             expect(getOrientationHeading()).toBeGreaterThan(89);
