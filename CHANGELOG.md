@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.11
+
+- **Corrected AR's final visual pitch direction.** The altitude readout and sensor math remain unchanged, while AR alone now applies the opposite camera pitch so positive altitude places the constellations above the horizon without mirroring their shape.
+
+---
+
 ## 5.3.10
 
 - **Corrected the real-device altitude sign without changing the working AR motion.** Looking up now reports positive altitude, while the camera receives the equivalent rotation that keeps stars and constellations anchored in the real sky.

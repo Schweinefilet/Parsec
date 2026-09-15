@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.3',
         changes: [
+            'Corrected the AR camera pitch so positive altitude puts constellations above the horizon without changing their orientation.',
             'Corrected the AR altitude readout on real devices: looking up now increases the altitude value while the stars remain anchored in the sky.',
             'Final AR direction fix: looking up now drags the constellation overlay down while the altitude readout stays positive.',
             'Fixed AR showing the stars when looking down instead of up, and stopped altitude from snapping when passing through 180°.',
