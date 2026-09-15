@@ -1040,7 +1040,7 @@ const NightSky3D = ({
         const applyLook = () => {
             const altitude = getAltitude();
             camera.rotation.set(
-                ((arModeRef.current ? -altitude : altitude) * Math.PI) / 180,
+                (altitude * Math.PI) / 180,
                 (-getAzimuth() * Math.PI) / 180,
                 0,
                 'YXZ',

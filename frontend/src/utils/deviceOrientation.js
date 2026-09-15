@@ -314,7 +314,7 @@ function altitudeFromBetaGamma(betaDeg, gammaDeg) {
     // device's pitch angle directly, while gravity remains the preferred
     // roll-invariant source whenever motion data is available.
     void gammaDeg;
-    return Math.atan2(-Math.cos(beta), Math.sin(beta)) * RAD2DEG;
+    return -Math.atan2(-Math.cos(beta), Math.sin(beta)) * RAD2DEG;
 }
 
 /**
@@ -341,7 +341,7 @@ function altitudeFromGravity(gx, gy, gz) {
     // x is the roll component; AR is portrait-only, so do not let it choose
     // the branch at the 0°/180° pitch boundaries.
     void gx;
-    return Math.atan2(gz, gy) * RAD2DEG;
+    return -Math.atan2(gz, gy) * RAD2DEG;
 }
 
 /** Magnetic heading (0=N, 90=E) from raw Euler angles — only used when

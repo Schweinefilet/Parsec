@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.10
+
+- **Corrected the real-device altitude sign without changing the working AR motion.** Looking up now reports positive altitude, while the camera receives the equivalent rotation that keeps stars and constellations anchored in the real sky.
+
+---
+
 ## 5.3.9
 
 - **Reversed the final AR screen motion.** Positive altitude still means looking up, but the AR camera now applies the opposite pitch rotation, so looking up drags the constellation overlay down as it should. The ordinary virtual sky view keeps its existing direction.

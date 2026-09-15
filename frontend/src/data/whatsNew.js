@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.3',
         changes: [
+            'Corrected the AR altitude readout on real devices: looking up now increases the altitude value while the stars remain anchored in the sky.',
             'Final AR direction fix: looking up now drags the constellation overlay down while the altitude readout stays positive.',
             'Fixed AR showing the stars when looking down instead of up, and stopped altitude from snapping when passing through 180°.',
             'Reworked AR orientation at the floor, sky, 45° and 135° boundaries: altitude no longer spins, compass heading stays continuous, and looking up moves the sky down so markers stay aligned.',
