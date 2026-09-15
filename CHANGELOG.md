@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.12
+
+- **Restored the working AR screen-motion direction.** The latest AR-only pitch inversion made vertical motion run backward again; the renderer now uses the established altitude rotation while leaving the positive altitude readout and sensor calculations unchanged.
+
+---
+
 ## 5.3.11
 
 - **Corrected AR's final visual pitch direction.** The altitude readout and sensor math remain unchanged, while AR alone now applies the opposite camera pitch so positive altitude places the constellations above the horizon without mirroring their shape.
