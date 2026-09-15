@@ -47,6 +47,11 @@ describe('deviceOrientation', () => {
             expect(getOrientationAltitude()).toBeCloseTo(90, 5);
         });
 
+        it('continues past zenith when beta exceeds 180 degrees', () => {
+            __injectOrientationEvent({ alpha: 0, beta: 190, gamma: 0 });
+            expect(getOrientationAltitude()).toBeCloseTo(100, 5);
+        });
+
         it('does not depend on alpha at all', () => {
             __injectOrientationEvent({ alpha: 37, beta: 90, gamma: 0 });
             const withAlpha37 = getOrientationAltitude();
@@ -204,6 +209,24 @@ describe('deviceOrientation', () => {
             __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0, webkitCompassHeading: 55 }, { absolute: false });
             expect(isOrientationAbsolute()).toBe(true);
         });
+
+        it('inverts webkitCompassHeading by 180 when altitude > 45 to counteract iOS flat-mode pole reversal', () => {
+            // beta=150, gamma=0 -> altitude = 60° (> 45°)
+            // iOS sends 180° offset in flat mode (e.g. 217° instead of 37°)
+            __injectOrientationEvent({ alpha: 0, beta: 150, gamma: 0, webkitCompassHeading: 217 });
+            expect(getOrientationHeading()).toBeCloseTo((217 + 180) % 360, 4);
+        });
+
+        it('crosses altitude 45 without a 180-degree heading jump when webkitCompassHeading flips', () => {
+            // Below 45 (e.g. beta=130, alt=40°): iOS reports forward heading 10°
+            __injectOrientationEvent({ alpha: 0, beta: 130, gamma: 0, webkitCompassHeading: 10, timeStamp: 0 });
+            expect(getOrientationHeading()).toBeCloseTo(10, 4);
+
+            // Above 45 (e.g. beta=140, alt=50°): iOS flips to 190°
+            // Parsec un-flips by 180° so the reading remains continuous at 10°
+            __injectOrientationEvent({ alpha: 0, beta: 140, gamma: 0, webkitCompassHeading: 190, timeStamp: 5000 });
+            expect(getOrientationHeading()).toBeCloseTo(10, 4);
+        });
     });
 
     describe('smoothing', () => {
@@ -348,12 +371,25 @@ describe('deviceOrientation', () => {
             expect(distanceFrom225).toBeLessThan(90);
         });
 
-        it('altitude keeps tracking smoothly through the same sweep', () => {
+        it('altitude keeps tracking smoothly through the same sweep past zenith', () => {
             sweepToward225();
-            // Comes back down from the +90 peak (beta=180) as beta
-            // continues past — see the hand-worked altitude cases above.
-            expect(getOrientationAltitude()).toBeGreaterThan(50);
-            expect(getOrientationAltitude()).toBeLessThan(90);
+            // Tracks continuously past the +90 zenith as beta continues past 180 (e.g. to -150)
+            // rather than folding back down.
+            expect(getOrientationAltitude()).toBeGreaterThan(90);
+            expect(getOrientationAltitude()).toBeLessThan(130);
+        });
+
+        it('pitching past the perpendicular line (zenith, +90) continues past 90 without reversing', () => {
+            // devicemotion: 10 degrees past zenith (gz = 9.65, gy = -1.7, gx = 0)
+            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: -1.7, z: 9.65 } });
+            __injectOrientationEvent({ alpha: 0, beta: 180, gamma: 0 });
+            expect(getOrientationAltitude()).toBeCloseTo(100, 0);
+
+            // 30 degrees past zenith (gz = 8.49, gy = -4.9, gx = 0)
+            __resetDeviceOrientation();
+            __injectMotionEvent({ accelerationIncludingGravity: { x: 0, y: -4.9, z: 8.49 } });
+            __injectOrientationEvent({ alpha: 0, beta: 180, gamma: 0 });
+            expect(getOrientationAltitude()).toBeCloseTo(120, 0);
         });
 
         it('is unaffected well away from the pole (ordinary tracking preserved)', () => {

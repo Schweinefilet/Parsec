@@ -305,12 +305,16 @@ function timeWeight(dt, tauMs) {
 }
 
 /** Degrees above the horizon. No alpha term — identical regardless of
- *  which heading source below actually supplied the compass reading. */
+ *  which heading source below actually supplied the compass reading.
+ *  Uses atan2 rather than asin so pitch continues smoothly through and
+ *  past the zenith (+90°) rather than folding back down. */
 function altitudeFromBetaGamma(betaDeg, gammaDeg) {
     const beta = betaDeg * DEG2RAD;
-    const gamma = gammaDeg * DEG2RAD;
-    const z = -Math.cos(beta) * Math.cos(gamma);
-    return Math.asin(Math.max(-1, Math.min(1, z))) * RAD2DEG;
+    // gamma is intentionally ignored here: this continuation follows the
+    // device's pitch angle directly, while gravity remains the preferred
+    // roll-invariant source whenever motion data is available.
+    void gammaDeg;
+    return Math.atan2(-Math.cos(beta), Math.sin(beta)) * RAD2DEG;
 }
 
 /**
@@ -322,33 +326,19 @@ function altitudeFromBetaGamma(betaDeg, gammaDeg) {
  * decomposition needed to get there, so altitude is just the angle between
  * the two: asin(dot((0,0,-1), normalize(g))).
  *
- * That dot product is +gz/|g|, not -gz/|g| — this sign was wrong in the
- * first version of this function, caught by a real-device report ("when I
- * look down, the scene behaves as if I looked up"): a full inversion,
- * exactly what a flipped z sign here produces, since altitude only ever
- * reads gz. This is not a re-derivation mistake so much as a landmine in
- * the underlying browser API itself — accelerationIncludingGravity's sign
- * convention (whether flat-screen-up reports z ~ +9.8 or ~ -9.8) is a
- * genuinely, widely documented point of confusion, inconsistent across
- * sources and reportedly across implementations, and no amount of hand-
- * verified geometry here can substitute for what a real device actually
- * sends — only a real report can. Verified against the exact three cases
- * altitudeFromBetaGamma() was checked against, using the sign this bug
- * report established rather than the original (backwards) assumption:
- * flat, screen up (g ~ (0,0,-1) in *this* convention) -> asin(-1) = -90,
- * the back camera facing down through the table; flat, screen down
- * (g ~ (0,0,+1)) -> asin(+1) = +90, zenith; upright "magic window"
- * (g ~ (0,+1,0), gravity felt along the length of the phone, none along its
- * depth) -> asin(0) = 0.
+ * Uses atan2(gz, gHoriz) rather than asin(gz/mag) so that pitching the
+ * camera past the vertical/perpendicular line (+90° zenith) continues
+ * smoothly past +90° instead of reversing direction and decreasing back down.
  *
  * Returns null for a degenerate reading (near-zero magnitude — momentary
  * free-fall, or no real data yet) so the caller can fall back rather than
- * feed asin() a divide-by-zero.
+ * feed atan2() a divide-by-zero.
  */
 function altitudeFromGravity(gx, gy, gz) {
     const mag = Math.sqrt(gx * gx + gy * gy + gz * gz);
     if (!(mag > 1e-6)) return null;
-    return Math.asin(Math.max(-1, Math.min(1, gz / mag))) * RAD2DEG;
+    const gHoriz = (gy >= 0 ? 1 : -1) * Math.sqrt(gx * gx + gy * gy);
+    return Math.atan2(gz, gHoriz) * RAD2DEG;
 }
 
 /** Magnetic heading (0=N, 90=E) from raw Euler angles — only used when
@@ -415,9 +405,6 @@ function handleOrientation(event, isAbsolute) {
     // iOS never sets that flag at all, but the heading itself is real.
     sourceIsAbsolute = isAbsolute || hasWebkitHeading;
 
-    const rawMagHeading = hasWebkitHeading
-        ? event.webkitCompassHeading
-        : headingFromEuler(alpha, beta, gamma);
     // Gravity first (see the module header), falling back to beta/gamma
     // when no motion reading has arrived yet — a denied/unsupported
     // devicemotion is a degradation, not a failure.
@@ -425,6 +412,22 @@ function handleOrientation(event, isAbsolute) {
         ? altitudeFromGravity(lastGravity.x, lastGravity.y, lastGravity.z)
         : null;
     const rawAltitude = gravityAltitude ?? altitudeFromBetaGamma(beta, gamma);
+
+    let rawMagHeading;
+    if (hasWebkitHeading) {
+        // iOS Safari's webkitCompassHeading switches from portrait mode
+        // (camera line-of-sight) to flat/face-up mode (top edge of device)
+        // at exactly altitude +45° (when gravity |gz| > |gy|). When tilting
+        // up to view the sky, the top edge of the device tilts backwards
+        // (180° away from the camera's forward heading), causing
+        // webkitCompassHeading to flip by exactly 180° for all altitude > 45°.
+        // Inverting by 180° restores the true forward camera heading.
+        rawMagHeading = rawAltitude > 45
+            ? norm360(event.webkitCompassHeading + 180)
+            : event.webkitCompassHeading;
+    } else {
+        rawMagHeading = headingFromEuler(alpha, beta, gamma);
+    }
 
     // event.timeStamp on a real DeviceOrientationEvent is a
     // DOMHighResTimeStamp already on the same clock as performance.now() —

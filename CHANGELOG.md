@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.4
+
+- **Fixed AR mode crossing the sky's two awkward boundaries on iPhone and iPad.** iOS's compass heading now stays continuous when its internal portrait/flat switch occurs at 45 degrees, while altitude continues through the zenith instead of folding back toward the horizon. AR's view can now follow the phone through the full -180 to +180 degree pitch range, with focused tests covering both transitions.
+
+---
+
 ## 5.3.3
 
 - **Chrome was noticeably darker than Safari, and not just in the main

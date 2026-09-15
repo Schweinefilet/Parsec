@@ -1214,7 +1214,7 @@ const NightSky3D = ({
             // opened up, reading as the view dragging into place instead of
             // tracking the phone directly.
             if (arModeRef.current) {
-                setLookDirection(getOrientationHeading(), getOrientationAltitude(), -90, 90);
+                setLookDirection(getOrientationHeading(), getOrientationAltitude(), -180, 180);
             }
             const wantCon = targetConstellationRef.current;
             if (wantCon && wantCon !== openedForConstellation && segmentsByIau?.has(wantCon)) {
