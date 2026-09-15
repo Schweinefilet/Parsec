@@ -321,14 +321,15 @@ function altitudeFromBetaGamma(betaDeg, gammaDeg) {
  * Degrees above the horizon, from the device's own raw gravity reading
  * (devicemotion's accelerationIncludingGravity, device-local axes: x right,
  * y up the screen, z out of the screen face) rather than from beta/gamma —
- * see the module header for why. The device's back camera points along
- * local (0,0,-1); gravity's reaction, normalized, IS local "up" with no
- * decomposition needed to get there, so altitude is just the angle between
- * the two: asin(dot((0,0,-1), normalize(g))).
+ * see the module header for why. In the portrait AR hold, the device y/z
+ * axes are the signed pitch plane: y is the horizon component and z is the
+ * camera's vertical component.
  *
- * Uses atan2(gz, gHoriz) rather than asin(gz/mag) so that pitching the
- * camera past the vertical/perpendicular line (+90° zenith) continues
- * smoothly past +90° instead of reversing direction and decreasing back down.
+ * Uses the signed y-axis as the horizontal pitch component. Using
+ * sign(gy) * sqrt(gx² + gy²) looks roll-invariant, but it changes branch
+ * whenever gy crosses zero, which is exactly what makes altitude twitch at
+ * the 0° and 180° device boundaries. The signed pitch-axis component keeps
+ * atan2 continuous through both boundaries for the portrait AR hold.
  *
  * Returns null for a degenerate reading (near-zero magnitude — momentary
  * free-fall, or no real data yet) so the caller can fall back rather than
@@ -337,8 +338,10 @@ function altitudeFromBetaGamma(betaDeg, gammaDeg) {
 function altitudeFromGravity(gx, gy, gz) {
     const mag = Math.sqrt(gx * gx + gy * gy + gz * gz);
     if (!(mag > 1e-6)) return null;
-    const gHoriz = (gy >= 0 ? 1 : -1) * Math.sqrt(gx * gx + gy * gy);
-    return Math.atan2(gz, gHoriz) * RAD2DEG;
+    // x is the roll component; AR is portrait-only, so do not let it choose
+    // the branch at the 0°/180° pitch boundaries.
+    void gx;
+    return Math.atan2(gz, gy) * RAD2DEG;
 }
 
 /** Magnetic heading (0=N, 90=E) from raw Euler angles — only used when
@@ -415,15 +418,20 @@ function handleOrientation(event, isAbsolute) {
 
     let rawMagHeading;
     if (hasWebkitHeading) {
-        // iOS Safari's webkitCompassHeading changes reference vectors at
-        // altitude +45° and +135°. The flat-mode vector is 180° opposite the
-        // portrait-mode camera vector, so compensate only between those two
-        // switches; a beta-only interval does not cover the second switch
-        // after the pitch passes through the device's signed range.
-        const inIosFlatMode = rawAltitude > 45 && rawAltitude < 135;
-        rawMagHeading = inIosFlatMode
-            ? norm360(event.webkitCompassHeading + 180)
-            : event.webkitCompassHeading;
+        // iOS changes the reference vector at both 45° and 135°. The two
+        // possible readings differ by 180°, so keep whichever candidate is
+        // closest to the previous heading. This follows either switch and
+        // does not depend on beta's Euler wrapping or an exact threshold.
+        const direct = norm360(event.webkitCompassHeading);
+        const flipped = norm360(direct + 180);
+        if (!smoothed) {
+            rawMagHeading = direct;
+        } else {
+            rawMagHeading = Math.abs(shortestDelta(magHeading, direct))
+                <= Math.abs(shortestDelta(magHeading, flipped))
+                ? direct
+                : flipped;
+        }
     } else {
         rawMagHeading = headingFromEuler(alpha, beta, gamma);
     }

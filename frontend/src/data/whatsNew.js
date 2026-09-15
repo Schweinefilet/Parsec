@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.3',
         changes: [
+            'Reworked AR orientation at the floor, sky, 45° and 135° boundaries: altitude no longer spins, compass heading stays continuous, and looking up moves the sky down so markers stay aligned.',
             'Fixed the remaining AR compass reversal around +135° and corrected the pitch direction so looking at the floor reads down and looking at the sky reads up.',
             'Corrected AR mode tracking pitch upside down and fixed the second compass reversal around 135° on iPhone and iPad.',
             'Fixed AR mode on iPhone and iPad reversing the poles around 45° and flipping direction after pointing straight up — the compass now stays continuous and the view follows the phone smoothly through the zenith.',

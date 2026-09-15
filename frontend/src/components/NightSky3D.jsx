@@ -1038,8 +1038,9 @@ const NightSky3D = ({
         // through this component's own state) and again every frame, since
         // the render loop is the source of truth for what's actually drawn.
         const applyLook = () => {
+            const altitude = getAltitude();
             camera.rotation.set(
-                (getAltitude() * Math.PI) / 180,
+                ((arModeRef.current ? -altitude : altitude) * Math.PI) / 180,
                 (-getAzimuth() * Math.PI) / 180,
                 0,
                 'YXZ',

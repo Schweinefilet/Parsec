@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.7
+
+- **Reworked AR orientation around all four sensor boundaries.** Altitude no longer branches at 0° or 180°, so looking between floor and sky does not spin the view. Heading now follows the continuous compass candidate across both iOS reference changes at 45° and 135°. The AR camera pitch is reversed separately from the numeric altitude, so looking up moves the rendered sky down and keeps markers aligned with the real world.
+
+---
+
 ## 5.3.6
 
 - **Corrected the final AR orientation signs and the +135° compass boundary.** Looking down at the floor now produces negative altitude and looking up produces positive altitude again. The iOS heading correction is based on the complete +45° to +135° altitude interval, preventing the remaining pole swap at +135°.

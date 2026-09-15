@@ -210,25 +210,23 @@ describe('deviceOrientation', () => {
             expect(isOrientationAbsolute()).toBe(true);
         });
 
-        it('inverts webkitCompassHeading only between altitude 45 and 135', () => {
-            // beta=150 gives altitude 60, inside the flat-mode interval.
-            // iOS sends 180° offset in flat mode (e.g. 217° instead of 37°)
-            __injectOrientationEvent({ alpha: 0, beta: 150, gamma: 0, webkitCompassHeading: 217 });
-            expect(getOrientationHeading()).toBeCloseTo((217 + 180) % 360, 4);
-        });
-
         it('crosses both iOS heading switches without a 180-degree pole jump', () => {
             // Below altitude 45, iOS reports the portrait heading directly.
             __injectOrientationEvent({ alpha: 0, beta: 130, gamma: 0, webkitCompassHeading: 10, timeStamp: 0 });
             expect(getOrientationHeading()).toBeCloseTo(10, 4);
 
-            // Between altitude 45 and altitude 135, iOS flips to 190° and Parsec
-            // un-flips it back to 10°.
-            __injectOrientationEvent({ alpha: 0, beta: 150, gamma: 0, webkitCompassHeading: 190, timeStamp: 5000 });
+            // At altitude 45 (beta=135), iOS flips to 190°; continuity
+            // chooses the equivalent 10° candidate.
+            __injectOrientationEvent({ alpha: 0, beta: 135, gamma: 0, webkitCompassHeading: 190, timeStamp: 5000 });
             expect(getOrientationHeading()).toBeCloseTo(10, 4);
 
-            // Above altitude 135, iOS returns to the portrait vector.
-            __injectOrientationEvent({ alpha: 0, beta: -100, gamma: 0, webkitCompassHeading: 10, timeStamp: 10000 });
+            // At altitude 135 (beta=-135), iOS changes reference again;
+            // continuity still keeps the same pole.
+            __injectOrientationEvent({ alpha: 0, beta: -135, gamma: 0, webkitCompassHeading: 190, timeStamp: 10000 });
+            expect(getOrientationHeading()).toBeCloseTo(10, 4);
+
+            // Beyond altitude 135, the portrait vector returns.
+            __injectOrientationEvent({ alpha: 0, beta: -140, gamma: 0, webkitCompassHeading: 10, timeStamp: 15000 });
             expect(getOrientationHeading()).toBeCloseTo(10, 4);
         });
     });
