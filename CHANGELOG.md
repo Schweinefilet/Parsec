@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.13
+
+- **Shifted AR altitude into the device's real-world frame.** The reported scale now maps ground to -90°, straight ahead to 0°, sky to +90°, and the position behind the observer to +180°, while preserving the established continuous motion through the sensor boundaries.
+
+---
+
 ## 5.3.12
 
 - **Restored the working AR screen-motion direction.** The latest AR-only pitch inversion made vertical motion run backward again; the renderer now uses the established altitude rotation while leaving the positive altitude readout and sensor calculations unchanged.

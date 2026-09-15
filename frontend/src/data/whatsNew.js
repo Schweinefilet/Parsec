@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.3',
         changes: [
+            'AR altitude now uses the real-world scale: -90° at the ground, 0° straight ahead, +90° at the sky, and +180° behind you.',
             'Restored the correct vertical AR screen motion without changing the positive altitude readout.',
             'Corrected the AR camera pitch so positive altitude puts constellations above the horizon without changing their orientation.',
             'Corrected the AR altitude readout on real devices: looking up now increases the altitude value while the stars remain anchored in the sky.',

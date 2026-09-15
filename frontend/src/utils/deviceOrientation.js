@@ -214,6 +214,7 @@ import { magvar } from 'magvar';
 
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
+const ALTITUDE_OFFSET = -180;
 
 // Exponential-moving-average time constant, in milliseconds — how long it
 // takes the smoothed heading/altitude to close roughly two-thirds of the
@@ -596,7 +597,7 @@ export function getOrientationHeading() {
  *  clamps this to skyRotation.js's own ALT_MIN/ALT_MAX, so out-of-range
  *  values here are harmless rather than needing a second clamp. */
 export function getOrientationAltitude() {
-    return altitude + calibrationAlt;
+    return altitude + calibrationAlt + ALTITUDE_OFFSET;
 }
 
 /** Whether the heading currently in use is earth-referenced (Chrome/Android
