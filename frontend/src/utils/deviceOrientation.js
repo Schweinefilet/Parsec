@@ -314,7 +314,7 @@ function altitudeFromBetaGamma(betaDeg, gammaDeg) {
     // device's pitch angle directly, while gravity remains the preferred
     // roll-invariant source whenever motion data is available.
     void gammaDeg;
-    return Math.atan2(-Math.cos(beta), Math.sin(beta)) * RAD2DEG;
+    return -Math.atan2(-Math.cos(beta), Math.sin(beta)) * RAD2DEG;
 }
 
 /**
@@ -338,7 +338,7 @@ function altitudeFromGravity(gx, gy, gz) {
     const mag = Math.sqrt(gx * gx + gy * gy + gz * gz);
     if (!(mag > 1e-6)) return null;
     const gHoriz = (gy >= 0 ? 1 : -1) * Math.sqrt(gx * gx + gy * gy);
-    return Math.atan2(gz, gHoriz) * RAD2DEG;
+    return -Math.atan2(gz, gHoriz) * RAD2DEG;
 }
 
 /** Magnetic heading (0=N, 90=E) from raw Euler angles — only used when
@@ -415,14 +415,13 @@ function handleOrientation(event, isAbsolute) {
 
     let rawMagHeading;
     if (hasWebkitHeading) {
-        // iOS Safari's webkitCompassHeading switches from portrait mode
-        // (camera line-of-sight) to flat/face-up mode (top edge of device)
-        // at exactly altitude +45° (when gravity |gz| > |gy|). When tilting
-        // up to view the sky, the top edge of the device tilts backwards
-        // (180° away from the camera's forward heading), causing
-        // webkitCompassHeading to flip by exactly 180° for all altitude > 45°.
-        // Inverting by 180° restores the true forward camera heading.
-        rawMagHeading = rawAltitude > 45
+        // iOS Safari's webkitCompassHeading changes reference vectors at
+        // beta=45° and beta=135°. The flat-mode vector is 180° opposite the
+        // portrait-mode camera vector, so compensate only between those two
+        // switches; a one-sided altitude threshold leaves the second switch
+        // exposed and causes another pole reversal.
+        const inIosFlatMode = beta > 45 && beta < 135;
+        rawMagHeading = inIosFlatMode
             ? norm360(event.webkitCompassHeading + 180)
             : event.webkitCompassHeading;
     } else {

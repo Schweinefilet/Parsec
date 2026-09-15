@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.5
+
+- **Corrected AR pitch direction and the second iOS compass reversal.** The previous AR altitude correction tracked the phone upside down; pitch is now inverted consistently for both orientation and gravity readings. iOS heading compensation now covers the complete beta 45° to 135° flat-mode interval, so North and South no longer jump at either boundary.
+
+---
+
 ## 5.3.4
 
 - **Fixed AR mode crossing the sky's two awkward boundaries on iPhone and iPad.** iOS's compass heading now stays continuous when its internal portrait/flat switch occurs at 45 degrees, while altitude continues through the zenith instead of folding back toward the horizon. AR's view can now follow the phone through the full -180 to +180 degree pitch range, with focused tests covering both transitions.
