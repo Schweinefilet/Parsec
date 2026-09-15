@@ -155,6 +155,55 @@ import { magvar } from 'magvar';
 // substitute for. Fixed and reasoned through independently (two separate
 // physical rotations checked by hand, not just re-reading the same
 // algebra), but still worth another real-device pass to confirm.
+//
+// ── Heading confidence near the poles ─────────────────────────────────────
+//
+// A second real-device report: pitching smoothly from the horizon, up
+// through "pointing straight at the sky", and on to the horizon on the
+// opposite side made the compass reading flip by ~180° partway through and
+// stay wrong — north read as south — until the phone was brought back
+// toward level. Unlike the gravity fix above, this isn't a sign bug in one
+// function; it's the compass equivalent of a map projection's pole
+// singularity, and it is unavoidable in the underlying quantity, not in any
+// particular formula: heading is the angle of the *horizontal* component of
+// the look direction, and headingFromEuler's own east/north outputs satisfy
+// east^2 + north^2 = cos^2(altitude) (they, plus the vertical component,
+// form a unit vector — see the formula's own header). That horizontal
+// vector shrinks to zero length as altitude approaches +/-90, so
+// atan2(east, north) there is computing the angle of an almost-zero vector
+// — ordinary sensor noise, amplified into a swing that can land anywhere.
+// The same is true in principle of webkitCompassHeading, which is also
+// fundamentally a horizontal-plane bearing.
+//
+// Confirmed as the right neighbourhood, not just a plausible one: at
+// exactly beta=180, gamma=0 (this file's own "flat, screen down" test case,
+// altitude +90) headingFromEuler's east and north both evaluate to exactly
+// zero *for every value of alpha* — the formula isn't slightly noisy near
+// the pole, it is genuinely uninformative there, by construction.
+//
+// Fixed by confidence-weighting the heading EMA update — not by capping how
+// far a single sample may move it. A flat cap on the size of the change
+// cannot tell a real semicircle pitch-over apart from noise (the user's own
+// explicit constraint on this fix), and would get every large, real heading
+// change wrong to guard against a problem that is about *where* the device
+// is pointed, not *how much* the reading changed. headingConfidence() below
+// fades from 1 (trust the raw reading fully) to 0 (freeze — don't move the
+// smoothed heading at all) as |altitude| approaches 90, using whichever
+// altitude handleOrientation already picked for this sample (gravity
+// preferred, beta/gamma fallback — see above) rather than a second,
+// independent computation. That reuse matters: it's an independently
+// measured quantity, not derived from the same alpha/gamma the heading
+// formula itself depends on, so it stays a trustworthy gate even in exactly
+// the region where heading itself is not. Heading is left untouched while
+// frozen and picks its tracking back up — including a genuine ~180 degree
+// difference, applied through the ordinary EMA rather than snapped — the
+// moment the device tilts back into a well-conditioned range.
+//
+// Motivated by a real-device report but, like the Euler formulas above, not
+// itself re-verified against a physical phone (see the module's own
+// "Not verified against real hardware" note) — the fade thresholds below
+// are a first cut, worth confirming against the acceptance scenario the
+// report described (a smooth pitch from horizon to zenith and beyond).
 
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
@@ -317,6 +366,30 @@ function headingFromEuler(alphaDeg, betaDeg, gammaDeg) {
     return norm360(Math.atan2(east, north) * RAD2DEG);
 }
 
+// |altitude| degrees where the heading EMA's confidence starts fading (still
+// full trust below this) and where it reaches zero (fully frozen) — see the
+// module header's own "Heading confidence near the poles" section for why
+// this exists and why it's gated on altitude rather than on the size of a
+// heading change. Picked to sit well clear of ordinary AR use (ALT_MIN/MAX
+// in skyRotation.js only reach -10..90 outside AR, and looking anywhere
+// near-overhead in the sky is itself an uncommon ask) while leaving enough
+// room below true zenith for the fade to actually damp the noisy samples
+// rather than only the single exact pole point.
+const HEADING_CONFIDENCE_START = 65;
+const HEADING_CONFIDENCE_END = 85;
+
+/** 1 = trust this sample's raw heading fully, 0 = don't move the smoothed
+ *  heading at all — see the module header. Smoothstep, not a linear ramp,
+ *  so the transition itself has no kink for a continuously-pitching device
+ *  to notice. */
+function headingConfidence(altitudeDeg) {
+    const a = Math.abs(altitudeDeg);
+    if (a <= HEADING_CONFIDENCE_START) return 1;
+    if (a >= HEADING_CONFIDENCE_END) return 0;
+    const t = (a - HEADING_CONFIDENCE_START) / (HEADING_CONFIDENCE_END - HEADING_CONFIDENCE_START);
+    return 1 - t * t * (3 - 2 * t);
+}
+
 /**
  * The shared event handler, exercised directly by tests (see
  * __injectOrientationEvent) so a fixture can be a plain object rather than
@@ -385,7 +458,12 @@ function handleOrientation(event, isAbsolute) {
         smoothed = true;
     } else {
         const weight = timeWeight(sampleAt - lastSampleAt, TAU_MS);
-        magHeading = emaHeading(magHeading, rawMagHeading, weight);
+        // Heading's own weight is additionally scaled by how close this
+        // sample is to the pole (see headingConfidence's own header) — the
+        // reading itself gets noisier there, not just staler, so the fix
+        // has to be a second, independent factor rather than folded into
+        // the same time-based weight altitude keeps using unscaled.
+        magHeading = emaHeading(magHeading, rawMagHeading, weight * headingConfidence(rawAltitude));
         altitude += (rawAltitude - altitude) * weight;
     }
     // Never lets the clock run backward: an out-of-order or clock-skewed

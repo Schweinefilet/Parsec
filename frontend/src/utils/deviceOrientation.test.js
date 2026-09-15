@@ -283,6 +283,56 @@ describe('deviceOrientation', () => {
         });
     });
 
+    describe('heading confidence near the poles', () => {
+        // Pins the fix for a real-device report: pitching smoothly from the
+        // horizon, through pointing straight at the sky, to the horizon on
+        // the opposite side flipped the reported heading ~180 degrees and
+        // left it wrong until the phone came back down. See
+        // deviceOrientation.js's own "Heading confidence near the poles"
+        // header for the diagnosis — headingFromEuler's east/north outputs
+        // shrink to zero near altitude +/-90 (they're literally zero for
+        // every alpha at beta=180,gamma=0, the exact case below), so a
+        // heading computed there is the angle of noise, not signal.
+        it('barely moves the smoothed heading for a sample near true zenith', () => {
+            __injectOrientationEvent({ alpha: 45, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
+            expect(getOrientationHeading()).toBeCloseTo(45, 4);
+            // beta=180, gamma=0 -> altitude +90 (see the hand-worked cases
+            // above) and, per the module header, east=north=0 regardless of
+            // alpha here — alpha=225 is a deliberately wildly different
+            // heading a noisy real sample could report at the pole. A 5s
+            // gap would normally let one sample catch almost all the way up
+            // (see the "smoothing" tests above) — it should not here.
+            __injectOrientationEvent({ alpha: 225, beta: 180, gamma: 0, timeStamp: 5000 }, { absolute: true });
+            expect(getOrientationHeading()).toBeCloseTo(45, 1);
+        });
+
+        it('resumes tracking a genuine large change once back in a well-conditioned range', () => {
+            __injectOrientationEvent({ alpha: 45, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
+            __injectOrientationEvent({ alpha: 225, beta: 180, gamma: 0, timeStamp: 5000 }, { absolute: true });
+            // Back near the horizon (altitude 0, full confidence) with the
+            // same alpha=225 a real semicircle pitch-over would leave it
+            // at — not rejected for being a ~180 degree change, and not
+            // stuck at the frozen 45 from the pole sample.
+            __injectOrientationEvent({ alpha: 225, beta: 90, gamma: 0, timeStamp: 10000 }, { absolute: true });
+            expect(getOrientationHeading()).toBeGreaterThan(200);
+        });
+
+        it('does not affect altitude, which keeps tracking through the same samples', () => {
+            __injectOrientationEvent({ alpha: 45, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
+            __injectOrientationEvent({ alpha: 225, beta: 180, gamma: 0, timeStamp: 5000 }, { absolute: true });
+            // Confidence-gating is heading-only (see the smoothing block in
+            // handleOrientation) — altitude should still have moved almost
+            // all the way to the new beta=180 reading of +90.
+            expect(getOrientationAltitude()).toBeGreaterThan(89);
+        });
+
+        it('is unaffected well away from the poles (existing behaviour preserved)', () => {
+            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0, timeStamp: 0 }, { absolute: true });
+            __injectOrientationEvent({ alpha: 90, beta: 90, gamma: 0, timeStamp: 5000 }, { absolute: true });
+            expect(getOrientationHeading()).toBeGreaterThan(89);
+        });
+    });
+
     describe('declination', () => {
         it('adds the WMM result to the reported heading', () => {
             magvarMock.mockReturnValue(12.5);
