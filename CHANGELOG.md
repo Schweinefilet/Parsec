@@ -16,6 +16,12 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.3.9
+
+- **Reversed the final AR screen motion.** Positive altitude still means looking up, but the AR camera now applies the opposite pitch rotation, so looking up drags the constellation overlay down as it should. The ordinary virtual sky view keeps its existing direction.
+
+---
+
 ## 5.3.8
 
 - **Fixed the final AR pitch behavior.** Positive altitude now uses the same scene direction as the sky viewer, so looking up moves the constellation overlay down and keeps it over the real sky. Altitude smoothing now unwraps through 180° instead of snapping across the signed-angle seam.
