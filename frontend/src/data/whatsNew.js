@@ -12,26 +12,24 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.4',
+        changes: [
+            'AR mode actually lines up with the sky now. The whole compass side of it was mirrored east to west — point the phone at Orion and you got whatever sits on the opposite side of the sky — and the up/down reading was inverted on top of that, which is what the ten fixes before this one kept chasing around without catching. Rebuilt from the phone\u2019s orientation as one measurement instead of three separate ones.',
+            'AR follows the phone when you tilt it sideways. The stars used to stay stubbornly level while the world behind them rolled, so anything but a perfectly upright hold pulled the two apart.',
+            'AR now renders at the same field of view your camera is actually showing, instead of a fixed one that was 15\u201320% too narrow \u2014 things near the middle of the screen looked right while anything near the edge sat several degrees off.',
+            'AR mode asks for one permission instead of two: the motion-sensor grant went away with the sensor it was for.',
+        ],
+    },
+    {
         version: '5.3',
         changes: [
-            'AR altitude now uses the real-world scale: -90° at the ground, 0° straight ahead, +90° at the sky, and +180° behind you.',
-            'Restored the correct vertical AR screen motion without changing the positive altitude readout.',
-            'Corrected the AR camera pitch so positive altitude puts constellations above the horizon without changing their orientation.',
-            'Corrected the AR altitude readout on real devices: looking up now increases the altitude value while the stars remain anchored in the sky.',
-            'Final AR direction fix: looking up now drags the constellation overlay down while the altitude readout stays positive.',
-            'Fixed AR showing the stars when looking down instead of up, and stopped altitude from snapping when passing through 180°.',
-            'Reworked AR orientation at the floor, sky, 45° and 135° boundaries: altitude no longer spins, compass heading stays continuous, and looking up moves the sky down so markers stay aligned.',
-            'Fixed the remaining AR compass reversal around +135° and corrected the pitch direction so looking at the floor reads down and looking at the sky reads up.',
-            'Corrected AR mode tracking pitch upside down and fixed the second compass reversal around 135° on iPhone and iPad.',
-            'Fixed AR mode on iPhone and iPad reversing the poles around 45° and flipping direction after pointing straight up — the compass now stays continuous and the view follows the phone smoothly through the zenith.',
-            'Planets can leave a trail behind them now — a "Trails" toggle in the scene drawer puts a short, fading, colour-tinted arc behind each one as it moves along its orbit.',
-            'The orbit ring dims while trails are on, so the trail itself stands out more, and focusing a planet now hides only that planet’s own trail — every other one stays visible.',
-            'The Sun’s lens-flare now shows on phones too.',
-            'AR mode no longer responds to dragging the screen — it’s sensor-driven only now.',
-            'Fixed AR mode losing track of direction after pointing the phone straight up or turning all the way around — altitude now reads from the phone’s own tilt sensor instead of a calculation that got unreliable in that position.',
-            'Fixed AR mode reading up and down backwards after the above fix — looking down now looks down.',
+            'Ten releases in a row tried and failed to fix AR mode pointing at the wrong part of the sky. Those attempts are collapsed into this one line; the actual fix is in 5.4.',
+            'Planets can leave a trail behind them now \u2014 a "Trails" toggle in the scene drawer puts a short, fading, colour-tinted arc behind each one as it moves along its orbit.',
+            'The orbit ring dims while trails are on, so the trail itself stands out more, and focusing a planet now hides only that planet\u2019s own trail \u2014 every other one stays visible.',
+            'The Sun\u2019s lens-flare now shows on phones too.',
+            'AR mode no longer responds to dragging the screen \u2014 it\u2019s sensor-driven only now.',
             'Trails are on by default now.',
-            'Fixed the satellite tracker and night sky looking noticeably darker in Chrome than Safari on a Mac — the same brightness fix the main view already had.',
+            'Fixed the satellite tracker and night sky looking noticeably darker in Chrome than Safari on a Mac \u2014 the same brightness fix the main view already had.',
         ],
     },
     {

@@ -1,257 +1,183 @@
+import * as THREE from 'three';
 import { magvar } from 'magvar';
 
-// The phone's own compass + tilt, turned into the same azimuth/altitude
-// utils/skyRotation.js already accepts from a drag — this is AR mode's
-// input, dragging's replacement, not a rival coordinate system. Everything
-// downstream of getOrientationHeading()/getOrientationAltitude() is
-// unchanged: setLookDirection(), applyLook(), the crosshair constellation
-// lookup, all of it already worked for a dragged heading and don't know or
-// care that this one came from a sensor instead.
+// The phone's own compass + tilt, turned into the azimuth/altitude/roll the
+// AR sky view aims its camera with — dragging's replacement, not a rival
+// coordinate system. Everything downstream of getOrientationHeading() /
+// getOrientationAltitude() is the same code a dragged heading already fed.
 //
-// ── Signal priority ──────────────────────────────────────────────────────
+// ── One rotation, not three loose angles ─────────────────────────────────
 //
-// Three possible sources for a MAGNETIC heading, tried in order:
+// The whole module is built on a single idea: DeviceOrientationEvent's
+// alpha/beta/gamma are a *decomposition* of one physical rotation, and the
+// only safe thing to do with them is put them straight back together into
+// that rotation and ask questions of it. Every earlier version of this file
+// instead pulled heading out of one hand-derived trig expression, altitude
+// out of a second (or out of the accelerometer entirely), and left roll on
+// the floor — three answers that were separately plausible and jointly
+// describing no orientation any phone could actually be in.
 //
-//   1. `webkitCompassHeading` — iOS Safari's own pre-computed heading, sent
-//      alongside a plain `deviceorientation` event. Already screen-
-//      orientation-compensated by iOS itself, already in this app's own
-//      convention (0=N, 90=E, clockwise) — used directly, never re-derived
-//      from alpha/beta/gamma on this path. Confirmed via Apple's own
-//      documentation to be relative to *magnetic* north, not true north
-//      (unlike its name might suggest), so it still needs the same
-//      declination correction as the other two sources below.
-//   2. `deviceorientationabsolute` (Chrome/Android) — already
-//      earth-referenced; alpha here is trustworthy, so heading comes from
-//      the Euler-angle formula below fed with this event's own alpha.
-//   3. Plain `deviceorientation` with no absolute flag and no
-//      webkitCompassHeading — alpha here is only relative to wherever the
-//      sensor happened to be pointed when tracking started, not to
-//      magnetic north at all. Used anyway as a best-effort source (the
-//      alternative is no heading whatsoever), leaning on the manual
-//      calibration-offset drag (see nudgeCalibrationOffset) to absorb
-//      whatever the result is off by.
+// The composition is the one the DeviceOrientation Event Specification
+// defines, in the Earth frame it defines it in (x = east, y = north,
+// z = up), as intrinsic Z-X'-Y'':
 //
-// ── The Euler-angle formula ──────────────────────────────────────────────
+//     R = Rz(alpha) . Rx(beta) . Ry(gamma)          (device -> ENU)
 //
-// Not re-derived by hand from Wikipedia trig — sign/axis errors are exactly
-// the kind of bug that only shows up with a real device in hand, and there
-// is no substitute here (see the module's own tests: they pin the *logic*,
-// not whether it points at the real sky). This is the rotation-matrix
-// construction the DeviceOrientation Event Specification's own non-
-// normative appendix gives for device-frame -> Earth-frame (Earth frame:
-// x=East, y=North, z=up), the same lineage three.js's now-removed
-// DeviceOrientationControls.js and most other "hold the phone up" demos
-// build on — but NOT trusted at face value; see the note below on what
-// changed after testing:
+// R's columns are where the device's own axes point: x = the right edge,
+// y = the top edge, z = out through the screen. So the *back* camera — the
+// one AR is looking through — faces device -z, and everything the view
+// needs is read off R directly:
 //
-//   Earth.x (East)  =  cos(a)sin(g) + cos(g)sin(a)sin(b)
-//   Earth.y (North) = -(sin(a)sin(g) - cos(a)cos(g)sin(b))
-//   Earth.z (Up)    = -(cos(b)cos(g))
+//     forward = R . (0, 0, -1)     where the camera points
+//     screenUp = R . u_screen      which way is up on the glass
 //
-// (a=alpha, b=beta, g=gamma, all radians). This is close to, but not
-// exactly, "column 3 of the device->Earth rotation matrix, negated" — the
-// derivation that motivated the North and Up signs (the back camera looks
-// out -Z in the device's own frame, so the matrix's third column, which
-// transforms +Z, gets negated throughout). A first pass negated East the
-// same uniform way and the unit tests below caught it immediately: alpha
-// 0/180 (N/S) came out right but 90/270 (E/W) came out swapped — a mirror
-// across the N/S axis, not a random bug, which is what a lopsided
-// East-only sign error looks like. Dropping the negation on East alone
-// (keeping it on North and Up) makes all four cardinal directions agree at
-// once; four independent points landing on the fix is a much stronger
-// signal than the original derivation's own internal algebra was.
+//     heading  = atan2(forward.east, forward.north)     (0=N, 90=E)
+//     altitude = atan2(forward.up, |forward.horizontal|)
+//     roll     = the spin of screenUp about forward (see rollFrom() below)
 //
-// heading  = atan2(Earth.x, Earth.y), the compass convention (0=N, 90=E)
-// altitude = asin(Earth.z)  — note this has NO alpha term at all, so it is
-//            identical regardless of which heading source above is used,
-//            and unaffected by alpha being unreliable on the relative-only
-//            path.
+// `u_screen` is the top of the *screen* in device axes, which is the top of
+// the device only while the page is portrait: `screen.orientation.angle`
+// rotates it, the same compensation three.js's own (now removed)
+// DeviceOrientationControls applied as a post-multiplied Z rotation.
 //
-// Verified against hand-worked special cases before trusting it: beta=90°
-// (phone held vertical, "magic window" position) + gamma=0 gives altitude
-// 0° looking at whatever alpha says, matching the physical picture exactly;
-// beta=0° (flat on a table, screen up) gives altitude -90° (the back
-// camera, on the underside, faces straight down through the table);
-// beta=180° (flat, screen down) gives altitude +90° (zenith). All three
-// match the geometry by hand, independent of the formula's own algebra.
+// ── The bug this replaces, and why its tests agreed with it ──────────────
 //
-// ── Magnetic declination ─────────────────────────────────────────────────
+// The previous heading formula un-negated its east component relative to
+// the matrix above, on the strength of a unit test asserting that alpha=90
+// should read as heading 90. It should read 270. Alpha is a *counter*-
+// clockwise rotation about the up axis (the spec's frame is right-handed
+// with z up), and compass bearings run clockwise, so a flat or upright
+// phone satisfies heading = 360 - alpha, not heading = alpha. Getting that
+// backwards mirrors the entire sky across the north-south line: Orion sits
+// where it would if you were facing the opposite way, and every attempt to
+// chase it by flipping some *other* sign (5.3.4 through 5.3.13, most of
+// which landed in the changelog) moved the error around without removing
+// it. Four cardinal directions "agreeing" on the wrong answer is what a
+// mirror looks like; it is not the corroboration it was read as.
 //
-// Every source above is magnetic-referenced, not true-north-referenced —
-// off by a location-dependent amount (currently a few degrees to over ten,
-// depending where on Earth). Corrected via the `magvar` package (WMM
-// 2025-2030, MIT, zero runtime dependencies) using the *real* current date
-// (`magvar()` always uses "now" internally, not this app's own scrubbable
-// simulated clock — the correction is for where the phone's magnetometer
-// physically is right now, not for whatever date the star field has been
-// wound to). Sign convention confirmed against NOAA's own documentation:
-// declination is positive when magnetic north sits *east* of true north,
-// and true heading = magnetic heading + declination. WMM 2025-2030 will
-// need swapping for a newer model epoch after 2030 — magvar's own README
-// versioning is the thing to watch.
+// Altitude had a matching pair of problems — a formula that read flat-on-
+// the-table as +90 (the back camera is on the underside; it faces the
+// floor, so that is -90) and a literal `ALTITUDE_OFFSET = -180` bolted on
+// top to cancel it. In the app's own default AR pose, phone upright and
+// level, the two composed to a reported altitude of -180 degrees, which as
+// a camera pitch means "looking at the horizon behind you, upside down."
+// Both are gone: altitude is now asin(forward.up), and nothing is added to
+// it.
 //
-// ── No roll, ever ─────────────────────────────────────────────────────────
-//
-// Same invariant skyRotation.js's own header states for the dragged view:
-// this scene never introduces roll. AR mode only ever reports heading
-// (yaw) and altitude (pitch) — gamma still feeds the altitude formula
-// above (tilting the phone sideways does change how far "up" the camera
-// is pointed), but nothing here extracts or applies a separate roll to the
-// renderer. A phone held with a deliberate sideways tilt will read a
-// slightly different altitude than if held level, which is a known,
-// accepted v1 simplification, not a bug — see the implementation plan.
-//
-// ── Not verified against real hardware ───────────────────────────────────
-//
-// Unlike milestone 1 (capability gate, permission flow, camera
-// compositing — confirmed working on a real iPhone), this module's actual
-// math has only been checked against hand-worked geometric special cases
-// and unit-test fixtures, at the user's explicit direction to keep
-// building without a real-device round trip each milestone. The
-// calibration-offset drag exists specifically so a real, in-the-field sign
-// or offset error is a quick manual correction rather than an unusable
-// feature — but it should still be checked against reality at the next
-// opportunity.
-//
-// ── Altitude from gravity, not beta/gamma — why, and why it's still here ──
+// ── Why this is stable where beta/gamma were not ─────────────────────────
 //
 // A real-device report ("the scene tweaks out after pointing the phone all
 // the way up", "can't do one complete revolution without it losing track")
-// pointed at a well-documented, genuine limitation of the alpha/beta/gamma
-// Euler decomposition DeviceOrientationEvent hands us: it becomes unstable
-// and can jump discontinuously exactly near beta = +/-90 degrees — which is
-// this app's own default AR holding orientation ("magic window", phone
-// upright, looking at the horizon), not a rare edge case reached only by
-// pointing at the zenith. This is the actual answer to "how does Google do
-// it and we can't": native apps (and ARCore) read a hardware-fused rotation
-// vector as a quaternion, which has no such singularity, ever. The web's
-// equivalent — the Generic Sensor API's AbsoluteOrientationSensor, which
-// also exposes a raw quaternion — exists on Chrome/Android, but WebKit has
-// never implemented it, so it is not reachable from an iPhone no matter
-// which browser app wraps it.
+// was correctly diagnosed as the Euler decomposition degenerating near
+// beta = +/-90 — which is exactly the AR holding pose — and then fixed in
+// the wrong place, by reaching for the accelerometer for altitude alone.
 //
-// What *is* reachable everywhere DeviceOrientationEvent is: the raw
-// accelerometer, via a separate `devicemotion` event's own
-// accelerationIncludingGravity. That single physical vector — which way
-// gravity pulls, expressed in the device's own axes — never passes through
-// any Euler decomposition at all, so it carries none of the beta=90
-// instability. altitudeFromGravity() below derives altitude from it
-// directly and is preferred whenever a motion reading is available,
-// verified against the exact same three hand-worked cases
-// altitudeFromBetaGamma() already was (see its own header): flat screen-up,
-// flat screen-down, and upright. Heading is a separate problem — a truly
-// gravity-and-magnetometer "tilt-compensated" heading needs a raw
-// magnetometer reading the web does not expose, so the Euler-angle
-// (headingFromEuler) and webkitCompassHeading paths for heading are
-// unchanged; only altitude, which every path already depends on regardless
-// of heading source, gets the more robust signal.
+// The degeneracy is real but it is a property of the *representation*, not
+// of the rotation. Near beta = +/-90 the browser can report wildly
+// different (alpha, gamma) pairs for two physically identical attitudes,
+// and any formula that reads either angle on its own inherits that noise —
+// but the pairs are correlated, and R composed from them is the same
+// rotation either way, to within sensor noise. Reassembling R first and
+// only then extracting angles is what makes the singularity stop mattering,
+// which is also why no confidence gate, pole freeze or heading-candidate
+// flip survives in this file: those were all treatments for a symptom this
+// formulation does not produce. (It is the same reason native ARCore/
+// ARKit-style code reads a fused quaternion; the web just makes you
+// reassemble it yourself on the WebKit side, where the Generic Sensor API's
+// AbsoluteOrientationSensor has never shipped.)
 //
-// The real-device round trip this needed did happen, fast: the very first
-// version had gz's sign backwards (see altitudeFromGravity's own header),
-// which read as "looking down behaves like looking up" — a real device is
-// genuinely the only way that particular bug surfaces, since
-// accelerationIncludingGravity's sign convention is a widely documented
-// point of confusion the spec text and hand-worked geometry alike can't
-// substitute for. Fixed and reasoned through independently (two separate
-// physical rotations checked by hand, not just re-reading the same
-// algebra), but still worth another real-device pass to confirm.
+// Smoothing follows from the same principle: the EMA now runs on the
+// quaternion itself (slerp), not on three angles independently. Angles
+// smoothed separately drift off the unit sphere in exactly the region where
+// they disagree most — near the zenith, heading and roll each swing fast
+// while the rotation they jointly describe barely moves — and the result
+// wobbles. Slerping interpolates along the actual rotation, so a fast
+// pass through the pole stays a fast pass through the pole.
 //
-// ── Heading through the pole: a real fix, then a real regression ──────────
+// The accelerometer path is gone with it. Besides being unnecessary once
+// the rotation is intact, `accelerationIncludingGravity` disagrees on sign
+// between iOS and everything else, which the previous code had baked to one
+// platform (see 5.3.2: fixed by flipping the sign against one real device,
+// which silently inverted the other platform). One fewer sensor, one fewer
+// permission prompt, one fewer convention to be wrong about.
 //
-// A real-device report: pitching smoothly from the horizon, up through
-// "pointing straight at the sky", and on to the horizon on the opposite
-// side made the compass reading flip by ~180° partway through and stay
-// wrong — north read as south — until the phone was brought back toward
-// level. The first attempt at a fix (still visible in this file's git
-// history) diagnosed this as heading being inherently unmeasurable right at
-// the pole — true, in the limit: headingFromEuler's own east/north satisfy
-// east^2 + north^2 = cos^2(altitude), which does shrink to zero exactly at
-// altitude=+/-90 — and "fixed" it by fading the heading EMA's own weight to
-// zero as |altitude| approached 90, freezing heading while the device
-// passed through the danger zone and letting it resume once altitude
-// receded back out.
+// ── Absolute north, per platform ─────────────────────────────────────────
 //
-// That fix was itself the bug, and a worse one than the original: proven by
-// simulation (feed a smooth, physically-continuous beta sweep from 150° up
-// through 180° and out to -150° through both the gated and ungated EMA) —
-// freezing heading for even a narrow band, then releasing it, hands the
-// ordinary shortestDelta()-based EMA a *sudden*, roughly-180°-wide gap to
-// close instead of the small, sample-to-sample steps it's designed for.
-// 180° is exactly the one distance where "shortest way around" is
-// ambiguous, and the tie-break resolves it the same way every time given
-// the same inputs — so the smoothed heading swept through the *wrong* three
-// quarters of the compass (peak deviation from the true raw heading over
-// 150° in simulation, versus under 60° — ordinary smoothing lag — with the
-// gate removed entirely) before landing on the right answer. That reads as
-// exactly what was reported: the compass visibly spinning through north,
-// west and south while the device was already past the pole and altitude
-// was tracking down correctly the whole time.
+// Only alpha's *zero point* varies by platform, so that is the only thing
+// treated per-platform here:
 //
-// The part the first fix got wrong: headingFromEuler does not need
-// protecting from the pole, because it already degrades gracefully well
-// before reaching it, for any physically realistic hand grip. Confirmed
-// algebraically and by simulation: holding gamma at exactly 0 (a
-// mathematically perfect, roll-free pitch) does make heading a genuine step
-// function — alpha on one side of beta=180, alpha+180 on the other, an
-// instantaneous flip with nothing in between — but gamma=0 *exactly* is not
-// a real physical grip; any real, even slightly imperfect roll (gamma=2°
-// was enough in simulation) turns that instantaneous step into a smooth
-// ramp through the full 45°→90°→135°→180°→225°-style intermediate values
-// over roughly the last 30° of approach and departure on either side of the
-// pole — plenty of range for this module's own sample-rate and EMA to track
-// like any other continuous motion, no special-casing required. The
-// "east/north shrink to zero, atan2 is unstable" argument is still
-// literally true in the zero-gamma limit; it just isn't the failure mode a
-// held phone actually produces.
+//   * Chrome/Android fires `deviceorientationabsolute`, whose alpha is
+//     already earth-referenced. Nothing to correct.
+//   * iOS Safari never sets the absolute flag and its alpha starts from
+//     wherever the device happened to be pointing; what it does give is
+//     `webkitCompassHeading`, a genuine magnetic bearing. Rather than
+//     substituting that for the camera's heading (it is a bearing for one
+//     device axis, not for wherever the camera points, so substituting it
+//     is only right while the phone is upright), it is used to solve for
+//     the constant `alphaOffset` that makes the *rotation* north-
+//     referenced. The fast motion keeps coming from R; the compass only
+//     anchors it, so it is smoothed over a much longer time constant.
+//     Which device axis that bearing belongs to changes with tilt — iOS
+//     reports for whichever of the device's top edge or back camera is
+//     nearer horizontal, which is precisely why earlier versions saw it
+//     "switch reference at 45 and 135 degrees" (the two axes are
+//     orthogonal, so they swap over exactly there). solveAlphaOffset()
+//     picks the same way, so the switch is a non-event rather than a
+//     180-degree jump to be caught and undone.
+//   * Anything else (plain `deviceorientation`, no absolute flag, no
+//     webkitCompassHeading) has no north at all. The reading is used as-is
+//     and the manual calibration offset is what makes that usable.
 //
-// So: no confidence gate. webkitCompassHeading is left exactly as it always
-// was too — there's no evidence it needed one, and the demonstrated failure
-// mode above (freeze, then an ambiguous 180°-ish catch-up) would apply to
-// any heading source fed through this same EMA, not something specific to
-// the Euler formula. If a real device someday shows heading noise right at
-// the pole that this reasoning doesn't cover, the fix is not to freeze the
-// EMA again — see the paragraph above for exactly how that goes wrong.
+// Every one of those is *magnetic*, so the WMM declination correction
+// (`magvar`, WMM 2025-2030, MIT, no runtime deps) still applies on top of
+// all three. It uses the real current date, deliberately: the correction is
+// for where the magnetometer physically is now, not for whatever date the
+// star field has been scrubbed to. The model epoch needs revisiting after
+// 2030.
 
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
-const ALTITUDE_OFFSET = -180;
 
-// Exponential-moving-average time constant, in milliseconds — how long it
-// takes the smoothed heading/altitude to close roughly two-thirds of the
-// gap to a new raw reading. This used to be a flat per-*event* weight
-// (0.15, applied in full on every sample regardless of how much real time
-// it covered) on the reasoning that there was no render-loop frame time to
-// normalize against, the way utils/simTime.js's own `ease()` does — but
-// sensor events are not actually evenly spaced in practice. Real devices
-// batch and throttle them under load (exactly the load this feature
-// itself creates: camera passthrough plus WebGL plus sensor processing all
-// competing for the same main thread), so the gap between two events
-// swings between a few milliseconds and several hundred. A flat per-event
-// weight bakes in a *different* effective time constant every time that
-// gap changes size: a burst of closely-spaced events let raw sensor noise
-// through nearly undamped (each one still gets the full 15%, so five
-// events in 10ms move the average more than five events *should* in that
-// little real time), which is what reads as jumpiness, while a gap in
-// delivery leaves the average stuck since nothing arrives to nudge it,
-// then several more flat-weighted steps are needed to claw back to
-// wherever the phone actually is by the time events resume — which is
-// what reads as lag. Weighting by the *actual* elapsed time between
-// samples (below) collapses both symptoms into one fix: a burst is
-// correctly damped because almost no time passed, and a gap is correctly
-// caught up in a single larger step because a lot of time did.
+// Exponential-moving-average time constant, in milliseconds — how long the
+// smoothed orientation takes to close roughly two-thirds of the gap to a new
+// raw reading. Weighted by the *actual* elapsed time between samples rather
+// than applied flat per event, because sensor events are not evenly spaced:
+// real devices batch and throttle them under exactly the load this feature
+// creates (camera passthrough plus WebGL plus sensor processing on one main
+// thread), so the gap between two swings between a few milliseconds and
+// several hundred. A flat per-event weight bakes in a different effective
+// time constant every time that gap changes size — a burst lets raw noise
+// through nearly undamped, a delivery gap leaves the average stranded and
+// then needs several steps to claw back — which read as jumpiness and lag
+// respectively. Time weighting collapses both into one fix.
 const TAU_MS = 120;
 
-let magHeading = 0;     // magnetic heading, degrees, smoothed
-let altitude = 0;       // degrees above horizon, smoothed
-let smoothed = false;   // false until the first real sample seeds the EMA
+// The compass anchor (iOS) is a constant being estimated, not a motion
+// being tracked, so it is smoothed an order of magnitude slower than the
+// rotation itself. Fast enough to settle within a couple of seconds, slow
+// enough that a transient disagreement at iOS's own reference switch never
+// visibly yaws the sky.
+const OFFSET_TAU_MS = 2000;
+
+const _euler = new THREE.Euler();
+const _raw = new THREE.Quaternion();
+const _forward = new THREE.Vector3();
+const _screenUp = new THREE.Vector3();
+const _topAxis = new THREE.Vector3();
+const _up0 = new THREE.Vector3();
+const _right0 = new THREE.Vector3();
+
+/** The smoothed device -> ENU rotation: the one piece of real state here. */
+const orientation = new THREE.Quaternion();
+
+let heading = 0;     // magnetic heading of the camera axis, degrees, derived
+let altitude = 0;    // degrees above the horizon, derived
+let roll = 0;        // degrees of screen spin about the camera axis, derived
+let smoothed = false;   // false until the first real sample seeds the rotation
 let lastSampleAt = 0;   // ms, same clock as event.timeStamp — see timeWeight()
 
-// Most recent usable accelerationIncludingGravity, device-local axes — null
-// until the first real devicemotion sample arrives (or if motion permission
-// was never granted/the browser never fires it), in which case altitude
-// falls back to the beta/gamma formula. See the module header's own section
-// on why this is preferred when available.
-let lastGravity = null;
+let alphaOffset = 0;      // degrees to subtract from a derived heading (iOS)
+let alphaOffsetReady = false;
 
 let calibrationAz = 0;  // manual correction, added on top of the sensor reading
 let calibrationAlt = 0;
@@ -271,16 +197,12 @@ function norm360(deg) {
     return ((deg % 360) + 360) % 360;
 }
 
-// Shortest-angle delta — the same trick NightSky3D.jsx's own startPanTo
-// already uses for its eased constellation pan. Smoothing a compass heading
-// with a plain lerp snaps the long way around the 0/360 seam half the time
-// (350 -> 10 would "smooth" through 180 instead of through 0).
+// Shortest-angle delta — the same trick NightSky3D.jsx's own startPanTo uses
+// for its eased constellation pan. Smoothing a compass bearing with a plain
+// lerp snaps the long way around the 0/360 seam half the time (350 -> 10
+// would "smooth" through 180 instead of through 0).
 function shortestDelta(from, to) {
     return (((to - from) % 360) + 540) % 360 - 180;
-}
-
-function emaHeading(current, target, weight) {
-    return norm360(current + shortestDelta(current, target) * weight);
 }
 
 /** Wall-clock ms, same clock a real event's own timeStamp uses (both are
@@ -305,66 +227,81 @@ function timeWeight(dt, tauMs) {
     return dt > 0 ? 1 - Math.exp(-dt / tauMs) : 0;
 }
 
-/** Degrees above the horizon. No alpha term — identical regardless of
- *  which heading source below actually supplied the compass reading.
- *  Uses atan2 rather than asin so pitch continues smoothly through and
- *  past the zenith (+90°) rather than folding back down. */
-function altitudeFromBetaGamma(betaDeg, gammaDeg) {
-    const beta = betaDeg * DEG2RAD;
-    // gamma is intentionally ignored here: this continuation follows the
-    // device's pitch angle directly, while gravity remains the preferred
-    // roll-invariant source whenever motion data is available.
-    void gammaDeg;
-    return -Math.atan2(-Math.cos(beta), Math.sin(beta)) * RAD2DEG;
+/**
+ * How far the page's layout has been rotated away from the device's natural
+ * orientation, in degrees. Only this decides where "up the screen" is in
+ * device axes, which is the only thing screen rotation changes for us — the
+ * back camera points out of the same physical face either way.
+ */
+function screenAngle() {
+    if (typeof window === 'undefined') return 0;
+    const a = window.screen?.orientation?.angle;
+    if (Number.isFinite(a)) return a;
+    // Pre-16.4 Safari, and anything else without the Screen Orientation API.
+    return Number.isFinite(window.orientation) ? window.orientation : 0;
 }
 
 /**
- * Degrees above the horizon, from the device's own raw gravity reading
- * (devicemotion's accelerationIncludingGravity, device-local axes: x right,
- * y up the screen, z out of the screen face) rather than from beta/gamma —
- * see the module header for why. In the portrait AR hold, the device y/z
- * axes are the signed pitch plane: y is the horizon component and z is the
- * camera's vertical component.
- *
- * Uses the signed y-axis as the horizontal pitch component. Using
- * sign(gy) * sqrt(gx² + gy²) looks roll-invariant, but it changes branch
- * whenever gy crosses zero, which is exactly what makes altitude twitch at
- * the 0° and 180° device boundaries. The signed pitch-axis component keeps
- * atan2 continuous through both boundaries for the portrait AR hold.
- *
- * Returns null for a degenerate reading (near-zero magnitude — momentary
- * free-fall, or no real data yet) so the caller can fall back rather than
- * feed atan2() a divide-by-zero.
+ * The spec's device -> ENU rotation, Rz(alpha) . Rx(beta) . Ry(gamma), as a
+ * quaternion. three.js's Euler order string is the matrix multiplication
+ * order left to right, so 'ZXY' with (x=beta, y=gamma, z=alpha) is exactly
+ * that product — the same composition three.js's own DeviceOrientationControls
+ * expressed as `euler.set(beta, alpha, -gamma, 'YXZ')` in a Y-up/Z-south
+ * world, relabelled into the frame the spec itself uses.
  */
-function altitudeFromGravity(gx, gy, gz) {
-    const mag = Math.sqrt(gx * gx + gy * gy + gz * gz);
-    if (!(mag > 1e-6)) return null;
-    // x is the roll component; AR is portrait-only, so do not let it choose
-    // the branch at the 0°/180° pitch boundaries.
-    void gx;
-    return -Math.atan2(gz, gy) * RAD2DEG;
+function rotationFrom(alphaDeg, betaDeg, gammaDeg, out) {
+    _euler.set(betaDeg * DEG2RAD, gammaDeg * DEG2RAD, alphaDeg * DEG2RAD, 'ZXY');
+    return out.setFromEuler(_euler);
 }
 
-/** Magnetic heading (0=N, 90=E) from raw Euler angles — only used when
- *  nothing has already handed over a heading directly (webkitCompassHeading
- *  or event.absolute's own semantics). See the module header for the
- *  formula's derivation and the special cases it was checked against. */
-function headingFromEuler(alphaDeg, betaDeg, gammaDeg) {
-    const alpha = alphaDeg * DEG2RAD;
-    const beta = betaDeg * DEG2RAD;
-    const gamma = gammaDeg * DEG2RAD;
-    const cA = Math.cos(alpha); const sA = Math.sin(alpha);
-    const sB = Math.sin(beta); // cos(beta) does not appear in either component below
-    const cG = Math.cos(gamma); const sG = Math.sin(gamma);
-    // East un-negated, North negated relative to the matrix's own third
-    // column — not a uniform "-column3" as the naive derivation suggests.
-    // Caught by the unit tests below (alpha=90 came out as 270, a mirror
-    // across the N/S axis: East and North were both being negated
-    // uniformly, which is right for North but wrong for East), verified
-    // against four independent alpha values rather than curve-fit to one.
-    const east = cA * sG + cG * sA * sB;
-    const north = -(sA * sG - cA * cG * sB);
-    return norm360(Math.atan2(east, north) * RAD2DEG);
+/** Compass bearing (0=N, 90=E) of an ENU vector's horizontal part. */
+function bearingOf(v) {
+    return norm360(Math.atan2(v.x, v.y) * RAD2DEG);
+}
+
+/**
+ * Degrees of screen spin about the camera axis, measured from the upright
+ * hold — what has to be applied as the camera's own Z rotation for the
+ * rendered sky to stay glued to the camera image when the phone is tilted.
+ *
+ * Derived, rather than taken as "gamma", from the two vectors that actually
+ * matter: where up-the-screen points (`up`) versus where it *would* point at
+ * this same heading and altitude with the phone held level. That reference
+ * pair is built from the heading/altitude being reported rather than from
+ * the world's up axis, which is what keeps this finite at the zenith: the
+ * two ill-conditioned quantities there are heading and roll, and building
+ * the reference from the same (possibly arbitrary) heading makes roll absorb
+ * exactly the error heading introduced, leaving the composed camera
+ * orientation right either way.
+ */
+function rollFrom(up, headingDeg, altitudeDeg) {
+    const h = headingDeg * DEG2RAD;
+    const a = altitudeDeg * DEG2RAD;
+    const sinH = Math.sin(h); const cosH = Math.cos(h);
+    const sinA = Math.sin(a); const cosA = Math.cos(a);
+    _up0.set(-sinH * sinA, -cosH * sinA, cosA);
+    _right0.set(cosH, -sinH, 0);
+    return Math.atan2(-up.dot(_right0), up.dot(_up0)) * RAD2DEG;
+}
+
+/**
+ * The correction that turns iOS's arbitrary alpha zero into true magnetic
+ * north, as degrees to subtract from a bearing derived from the rotation.
+ *
+ * `webkitCompassHeading` is a bearing for one device axis, and which axis
+ * changes with tilt: iOS reports for whichever of the device's top edge or
+ * its back camera is nearer horizontal (a compass held flat reads off its
+ * top edge; held up to look through, off its camera). Picking the same way
+ * here makes the handover a non-event — of two orthogonal axes at least one
+ * always has a horizontal component of 1/sqrt(2) or better, so there is no
+ * degenerate case to guard, and near the crossover the two bearings agree
+ * anyway.
+ */
+function solveAlphaOffset(camAxis, topAxis, webkitHeading) {
+    const camFlat = Math.hypot(camAxis.x, camAxis.y);
+    const topFlat = Math.hypot(topAxis.x, topAxis.y);
+    const axis = camFlat >= topFlat ? camAxis : topAxis;
+    return shortestDelta(0, bearingOf(axis) - webkitHeading);
 }
 
 /**
@@ -389,53 +326,22 @@ function handleOrientation(event, isAbsolute) {
     // reasonable fallback for a partial sample; defaulting all three at once
     // would silently process a "nothing to report" event as "phone lying
     // flat, facing north" (beta=gamma=alpha=0), which is a real, wrong
-    // physical claim — altitudeFromBetaGamma(0,0) alone comes out to -90°,
-    // which is exactly the corrupted, clamped-to-the-floor reading a CDP
-    // script driving real DeviceOrientation.setDeviceOrientationOverride
-    // calls caught this doing before this guard existed.
+    // physical claim: it points the camera straight down through the floor.
     if (!hasAlpha && !hasBeta && !hasGamma && !hasWebkitHeading) return false;
 
     const alpha = hasAlpha ? event.alpha : 0;
     const beta = hasBeta ? event.beta : 0;
     const gamma = hasGamma ? event.gamma : 0;
 
-    // Whether or not this particular event is flagged absolute, the formula
-    // is the same — isAbsolute only records how much the result should be
-    // trusted (surfaced via isOrientationAbsolute(), for a future "compass
-    // may be inaccurate" affordance), not how it's computed. An unreliable
-    // alpha still produces *a* number; the calibration-offset drag is what
-    // makes that acceptable on the relative-only path. webkitCompassHeading
-    // counts as trustworthy on its own, independent of the absolute flag —
-    // iOS never sets that flag at all, but the heading itself is real.
+    // Whether or not this particular event is flagged absolute, the rotation
+    // is built the same way — isAbsolute only records how much the result
+    // should be trusted (surfaced via isOrientationAbsolute(), for a future
+    // "compass may be inaccurate" affordance). webkitCompassHeading counts as
+    // trustworthy on its own, independent of the flag: iOS never sets the
+    // flag at all, but the bearing itself is real.
     sourceIsAbsolute = isAbsolute || hasWebkitHeading;
 
-    // Gravity first (see the module header), falling back to beta/gamma
-    // when no motion reading has arrived yet — a denied/unsupported
-    // devicemotion is a degradation, not a failure.
-    const gravityAltitude = lastGravity
-        ? altitudeFromGravity(lastGravity.x, lastGravity.y, lastGravity.z)
-        : null;
-    const rawAltitude = gravityAltitude ?? altitudeFromBetaGamma(beta, gamma);
-
-    let rawMagHeading;
-    if (hasWebkitHeading) {
-        // iOS changes the reference vector at both 45° and 135°. The two
-        // possible readings differ by 180°, so keep whichever candidate is
-        // closest to the previous heading. This follows either switch and
-        // does not depend on beta's Euler wrapping or an exact threshold.
-        const direct = norm360(event.webkitCompassHeading);
-        const flipped = norm360(direct + 180);
-        if (!smoothed) {
-            rawMagHeading = direct;
-        } else {
-            rawMagHeading = Math.abs(shortestDelta(magHeading, direct))
-                <= Math.abs(shortestDelta(magHeading, flipped))
-                ? direct
-                : flipped;
-        }
-    } else {
-        rawMagHeading = headingFromEuler(alpha, beta, gamma);
-    }
+    rotationFrom(alpha, beta, gamma, _raw);
 
     // event.timeStamp on a real DeviceOrientationEvent is a
     // DOMHighResTimeStamp already on the same clock as performance.now() —
@@ -445,21 +351,40 @@ function handleOrientation(event, isAbsolute) {
     // now() fallback is for the ones that don't bother, which mostly means
     // "however little real time the test itself took."
     const sampleAt = Number.isFinite(event.timeStamp) ? event.timeStamp : now();
+    const dt = sampleAt - lastSampleAt;
 
     if (!smoothed) {
-        magHeading = rawMagHeading;
-        altitude = rawAltitude;
+        orientation.copy(_raw);
         smoothed = true;
     } else {
-        const weight = timeWeight(sampleAt - lastSampleAt, TAU_MS);
-        magHeading = emaHeading(magHeading, rawMagHeading, weight);
-        altitude += shortestDelta(altitude, rawAltitude) * weight;
+        orientation.slerp(_raw, timeWeight(dt, TAU_MS));
     }
+
+    _forward.set(0, 0, -1).applyQuaternion(orientation);
+    const screenRad = screenAngle() * DEG2RAD;
+    _screenUp.set(Math.sin(screenRad), Math.cos(screenRad), 0).applyQuaternion(orientation);
+
+    const rawHeading = bearingOf(_forward);
+    altitude = Math.atan2(_forward.z, Math.hypot(_forward.x, _forward.y)) * RAD2DEG;
+    roll = rollFrom(_screenUp, rawHeading, altitude);
+
+    if (hasWebkitHeading) {
+        _topAxis.set(0, 1, 0).applyQuaternion(orientation);
+        const target = solveAlphaOffset(_forward, _topAxis, norm360(event.webkitCompassHeading));
+        if (!alphaOffsetReady) {
+            alphaOffset = target;
+            alphaOffsetReady = true;
+        } else {
+            alphaOffset += shortestDelta(alphaOffset, target) * timeWeight(dt, OFFSET_TAU_MS);
+        }
+    }
+    heading = norm360(rawHeading - alphaOffset);
+
     // Never lets the clock run backward: an out-of-order or clock-skewed
-    // timestamp earlier than the last accepted one already produced a
-    // weight of 0 above (no movement), and letting it overwrite
-    // lastSampleAt too would inflate the *next* real sample's dt by
-    // whatever gap this one opened up, double-counting the same anomaly.
+    // timestamp earlier than the last accepted one already produced a weight
+    // of 0 above (no movement), and letting it overwrite lastSampleAt too
+    // would inflate the *next* real sample's dt by whatever gap this one
+    // opened up, double-counting the same anomaly.
     lastSampleAt = Math.max(lastSampleAt, sampleAt);
     notify();
     return true;
@@ -487,23 +412,6 @@ function onRelativeEvent(event) {
     handleOrientation(event, event.absolute === true);
 }
 
-/** Just records the latest gravity reading for altitudeFromGravity() to use
- *  on the next orientation event — devicemotion and deviceorientation are
- *  two separate, independently-timed event streams, so this doesn't itself
- *  recompute or notify anything. A motion event with no
- *  accelerationIncludingGravity at all (some devices only ever populate
- *  the gravity-excluded `acceleration` field) leaves the last good reading
- *  in place rather than clearing it. */
-function handleMotion(event) {
-    const g = event.accelerationIncludingGravity;
-    if (!g) return;
-    const x = Number.isFinite(g.x) ? g.x : 0;
-    const y = Number.isFinite(g.y) ? g.y : 0;
-    const z = Number.isFinite(g.z) ? g.z : 0;
-    if (x === 0 && y === 0 && z === 0) return; // nothing usable — see altitudeFromGravity's own degenerate-magnitude guard
-    lastGravity = { x, y, z };
-}
-
 /** True on iOS 13+ Safari, where orientation data is gated behind an
  *  explicit, gesture-triggered permission prompt. False (nothing to ask)
  *  everywhere else, including desktop browsers that lack the API outright —
@@ -514,41 +422,21 @@ export function needsOrientationPermission() {
         && typeof window.DeviceOrientationEvent?.requestPermission === 'function';
 }
 
-/** Same gate as needsOrientationPermission(), for the separate
- *  DeviceMotionEvent API altitudeFromGravity's own reading depends on —
- *  iOS ties the two to independent requestPermission() statics even though
- *  its own system UI often shows one combined prompt for both. */
-function needsMotionPermission() {
-    return typeof window !== 'undefined'
-        && typeof window.DeviceMotionEvent?.requestPermission === 'function';
-}
-
 /**
  * The actual permission-requesting call — must run inside a direct user
  * gesture handler on iOS. Resolves true when orientation tracking can
  * proceed (either granted, or nothing needed to ask in the first place).
- * Motion permission is requested too, best-effort: a denial there only
- * costs the more robust gravity-based altitude (see the module header),
- * not the whole feature, so it never turns an otherwise-successful
- * orientation grant into a reported failure.
+ * One prompt, for one API: the separate DeviceMotionEvent grant this used to
+ * ask for alongside it went away with the accelerometer path (see the module
+ * header).
  */
 export async function requestDeviceOrientationPermission() {
-    let granted = true;
-    if (needsOrientationPermission()) {
-        try {
-            granted = (await window.DeviceOrientationEvent.requestPermission()) === 'granted';
-        } catch {
-            granted = false;
-        }
+    if (!needsOrientationPermission()) return true;
+    try {
+        return (await window.DeviceOrientationEvent.requestPermission()) === 'granted';
+    } catch {
+        return false;
     }
-    if (needsMotionPermission()) {
-        try {
-            await window.DeviceMotionEvent.requestPermission();
-        } catch {
-            // Degrades to the beta/gamma altitude fallback — not fatal.
-        }
-    }
-    return granted;
 }
 
 export function startDeviceOrientationTracking() {
@@ -556,10 +444,10 @@ export function startDeviceOrientationTracking() {
     tracking = true;
     smoothed = false;
     receivedAbsolute = false;
-    lastGravity = null;
+    alphaOffset = 0;
+    alphaOffsetReady = false;
     window.addEventListener('deviceorientationabsolute', onAbsoluteEvent);
     window.addEventListener('deviceorientation', onRelativeEvent);
-    window.addEventListener('devicemotion', handleMotion);
 }
 
 export function stopDeviceOrientationTracking() {
@@ -567,7 +455,6 @@ export function stopDeviceOrientationTracking() {
     tracking = false;
     window.removeEventListener('deviceorientationabsolute', onAbsoluteEvent);
     window.removeEventListener('deviceorientation', onRelativeEvent);
-    window.removeEventListener('devicemotion', handleMotion);
 }
 
 /** Recomputes declination only when the location actually changes — cheap,
@@ -586,18 +473,27 @@ export function setDeclinationLocation(lat, lon) {
     }
 }
 
-/** True heading: magnetic + declination + the manual calibration offset,
- *  in this app's own azimuth convention (0=N, 90=E, clockwise) — ready to
- *  hand straight to setLookDirection(), no further correction needed. */
+/** True heading of the camera axis: magnetic + declination + the manual
+ *  calibration offset, in this app's own azimuth convention (0=N, 90=E,
+ *  clockwise) — ready to hand straight to setLookDirection(). */
 export function getOrientationHeading() {
-    return norm360(magHeading + declinationDeg + calibrationAz);
+    return norm360(heading + declinationDeg + calibrationAz);
 }
 
-/** Degrees above the horizon, calibration-adjusted. setLookDirection()
- *  clamps this to skyRotation.js's own ALT_MIN/ALT_MAX, so out-of-range
- *  values here are harmless rather than needing a second clamp. */
+/** Degrees above the horizon, calibration-adjusted: -90 at your feet, 0 at
+ *  the horizon, +90 at the zenith. Never wraps past either end — the camera
+ *  axis cannot point more than straight up. */
 export function getOrientationAltitude() {
-    return altitude + calibrationAlt + ALTITUDE_OFFSET;
+    return altitude + calibrationAlt;
+}
+
+/** Degrees the phone is rolled about the axis it is looking along, so the
+ *  rendered sky can stay glued to the camera image rather than only lining
+ *  up while the phone is held perfectly upright. Positive spins the camera's
+ *  own up vector anticlockwise on screen, which is what
+ *  `camera.rotation.z` under three.js's 'YXZ' order wants. */
+export function getOrientationRoll() {
+    return roll;
 }
 
 /** Whether the heading currently in use is earth-referenced (Chrome/Android
@@ -609,9 +505,9 @@ export function isOrientationAbsolute() {
     return sourceIsAbsolute;
 }
 
-/** The drag-in-AR-mode handler: nudges the correction on top of the sensor
- *  reading rather than the reading itself, since the sensor fires far more
- *  often than a drag gesture and would otherwise overwrite a raw nudge on
+/** The arrow-keys-in-AR-mode handler: nudges the correction on top of the
+ *  sensor reading rather than the reading itself, since the sensor fires far
+ *  more often than a key press and would otherwise overwrite a raw nudge on
  *  the very next event. */
 export function nudgeCalibrationOffset(dAz, dAlt) {
     calibrationAz = norm360(calibrationAz + dAz);
@@ -642,19 +538,16 @@ export function __injectOrientationEvent(event, { absolute = false } = {}) {
     else onRelativeEvent(event);
 }
 
-/** Test seam: feed a plain fixture through the real devicemotion handler,
- *  same reasoning as __injectOrientationEvent above. */
-export function __injectMotionEvent(event) {
-    handleMotion(event);
-}
-
 /** Test seam. */
 export function __resetDeviceOrientation() {
-    magHeading = 0;
+    orientation.identity();
+    heading = 0;
     altitude = 0;
+    roll = 0;
     smoothed = false;
     lastSampleAt = 0;
-    lastGravity = null;
+    alphaOffset = 0;
+    alphaOffsetReady = false;
     calibrationAz = 0;
     calibrationAlt = 0;
     declinationDeg = 0;

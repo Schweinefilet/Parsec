@@ -9,9 +9,10 @@ import {
 } from '../utils/skyRotation';
 import {
     startDeviceOrientationTracking, stopDeviceOrientationTracking,
-    getOrientationHeading, getOrientationAltitude,
+    getOrientationHeading, getOrientationAltitude, getOrientationRoll,
     setDeclinationLocation, nudgeCalibrationOffset,
 } from '../utils/deviceOrientation';
+import { arVerticalFov } from '../utils/arCamera';
 import { simNow } from '../utils/simTime';
 import { getNightSkySettings } from '../utils/nightSkySettings';
 import { SKY_BODIES } from '../utils/skyPositions';
@@ -380,6 +381,10 @@ const NightSky3D = ({
     // are built once in the effect with an empty dependency list and never
     // rebuilt, so a plain prop read wouldn't see this change at all.
     const arModeRef = useRef(arMode);
+    // The live camera <video>, so the render loop can match the rendered
+    // field of view to the real one (see the frame loop's own AR block).
+    // Owned by the AR effect below; null whenever AR is off.
+    const arVideoRef = useRef(null);
     const reducedMotionRef = useRef(false);
     const reducedMotion = useReducedMotion();
     const { locale, constellationName, t } = useI18n();
@@ -911,6 +916,11 @@ const NightSky3D = ({
             }
         };
         const onWheel = (e) => {
+            // Not in AR: the field of view is not a preference there, it is a
+            // measurement of the lens the sky is being drawn over (see the
+            // frame loop's own AR block), and zooming one layer and not the
+            // other pulls the overlay off the world.
+            if (arModeRef.current) return;
             e.preventDefault();
             camera.fov = Math.max(FOV_MIN, Math.min(FOV_MAX, camera.fov + e.deltaY * 0.03));
             camera.updateProjectionMatrix();
@@ -1033,16 +1043,49 @@ const NightSky3D = ({
         renderer.domElement.tabIndex = 0;
         renderer.domElement.addEventListener('keydown', onKeyDown);
 
+        // ── AR: the rendered lens has to match the real one ──────────────────
+        // See utils/arCamera.js for why a field-of-view mismatch misplaces
+        // things at the edge of the screen while the centre looks perfect.
+        // Recomputed per frame rather than once on metadata: the viewport
+        // changes (rotation, the browser's own chrome sliding away) and the
+        // video's reported size can arrive late. The guard keeps it to a
+        // couple of arctangents and no projection-matrix rebuild in the
+        // overwhelmingly common case where nothing moved.
+        let fovBeforeAr = FOV_DEFAULT;
+        let lastArFov = 0;
+        const matchCameraToLens = () => {
+            const video = arVideoRef.current;
+            if (!video) return;
+            const fov = arVerticalFov({
+                videoWidth: video.videoWidth,
+                videoHeight: video.videoHeight,
+                viewWidth: renderer.domElement.clientWidth,
+                viewHeight: renderer.domElement.clientHeight,
+            });
+            if (fov === null || Math.abs(fov - lastArFov) < 0.01) return;
+            if (lastArFov === 0) fovBeforeAr = camera.fov;
+            lastArFov = fov;
+            camera.fov = fov;
+            camera.updateProjectionMatrix();
+        };
+
         // Applies the singleton's azimuth/altitude to the camera immediately
         // (drag, wheel and arrow keys all funnel through skyRotation.js, not
         // through this component's own state) and again every frame, since
         // the render loop is the source of truth for what's actually drawn.
+        // The Z term is AR's own: a phone is not held perfectly upright, and
+        // without it the sky only lines up with the camera image while it is.
+        // 'YXZ' applies Z first, in the camera's own frame, so it is a spin
+        // about the axis the camera is already looking along — exactly what
+        // getOrientationRoll() measures. The dragged dome keeps its
+        // never-any-roll invariant (see utils/skyRotation.js's header) by
+        // passing 0 here, as it always did.
         const applyLook = () => {
             const altitude = getAltitude();
             camera.rotation.set(
                 (altitude * Math.PI) / 180,
                 (-getAzimuth() * Math.PI) / 180,
-                0,
+                arModeRef.current ? (getOrientationRoll() * Math.PI) / 180 : 0,
                 'YXZ',
             );
         };
@@ -1215,7 +1258,27 @@ const NightSky3D = ({
             // opened up, reading as the view dragging into place instead of
             // tracking the phone directly.
             if (arModeRef.current) {
-                setLookDirection(getOrientationHeading(), getOrientationAltitude(), -360, 360);
+                // The full hemisphere, not skyRotation.js's default -10 floor:
+                // that floor exists so dragging the virtual dome can't run past
+                // its rendered ground into empty space, and with a real camera
+                // feed as the ground there is nothing to stop early for. The
+                // sensor genuinely reads down to -90 (your own feet) and no
+                // further — the camera axis cannot point past straight down —
+                // so this is the true range, not a made-up wide one.
+                setLookDirection(getOrientationHeading(), getOrientationAltitude(), -90, 90);
+                // Directly, not only via the subscription: roll moves
+                // independently of heading and altitude, so a phone tilting in
+                // place changes nothing setLookDirection would notify about.
+                applyLook();
+                matchCameraToLens();
+            } else if (lastArFov !== 0) {
+                // Leaving AR hands the lens back, exactly once: whatever the
+                // user had zoomed the dome to before the camera feed took the
+                // field of view over. Keyed on lastArFov rather than on the
+                // current fov, which would fight the wheel every frame.
+                camera.fov = fovBeforeAr;
+                camera.updateProjectionMatrix();
+                lastArFov = 0;
             }
             const wantCon = targetConstellationRef.current;
             if (wantCon && wantCon !== openedForConstellation && segmentsByIau?.has(wantCon)) {
@@ -1381,6 +1444,10 @@ const NightSky3D = ({
         // alongside the canvas's own explicit z-index (set once, always, in
         // the main effect above) for which layer is furthest back.
         mount.insertBefore(video, mount.firstChild);
+        // Published for the render loop's own matchCameraToLens() — the
+        // rendered field of view is read off the real frame's dimensions, not
+        // assumed (see utils/arCamera.js).
+        arVideoRef.current = video;
         // Safari can reject a play() raced against layout on the very first
         // frame; the video still plays once layout settles, so this is safe
         // to ignore rather than surface as an error.
@@ -1388,6 +1455,7 @@ const NightSky3D = ({
 
         return () => {
             stopDeviceOrientationTracking();
+            arVideoRef.current = null;
             video.pause();
             video.srcObject = null;
             if (mount.contains(video)) mount.removeChild(video);

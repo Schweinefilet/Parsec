@@ -16,63 +16,145 @@ Every release is a commit titled with its version. The version in
 
 ---
 
-## 5.3.13
+## 5.4.0
 
-- **Shifted AR altitude into the device's real-world frame.** The reported scale now maps ground to -90°, straight ahead to 0°, sky to +90°, and the position behind the observer to +180°, while preserving the established continuous motion through the sensor boundaries.
+- **Rebuilt AR mode's orientation on the one rotation the sensors
+  actually describe, instead of three angles pulled out of it
+  separately.** The reported problem was blunt — "the constellations and
+  objects do not appear at the right spots at all" — and so was the cause.
+
+  `DeviceOrientationEvent`'s alpha/beta/gamma are a decomposition of a
+  single physical rotation. Every previous version of
+  `utils/deviceOrientation.js` took them apart and answered three
+  questions independently: heading from one hand-derived trig expression,
+  altitude from a second (and later from the accelerometer instead), and
+  roll from nothing at all, because roll was declared out of scope. The
+  three answers were separately plausible and jointly described no
+  orientation any phone could be in.
+
+  **Heading was mirrored.** Alpha is a *counter*-clockwise rotation about
+  the up axis — the spec's Earth frame is right-handed with z up — and
+  compass bearings run clockwise, so a phone reads `heading = 360 -
+  alpha`, not `heading = alpha`. The old formula un-negated the east
+  component of the device→Earth matrix and got the latter, which reflects
+  the entire sky across the north-south line: Orion sits where it would if
+  you were facing the opposite way, and every attempt to chase it by
+  flipping some other sign moved the error somewhere else. Its own unit
+  tests asserted the mirror (`alpha=90` "should" read 90; it reads 270),
+  and a comment in the file recorded four cardinal directions agreeing as
+  corroboration — which is exactly what a mirror looks like, since a
+  reflection maps all four onto each other.
+
+  **Altitude was inverted and then patched.** The formula read flat-on-a-
+  table as +90° — the back camera is on the underside, so it faces the
+  floor, which is -90° — and a literal `ALTITUDE_OFFSET = -180` sat on top
+  cancelling it. In the app's own default AR pose, phone upright and level,
+  the two composed to a reported altitude of **-180°**, which as a camera
+  pitch means "looking at the horizon behind you, upside down." That single
+  number accounts for most of what a real device was showing.
+
+  **Roll was missing.** A phone is never held perfectly upright, and
+  without a roll term the overlay only lines up with the camera image while
+  it is. Tilt the phone twenty degrees and the stars stay level while the
+  world behind them does not.
+
+  The rewrite composes the spec's own device→ENU rotation —
+  `Rz(alpha) · Rx(beta) · Ry(gamma)`, the same construction three.js's
+  own (now removed) `DeviceOrientationControls` used — and reads
+  everything off it: the back camera's direction gives heading and
+  altitude, the screen's up direction gives roll, and
+  `screen.orientation.angle` rotates that up direction when the layout
+  does. `NightSky3D.jsx` applies all three as
+  `camera.rotation.set(altitude, -azimuth, roll, 'YXZ')`, where the Z term
+  is AR's alone; the dragged dome keeps its never-any-roll invariant.
+
+  This also removes, rather than treats, the instability the 5.3.x
+  releases kept circling. Near beta = ±90° — which is the AR holding pose,
+  not an edge case — the browser can report wildly different
+  (alpha, gamma) pairs for two physically identical attitudes, so any
+  formula reading either angle alone inherits that noise. The pairs are
+  correlated: the rotation composed from them is the same rotation either
+  way. Reassembling it first is what makes the singularity stop mattering,
+  which is why no confidence gate, pole freeze or heading-candidate flip
+  survives in the file — they were all treatments for a symptom this
+  formulation does not produce. Smoothing moved onto the quaternion
+  (slerp) for the same reason: three angles averaged separately wobble
+  precisely where they disagree most, near the zenith, where heading and
+  roll each swing hard while the rotation they jointly describe barely
+  moves.
+
+  The `devicemotion` accelerometer path introduced in 5.3.1 is gone with
+  it. It was there to escape the beta/gamma instability, which no longer
+  exists, and `accelerationIncludingGravity` disagrees on sign between iOS
+  and everything else — 5.3.2 "fixed" it against one real iPhone, which
+  silently inverted every Android device. One fewer sensor, one fewer
+  permission prompt, one fewer convention to be wrong about.
+
+  iOS's `webkitCompassHeading` is still used, but as an *anchor* rather
+  than a substitute. It is a bearing for one device axis, not for wherever
+  the camera points, so using it directly is only correct while the phone
+  is upright; it now solves for the constant offset that makes the whole
+  rotation north-referenced, smoothed over a much longer time constant
+  than the motion itself. Which axis that bearing belongs to changes with
+  tilt — iOS reports for whichever of the device's top edge or back camera
+  is nearer horizontal, which is precisely why earlier releases saw it
+  "switch reference at 45° and 135°": two orthogonal axes swap over
+  exactly there. Picking the same way makes the switch a non-event instead
+  of a 180° jump to be caught and undone.
+
+- **AR now renders through the same lens the camera is looking through.**
+  Pointing the phone in exactly the right direction still puts a
+  constellation in the wrong place if the virtual camera and the physical
+  one disagree about how much sky fits on the screen. AR was rendering at
+  the same fixed 55° the drag-around dome uses, which on a typical phone
+  is 15–20% narrower than what the camera actually shows — an error that
+  cancels at the crosshair and grows toward the edges, so the middle of
+  the screen looks right while something near the rim sits several degrees
+  out. `utils/arCamera.js` derives the vertical field of view from the
+  video frame's real dimensions and the viewport's, including the
+  `object-fit: cover` crop. There is no web API for a camera's optics, so
+  one assumption remains — a 78° diagonal, the middle of the range modern
+  phone main cameras report — pinned on the *diagonal* specifically
+  because that is the angle that survives a change of aspect ratio.
+  Pinch/wheel zoom is disabled while AR is on for the same reason: the
+  field of view is a measurement there, not a preference. Leaving AR hands
+  the dome back whatever zoom it had.
+
+- **Verified end to end in a browser, not just in unit tests.** Headless
+  Chrome with a fake camera and CDP-driven `DeviceOrientation` overrides:
+  an upright phone at alpha=0/90/270 now reads heading 1°/271°/91° (the 1°
+  is London's magnetic declination, correctly applied — it read 0°/91°/271°
+  before, mirrored), a phone tilted back 45° reads +45° altitude, flat on a
+  table reads -90°, and turning the phone onto its side rotates the
+  rendered sky with it. The measured on-screen scale change between AR and
+  the dome matched the predicted field-of-view ratio to three decimal
+  places. The test suite gained an end-to-end case that reconstructs the
+  camera `NightSky3D.jsx` builds from the three reported numbers and
+  compares it against where the device is independently known to be
+  pointing — the one test that would have failed for every broken version
+  of this module, including the ones whose own heading and altitude tests
+  passed.
 
 ---
 
-## 5.3.12
+## 5.3.4 – 5.3.13
 
-- **Restored the working AR screen-motion direction.** The latest AR-only pitch inversion made vertical motion run backward again; the renderer now uses the established altitude rotation while leaving the positive altitude readout and sensor calculations unchanged.
-
----
-
-## 5.3.11
-
-- **Corrected AR's final visual pitch direction.** The altitude readout and sensor math remain unchanged, while AR alone now applies the opposite camera pitch so positive altitude places the constellations above the horizon without mirroring their shape.
-
----
-
-## 5.3.10
-
-- **Corrected the real-device altitude sign without changing the working AR motion.** Looking up now reports positive altitude, while the camera receives the equivalent rotation that keeps stars and constellations anchored in the real sky.
-
----
-
-## 5.3.9
-
-- **Reversed the final AR screen motion.** Positive altitude still means looking up, but the AR camera now applies the opposite pitch rotation, so looking up drags the constellation overlay down as it should. The ordinary virtual sky view keeps its existing direction.
-
----
-
-## 5.3.8
-
-- **Fixed the final AR pitch behavior.** Positive altitude now uses the same scene direction as the sky viewer, so looking up moves the constellation overlay down and keeps it over the real sky. Altitude smoothing now unwraps through 180° instead of snapping across the signed-angle seam.
-
----
-
-## 5.3.7
-
-- **Reworked AR orientation around all four sensor boundaries.** Altitude no longer branches at 0° or 180°, so looking between floor and sky does not spin the view. Heading now follows the continuous compass candidate across both iOS reference changes at 45° and 135°. The AR camera pitch is reversed separately from the numeric altitude, so looking up moves the rendered sky down and keeps markers aligned with the real world.
-
----
-
-## 5.3.6
-
-- **Corrected the final AR orientation signs and the +135° compass boundary.** Looking down at the floor now produces negative altitude and looking up produces positive altitude again. The iOS heading correction is based on the complete +45° to +135° altitude interval, preventing the remaining pole swap at +135°.
-
----
-
-## 5.3.5
-
-- **Corrected AR pitch direction and the second iOS compass reversal.** The previous AR altitude correction tracked the phone upside down; pitch is now inverted consistently for both orientation and gravity readings. iOS heading compensation now covers the complete beta 45° to 135° flat-mode interval, so North and South no longer jump at either boundary.
-
----
-
-## 5.3.4
-
-- **Fixed AR mode crossing the sky's two awkward boundaries on iPhone and iPad.** iOS's compass heading now stays continuous when its internal portrait/flat switch occurs at 45 degrees, while altitude continues through the zenith instead of folding back toward the horizon. AR's view can now follow the phone through the full -180 to +180 degree pitch range, with focused tests covering both transitions.
+- **Ten releases chasing one sign error in AR mode, none of which fixed
+  it.** Kept as a single entry because that is what they were: each one
+  reported a different symptom of the same underlying bug (the sky
+  mirrored east-west, and an altitude scale with a literal -180° offset
+  bolted onto it), flipped one more sign somewhere in
+  `utils/deviceOrientation.js` or in how `NightSky3D.jsx` applied the
+  result, and moved the error rather than removing it. The individual
+  entries claimed fixes that did not hold and contradicted each other —
+  5.3.9 reversed the screen motion, 5.3.12 reversed it back — so they are
+  not worth reading one by one. Two things are worth keeping from them:
+  the real-device reports that drove them were all accurate (heading did
+  flip near the zenith; up and down genuinely were backwards; iOS's
+  compass reference does switch at 45° and 135° of tilt), and every one of
+  those symptoms is explained by, and fixed in, 5.4.0. The version numbers
+  are preserved here because `frontend/package.json` and the commit
+  history carry them.
 
 ---
 

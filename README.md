@@ -146,6 +146,17 @@ scene maps them as `(x, z, y)` and derives the belt plane from two Mars
 samples so the belts share a plane with the orbit rings. `orbits.test.js`
 pins that ~23.4° tilt, so a frame change can't slip through unnoticed.
 
+**Device orientation's alpha runs the opposite way from a compass bearing.**
+The DeviceOrientation spec's Earth frame is right-handed with z up, so alpha
+is a *counter*-clockwise rotation seen from above, and a phone reads
+`heading = 360 - alpha`. Getting that backwards mirrors the whole sky across
+the north-south line rather than rotating it, which is a failure mode with a
+nasty property: a reflection maps all four cardinal directions onto each other,
+so testing north, east, south and west and finding them "consistent" is not
+corroboration. It cost ten releases (see 5.3.4–5.3.13 in the changelog).
+`deviceOrientation.test.js` now checks the composed camera against an
+independently built rotation, which a mirror cannot satisfy.
+
 **Textures reach the GPU when something using them is first drawn**, not when
 they finish loading. The upload and its mipmaps are a stall, so left alone the
 scene hitches every few seconds as bodies rotate into view and then runs
@@ -528,6 +539,63 @@ release also fixed the ground hemisphere borrowing the sky's own daytime
 blue for its horizon glow (`horizonColorFor` now ramps through its own
 warm/neutral ground palette, not the sky's) and narrowed that glow to a
 band at the horizon rather than a wash over most of the visible ground.
+
+**5.1.0 added the AR viewer, and 5.4.0 is the release where it points at the
+right sky.** Tapping the camera button on `/sky` swaps the rendered ground
+hemisphere for the phone's own back camera (`hooks/useCameraStream.js`, a
+plain `<video>` behind the already-transparent canvas) and hands the camera's
+aim over to the device's sensors. `utils/arSupport.js` gates the button on
+`(pointer: coarse)` plus the two APIs, by feature detection only — showing the
+toggle must never itself cost a permission prompt.
+
+The orientation pipeline is `utils/deviceOrientation.js`, and its one rule is
+that alpha/beta/gamma are a *decomposition* of a single rotation and have to be
+put back together before anything is asked of them. It composes the
+DeviceOrientation spec's own `Rz(alpha) · Rx(beta) · Ry(gamma)` into a
+quaternion, in the spec's Earth frame (x = east, y = north, z = up), and reads
+three things off it: the back camera's direction (device −z) gives heading and
+altitude, the screen's up direction gives roll, and
+`screen.orientation.angle` rotates that up direction when the layout does.
+`NightSky3D.jsx` applies all three as
+`camera.rotation.set(altitude, -azimuth, roll, 'YXZ')` — the Z term is AR's
+alone, so the dragged dome keeps `skyRotation.js`'s never-any-roll invariant.
+Smoothing is a slerp on the quaternion rather than three independent
+averages, because near the zenith heading and roll each swing hard while the
+rotation they jointly describe barely moves.
+
+Absolute north is the only part that is genuinely per-platform. Chrome/Android
+fires `deviceorientationabsolute` and its alpha is already earth-referenced.
+iOS never sets the absolute flag and starts alpha from wherever the phone
+happened to be pointing, but supplies `webkitCompassHeading` — which is used
+to solve for the constant offset that makes the whole rotation
+north-referenced, not substituted for the camera's own heading (it is a
+bearing for one device axis, correct as a heading only while the phone is
+upright). Which axis it belongs to changes with tilt: iOS reports for
+whichever of the device's top edge or back camera is nearer horizontal, which
+is why it looks like the reference "switches at 45° and 135°" — two orthogonal
+axes swap over exactly there. All three sources are magnetic, so `magvar`
+(WMM 2025–2030) corrects to true north on top, using the real current date
+rather than the app's scrubbable clock.
+
+`utils/arCamera.js` is the other half of "in the right spot": a direction is
+only half of where something lands on screen, and the rendered field of view
+has to match the real lens or the overlay stretches about the crosshair —
+right in the middle, several degrees out at the edges. It derives the vertical
+FOV from the video frame's real dimensions, the viewport's, and the
+`object-fit: cover` crop between them. No web API exposes a camera's optics,
+so one assumption remains — a 78° diagonal — pinned on the diagonal
+specifically because that is the angle that survives a change of aspect ratio.
+Wheel/pinch zoom is disabled while AR is on for the same reason: the field of
+view is a measurement there, not a preference.
+
+What is still unverified is what it has always been: the author has no way to
+hold every phone. The math is pinned by tests that reconstruct the camera
+`NightSky3D.jsx` builds and compare it against where the device is
+independently known to be pointing, and by a headless-Chrome run driving real
+`DeviceOrientation` overrides against a fake camera — but a real magnetometer
+in a real building is its own thing. The arrow keys nudge a manual calibration
+offset in AR (`nudgeCalibrationOffset`), and "Look north" resets it, so a
+field error is a correction rather than an unusable feature.
 
 ### Compare
 
