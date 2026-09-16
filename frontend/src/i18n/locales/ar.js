@@ -105,7 +105,6 @@ export const ar = {
         driftAdjust: 'ضبط انسياب الكاميرا',
         driftYaw: 'الانعراج',
         driftPitch: 'الميلان',
-        driftRoll: 'اللف',
         driftReset: 'إعادة تعيين',
         driftCentre: 'في المنتصف',
         driftPaused: 'الكاميرا ثابتة الآن — حرّك أي شريط لتشغيلها من جديد.',

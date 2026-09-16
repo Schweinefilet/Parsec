@@ -99,7 +99,6 @@ export const en = {
         driftAdjust: 'Adjust the camera drift',
         driftYaw: 'Yaw',
         driftPitch: 'Pitch',
-        driftRoll: 'Roll',
         driftReset: 'Reset',
         driftCentre: 'centred',
         driftPaused: 'The drift is held still — moving a slider starts it again.',

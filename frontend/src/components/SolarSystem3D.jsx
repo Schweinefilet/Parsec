@@ -32,7 +32,7 @@ import {
 } from '../utils/orbitalMotion';
 import { getVizMode, vizWeight, isVizSettling, VIZ_OFF, VIZ_GRID, VIZ_FIELD } from '../utils/vizMode';
 import { getTrailsOn, subscribeTrails } from '../utils/trailMode';
-import { driftRates } from '../utils/driftControl';
+import { driftRates, pitchPendulum } from '../utils/driftControl';
 import {
     ARMED, APPROACHING, CURTAIN, ARRIVAL_ALTITUDE,
     getSkyEntryPhase, getSkyEntryObserver, setSkyEntryPhase, resetSkyEntry,
@@ -44,6 +44,23 @@ import { GRAVITY_FIELD_DEFAULTS } from '../utils/gravityField';
 import { useI18n } from '../i18n';
 
 let _exitState = { active: false, cameraPos: null, targetPos: null };
+
+/**
+ * Whether this viewport has room for the wide Sun-in-frame fly-in (see the
+ * focus block's own `sunFramed`). Read fresh at each focus rather than held in
+ * a ref, so resizing the window between two clicks is simply noticed.
+ *
+ * The width and height halves are the same breakpoints CategoryBrowser's own
+ * `compactFocus` is built from (hooks/useMediaQuery.js) — a phone, or a
+ * landscape phone too short for the focused layout, is not a PC. The aspect
+ * clause is this framing's own: the Sun sits about 0.70 of the way to the
+ * frame's left edge at 16:9, and a squarer window runs out of horizontal room
+ * before it runs out of vertical.
+ */
+const WIDE_FRAMING_QUERY =
+    '(min-width: 768px) and (min-height: 521px) and (min-aspect-ratio: 5/4)';
+const wideFraming = () => typeof window !== 'undefined'
+    && (window.matchMedia?.(WIDE_FRAMING_QUERY).matches ?? false);
 
 const SolarSystem3D = ({
     focusedId, focusOffsetY = 0, height = 'var(--app-vh, 100vh)', initialCamera = null,
@@ -209,6 +226,11 @@ const SolarSystem3D = ({
         // Eased hover slow-down (1 normally, DRIFT_HOVER_SLOW over a body).
         let driftScale = 1;
         const DRIFT_HOVER_SLOW = 0.12;
+        // Which way the idle pitch pendulum is currently swinging (see
+        // utils/driftControl.js's pitchPendulum, which owns the rule). Not
+        // persisted: which half of a slow sway the scene happens to be in is
+        // not a preference.
+        let driftPitchDir = 1;
         // Scratch for the drift maths (see the "Idle camera drift" block).
         const _dOff = new THREE.Vector3();
         const _dUp = new THREE.Vector3();
@@ -231,6 +253,9 @@ const SolarSystem3D = ({
         const focusEndCamPos    = new THREE.Vector3();
         const _focusLookTarget  = new THREE.Vector3();
         const _camUpVec         = new THREE.Vector3();
+        // The live, eased value behind focusOffsetRef — see where it is
+        // applied for why the ref itself is not read directly.
+        let vOffsetEased        = 0;
         // The camera's facing at each end of the flight — see the per-frame
         // update below for why this replaced lerping a look-at point through
         // raw 3D space.
@@ -3007,8 +3032,21 @@ const SolarSystem3D = ({
                         // frame it against) and so is anything already
                         // sun-relative for another reason (a probe).
                         const isProbe = PROBES.some(b => b.id === currentFocusedId);
-                        const sunFramed = isProbe || (getScaleStage() === SCALE_SIZES
-                            && currentFocusedId !== 'sun');
+                        // True *distances* earns this as much as true sizes
+                        // does — that is the stage where a body is already a
+                        // long way down its own radial line with nothing else
+                        // in the shot — but only where there is frame to spend
+                        // on it. `wide` is the gate: the Sun rides far enough
+                        // off axis here (see SUN_TILT_WIDE) that a phone's
+                        // portrait frame would simply crop it off, which is
+                        // worse than not reaching for it. Below that, true
+                        // sizes keeps the original, tighter framing it has
+                        // always had, and true distances stays on the ordinary
+                        // over-the-shoulder angle.
+                        const wide = wideFraming();
+                        const stage = getScaleStage();
+                        const sunFramed = isProbe || (currentFocusedId !== 'sun'
+                            && (stage === SCALE_SIZES || (wide && stage === SCALE_DISTANCES)));
                         if (sunFramed) {
                             // Along the body's actual position vector, not its
                             // compass bearing: the scene is equatorial and the
@@ -3044,8 +3082,25 @@ const SolarSystem3D = ({
                             // lands on-screen *left* rather than right was
                             // checked against a real render, not assumed from
                             // the cross products' handedness.
-                            const sunTilt = 12 * Math.PI / 180; // 12°, not 30: at 30 the Sun sits outside the 22.5° half-angle of a 45° field and drops off the top
-                            const ROLL = 35 * Math.PI / 180; // how far around from straight up, toward the left
+                            // Two framings, same construction. The original
+                            // pair (12°/35°) is a cautious one: 12° off axis
+                            // because 30 put the Sun outside the 22.5°
+                            // half-angle of this 45° field and dropped it off
+                            // the top, and 35° round from vertical because
+                            // straight up read as the body eclipsing the Sun.
+                            // On a wide screen there is far more room than
+                            // that, and most of it is sideways — the
+                            // horizontal half-angle at 16:9 is 36°, not 22.5°
+                            // — so the wide pair spends it: further out, and
+                            // much further round toward the left, which is the
+                            // framing this was matched to. At 28°/61° the Sun
+                            // lands about 0.62 of the way up the frame and
+                            // 0.70 of the way to the left edge on 16:9, which
+                            // is why `wide` also requires a 5:4-or-better
+                            // aspect: below that the horizontal room runs out
+                            // before the vertical does.
+                            const sunTilt = (wide ? 28 : 12) * Math.PI / 180;
+                            const ROLL = (wide ? 61 : 35) * Math.PI / 180; // how far around from straight up, toward the left
                             const perp = up2.multiplyScalar(Math.cos(ROLL))
                                 .addScaledVector(side, Math.sin(ROLL));
                             focusEndCamPos.copy(planetPos).addScaledVector(
@@ -3067,6 +3122,10 @@ const SolarSystem3D = ({
                         focusEndQuat.setFromRotationMatrix(_focusLookMat);
                         focusProgress  = 0;
                         focusAnimating = true;
+                        // A new flight frames its own body from centre; the
+                        // offset then eases back in if and when a panel asks
+                        // for it.
+                        vOffsetEased = 0;
                         // True sizes turns this flight into a far bigger zoom
                         // than the same fly-in has ever had to cover — Earth's
                         // is on the order of 20,000x — and doing that in the
@@ -3404,12 +3463,24 @@ const SolarSystem3D = ({
 
                 // Aim below the body by a fraction of the visible height — the
                 // body then sits that much higher in frame.
-                const vOffset = focusOffsetRef.current;
-                if (vOffset) {
+                //
+                // Eased, not read straight off the ref. On a phone this offset
+                // is driven by the detail sheet opening, and it used to change
+                // in one frame: the fly-in landed the body dead centre, the
+                // sheet's own slide-up began, and the body jumped to its new
+                // spot in a single frame while the panel was still moving.
+                // Two motions, one of them instant, reading as a lurch. The
+                // panel takes about a second; matching that here means the
+                // body rises *with* it and the pair read as one movement.
+                // Reset per focus (see the flight's own setup) so a fresh
+                // fly-in always starts from centred rather than from whatever
+                // the last body's sheet had left behind.
+                vOffsetEased += (focusOffsetRef.current - vOffsetEased) * ease(0.055);
+                if (vOffsetEased > 1e-4) {
                     const d = camera.position.distanceTo(targetPos);
                     const viewH = 2 * d * Math.tan((camera.fov * Math.PI / 180) / 2);
                     _camUpVec.set(0, 1, 0).applyQuaternion(camera.quaternion);
-                    targetPos.addScaledVector(_camUpVec, -vOffset * viewH);
+                    targetPos.addScaledVector(_camUpVec, -vOffsetEased * viewH);
                 }
 
                 const bodyDef = PLANETS.find(b => b.id === currentFocusedId)
@@ -3533,15 +3604,14 @@ const SolarSystem3D = ({
             controls.update(deltaSec);
 
             // ── Idle camera drift ──────────────────────────────────────────────
-            // Applied by hand *after* controls.update, as three small rotations
+            // Applied by hand *after* controls.update, as two small rotations
             // of the camera about the target, each about one of the camera's
-            // own axes: yaw about up, pitch about right, roll about the view
-            // axis. There are no limits — pitch somersaults right over the
-            // poles and roll spins freely, because up and right are re-derived
-            // from the live camera every frame and rotated along with it.
-            // controls.update reads the drifted position back as its own orbit,
-            // so a later drag still works. Home view only, not while the reader
-            // is driving; roll relaxes to level whenever its slider is centred.
+            // own axes: yaw about up, pitch about right. Yaw has no limit — it
+            // is a turntable and goes round forever. Pitch does have one now,
+            // and that is the fix for a reported bug rather than a taste
+            // change: see PITCH_LIMIT below. controls.update reads the drifted
+            // position back as its own orbit, so a later drag still works.
+            // Home view only, not while the reader is driving.
             {
                 const dr = driftRates();
                 const ds = canDrift ? driftEase * driftScale : 0;
@@ -3560,23 +3630,60 @@ const SolarSystem3D = ({
 
                 if (ds > 0.001) {
                     if (dr.pitch) {
-                        _dQ.premultiply(_dTmpQ.setFromAxisAngle(_dRight, dr.pitch * ds * deltaSec));
-                        moved = true;
+                        // Pitch used to somersault over the poles, on the
+                        // reasoning that up and right are re-derived every
+                        // frame so nothing breaks. Nothing breaks in the
+                        // rotation; what breaks is the roll-to-level
+                        // correction below, which is what a camera carried
+                        // over a pole lands in front of — upside down
+                        // relative to world up, so a ~180° error for a
+                        // corrector built for small ones. It drove at that
+                        // error and spun the whole scene, and since the yaw
+                        // axis has also flipped by then, the tumble fed
+                        // itself rather than settling. That is the "left idle
+                        // long enough and the screen pans uncontrollably"
+                        // report, and the arithmetic matches it: the default
+                        // 0.143 covers the 90° from the ecliptic to the pole
+                        // in about 3m40s.
+                        //
+                        // So pitch is a pendulum now. It slows to nothing as
+                        // it approaches PITCH_LIMIT and turns around there,
+                        // which is both the fix and, at these rates, a nicer
+                        // motion than a somersault was — the reversal happens
+                        // at the one point the rate is already zero, so there
+                        // is no visible corner to it. Yaw keeps running
+                        // through it, so the view still explores the whole
+                        // system rather than rocking along one line.
+                        //
+                        // Rotating _dBack about _dRight by +a moves _dBack.y
+                        // by -_dUp.y per radian (the derivative of that
+                        // rotation, since _dUp = _dBack × _dRight), which is
+                        // what pitchPendulum needs to know which way this
+                        // frame would take the camera.
+                        const swing = pitchPendulum(
+                            THREE.MathUtils.clamp(_dBack.y, -1, 1),
+                            -_dUp.y,
+                            dr.pitch,
+                            driftPitchDir,
+                        );
+                        driftPitchDir = swing.dir;
+                        if (swing.rate) {
+                            _dQ.premultiply(_dTmpQ.setFromAxisAngle(_dRight, swing.rate * ds * deltaSec));
+                            moved = true;
+                        }
                     }
                     if (dr.yaw) {
                         _dQ.premultiply(_dTmpQ.setFromAxisAngle(_dUp, dr.yaw * ds * deltaSec));
                         moved = true;
                     }
-                    if (dr.roll) {
-                        _dQ.premultiply(_dTmpQ.setFromAxisAngle(_dBack, dr.roll * ds * deltaSec));
-                        moved = true;
-                    }
                 }
 
-                // Roll → level, unless it is being driven. "Level" is world-up
-                // with the view component removed; undefined looking straight
-                // up or down, so it simply waits there.
-                if (canDrift && dr.roll === 0) {
+                // Roll → level. "Level" is world-up with the view component
+                // removed; undefined looking straight up or down, so it simply
+                // waits there — which the pitch band above now keeps it well
+                // clear of anyway. Unconditional since 5.5.0: there is no
+                // longer a roll slider that could be driving it instead.
+                if (canDrift) {
                     _dLevelUp.set(0, 1, 0).projectOnPlane(_dBack);
                     if (_dLevelUp.lengthSq() > 1e-5) {
                         _dLevelUp.normalize();

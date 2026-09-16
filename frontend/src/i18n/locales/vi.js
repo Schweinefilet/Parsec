@@ -104,7 +104,6 @@ export const vi = {
         driftAdjust: 'Điều chỉnh độ trôi của camera',
         driftYaw: 'Đảo ngang',
         driftPitch: 'Ngóc lên xuống',
-        driftRoll: 'Nghiêng',
         driftReset: 'Đặt lại',
         driftCentre: 'ở giữa',
         driftPaused: 'Camera đang được giữ yên — kéo một thanh trượt để bật lại.',

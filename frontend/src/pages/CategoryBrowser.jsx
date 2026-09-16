@@ -195,6 +195,11 @@ const CategoryBrowser = () => {
     const [moonHintVisible, setMoonHintVisible] = useState(false);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [descriptionOpen, setDescriptionOpen] = useState(false);
+    // True only for the panel's own timed arrival, false the moment a reader
+    // takes the handle. The two want different speeds: the automatic reveal is
+    // part of the arrival and reads better slow, while a tap is a direct
+    // manipulation and a slow one just feels unresponsive.
+    const [autoRevealing, setAutoRevealing] = useState(false);
 
     // The /sky cinematic flies the camera down onto Earth's surface, and it
     // gets there by focusing Earth — which otherwise brings this page's whole
@@ -296,9 +301,21 @@ const CategoryBrowser = () => {
     // independent, so reading the description doesn't cost you the view of the
     // object. On mobile there is only one panel, and it still opens fully.
     // Spacecraft cards have no fly-in, so they open immediately.
+    //
+    // Mobile waits far longer than desktop, because on a phone this panel is
+    // the thing that also moves the planet: opening it sets `focusOffsetY`
+    // below, which lifts the body up the frame to make room. At 1.5s that
+    // landed on top of the fly-in — the longest of which (true sizes) runs
+    // 2.4s — so the body arrived centred and was immediately shoved upward
+    // while the sheet was still sliding. 4s clears every flight the scene has
+    // with room to spare, and lets the arrival be its own moment before
+    // anything else moves. (The lift itself is eased in the scene now too;
+    // the delay is what stops the two motions overlapping at all.)
+    const revealDelay = compactFocus ? 4000 : 1500;
     useEffect(() => {
         setSheetOpen(false);
         setDescriptionOpen(false);
+        setAutoRevealing(false);
         setMoonHintVisible(false);
         if (!id) return;
         // Arming the cinematic while already focused on Earth doesn't change
@@ -306,16 +323,17 @@ const CategoryBrowser = () => {
         // a description that was already open when the dive started.
         if (skyDiving) return;
         const openAt = setTimeout(() => {
+            setAutoRevealing(true);
             setDescriptionOpen(true);
             if (compactFocus) setSheetOpen(true);
-        }, 1500);
+        }, revealDelay);
         const timers = [openAt];
         if (PLANETS_WITH_MOONS.has(id)) {
             timers.push(setTimeout(() => setMoonHintVisible(true), 1700));
             timers.push(setTimeout(() => setMoonHintVisible(false), 9500));
         }
         return () => timers.forEach(clearTimeout);
-    }, [id, isSpacecraftCard, compactFocus, skyDiving]);
+    }, [id, isSpacecraftCard, compactFocus, skyDiving, revealDelay]);
 
     // Returning to the top of the page also returns the browser scroll position
     useEffect(() => { if (id) window.scrollTo({ top: 0, behavior: 'instant' }); }, [id]);
@@ -847,7 +865,7 @@ const CategoryBrowser = () => {
                             position: 'absolute', top: 0, left: 0, right: 0, zIndex: 6,
                             pointerEvents: 'none',
                             transform: descriptionOpen ? 'translateY(0)' : 'translateY(-100%)',
-                            transition: 'transform 0.45s cubic-bezier(0.32,0.72,0,1)',
+                            transition: `transform ${autoRevealing ? '1.05s' : '0.45s'} cubic-bezier(0.32,0.72,0,1)`,
                         }}>
                             <div style={{ padding: '36px 16px 24px' }}>
                                 <div className="glass p-5" style={{ pointerEvents: 'auto' }}>
@@ -879,11 +897,11 @@ const CategoryBrowser = () => {
                                     : sheetOpen
                                         ? 'translateY(0)'
                                         : `translateY(calc(100% - ${compactFocus ? 74 : 84}px))`,
-                                transition: 'transform 0.45s cubic-bezier(0.32,0.72,0,1)',
+                                transition: `transform ${autoRevealing ? '1.05s' : '0.45s'} cubic-bezier(0.32,0.72,0,1)`,
                             }}
                         >
                             <button
-                                onClick={() => setSheetOpen(v => !v)}
+                                onClick={() => { setAutoRevealing(false); setSheetOpen(v => !v); }}
                                 aria-expanded={sheetOpen}
                                 aria-label={t(sheetOpen ? 'scene.hideDetails' : 'scene.showDetails')}
                                 style={{

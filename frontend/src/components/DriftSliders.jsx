@@ -6,7 +6,7 @@ import {
 import { useI18n } from '../i18n';
 
 /**
- * The heading (label + reset), the three bipolar sliders, and the paused note —
+ * The heading (label + reset), the two bipolar sliders, and the paused note —
  * the shared core of the phone's DriftPanel popover and the desktop ScenePanel
  * drawer. The store is the module singleton in utils/driftControl; this mirrors
  * it for the inputs and writes back on change. Nudging a slider while the drift
@@ -16,8 +16,8 @@ import { useI18n } from '../i18n';
  * Pinned `direction: ltr`: a slider's left is its negative end in every
  * language, the same way the time transport does not reverse.
  */
-const AXES = ['yaw', 'pitch', 'roll'];
-const LABEL_KEY = { yaw: 'scene.driftYaw', pitch: 'scene.driftPitch', roll: 'scene.driftRoll' };
+const AXES = ['yaw', 'pitch'];
+const LABEL_KEY = { yaw: 'scene.driftYaw', pitch: 'scene.driftPitch' };
 
 const DriftSliders = ({ driftOn, onWake }) => {
     const { t } = useI18n();

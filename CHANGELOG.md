@@ -16,6 +16,101 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.5.0
+
+- **The camera really does pan away on its own if you leave it alone, and
+  the reason is the roll slider.** Reported as "left idle for long enough,
+  the entire screen starts panning uncontrollably" — accurate, and it had a
+  specific cause rather than being general drift wander.
+
+  Idle pitch ran without limits, by design: "pitch somersaults right over
+  the poles" is what `utils/driftControl.js` said, on the reasoning that up
+  and right are re-derived from the live camera every frame so nothing can
+  break. Nothing does break in the rotation. What breaks is the other half
+  of that same block — the correction that quietly rolls the camera back
+  toward level whenever the roll slider sits centred, which is where it sat
+  for everyone who never touched it. A camera that has just been carried
+  over a pole is upside down relative to world up, so that corrector, built
+  for errors of a fraction of a degree, is suddenly handed one near 180° and
+  drives at it. Past the pole the yaw axis has flipped too, so the tumble
+  feeds itself instead of settling.
+
+  The timing matches the report exactly: at the default pitch of 0.143 the
+  camera covers the 90° from the ecliptic to the pole in about three and a
+  half minutes. A 30-minute simulation of the old block reaches 89.8° of
+  elevation and hands the level corrector a 61° error; the same simulation
+  of the new one peaks at 69.3° and never gives it more than 0.2°.
+
+  Pitch is a pendulum now (`pitchPendulum`, extracted to
+  `utils/driftControl.js` so the rule is pinned by tests rather than living
+  only inside a render loop nothing can call): it eases to nothing as it
+  approaches about 70° of elevation and turns around there. The reversal
+  happens at the one point where the rate is already zero, so there is no
+  corner to it, and yaw keeps running straight through, so the view still
+  explores the whole system rather than rocking along one line. The
+  roll-to-level correction is now unconditional, since there is nothing left
+  that could be driving roll instead.
+
+- **The Roll slider is gone**, on request. Two axes remain, yaw and pitch.
+  A roll value left in `localStorage` by an older version is ignored rather
+  than treated as corrupt, so a reader's yaw and pitch survive the upgrade.
+  Removing the slider and adding the pitch band are both necessary: either
+  one alone leaves the other failure reachable.
+
+- **The fly-in now frames the Sun at true distances too, and much further
+  round to the left — on a desktop.** True distances is the stage where a
+  body is already a long way down its own radial line with nothing else in
+  the shot, so it earns the same over-the-shoulder-of-the-Sun framing true
+  sizes has had since 5.2.0. The angle is the change: 28° off axis at 61°
+  round from vertical, against the old 12°/35°, which puts the Sun about
+  0.62 of the way up the frame and 0.70 of the way to the left edge at 16:9
+  rather than tucked just above the body.
+
+  The old pair was cautious for a reason — 30° off axis dropped the Sun off
+  the top of a 45° field, whose vertical half-angle is only 22.5°. The room
+  that makes the wide framing possible is sideways: at 16:9 the horizontal
+  half-angle is 36°. That is also why this is desktop-only, and gated on a
+  5:4-or-better aspect as well as the usual phone breakpoints — a portrait
+  phone would simply crop the Sun off, which is worse than not reaching for
+  it. Below the gate, true sizes keeps the framing it has always had.
+
+- **Focusing a planet on a phone no longer jolts.** Reported as the body
+  landing centred and then jumping upward to make room for the detail sheet.
+  Two separate causes, both fixed:
+
+  The sheet's own timing. It opened 1.5s after the tap, which lands inside
+  the fly-in — the longest of which, at true sizes, runs 2.4s. So the
+  arrival and the panel were competing for the same second. On a phone it
+  now waits 4s, which clears every flight the scene has with room to spare
+  and lets the arrival be its own moment. Desktop is unchanged at 1.5s,
+  where the description slides in from the top and moves nothing.
+
+  And the lift itself. Opening the sheet sets the focus offset that raises
+  the body up the frame, and that offset was read straight off a ref and
+  applied in full on the next frame — a single-frame jump while the panel
+  was still sliding. It is eased now, over about the same second the panel
+  takes, so the body rises *with* it and the two read as one movement. The
+  automatic reveal also runs slower than it did (1.05s against 0.45s), while
+  a tap on the handle stays at the old snappy 0.45s: an arrival wants to be
+  unhurried, a direct manipulation does not.
+
+- **The Sun's lens-flare throws rays now.** It had a halo, one horizontal
+  streak and four ghosts, and the thing it was most obviously missing was
+  any spray of light out of the core at all. `burstTexture` adds eleven
+  spikes at varied angles, lengths and tints, drawn with the same
+  squashed-gradient primitive the streak already used (a filled shape would
+  have hard edges that read as grey bars rather than light), composited
+  additively so they pile into a hot core where they cross. The angles are
+  deliberately uneven: a real iris does throw evenly spaced spikes, but an
+  evenly spaced *and* evenly bright set reads as a drawn asterisk, because
+  the eye finds the pattern immediately. The ghost chain is spread wider
+  too — out to 1.55 from 1.15 — with two large, dim discs added at either
+  end, which is what reads as a lens rather than as confetti. All still
+  procedural canvas work built once at scene setup, with no new assets and
+  nothing per frame.
+
+---
+
 ## 5.4.0
 
 - **Rebuilt AR mode's orientation on the one rotation the sensors
