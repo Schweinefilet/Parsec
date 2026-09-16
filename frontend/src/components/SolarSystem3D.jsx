@@ -14,7 +14,7 @@ import {
 } from '../utils/orbits';
 import { probeScenePos, buildProbeTrack, trackDrawCount } from '../utils/probeTracks';
 import { proceduralSurface } from '../utils/proceduralTextures';
-import { createSunLensflare } from '../utils/lensFlareTextures';
+import { createSunLensflare, sunFlareScale, setSunFlareScale } from '../utils/lensFlareTextures';
 import { simNow, isLive } from '../utils/simTime';
 import { setCameraSnapshot } from '../utils/shareView';
 import {
@@ -3377,12 +3377,21 @@ const SolarSystem3D = ({
             sunMesh.rotation.y      += 0.0008 * frameScale;
             if (skySphere) skySphere.rotation.y += 0.00002 * frameScale;
             // Keep the lens-flare's anchor just clear of the Sun's surface on
-            // the camera's side — see where it's created for why.
+            // the camera's side — see where it's created for why — and size
+            // the flare against however big the Sun currently looks, so
+            // zooming out shrinks the glare with the disc instead of leaving
+            // it pasted over the scene at a fixed size (utils/lensFlareTextures.js
+            // has the reasoning and the clamps).
             if (sunFlare) {
+                const sunWorldRadius = SUN_RADIUS * sunScale.scale.x;
                 flareAnchor.position.copy(camera.position)
                     .sub(sunMesh.position)
-                    .setLength(SUN_RADIUS * sunScale.scale.x * 1.04)
+                    .setLength(sunWorldRadius * 1.04)
                     .add(sunMesh.position);
+                setSunFlareScale(sunFlare, sunFlareScale(
+                    sunWorldRadius,
+                    camera.position.distanceTo(sunMesh.position),
+                ));
             }
             planetMeshes.forEach(m => {
                 // Halley holds still while focused. Its nucleus is an irregular

@@ -192,23 +192,92 @@ const GHOSTS = [
     { size: 150, distance: 1.55, sides: 8, colors: ['rgba(255,235,205,0.1)',  'rgba(255,200,150,0.035)', 'rgba(255,200,150,0)'] },
 ];
 
+// ── Sizing the flare against the Sun ─────────────────────────────────────
+//
+// A LensflareElement's `size` is in screen pixels and three.js re-reads it
+// every frame, which is the hook that makes this possible at all: the
+// elements array itself is private to Lensflare's constructor closure, but
+// `addElement` stores the very object handed to it, so keeping our own
+// references to them is enough to drive their sizes from the render loop.
+//
+// Left alone, that size is a constant, and a real lens is the reason why —
+// a flare is thrown by the glass, not by the subject, so a bright enough
+// point source throws the same one however far away it is. On a solar-system
+// map that reads wrong: zoom out from the Sun and the disc shrinks toward a
+// dot while the glare sits there at the same size, until the whole effect
+// looks pasted over the scene rather than coming out of it. So it tracks the
+// Sun's apparent size instead.
+//
+// REFERENCE_APPARENT is what "1x" means: the angular radius the Sun subtends
+// from the scene's opening camera position — a 12-unit Sun seen from
+// (-350, 280, 365), so 578 units out — which is the view every element's own
+// pixel size was originally picked against, and therefore the one place this
+// change leaves the flare exactly as it was. (Returning home from a focused
+// body settles at 556 rather than 578, a 4% difference not worth a second
+// constant.) Working in angle rather than pixels keeps the flare a fixed
+// *fraction* of the frame for a given zoom, so it behaves the same on a phone
+// as on a desktop, exactly as the constant-size version did.
+const REFERENCE_APPARENT = Math.atan(12 / 578);
+
+// Both ends need a stop. Zoomed right in, the Sun's disc already fills the
+// frame and an honest multiplier would put the flare several screens wide
+// for no gain; zoomed right out — or at true sizes, where the Sun is a
+// quarter of a scene unit across — it would shrink past the point of being
+// visible at all, and the flare is the only thing marking where the Sun *is*
+// in that view.
+const MIN_SCALE = 0.3;
+const MAX_SCALE = 2.6;
+
+/**
+ * How much to multiply every flare element's authored size by, for a Sun of
+ * `worldRadius` scene units seen from `distance` away.
+ *
+ * Pure, and exported for its own tests — the clamps are the part worth
+ * pinning, since they are what keeps the Sun visible at true sizes and keeps
+ * the flare from swallowing the frame up close.
+ */
+export function sunFlareScale(worldRadius, distance) {
+    if (!(worldRadius > 0) || !(distance > 0)) return MIN_SCALE;
+    const apparent = Math.atan(worldRadius / distance) / REFERENCE_APPARENT;
+    return Math.min(MAX_SCALE, Math.max(MIN_SCALE, apparent));
+}
+
+/** Applies a multiplier from sunFlareScale() to a flare built below. */
+export function setSunFlareScale(flare, scale) {
+    const parts = flare?.userData?.flareParts;
+    if (!parts) return;
+    for (const part of parts) part.element.size = part.baseSize * scale;
+}
+
 /**
  * Builds the Sun's lens-flare. `.add()` it onto a light (or any Object3D)
  * positioned at the Sun — three.js tracks that object's screen position and
- * occlusion every frame on its own via onBeforeRender, so this needs no
- * manual update from the render loop.
+ * occlusion every frame on its own via onBeforeRender. The one thing it does
+ * want from the render loop is setSunFlareScale(), above.
  */
 export function createSunLensflare() {
     const flare = new Lensflare();
-    flare.addElement(new LensflareElement(haloTexture(256), 220, 0));
-    flare.addElement(new LensflareElement(streakTexture(512), 1100, 0));
+    // Every element's authored size is remembered here so the scaling above
+    // is always applied to the original rather than compounding frame on
+    // frame.
+    const parts = [];
+    const add = (texture, size, distance) => {
+        const element = new LensflareElement(texture, size, distance);
+        parts.push({ element, baseSize: size });
+        flare.addElement(element);
+    };
+
+    add(haloTexture(256), 220, 0);
+    add(streakTexture(512), 1100, 0);
     // Wider than the halo and narrower than the streak, so the rays reach
     // well past the Sun's own glow without competing with the horizontal
     // glint the streak already owns. 512 rather than 256: at 256 the thinnest
     // rays (squash 0.008) come out under a pixel tall and alias into dashes.
-    flare.addElement(new LensflareElement(burstTexture(512), 760, 0));
+    add(burstTexture(512), 760, 0);
     GHOSTS.forEach(({ size, distance, sides, colors }) => {
-        flare.addElement(new LensflareElement(ghostTexture(128, sides, colors), size, distance));
+        add(ghostTexture(128, sides, colors), size, distance);
     });
+
+    flare.userData.flareParts = parts;
     return flare;
 }

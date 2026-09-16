@@ -16,6 +16,43 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.5.1
+
+- **The Sun's glare now scales with the Sun.** Reported straight after
+  5.5.0: the glare held the same size while zooming out, which reads as
+  something pasted over the scene rather than light coming out of it.
+
+  It was a constant because three.js's `LensflareElement` takes its `size`
+  in screen pixels, and because a real lens flare genuinely does behave that
+  way — the flare is thrown by the glass, not by the subject, so a bright
+  enough point source throws the same one however far off it is. That
+  argument holds for a camera and not for a solar-system map, where pulling
+  back until the Sun is a dot and leaving a full-size starburst on top of it
+  just looks wrong.
+
+  The size is re-read every frame by `Lensflare.onBeforeRender`, which is
+  the hook that makes this drivable at all: the elements array itself is
+  private to the constructor's closure, but `addElement` stores the very
+  object it is handed, so keeping our own references is enough.
+  `sunFlareScale()` turns the Sun's current world radius and distance into a
+  multiplier against the angular radius it subtends from the scene's opening
+  camera — 1x there, by construction, so the default view is untouched —
+  and every element is scaled from its authored size rather than compounded
+  frame on frame.
+
+  Working in *angle* rather than pixels is what keeps this
+  viewport-independent: the flare stays the same fraction of the frame for a
+  given zoom on a phone as on a desktop, exactly as the constant version
+  did. Both ends are clamped, and the lower clamp is load-bearing rather
+  than cosmetic: at true sizes the Sun is a quarter of a scene unit and the
+  honest multiplier lands near 0.11, small enough to read as nothing — and
+  the flare is the only thing marking where the Sun is in that view, which
+  the fly-in framing added in 5.5.0 depends on. The floor holds it at a
+  small, distinct glint instead. The upper clamp stops the flare running
+  several screens wide when the disc already fills the frame.
+
+---
+
 ## 5.5.0
 
 - **The camera really does pan away on its own if you leave it alone, and
