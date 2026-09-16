@@ -320,22 +320,44 @@ not drift after you send it. Anything malformed is discarded rather than
 applied; links get truncated and hand-edited, and the failure mode of trusting
 one is a camera inside the Sun.
 
-### Orbit paths are pixels, not tubes
+### Orbit paths are tubes, rebuilt — and trails are not
 
-Orbit rings are `Line2` from three.js's examples, whose width is in **pixels**.
-They used to be `TubeGeometry`, which has a radius in scene units — so how thick
-a ring looked depended entirely on how far away the camera was. That was
-survivable at one camera distance, and at the six-times-further one true
-distances asks for, a 0.28-unit tube renders about a tenth of a pixel wide and
-vanishes. The Voyager tracks stayed visible throughout precisely because they
-were plain lines.
+A path's width has to hold steady on screen while the camera covers a range
+from a planet's surface to the Kuiper belt. `TubeGeometry` has a radius in
+scene units, so at the six-times-further distance true distances asks for, a
+0.28-unit tube renders about a tenth of a pixel wide and vanishes.
 
-Pixel width also makes scaling a ring exact — there is no tube to fatten with
-the path, which is what the 2.0.0 rebuild machinery existed to work around, now
-deleted — and costs a good deal less: 512 triangles per ring against a tube's
-4,096. `LineMaterial` needs the drawing buffer size to convert pixels to clip
-space, so it is updated with the renderer; a stale one makes every ring the
-wrong thickness.
+The obvious fix is three's `Line2`, whose width is in **pixels**. It was tried
+and given back. A fat line is one screen-space quad per segment, and a thin
+*translucent* one — which a 27%-opacity ring is — comes out either hard-edged
+or, with `alphaToCoverage` on, dithered into beads. A tube is ordinary
+geometry the renderer anti-aliases for free.
+
+So the rings stay tubes, and the width problem is solved by **rebuilding**
+them: a ring's tube radius is set from the camera distance, quantised to
+octaves so there are about nine rebuilds across the whole range rather than
+one per frame of a scroll (the apparent width wanders between 0.71x and 1.41x
+in exchange, which is invisible). Sixteen at once costs ~15 ms, so they drain
+from a queue a couple per frame. Scaling is *not* the shortcut it looks like:
+scaling a tube fattens the tube along with the path, which is the 2.0.0 bug
+that left Mercury's ring at 0.217 units against Pluto's 2.59.
+
+Orbit **trails** — the short coloured arc behind each planet — went the other
+way, to `Line2`, in 5.5.2. The tube argument does not carry over: a trail's
+geometry is rewritten every time the planet moves, and a tube would mean
+rebuilding and re-uploading one per planet on every scrub frame, where a ring
+rebuilds a handful of times across an entire zoom. The artifacts that ruled
+`Line2` out for rings do not show here either — `alphaToCoverage` is off, so
+there is nothing to dither, and a short arc gives hard edges far less to read
+against than a ring spanning the screen.
+
+One thing it *does* inherit: overlapping quads. Consecutive segments that
+overlap blend twice and come out brighter, so packing more points into an arc
+than it has pixels for beads it. The trail draws every second baseline orbit
+sample for exactly that reason — same curve, segments long enough to sit end
+to end. `LineMaterial` also needs the drawing buffer size to convert pixels to
+clip space, so every trail material is updated from the `ResizeObserver`; a
+stale one leaves the trails at the old window's thickness.
 
 ### Scale
 

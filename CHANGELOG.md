@@ -16,6 +16,55 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.5.2
+
+- **Planet trails are thicker and longer.** Straightforward request; the
+  length half was a constant, the thickness half was not.
+
+  A `THREE.Line` is a one-pixel hairline on every platform no matter what
+  `linewidth` says, so there was no width to turn up — the trails are drawn
+  with three's `Line2` now, at 2.4 CSS pixels. That is the same fat-line
+  machinery this codebase has twice tried and given back: once for the
+  gravity field lines (4.3.0, reverted in 4.3.1) and once for the orbit
+  rings, which are `TubeGeometry` rebuilt against camera distance for
+  exactly this reason. Worth revisiting here because what ruled it out
+  there does not apply. The rings' objection was that a thin translucent
+  fat line is either hard-edged or, with `alphaToCoverage` on, dithered
+  into beads — `alphaToCoverage` is off here, so there is nothing to
+  dither, and a short arc gives hard edges far less to read against than a
+  ring spanning the screen. And the rings' own answer, a rebuilt tube, is
+  not available to a trail: a ring's geometry is rebuilt a handful of times
+  across an entire zoom, while a trail's is rewritten every time its planet
+  moves, which during a scrub is every other frame.
+
+  The arc is about 15% of the orbit now, against 9%. It is drawn on 19
+  points rather than 38, taking every *second* baseline orbit sample — and
+  that stride is the fix for the one artifact `Line2` does bring here. A
+  fat line is one screen-space quad per segment, and consecutive quads that
+  overlap blend twice and come out brighter, so packing more points into an
+  arc than it has pixels for beads it: one sample per point put 38 of them
+  into roughly 50 pixels of Mars' arc at the default zoom, well under the
+  line width. Every other sample is the same curve — 15% of an ellipse does
+  not need 38 points — with segments long enough to sit end to end. Visible
+  at 4x magnification before the change and not after; not visible at 1:1
+  either way, which is the honest way to describe it.
+
+  Two supporting details: the trail geometries are written **in place**
+  rather than through `setPositions()`/`setColors()`, which rebuild and
+  re-upload the whole interleaved buffer on every call and would do so
+  eight times per scrub frame; and the trail lines skip frustum culling,
+  the same way the belts and probe tracks already do, because a bounding
+  sphere computed once from a still-empty buffer would cull an outer
+  planet's trail whenever the origin left the frame.
+
+- **README fix:** the "Orbit paths" section claimed the rings are `Line2`.
+  They have been tubes since the rebuild machinery landed — the section
+  described a decision that was later reversed, with the reversal's own
+  reasoning sitting in the code the whole time. Rewritten to match, with
+  the trail's opposite conclusion and why the two differ.
+
+---
+
 ## 5.5.1
 
 - **The Sun's glare now scales with the Sun.** Reported straight after

@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.5',
         changes: [
+            'Planet trails are thicker and about two-thirds longer.',
             'The Sun\u2019s glare now grows and shrinks with the Sun as you zoom, instead of staying one fixed size on screen while the Sun itself shrank away to a dot underneath it.',
             'Fixed the view slowly panning away on its own if you left the page alone for a few minutes. The idle drift was tipping the camera right over the pole, at which point the scene\u2019s own \u201ckeep the horizon level\u201d correction found itself upside down and spun to fix it. The drift now swings back before it gets there.',
             'The \u201cRoll\u201d drift slider is gone \u2014 yaw and pitch remain. Your existing settings for those two are kept.',
