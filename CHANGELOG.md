@@ -16,6 +16,44 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.6.1
+
+- **A diagnostic readout for the AR compass, behind `?debug=ar`.** Testing AR
+  against the real Moon showed the rendered Moon sitting one to three degrees
+  to its left — a constant gap, the same size wherever the Moon sat on screen.
+  That shape of error rules out a field-of-view mismatch on its own, since a
+  wrong FOV stretches the overlay about the centre and would have grown toward
+  the edges. It also, less obviously, exonerates magnetic declination: the
+  observation was made in North America, where declination runs ten to fifteen
+  degrees, so a correction applied twice, backwards, or not at all would have
+  been off by ten to thirty degrees rather than by one or two. Both of the
+  obvious suspects were therefore already ruled out by the measurement itself.
+
+  What remains is harder to see from the code, because it may not be a code
+  fault at all: one to three degrees is ordinary phone magnetometer error.
+  iOS's own stated accuracy for the reading, which the app had never looked
+  at, is typically ten to fifteen degrees, and local magnetic anomalies —
+  reinforced concrete, a car, a magnetic case — add degrees more on top.
+  Rather than guess at another fix, this release adds the instrument needed to
+  tell the two apart. Opening the sky view with `?debug=ar` overlays every
+  stage of the heading pipeline at once: what iOS reported, the bearing
+  derived from the rotation alone, the anchor reconciling them, declination,
+  manual calibration, and the final true heading — alongside the Moon's true
+  azimuth computed from the ephemeris, and the signed difference between the
+  two.
+
+  That last number is the whole point. Centre the real Moon in the camera and
+  the difference says where the error entered: already present there, and it
+  arrived before the renderer ever saw it, which means the sensor; near zero
+  while the drawn Moon still sits visibly off, and it arrived after, which
+  means the projection. `webkitCompassAccuracy` is now captured too, both for
+  the readout and as the signal a future "wave the phone in a figure-of-eight"
+  prompt would key off. Nothing about normal use changes — the readout only
+  exists when the query parameter is present, and its labels are deliberately
+  untranslated, being developer instrumentation rather than part of the site.
+
+---
+
 ## 5.6.0
 
 - **Time can run backward now, not just fast-forward.** The rewind button

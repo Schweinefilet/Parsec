@@ -13,6 +13,7 @@ import {
     isOrientationAbsolute, nudgeCalibrationOffset, resetCalibrationOffset,
     setDeclinationLocation, needsOrientationPermission,
     requestDeviceOrientationPermission, subscribeDeviceOrientation,
+    getOrientationDebug,
     __injectOrientationEvent, __resetDeviceOrientation,
 } from './deviceOrientation.js';
 
@@ -503,6 +504,49 @@ describe('deviceOrientation', () => {
             try {
                 await expect(requestDeviceOrientationPermission()).resolves.toBe(false);
             } finally { restore(); }
+        });
+    });
+
+    describe('getOrientationDebug (AR diagnostic readout)', () => {
+        // The readout exists to attribute a real-device offset to a stage of
+        // the pipeline rather than guess at it, so what matters is that each
+        // stage is reported separately and that the chain adds up.
+        it('reports the stages of the heading chain separately', () => {
+            magvarMock.mockReturnValue(10);
+            setDeclinationLocation(40, -74);
+            __injectOrientationEvent({ alpha: 0, beta: 90, gamma: 0 }, { absolute: true });
+            nudgeCalibrationOffset(3, 0);
+
+            const d = getOrientationDebug();
+            expect(d.declination).toBeCloseTo(10, 4);
+            expect(d.calibrationAz).toBeCloseTo(3, 4);
+            // The documented relationship the readout is read through:
+            // final true heading = magnetic + declination + calibration.
+            expect(((d.heading + d.declination + d.calibrationAz) % 360 + 360) % 360)
+                .toBeCloseTo(getOrientationHeading(), 4);
+        });
+
+        it('passes iOS compass accuracy through, and reports -1 as invalid', () => {
+            __injectOrientationEvent({
+                alpha: 0, beta: 90, gamma: 0, webkitCompassHeading: 120, webkitCompassAccuracy: 15,
+            });
+            expect(getOrientationDebug().compassAccuracy).toBe(15);
+            expect(getOrientationDebug().webkitHeading).toBeCloseTo(120, 4);
+
+            // CoreLocation uses a negative accuracy to mean "no valid heading"
+            // and WebKit passes that straight through — it must survive as the
+            // signal it is, not get clamped into looking like a good reading.
+            __injectOrientationEvent({
+                alpha: 0, beta: 90, gamma: 0, webkitCompassHeading: 120, webkitCompassAccuracy: -1,
+            });
+            expect(getOrientationDebug().compassAccuracy).toBe(-1);
+        });
+
+        it('reports a null webkit heading off iOS, rather than a misleading zero', () => {
+            __injectOrientationEvent({ alpha: 45, beta: 90, gamma: 0 }, { absolute: true });
+            const d = getOrientationDebug();
+            expect(d.webkitHeading).toBeNull();
+            expect(d.compassAccuracy).toBe(-1);
         });
     });
 

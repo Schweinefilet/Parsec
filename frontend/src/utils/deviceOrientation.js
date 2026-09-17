@@ -173,11 +173,20 @@ const orientation = new THREE.Quaternion();
 let heading = 0;     // magnetic heading of the camera axis, degrees, derived
 let altitude = 0;    // degrees above the horizon, derived
 let roll = 0;        // degrees of screen spin about the camera axis, derived
+let rawHeading = 0;  // bearing of the camera axis before the iOS alpha anchor
 let smoothed = false;   // false until the first real sample seeds the rotation
 let lastSampleAt = 0;   // ms, same clock as event.timeStamp — see timeWeight()
 
 let alphaOffset = 0;      // degrees to subtract from a derived heading (iOS)
 let alphaOffsetReady = false;
+
+// iOS only: the last raw compass bearing, and iOS's own stated accuracy for it
+// (CoreLocation's headingAccuracy passed straight through — degrees of maximum
+// deviation, negative meaning "no valid reading"). Nothing in the sensor path
+// reads either; they exist for getOrientationDebug() below, and accuracy is the
+// signal a "wave the phone in a figure-8" prompt would key off.
+let lastWebkitHeading = null;
+let compassAccuracy = -1;
 
 let calibrationAz = 0;  // manual correction, added on top of the sensor reading
 let calibrationAlt = 0;
@@ -364,13 +373,17 @@ function handleOrientation(event, isAbsolute) {
     const screenRad = screenAngle() * DEG2RAD;
     _screenUp.set(Math.sin(screenRad), Math.cos(screenRad), 0).applyQuaternion(orientation);
 
-    const rawHeading = bearingOf(_forward);
+    rawHeading = bearingOf(_forward);
     altitude = Math.atan2(_forward.z, Math.hypot(_forward.x, _forward.y)) * RAD2DEG;
     roll = rollFrom(_screenUp, rawHeading, altitude);
 
     if (hasWebkitHeading) {
+        lastWebkitHeading = norm360(event.webkitCompassHeading);
+        compassAccuracy = Number.isFinite(event.webkitCompassAccuracy)
+            ? event.webkitCompassAccuracy
+            : -1;
         _topAxis.set(0, 1, 0).applyQuaternion(orientation);
-        const target = solveAlphaOffset(_forward, _topAxis, norm360(event.webkitCompassHeading));
+        const target = solveAlphaOffset(_forward, _topAxis, lastWebkitHeading);
         if (!alphaOffsetReady) {
             alphaOffset = target;
             alphaOffsetReady = true;
@@ -446,6 +459,8 @@ export function startDeviceOrientationTracking() {
     receivedAbsolute = false;
     alphaOffset = 0;
     alphaOffsetReady = false;
+    lastWebkitHeading = null;
+    compassAccuracy = -1;
     window.addEventListener('deviceorientationabsolute', onAbsoluteEvent);
     window.addEventListener('deviceorientation', onRelativeEvent);
 }
@@ -525,6 +540,37 @@ export function resetCalibrationOffset() {
     notify();
 }
 
+/**
+ * Every stage of the heading pipeline at once, for the AR diagnostic readout
+ * (NightSky3D.jsx, behind `?debug=ar`). Nothing in the app's own behaviour
+ * reads this — it exists so a real-device offset can be attributed to a
+ * specific stage rather than guessed at.
+ *
+ * The chain, in order: `webkitHeading` is what iOS reported (null off iOS);
+ * `rawHeading` is the bearing this module derived from the rotation alone;
+ * `alphaOffset` is the constant reconciling the two (see solveAlphaOffset);
+ * `heading` is the resulting magnetic bearing; and `getOrientationHeading()`
+ * adds `declination` + `calibrationAz` on top to give true north. Comparing
+ * that last number against a known object's true azimuth is the one
+ * measurement that says whether an error is upstream in the sensor or
+ * downstream in the rendering.
+ */
+export function getOrientationDebug() {
+    return {
+        webkitHeading: lastWebkitHeading,
+        compassAccuracy,
+        rawHeading,
+        alphaOffset,
+        heading,
+        declination: declinationDeg,
+        calibrationAz,
+        calibrationAlt,
+        altitude,
+        roll,
+        absolute: sourceIsAbsolute,
+    };
+}
+
 export function subscribeDeviceOrientation(fn) {
     listeners.add(fn);
     return () => listeners.delete(fn);
@@ -544,10 +590,13 @@ export function __resetDeviceOrientation() {
     heading = 0;
     altitude = 0;
     roll = 0;
+    rawHeading = 0;
     smoothed = false;
     lastSampleAt = 0;
     alphaOffset = 0;
     alphaOffsetReady = false;
+    lastWebkitHeading = null;
+    compassAccuracy = -1;
     calibrationAz = 0;
     calibrationAlt = 0;
     declinationDeg = 0;

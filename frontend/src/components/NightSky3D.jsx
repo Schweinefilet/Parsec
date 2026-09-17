@@ -10,7 +10,7 @@ import {
 import {
     startDeviceOrientationTracking, stopDeviceOrientationTracking,
     getOrientationHeading, getOrientationAltitude, getOrientationRoll,
-    setDeclinationLocation, nudgeCalibrationOffset,
+    setDeclinationLocation, nudgeCalibrationOffset, getOrientationDebug,
 } from '../utils/deviceOrientation';
 import { arVerticalFov } from '../utils/arCamera';
 import { simNow } from '../utils/simTime';
@@ -502,6 +502,55 @@ const NightSky3D = ({
         // would otherwise leave these blank until a language switch.
         compassEl.querySelector('[data-lbl="heading"]').textContent = i18nRef.current.t('nightSky.compassHeading');
         compassEl.querySelector('[data-lbl="altitude"]').textContent = i18nRef.current.t('nightSky.compassAltitude');
+
+        // ── AR diagnostic readout (?debug=ar) ────────────────────────────────
+        // Every stage of the heading pipeline side by side, so a real-device
+        // offset can be attributed to one of them instead of guessed at. The
+        // row that actually settles it is `delta`: centre the real Moon in the
+        // camera view, and if the final true heading already disagrees with the
+        // Moon's true azimuth, the error arrived before the renderer ever saw
+        // it (sensor/compass), whereas a delta near zero with the drawn Moon
+        // still visibly offset puts it after (projection, fov, scene mapping).
+        //
+        // Deliberately untranslated: these are developer labels, and routing
+        // them through t() would drag a debugging tool into the i18n parity
+        // tests for no reader's benefit. Plain DOM updated per frame, for the
+        // same reason the compass above is — see the file header.
+        const debugAr = new URLSearchParams(window.location.search).get('debug') === 'ar';
+        const DEBUG_ROWS = [
+            ['webkit', 'what iOS reported, raw'],
+            ['acc', 'iOS stated accuracy in degrees; -1 means no valid reading'],
+            ['raw', 'bearing derived from the rotation alone'],
+            ['offset', 'alpha anchor reconciling the two'],
+            ['mag', 'resulting magnetic heading'],
+            ['decl', 'declination added for true north'],
+            ['cal', 'manual calibration offset'],
+            ['TRUE', 'final heading handed to the scene'],
+            ['moon', "the Moon's true azimuth / altitude"],
+            ['delta', 'TRUE heading minus Moon azimuth'],
+            ['loc', 'observer lat / lon in use'],
+            ['fov', 'rendered vertical field of view'],
+        ];
+        let debugEl = null;
+        const debugValEls = {};
+        if (debugAr) {
+            debugEl = document.createElement('div');
+            debugEl.style.cssText = [
+                // Pushed clear of the header and the back button, which
+                // otherwise overlap exactly the first few rows — and those are
+                // the ones worth reading.
+                'position:absolute', 'top:124px', 'left:8px', 'z-index:6',
+                'font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace',
+                'color:#b6f0c0', 'background:rgba(0,0,0,0.72)',
+                'padding:6px 8px', 'border-radius:6px', 'pointer-events:none',
+                'white-space:pre', 'max-width:60vw',
+            ].join(';');
+            debugEl.innerHTML = DEBUG_ROWS
+                .map(([k, title]) => `<div title="${title}">${k.padEnd(7)}<b data-d="${k}"></b></div>`)
+                .join('');
+            mount.appendChild(debugEl);
+            for (const [k] of DEBUG_ROWS) debugValEls[k] = debugEl.querySelector(`[data-d="${k}"]`);
+        }
 
         // ── Constellation info card ──────────────────────────────────────────
         // Shown on click (see "Constellation hover + click" below) — content
@@ -1216,6 +1265,37 @@ const NightSky3D = ({
                 compassAltitudeEl.textContent = altitudeText;
             }
         };
+        let moonAz = null;
+        let moonAlt = null;
+        const signedDelta = (d) => ((((d % 360) + 540) % 360) - 180);
+        const fmtDeg = (v, digits = 1) => (Number.isFinite(v) ? `${v.toFixed(digits)}°` : '—');
+        const updateDebug = () => {
+            if (!debugEl) return;
+            const d = getOrientationDebug();
+            const trueHeading = getOrientationHeading();
+            const loc = locationRef.current;
+            debugValEls.webkit.textContent = d.webkitHeading === null
+                ? '— not iOS' : fmtDeg(d.webkitHeading);
+            debugValEls.acc.textContent = d.compassAccuracy < 0
+                ? `${fmtDeg(d.compassAccuracy)} invalid` : fmtDeg(d.compassAccuracy);
+            debugValEls.raw.textContent = fmtDeg(d.rawHeading);
+            debugValEls.offset.textContent = fmtDeg(d.alphaOffset);
+            debugValEls.mag.textContent = fmtDeg(d.heading);
+            debugValEls.decl.textContent = fmtDeg(d.declination, 2);
+            debugValEls.cal.textContent = fmtDeg(d.calibrationAz);
+            debugValEls.TRUE.textContent = fmtDeg(trueHeading);
+            debugValEls.moon.textContent = moonAz === null
+                ? '—' : `${fmtDeg(moonAz)} / ${fmtDeg(moonAlt)}`;
+            // Signed and to two places: this is the number the whole readout
+            // exists for, and a degree either way is the size of the effect
+            // being chased.
+            const delta = moonAz === null ? null : signedDelta(trueHeading - moonAz);
+            debugValEls.delta.textContent = delta === null
+                ? '—' : `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}°`;
+            debugValEls.loc.textContent = loc
+                ? `${loc.lat.toFixed(2)}, ${loc.lon.toFixed(2)}` : '—';
+            debugValEls.fov.textContent = fmtDeg(camera.fov);
+        };
         const animate = () => {
             animId = requestAnimationFrame(animate);
             frame++;
@@ -1317,6 +1397,11 @@ const NightSky3D = ({
                     SKY_TRACKED.forEach((b, i) => {
                         const eq = Astronomy.Equator(b.body, now, observer, true, true);
                         const hz = Astronomy.Horizon(now, observer, eq.ra, eq.dec, null);
+                        // Kept, not just converted: the diagnostic readout
+                        // compares the Moon's true azimuth against the heading
+                        // the sensor pipeline produced, and this is already the
+                        // authoritative answer for where it really is.
+                        if (debugAr && b.id === 'luna') { moonAz = hz.azimuth; moonAlt = hz.altitude; }
                         sceneFromAltAz(hz.altitude, hz.azimuth, _bodyPos);
                         bodyPositions[i * 3] = _bodyPos.x;
                         bodyPositions[i * 3 + 1] = _bodyPos.y;
@@ -1364,6 +1449,10 @@ const NightSky3D = ({
             for (const l of constellationLabels) placeLabel(l.el, l.anchor, false);
             updateCrosshair();
 
+            // Last, so every number it shows is this frame's: the fov after
+            // matchCameraToLens, the Moon after the ephemeris pass.
+            updateDebug();
+
             renderer.render(scene, camera);
         };
         animate();
@@ -1383,6 +1472,7 @@ const NightSky3D = ({
             renderer.domElement.removeEventListener('keydown', onKeyDown);
             infoCloseBtn.removeEventListener('click', hideInfoCard);
             if (mount.contains(compassEl)) mount.removeChild(compassEl);
+            if (debugEl && mount.contains(debugEl)) mount.removeChild(debugEl);
             if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
             if (mount.contains(labelLayer)) mount.removeChild(labelLayer);
             // geos/mats already carries the ground, the bodies, the stars (once
