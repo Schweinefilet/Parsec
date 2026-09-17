@@ -16,6 +16,37 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.5.3
+
+- **Planet trails go back to a hairline.** The extra width from 5.5.2 is
+  reverted on request — "I no longer want fatter lines" — and the length it
+  came with stays: the arc is still about 15% of the orbit against the 9%
+  it shipped with. Back to a one-pixel `THREE.Line`, with the taper in
+  colour rather than width.
+
+  The sample stride goes with it. It existed only because overlapping
+  fat-line quads blend twice and bead, which a one-pixel line cannot do, so
+  the trail is one point per baseline orbit sample again — 38 of them,
+  which is the smoother curve. `Line2`, `LineGeometry` and `LineMaterial`
+  come back out of the bundle entirely (the main chunk drops from 691 kB to
+  674 kB), along with the `resolution` plumbing in the `ResizeObserver` and
+  the in-place interleaved-buffer writes that only LineGeometry needed.
+
+  That makes three attempts at fat lines in this codebase and three
+  reversions: the gravity field lines (4.3.0 → 4.3.1), the orbit rings
+  (which are rebuilt tubes instead), and now these. Recorded in the README
+  rather than left for a fourth.
+
+- **One line from 5.5.2 is deliberately kept:** the trails still skip
+  frustum culling. It is not a fat-line concern — three computes a bounding
+  sphere once, lazily, from whatever the buffer holds at the time and never
+  again, so a geometry the render loop keeps rewriting ends up tested
+  against a stale bound as its planet moves away from it. The belts and the
+  probe tracks already opt out for the same reason; the trails should have
+  from the start.
+
+---
+
 ## 5.5.2
 
 - **Planet trails are thicker and longer.** Straightforward request; the

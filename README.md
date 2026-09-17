@@ -342,22 +342,20 @@ from a queue a couple per frame. Scaling is *not* the shortcut it looks like:
 scaling a tube fattens the tube along with the path, which is the 2.0.0 bug
 that left Mercury's ring at 0.217 units against Pluto's 2.59.
 
-Orbit **trails** — the short coloured arc behind each planet — went the other
-way, to `Line2`, in 5.5.2. The tube argument does not carry over: a trail's
-geometry is rewritten every time the planet moves, and a tube would mean
-rebuilding and re-uploading one per planet on every scrub frame, where a ring
-rebuilds a handful of times across an entire zoom. The artifacts that ruled
-`Line2` out for rings do not show here either — `alphaToCoverage` is off, so
-there is nothing to dither, and a short arc gives hard edges far less to read
-against than a ring spanning the screen.
+Orbit **trails** — the short coloured arc behind each planet — are the third
+thing to try `Line2` (5.5.2) and the third to give it back (5.5.3), this time
+on a plain "I no longer want fatter lines". They are a one-pixel
+`THREE.Line`, and the taper that makes them read as a trail is colour rather
+than width: the arc fades toward black, which against this background is
+enough. A tube is not the fallback it is for the rings, either — a ring's
+geometry rebuilds a handful of times across an entire zoom, while a trail's
+is rewritten every time its planet moves, which during a scrub is every other
+frame.
 
-One thing it *does* inherit: overlapping quads. Consecutive segments that
-overlap blend twice and come out brighter, so packing more points into an arc
-than it has pixels for beads it. The trail draws every second baseline orbit
-sample for exactly that reason — same curve, segments long enough to sit end
-to end. `LineMaterial` also needs the drawing buffer size to convert pixels to
-clip space, so every trail material is updated from the `ResizeObserver`; a
-stale one leaves the trails at the old window's thickness.
+Trails do skip frustum culling, the way the belts and the probe tracks do:
+three computes a bounding sphere once, lazily, from whatever the buffer holds
+at the time, and never again — so a geometry the render loop keeps rewriting
+ends up culled against a stale bound as its planet moves away from it.
 
 ### Scale
 

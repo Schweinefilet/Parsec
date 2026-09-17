@@ -14,9 +14,6 @@ import {
 } from '../utils/orbits';
 import { probeScenePos, buildProbeTrack, trackDrawCount } from '../utils/probeTracks';
 import { proceduralSurface } from '../utils/proceduralTextures';
-import { Line2 } from 'three/examples/jsm/lines/Line2.js';
-import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
-import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { createSunLensflare, sunFlareScale, setSunFlareScale } from '../utils/lensFlareTextures';
 import { simNow, isLive } from '../utils/simTime';
 import { setCameraSnapshot } from '../utils/shareView';
@@ -447,41 +444,19 @@ const SolarSystem3D = ({
         // { trailGeo, trailColor, orbitPointsBaseline } — see the "Orbit
         // trail" block below for how each is built, and updatePlanetPositions
         // for how they're refreshed. TRAIL_REACH static orbitPoints samples
-        // behind the planet's live position, one every TRAIL_STRIDE, plus that
-        // live position itself as the final vertex — see the trail's own update
-        // function for why the live position isn't just "one more static
-        // sample".
-        // How many points the trail is drawn with, and how many baseline orbit
-        // samples separate them — so the arc covers TRAIL_REACH * TRAIL_STRIDE
-        // of the 256-sample ellipse, about 15% of it, on 19 points.
+        // behind the planet's live position, plus that live position itself
+        // as the final vertex — see the trail's own update function for why
+        // the live position isn't just "one more static sample".
         //
-        // The stride is not just thrift. A fat line is drawn as one screen-space
-        // quad per segment, and where consecutive quads overlap, a translucent
-        // one blends twice and comes out brighter — so packing more points into
-        // an arc than it has pixels for beads it. One sample per point put 38
-        // of them into roughly 50 pixels of Mars' arc at the default zoom, well
-        // under the line width. Every other sample is the same curve (15% of an
-        // ellipse is not a shape that needs 38 points) with segments long enough
-        // to sit end to end instead.
-        const TRAIL_REACH = 19;
-        const TRAIL_STRIDE = 2;
+        // 5.5.2 drew these with three's Line2 to give them real width, and
+        // 5.5.3 put them back to a hairline on request. The length that came
+        // with it stays: 38 samples is ~15% of the 256-sample ellipse, against
+        // the 24 (~9%) they shipped with. The sample stride Line2 needed is
+        // gone with it — it existed only because overlapping fat-line quads
+        // blend twice and bead, which a one-pixel line cannot do, and one
+        // sample per point is the smoother curve.
+        const TRAIL_REACH = 38;
         const TRAIL_OPACITY = 0.55;
-        // Trail width in CSS pixels. A plain THREE.Line is a hairline on every
-        // platform no matter what `linewidth` says, so this is drawn with
-        // three's Line2 instead — the same fat-line machinery the gravity
-        // field lines took on in 4.3.0 and gave back in 4.3.1. Worth
-        // revisiting here because the thing that made it wrong there does not
-        // apply: field lines are hundreds of additively-blended streamlines
-        // that piled into fog where they converged, while this is eight
-        // discrete, normally-blended arcs, which is exactly the case a
-        // hairline undersells. The material needs the canvas size (see the
-        // ResizeObserver, which keeps every trail's `resolution` current);
-        // that plumbing is the whole cost of it.
-        const TRAIL_WIDTH = 2.4;
-        // Collected so the ResizeObserver can hand each one the new canvas
-        // size — a LineMaterial works in pixels and cannot convert a world
-        // offset to one without knowing how big the canvas is.
-        const trailMaterials = [];
         // How much of the ring's normal resting opacity survives while
         // trails are on — a faint guide rather than a competing bright
         // line, so the colour-tinted trail is what actually reads. Not
@@ -854,27 +829,22 @@ const SolarSystem3D = ({
             // already scaled to the compressed-layout baseline — rather than
             // from a recorded position history, so the trail is instantly the
             // right shape the moment the toggle turns on instead of growing in
-            // from nothing over real time. The taper is colour, not width: the
-            // arc keeps one thickness end to end and fades toward black, which
-            // against this background reads as tapering off without needing a
-            // second, varying-width geometry.
-            //
-            // setPositions()/setColors() are called once, here, purely to
-            // establish the interleaved attributes at their final size.
-            // LineGeometry stores a polyline as one (start, end) pair per
-            // segment, and both of those calls rebuild and re-upload the whole
-            // buffer — which, since the point count never changes, is work the
-            // update below skips by writing into the buffers in place.
-            const trailGeo = new LineGeometry();
-            trailGeo.setPositions(new Float32Array((TRAIL_REACH + 1) * 3));
-            trailGeo.setColors(new Float32Array((TRAIL_REACH + 1) * 3));
-            const trailMat = new LineMaterial({
+            // from nothing over real time. The taper is colour only, not
+            // width: plain WebGL lines are always 1px, and this codebase has
+            // now tried fat lines three times — the gravity-field overlay
+            // (4.3.0, reverted in 4.3.1), the orbit rings (which are tubes
+            // for it), and these trails (5.5.2, reverted in 5.5.3) — so a
+            // fading hairline against the black background is where this
+            // lands for good.
+            const trailPositions = new Float32Array((TRAIL_REACH + 1) * 3);
+            const trailColors = new Float32Array((TRAIL_REACH + 1) * 3);
+            const trailGeo = new THREE.BufferGeometry();
+            trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3).setUsage(THREE.DynamicDrawUsage));
+            trailGeo.setAttribute('color', new THREE.BufferAttribute(trailColors, 3).setUsage(THREE.DynamicDrawUsage));
+            const trailMat = new THREE.LineBasicMaterial({
                 vertexColors: true, transparent: true, opacity: 0, depthWrite: false,
-                linewidth: TRAIL_WIDTH,
             });
-            trailMat.resolution.set(w, h);
-            trailMaterials.push(trailMat);
-            const trailLine = new Line2(trailGeo, trailMat);
+            const trailLine = new THREE.Line(trailGeo, trailMat);
             // Same reason the belts and the probe tracks skip culling: the
             // geometry is rewritten from the render loop, so the bounding
             // sphere three computed on first sight — from a buffer that was
@@ -2187,22 +2157,6 @@ const SolarSystem3D = ({
         // sample can be a hair off the real position at this factor, and the
         // trail's head should touch the body exactly, not almost. Skipped
         // entirely, cheaply, whenever the toggle is off.
-        // One polyline point, written into a LineGeometry's interleaved
-        // (start, end) segment buffer. Every interior point belongs to two
-        // segments — the end of the one before it and the start of the one
-        // after — so it goes down twice; the first and last points belong to
-        // one each. Stride 6: three floats for the start, three for the end.
-        const writeTrailVertex = (arr, i, a, b, c) => {
-            if (i < TRAIL_REACH) {          // the start of segment i
-                const o = i * 6;
-                arr[o] = a; arr[o + 1] = b; arr[o + 2] = c;
-            }
-            if (i > 0) {                    // and the end of segment i-1
-                const o = (i - 1) * 6 + 3;
-                arr[o] = a; arr[o + 1] = b; arr[o + 2] = c;
-            }
-        };
-
         const updateTrail = (orbitLine, worldPos, factor) => {
             const { trailGeo, trailColor, orbitPointsBaseline: pts } = orbitLine.userData;
             const n = pts.length;
@@ -2215,27 +2169,23 @@ const SolarSystem3D = ({
                 const d = dx * dx + dy * dy + dz * dz;
                 if (d < bestD) { bestD = d; bestI = i; }
             }
-            // instanceStart and instanceEnd are two views onto one
-            // interleaved buffer, so writing through either reaches both and a
-            // single needsUpdate covers the pair. Same for the colours.
-            const posData = trailGeo.attributes.instanceStart.data;
-            const colorData = trailGeo.attributes.instanceColorStart.data;
+            const posAttr = trailGeo.attributes.position;
+            const colorAttr = trailGeo.attributes.color;
             for (let k = 0; k < TRAIL_REACH; k++) {
-                const idx = ((bestI - (TRAIL_REACH - k) * TRAIL_STRIDE) % n + n) % n;
+                const idx = ((bestI - (TRAIL_REACH - k)) % n + n) % n;
                 const s = pts[idx];
-                writeTrailVertex(posData.array, k, s.x * factor, s.y * factor, s.z * factor);
+                posAttr.setXYZ(k, s.x * factor, s.y * factor, s.z * factor);
                 // Quadratic, not linear: a gentle taper-off near the tail
                 // rather than an even ramp, closer to how a real comet tail
                 // or motion trail reads.
                 const fade = k / TRAIL_REACH;
                 const eased = fade * fade;
-                writeTrailVertex(colorData.array, k,
-                    trailColor.r * eased, trailColor.g * eased, trailColor.b * eased);
+                colorAttr.setXYZ(k, trailColor.r * eased, trailColor.g * eased, trailColor.b * eased);
             }
-            writeTrailVertex(posData.array, TRAIL_REACH, worldPos.x, worldPos.y, worldPos.z);
-            writeTrailVertex(colorData.array, TRAIL_REACH, trailColor.r, trailColor.g, trailColor.b);
-            posData.needsUpdate = true;
-            colorData.needsUpdate = true;
+            posAttr.setXYZ(TRAIL_REACH, worldPos.x, worldPos.y, worldPos.z);
+            colorAttr.setXYZ(TRAIL_REACH, trailColor.r, trailColor.g, trailColor.b);
+            posAttr.needsUpdate = true;
+            colorAttr.needsUpdate = true;
         };
 
         const updatePlanetPositions = (date, t = scaleProgress()) => {
@@ -2397,11 +2347,6 @@ const SolarSystem3D = ({
             renderer.setSize(width, height);
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
-            // A fat line's width is in pixels, and the shader can only get
-            // there from clip space if it knows how big the canvas is.
-            // Stale here means every trail is drawn at the old window's
-            // thickness until something else resizes it.
-            trailMaterials.forEach(m => m.resolution.set(width, height));
         });
         ro.observe(mount);
 
