@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Play, Pause, Rewind, FastForward, RotateCcw, Clock, ChevronsLeft } from 'lucide-react';
 import {
     RATES, RANGE_DAYS, simDate, getRate, isPaused, isLive,
@@ -42,6 +42,13 @@ function toISODateLocal(date) {
     return `${y}-${m}-${d}`;
 }
 
+// The transport's two step buttons walk one shared ladder: RATES' own
+// magnitudes mirrored negative and laid out ascending from full reverse to
+// full forward. "Slower" used to bottom out at Live and clamp there — now it
+// keeps going, past a stop, into reverse, up to the same 1-year/s the fast
+// side already reaches.
+const SIGNED_RATES = [...RATES].reverse().map(r => -r.value).concat(RATES.map(r => r.value));
+
 const btn = (active) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     width: 30, height: 30, borderRadius: 9, flexShrink: 0, cursor: 'pointer',
@@ -57,7 +64,7 @@ const btn = (active) => ({
  * The readout is driven by its own interval rather than by the render loop —
  * the scene reads the clock imperatively and never needs React to keep up.
  */
-const TimeControl = ({ hidden }) => {
+const TimeControl = ({ hidden, focused }) => {
     const { t, date: fmtDate, time: fmtTime } = useI18n();
     const isMobile = useIsMobile();
     const roomy = useHasRoomForTimeline();
@@ -68,10 +75,91 @@ const TimeControl = ({ hidden }) => {
     // middle of the screen and sits on top of what is centred there — so that
     // band opens on request. A roomy desktop has the room; a phone gets it
     // open too, where the compact build is narrow and it's the primary way to
-    // scrub.
-    const [open, setOpen] = useState(() => roomy || isMobile);
+    // scrub. A focused object gets neither — it collapses to the small pill
+    // so it doesn't compete with the thing you flew to.
+    const [open, setOpen] = useState(() => !focused && (roomy || isMobile));
     const dragRef = useRef(false);
     const dateInputRef = useRef(null);
+
+    // Collapse the moment an object is focused; expand the moment you leave.
+    // Guarded to actual *transitions* in `focused` (not every render) so it
+    // doesn't fight a manual toggle made while already focused, and doesn't
+    // clobber the roomy/mobile default above on first mount.
+    const wasFocusedRef = useRef(focused);
+    useEffect(() => {
+        if (wasFocusedRef.current === focused) return;
+        wasFocusedRef.current = focused;
+        setOpen(!focused);
+    }, [focused]);
+
+    // ── Smooth collapse/expand of the pill itself ───────────────────────────
+    // The compact and open renderings are two entirely different DOM trees
+    // (a single small button vs. the full transport), so a plain state swap
+    // pops instantly — there's nothing shared to CSS-transition between them.
+    // A lightweight FLIP: lock the container to its old pixel width the
+    // instant the new content lands, then animate to the new content's
+    // natural width next frame, then let it go back to auto so later
+    // reflows (a locale switch, a resize) aren't pinned to a stale value.
+    const pillRef = useRef(null);
+    const prevWidthRef = useRef(null);
+    const isFirstRef = useRef(true);
+
+    // Keep the last *settled* width current on every render so the effect
+    // below always has an accurate "before" to animate from — separate from
+    // that effect so updating it doesn't retrigger it. Skipped on the render
+    // where `open` itself just changed: the DOM above has already swapped to
+    // the new content by the time any layout effect runs (React mutates the
+    // DOM before layout effects fire, full stop — nothing here can observe
+    // the pre-swap layout), so measuring on that render would silently
+    // record the *new* width as the "before" and erase the real one, and the
+    // transition below would have nothing to animate from.
+    const freshTrackerOpenRef = useRef(open);
+    useLayoutEffect(() => {
+        const openJustChanged = freshTrackerOpenRef.current !== open;
+        freshTrackerOpenRef.current = open;
+        const el = pillRef.current;
+        if (el && !openJustChanged && !el.style.width) {
+            prevWidthRef.current = el.getBoundingClientRect().width;
+        }
+    });
+
+    // The width itself is plain DOM, not React state — a state-driven "pin
+    // to the old width, then move to the new one" needs the browser to
+    // actually paint the first before the second lands, and nothing
+    // guarantees that (confirmed empirically: even a requestAnimationFrame
+    // apart, the two collapsed into one jump in headless Chrome). Direct
+    // style writes plus a forced reflow between them are what make the
+    // browser commit to the first before the second is applied.
+    //
+    // The target width has to be measured *before* pinning to the old one,
+    // not after: `scrollWidth` reports the larger of "space the content
+    // needs" and "the box's own current width" — it can tell you a box wants
+    // to be bigger, never that it would be happy being smaller than
+    // whatever it's currently pinned to. Measuring it after locking to the
+    // (larger, pre-collapse) `fromWidth` always read back close to
+    // `fromWidth` itself, which is what the instant jump on every collapse
+    // traced back to.
+    useLayoutEffect(() => {
+        const el = pillRef.current;
+        if (!el) return undefined;
+        if (isFirstRef.current) { isFirstRef.current = false; return undefined; }
+        const fromWidth = prevWidthRef.current;
+        if (fromWidth == null) return undefined;
+
+        if (reducedMotion) {
+            prevWidthRef.current = el.getBoundingClientRect().width;
+            return undefined;
+        }
+
+        const toWidth = el.getBoundingClientRect().width;
+        el.style.width = `${fromWidth}px`;
+        void el.offsetWidth;
+        el.style.width = `${toWidth}px`;
+        prevWidthRef.current = toWidth;
+
+        const doneTimer = setTimeout(() => { el.style.width = ''; }, 400);
+        return () => clearTimeout(doneTimer);
+    }, [open, reducedMotion]);
 
     // Repaint the readout a few times a second; the scene doesn't wait on this
     useEffect(() => {
@@ -133,9 +221,10 @@ const TimeControl = ({ hidden }) => {
     const sliderValue = dragRef.current ? undefined : Math.max(-RANGE_DAYS, Math.min(RANGE_DAYS, off));
 
     const stepRate = (dir) => {
-        const i = RATES.findIndex(r => r.value === Math.abs(rate));
-        const next = RATES[Math.max(0, Math.min(RATES.length - 1, (i < 0 ? 0 : i) + dir))];
-        setRate(rate < 0 ? -next.value : next.value);
+        const i = SIGNED_RATES.indexOf(rate);
+        const cur = i === -1 ? SIGNED_RATES.indexOf(rate < 0 ? -1 : 1) : i;
+        const next = SIGNED_RATES[Math.max(0, Math.min(SIGNED_RATES.length - 1, cur + dir))];
+        setRate(next);
     };
 
     // "Live" would be misleading once the clock has been jumped to another
@@ -174,14 +263,22 @@ const TimeControl = ({ hidden }) => {
             inert={hidden || undefined}
         >
             <div
+                ref={pillRef}
                 style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    padding: compact ? '6px 10px' : '7px 10px',
+                    padding: '7px 10px',
                     borderRadius: 999,
                     background: 'rgba(6,8,12,0.72)',
                     border: '1px solid rgba(255,255,255,0.14)',
                     backdropFilter: 'blur(14px)',
                     WebkitBackdropFilter: 'blur(14px)',
+                    overflow: 'hidden',
+                    // No `width` here on purpose — the collapse/expand effect
+                    // above drives it directly on the DOM node, and leaving
+                    // it out of this object is what stops React's own style
+                    // reconciliation from fighting that on an unrelated
+                    // re-render (the 250ms clock tick, say).
+                    transition: reducedMotion ? 'none' : 'width 320ms cubic-bezier(0.32,0.72,0,1)',
                 }}
             >
                 {compact ? (

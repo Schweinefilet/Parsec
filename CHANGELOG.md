@@ -16,6 +16,53 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.6.0
+
+- **Time can run backward now, not just fast-forward.** The rewind button
+  used to bottom out at real time and clamp there. It now keeps going past
+  that stop, into reverse, up through the same ladder the fast-forward side
+  already had — a week a second, a month, a year — so holding it down long
+  enough runs the whole system backward at up to a year a second, the mirror
+  of running it forward. `simTime.js` already fully supported negative rates
+  (it's covered by its own tests), the transport just never had a way to
+  reach them; the two step buttons now walk one shared signed ladder instead
+  of a forward-only one. The aria-labels changed from "Slower"/"Faster" to
+  "Rewind"/"Fast-forward" to match — "slower" stopped being an honest
+  description of a button that can now put the clock in reverse at full
+  speed.
+- **Focusing an object now resets the clock to real time.** Flying to a
+  planet at whatever speed the overview happened to be left at meant
+  watching it arrive as a streak, or a moon system as a blur. The rate
+  resets to 1×real-time the moment you focus anything — you can still speed
+  up or slow down from there while focused, that part's untouched — and
+  whatever rate you had before is restored the moment you leave. Switching
+  between two focused bodies without passing back through the overview (a
+  planet's moon, say) doesn't reset again — only the overview ⇄ focused
+  transition does, so it stays one clean pair of resets rather than firing
+  on every click while you're already in a focused session.
+- **The timeline pill now collapses and expands on its own.** Focusing an
+  object folds it down to the small date/Live chip it already had for manual
+  collapsing, so it doesn't compete with the thing you flew to; leaving
+  unfolds it back open. It's still just as manually collapsible/expandable
+  as before at any point, including while focused. The collapse/expand
+  itself is a real width animation now too, not the instant swap the manual
+  toggle always did — a small FLIP (lock the pill to its old pixel width,
+  then animate to the new content's natural width) rather than a CSS-only
+  trick, since the compact and open pills are two unrelated DOM trees with
+  nothing to cross-fade between. Took two wrong turns to get the timing
+  right: a version using `requestAnimationFrame` to space the "old width"
+  and "new width" steps a frame apart looked fine in reasoning but collapsed
+  both into one paint in headless Chrome (no guaranteed paint boundary
+  between two rAFs, it turns out); the fix after that measured the *target*
+  width while the pill was still pinned to its old, larger size, which
+  silently failed on every collapse specifically — `scrollWidth` reports the
+  larger of "the content's own size" and "the box's current size," so a box
+  forced wide can never measure back smaller than itself. The working
+  version measures the target width first, before pinning anything, then
+  locks old → forces a reflow → releases to the real target.
+
+---
+
 ## 5.5.3
 
 - **Planet trails go back to a hairline.** The extra width from 5.5.2 is

@@ -12,6 +12,14 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.6',
+        changes: [
+            'The rewind button now actually rewinds. It used to stop at real time; holding it now keeps going into reverse, up to a full year per second backward, mirroring fast-forward.',
+            'Focusing a planet, moon or anything else now resets the clock to real time first, so the flight in reads at its natural pace instead of whatever speed you left the overview at. You can still speed up or slow down once you’re there — leaving puts the clock back to whatever pace it had before.',
+            'The timeline pill now tucks itself away the moment you focus something, and comes back out the moment you return — with an actual sliding animation now, not an instant swap.',
+        ],
+    },
+    {
         version: '5.5',
         changes: [
             'Planet trails are about two-thirds longer.',

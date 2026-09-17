@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate, useMatch } from 'react-router-dom';
 import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause, SlidersHorizontal, Waves, Waypoints } from 'lucide-react';
 // STASHED StarfieldBg — uncomment this and the <StarfieldBg /> below to restore it.
@@ -30,7 +30,7 @@ import {
 import { getTrailsOn, toggleTrails, subscribeTrails } from '../utils/trailMode';
 import { decodeView } from '../utils/shareView';
 import { IDLE, getSkyEntryPhase, subscribeSkyEntry } from '../utils/skyEntry';
-import { setOffsetDays } from '../utils/simTime';
+import { getRate, setRate, setOffsetDays } from '../utils/simTime';
 import { useI18n } from '../i18n';
 
 // The arrows point from the first letter of the alphabet to the last, so in a
@@ -351,6 +351,28 @@ const CategoryBrowser = () => {
         };
     }, [id]);
 
+    // Focusing an object resets the clock to real time, so the flight in and
+    // whatever you're watching read at their natural pace instead of
+    // whatever speed the overview happened to be left at — you can still
+    // speed up or slow down from there while focused. Leaving returns the
+    // clock to the pace it had before you focused anything. Keyed on `id`
+    // being present at all (not `inScene`) so a spacecraft card gets the same
+    // treatment; keyed off a captured ref rather than re-firing on every `id`
+    // change so clicking from one focused body straight to another (a moon,
+    // say) doesn't re-reset the rate you already chose mid-focus.
+    const preFocusRateRef = useRef(null);
+    useEffect(() => {
+        if (id) {
+            if (preFocusRateRef.current === null) {
+                preFocusRateRef.current = getRate();
+                setRate(1);
+            }
+        } else if (preFocusRateRef.current !== null) {
+            setRate(preFocusRateRef.current);
+            preFocusRateRef.current = null;
+        }
+    }, [id]);
+
     const currentCategory = localizeCategory(
         CATEGORY_TABS.find(tab => tab.id === activeTab));
     const objects = getObjectsByCategory(currentCategory.id);
@@ -499,7 +521,10 @@ const CategoryBrowser = () => {
                         watching a moon system wind forward is the best of it, and
                         the bottom-left corner is clear of the centred sheet. Hidden
                         on a focused mobile view, where the sheet takes that space. */}
-                    <TimeControl hidden={(compactFocus && !!id) || (!!id && !inScene)} />
+                    <TimeControl
+                        hidden={(compactFocus && !!id) || (!!id && !inScene)}
+                        focused={inScene && !!id}
+                    />
 
 
                     {/* Catalog entry point, plus the scene toggles.
