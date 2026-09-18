@@ -1,20 +1,134 @@
-/* ── iOS 26 Liquid Glass Design System ─────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════
+   P4RSEC design system
+   ───────────────────────────────────────────────────────────────────────
+   One scale per dimension. Before adding a raw px value, a duration or a
+   fresh rgba() to a component, look for it here — the interface only reads
+   as one piece of software while every surface is drawn from the same short
+   list. The tokens below are the whole list.
+   ═══════════════════════════════════════════════════════════════════════ */
 :root {
-  --glass-fill:        rgba(255, 255, 255, 0.08);
-  --glass-fill-hover:  rgba(255, 255, 255, 0.12);
-  --glass-border:      rgba(255, 255, 255, 0.18);
-  --glass-blur:        blur(6px) saturate(50%);
-  --glass-shadow:      0 8px 32px rgba(0, 0, 0, 0.25);
-  --glass-specular:    inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  --radius-card:       20px;
-  --radius-btn:        50px;
-  --accent:            #ffffff;
-  --positive:          #30D158;
-  --negative:          #FF453A;
-  --warning:           #FFD60A;
-  --text-primary:      #ffffff;
-  --text-secondary:    rgba(255, 255, 255, 0.70);
-  --text-tertiary:     rgba(255, 255, 255, 0.40);
+  /* ── Space: a 4px grid ──────────────────────────────────────────────── */
+  --s-1:  4px;  --s-2:  8px;  --s-3: 12px; --s-4: 16px; --s-5: 20px;
+  --s-6: 24px;  --s-7: 32px;  --s-8: 40px; --s-9: 48px; --s-10: 64px;
+
+  /* ── The spine ──────────────────────────────────────────────────────────
+     Every page's content, the header above it and the chrome floating over
+     the 3D scene all land on one column. --spine-max matches Tailwind's
+     max-w-7xl, which <main> in AppShell already uses; --spine-inset is the
+     distance from the viewport edge in to that column, for the absolutely
+     positioned scene chrome that sits outside <main> and would otherwise
+     hug the window edge on its own. It collapses to a plain gutter once the
+     window is narrower than the spine. */
+  --spine-max:   1280px;
+  --spine-pad:   32px;
+  --spine-inset: max(var(--spine-pad), calc((100vw - var(--spine-max)) / 2 + var(--spine-pad)));
+  /* What the chrome floating over the 3D scene actually uses. It is the spine
+     on a desktop window and a plain edge gutter on a phone, where a 3D scene
+     is the whole screen and there is no column to agree with. */
+  --scene-inset: 16px;
+  /* One baseline for everything sitting along the bottom of the scene — the
+     transport, the catalog pill, the scale footnote. */
+  --scene-baseline: 18px;
+
+  /* ── Radius ─────────────────────────────────────────────────────────── */
+  --r-xs:   8px;
+  --r-sm:  10px;
+  --r-md:  12px;
+  --r-lg:  16px;
+  --r-xl:  20px;
+  --r-2xl: 28px;
+  --r-full: 999px;
+  --radius-card: var(--r-xl);   /* kept: named by components predating the scale */
+  --radius-btn:  var(--r-full);
+
+  /* ── Type ───────────────────────────────────────────────────────────────
+     --fs-label is the uppercase micro-label the whole interface is built on
+     (stat captions, pill text, section rules); it always pairs with
+     --tr-label. Sizes climb ~1.22×, which is close enough to hold a rhythm
+     without the jumps reading as arbitrary. */
+  --fs-label: 10px;
+  --fs-tiny:  11px;
+  --fs-xs:    12px;
+  --fs-sm:    13px;
+  --fs-base:  15px;
+  --fs-md:    17px;
+  --fs-lg:    21px;
+  --fs-xl:    26px;
+  --fs-2xl:   34px;
+  --fs-3xl:   44px;
+
+  --tr-label:   0.12em;    /* uppercase micro labels */
+  --tr-wide:    0.08em;
+  --tr-tight:  -0.02em;    /* headings */
+  --tr-tighter:-0.035em;   /* display */
+
+  /* ── Motion ─────────────────────────────────────────────────────────────
+     Three curves, four speeds. --ease-out for anything arriving, --ease-glide
+     (the long-tailed one) for panels and sheets that travel a distance, and
+     --ease-inout for a state swapping in place. */
+  --ease-out:   cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast:   140ms;
+  --t-base:   220ms;
+  --t-slow:   380ms;
+  --t-slower: 620ms;
+
+  /* ── Surfaces ───────────────────────────────────────────────────────────
+     Two families, because they sit on different things and cannot share a
+     recipe. `chrome` floats over the 3D scene, so it is a dark scrim first
+     and a tint second — it has to stay readable over the Sun. `panel` sits
+     on the page's own black, so it is a light tint that lifts off it. */
+  --chrome-bg:         rgba(10, 12, 17, 0.55);
+  --chrome-bg-hover:   rgba(24, 28, 37, 0.72);
+  --chrome-bg-active:  rgba(255, 255, 255, 0.14);
+  --chrome-border:     rgba(255, 255, 255, 0.13);
+  --chrome-border-hi:  rgba(255, 255, 255, 0.22);
+
+  --panel-bg:          rgba(255, 255, 255, 0.045);
+  --panel-bg-hover:    rgba(255, 255, 255, 0.075);
+  --panel-border:      rgba(255, 255, 255, 0.09);
+  --panel-border-hi:   rgba(255, 255, 255, 0.16);
+
+  --recess-bg:         rgba(255, 255, 255, 0.035);
+  --hairline:          rgba(255, 255, 255, 0.08);
+  --hairline-hi:       rgba(255, 255, 255, 0.14);
+
+  --blur-chrome: blur(20px) saturate(180%);
+  --blur-panel:  blur(14px) saturate(140%);
+
+  /* ── Elevation ──────────────────────────────────────────────────────── */
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --sh-2: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --sh-3: 0 12px 40px rgba(0, 0, 0, 0.50);
+  --sh-4: 0 24px 70px rgba(0, 0, 0, 0.60);
+  --specular: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+
+  /* ── Colour ─────────────────────────────────────────────────────────────
+     White is the interface; amber is the one accent, and it means "this
+     control is on". --accent-rgb exists so components can compose their own
+     alphas from it instead of hard-coding a fourth shade of the same yellow. */
+  --accent:          #ffffff;
+  --accent-warm:     #ffd166;
+  --accent-warm-rgb: 255, 209, 102;
+  --accent-cool:     #9fc4ff;
+  --positive:        #30D158;
+  --negative:        #FF453A;
+  --warning:         #FFD60A;
+  --text-primary:    #ffffff;
+  --text-secondary:  rgba(255, 255, 255, 0.70);
+  --text-tertiary:   rgba(255, 255, 255, 0.40);
+  --text-quaternary: rgba(255, 255, 255, 0.26);
+
+  /* ── Legacy aliases ─────────────────────────────────────────────────────
+     .glass and a long tail of inline styles still name these. Repointed at
+     the tokens above so the old names and the new scale cannot drift apart. */
+  --glass-fill:       var(--panel-bg);
+  --glass-fill-hover: var(--panel-bg-hover);
+  --glass-border:     var(--panel-border);
+  --glass-blur:       var(--blur-panel);
+  --glass-shadow:     var(--sh-2);
+  --glass-specular:   var(--specular);
 }
 
 * {
@@ -77,10 +191,13 @@ body::after {
 }
 
 /* scrollPromptBob turned on its side, for the edge-drawer tab: it nudges the
-   way the chevron points (`--bob-x` is negative in a right-to-left layout). */
+   way the chevron points (`--bob-x` is negative in a right-to-left layout).
+   Movement only, no fade: the tab is a drawn rail now, and dimming its
+   chevrons to 28% inside a lit box read as a rendering fault rather than as
+   an invitation. The rail carries the presence; the bob carries the hint. */
 @keyframes edgeTabBob {
-  0%, 100% { transform: translateX(0);                  opacity: 0.28; }
-  50%      { transform: translateX(var(--bob-x, 4px));  opacity: 0.50; }
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(var(--bob-x, 3px)); }
 }
 
 @keyframes issPulse {
@@ -121,8 +238,10 @@ body::after {
 a:focus-visible,
 button:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.85);
-  outline-offset: 2px;
-  border-radius: 10px;
+  outline-offset: 3px;
+  /* No border-radius here. It used to square off any focused control whose own
+     radius was larger than 10px — a pill button picked up a 10px ring around
+     its capsule — and outline already follows the element's own corners. */
 }
 
 .skip-link {
@@ -148,22 +267,315 @@ button:focus-visible {
 
 /* ── Catalog cards ──────────────────────────────────────────── */
 .object-card {
-  transition: transform 0.3s cubic-bezier(0.22, 0.61, 0.36, 1),
-              border-color 0.3s ease,
-              box-shadow 0.3s ease;
+  transition: transform var(--t-slow) var(--ease-out),
+              border-color var(--t-slow) var(--ease-out),
+              box-shadow var(--t-slow) var(--ease-out);
 }
 @media (hover: hover) {
   .object-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(255, 255, 255, 0.30) !important;
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), var(--glass-specular);
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.28) !important;
+    box-shadow: var(--sh-3), var(--specular);
   }
+  /* The photograph pushes in a little further than the card lifts, so the
+     card reads as a window onto the body rather than a picture of one. */
   .object-card:hover .object-card-img {
-    transform: scale(1.045);
+    transform: scale(1.06);
+  }
+  /* And the scrim thins, so the image brightens as it comes forward. */
+  .object-card:hover .object-card-scrim {
+    opacity: 0.82;
   }
 }
 .object-card:active {
   transform: translateY(-1px);
+  transition-duration: var(--t-fast);
+}
+
+/* ── Focused-object annotations ─────────────────────────────────────────────
+   The name and three figures that flank a focused body. Two rows, two
+   columns, one grid — so the left and right figures of a row sit on the same
+   line whatever height the name above them takes. The middle is left clear
+   for the body itself: the columns are capped at 30% each, which leaves the
+   centre 40% of the frame untouched. */
+.focus-annotations {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: minmax(0, 30%) minmax(0, 30%);
+  grid-auto-rows: auto;
+  justify-content: space-between;
+  align-content: center;
+  /* Baseline, not top: it puts the first line of the trailing figure on the
+     same line as the body's name, which is what makes the two columns read as
+     one composition rather than as two lists that happen to be side by side. */
+  align-items: baseline;
+  row-gap: clamp(32px, 7vh, 72px);
+  padding-inline: var(--scene-inset);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95);
+}
+.fa-col { min-width: 0; }
+/* Read outward-in: the leading column's text starts on the spine, the
+   trailing column's ends on it. Logical, so Arabic swaps them wholesale. */
+.fa-start { text-align: start; }
+.fa-end   { text-align: end; }
+.fa-figure {
+  margin: 0;
+  font-size: clamp(0.85rem, 2vw, 1.1rem);
+  font-weight: 800;
+  letter-spacing: var(--tr-tight);
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── "Not to scale" caption ─────────────────────────────────────────────────
+   What the view is and is not honest about. On a phone it stays in the corner
+   it has always been in — the bottom of a phone screen is the transport's, and
+   there is no room to centre anything between it and the edge. On a desktop
+   window it becomes the centre of the scene's bottom bar, a caption between
+   the transport at one end and the catalog chip at the other. */
+.scene-note {
+  position: absolute;
+  bottom: 14px;
+  inset-inline-end: 16px;
+  z-index: 2;
+  max-width: 220px;
+  pointer-events: none;
+  text-align: end;
+  color: var(--text-quaternary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  transition: opacity var(--t-slower) var(--ease-out);
+}
+.scene-note[data-hidden] { opacity: 0; }
+@media (min-width: 768px) {
+  .scene-note {
+    /* The extra offset optically centres this one line of 10px text against
+       the height of the chips either side of it. */
+    bottom: calc(var(--scene-baseline) + 9px);
+    /* Centred with `inset-inline: 0` + auto inline margins over a max-content
+       box, rather than `left: 50%` + a translate. Both centre it, but this one
+       never names a physical side: pairing `inset-inline-end: auto` with
+       `left` in one rule is the exact trap src/i18n/stylesheet.test.js exists
+       to catch — in a right-to-left page those two are the same property. */
+    inset-inline: 0;
+    margin-inline: auto;
+    width: max-content;
+    text-align: center;
+    white-space: nowrap;
+    max-width: none;
+  }
+}
+
+/* ── Scene drawer edge tab ──────────────────────────────────── */
+.edge-tab {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 64px;
+  padding: 0;
+  cursor: pointer;
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  /* Flush to the window edge: square where it meets it, rounded where it
+     faces into the scene. Logical corners, so it reattaches to the other
+     edge in a right-to-left layout without any JS. */
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-start-end-radius: var(--r-md);
+  border-end-end-radius: var(--r-md);
+  border-inline-start: none;
+  backdrop-filter: var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
+  box-shadow: var(--sh-2);
+  transition: background var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              width var(--t-base) var(--ease-out);
+}
+@media (hover: hover) {
+  .edge-tab:hover {
+    background: var(--chrome-bg-hover);
+    border-color: var(--chrome-border-hi);
+    width: 34px;
+  }
+}
+
+/* ── Explore-the-catalog chip ───────────────────────────────── */
+.explore-chev {
+  transition: transform var(--t-base) var(--ease-out);
+}
+@media (hover: hover) {
+  .explore-chip:hover .explore-chev { transform: translateY(2px); }
+}
+
+/* ── Buttons on a page surface ──────────────────────────────────────────────
+   The counterpart to .chrome-btn: these sit on the page's own black rather
+   than over the scene, so they take the panel tint instead of a dark scrim. */
+.ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px var(--s-4);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--hairline-hi);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              color var(--t-base) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .ghost-btn:hover {
+    background: rgba(255, 255, 255, 0.11);
+    border-color: var(--panel-border-hi);
+    color: #fff;
+  }
+}
+.ghost-btn:active { transform: scale(0.98); }
+
+.swap-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 1px;
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--hairline-hi);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: background var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              transform var(--t-slow) var(--ease-glide);
+}
+@media (hover: hover) {
+  .swap-btn:hover {
+    background: rgba(255, 255, 255, 0.11);
+    border-color: var(--panel-border-hi);
+    color: #fff;
+  }
+}
+/* The control swaps the two sides; the icon turns to say so. */
+.swap-btn:active { transform: rotate(180deg); }
+
+/* ── Telemetry grid ─────────────────────────────────────────────────────────
+   Two columns on a phone, four from tablet up — a count that divides the
+   eight readings it holds, so there is never a lone cell on a row by itself. */
+.stat-grid {
+  display: grid;
+  gap: var(--s-6) var(--s-5);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 640px) {
+  .stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* ── Compare table ──────────────────────────────────────────── */
+/* The label column is the fixed one; the two value columns flex, so each
+   number sits in a column of its own under the name it belongs to. Values are
+   centred in their column rather than pushed against the label: that puts
+   each one directly under its heading and spreads the pair across the card,
+   instead of stacking both against the middle with a third of the width
+   empty at either flank. */
+.cmp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(140px, 22%, 260px) minmax(0, 1fr);
+  gap: var(--s-4);
+  text-align: center;
+}
+/* The header names the two columns and follows the table down. Bled out to
+   the panel's own edges so the band behind it doesn't read as a highlighted
+   row floating inside the card. */
+.cmp-head {
+  position: sticky;
+  top: 56px;
+  z-index: 2;
+  margin-inline: calc(var(--s-6) * -1);
+  padding: 0 var(--s-6) var(--s-3);
+  border-bottom: 1px solid var(--hairline-hi);
+  background: rgba(17, 19, 25, 0.94);
+  backdrop-filter: var(--blur-panel);
+  -webkit-backdrop-filter: var(--blur-panel);
+}
+
+/* ── Standalone page header ─────────────────────────────────── */
+/* The back control reads as a link with a chevron rather than an icon button:
+   it is a way out of the page, not one of the page's own actions, and sizing
+   it like one put it in competition with them. */
+.page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-inline-start: -8px;   /* optically flush: the chevron has side bearing */
+  padding: 5px var(--s-2);
+  border: none;
+  background: none;
+  border-radius: var(--r-xs);
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: var(--tr-wide);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--t-base) var(--ease-out), background var(--t-base) var(--ease-out);
+}
+@media (hover: hover) {
+  .page-back:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+}
+
+/* ── Catalog sort control ───────────────────────────────────── */
+@media (hover: hover) {
+  .sort-trigger:hover {
+    background: var(--recess-bg);
+    border-color: var(--hairline-hi) !important;
+  }
+  .sort-option:hover { background: rgba(255, 255, 255, 0.07) !important; color: #fff !important; }
+}
+
+/* ── Live telemetry ticker ──────────────────────────────────── */
+.ticker-band {
+  --fade: 120px;
+  padding: var(--s-3) 0;
+  border-block: 1px solid var(--hairline);
+  background: linear-gradient(to bottom,
+      rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0.045));
+}
+.ticker-cell {
+  padding-inline: var(--s-6);
+  position: relative;
+}
+/* A short centred rule between readings rather than a full-height divider —
+   at cell height the dividers read as table cells, which these are not. */
+.ticker-cell::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 11px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* ── Category bar tabs ──────────────────────────────────────── */
+.cat-tab {
+  transition: color var(--t-base) var(--ease-out),
+              background var(--t-base) var(--ease-out);
+}
+@media (hover: hover) {
+  .cat-tab:hover { color: rgba(255, 255, 255, 0.85) !important; }
+  .cat-tab:not([data-active="true"]):hover { background: rgba(255, 255, 255, 0.05); }
 }
 
 /* ── "What's up tonight" event rows ─────────────────────────── */
@@ -211,63 +623,275 @@ button:focus-visible {
 }
 
 .glass {
-  background:          var(--glass-fill) !important;
-  backdrop-filter:     var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
-  border:              1px solid var(--glass-border) !important;
-  box-shadow:          var(--glass-shadow), var(--glass-specular) !important;
+  background:          var(--panel-bg) !important;
+  backdrop-filter:     var(--blur-panel) !important;
+  -webkit-backdrop-filter: var(--blur-panel) !important;
+  border:              1px solid var(--panel-border) !important;
+  box-shadow:          var(--sh-2), var(--specular) !important;
   border-radius:       var(--radius-card) !important;
-  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: background var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              box-shadow var(--t-base) var(--ease-out);
 }
-.glass:hover {
-  background:     var(--glass-fill-hover) !important;
-  border-color:   rgba(255, 255, 255, 0.20) !important;
+/* Only where the panel is actually a control. A static stats card lighting up
+   under the pointer is noise — it suggests something will happen on click. */
+@media (hover: hover) {
+  a.glass:hover,
+  button.glass:hover,
+  .glass-interactive:hover {
+    background:   var(--panel-bg-hover) !important;
+    border-color: var(--panel-border-hi) !important;
+  }
 }
 
 .glass-pill {
-  background:          rgba(255, 255, 255, 0.04);
-  backdrop-filter:     blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  border:              1px solid rgba(255, 255, 255, 0.11);
-  border-radius:       14px;
-  padding:             4px;
+  background:          var(--recess-bg);
+  backdrop-filter:     var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
+  border:              1px solid var(--hairline-hi);
+  border-radius:       var(--r-md);
+  padding:             var(--s-1);
   display:             inline-flex;
   gap:                 2px;
 }
 
 /* Scoped glass input — applied via className on controlled inputs only */
 .glass-input {
-  background:          rgba(255, 255, 255, 0.04) !important;
-  border:              1px solid rgba(255, 255, 255, 0.11) !important;
-  border-radius:       12px !important;
+  background:          var(--recess-bg) !important;
+  border:              1px solid var(--hairline-hi) !important;
+  border-radius:       var(--r-md) !important;
   color:               white !important;
-  padding:             10px 14px !important;
-  backdrop-filter:     blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  padding:             10px var(--s-4) !important;
+  font-size:           var(--fs-sm);
+  backdrop-filter:     var(--blur-panel);
+  -webkit-backdrop-filter: var(--blur-panel);
   outline:             none;
-  transition:          border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:          border-color var(--t-base) var(--ease-out),
+                       box-shadow var(--t-base) var(--ease-out),
+                       background var(--t-base) var(--ease-out);
   width:               100%;
   color-scheme:        light; /* prevent Chrome dark-mode UA from injecting dark-blue bg */
 }
 .glass-input-search {
   padding:             10px 2rem 10px 2.25rem !important;
 }
+@media (hover: hover) {
+  .glass-input:hover:not(:focus) {
+    border-color: var(--panel-border-hi) !important;
+  }
+}
 .glass-input:focus {
-  border-color:        var(--accent) !important;
-  box-shadow:          0 0 0 3px rgba(255, 255, 255, 0.10) !important;
+  background:          rgba(255, 255, 255, 0.06) !important;
+  border-color:        rgba(255, 255, 255, 0.55) !important;
+  box-shadow:          0 0 0 3px rgba(255, 255, 255, 0.09) !important;
 }
 .glass-input::placeholder {
   color:               var(--text-tertiary);
 }
 
-h1 { font-size: 2.5rem;  font-weight: 700; letter-spacing: -0.04em; color: #fff; }
-h2 { font-size: 1.5rem;  font-weight: 600; letter-spacing: -0.03em; color: #fff; }
-h3 { font-size: 1.1rem;  font-weight: 600; color: rgba(255,255,255,0.9); }
+/* ═══ Components ═══════════════════════════════════════════════════════════
+   The shapes the interface repeats. Everything here was previously written
+   inline, several times over, with slightly different numbers each time —
+   which is precisely what made a careful interface read as an inconsistent
+   one. A component that needs a variation takes it from the tokens above.
+   ═════════════════════════════════════════════════════════════════════════ */
 
-::-webkit-scrollbar       { width: 6px; height: 6px; }
+/* ── The spine ──────────────────────────────────────────────────────────────
+   The one column everything lands on: the header wordmark, the catalog
+   heading, the first card's leading edge, each standalone page's title. Kept
+   dimensionally identical to the max-w-7xl <main> it has to agree with. */
+.spine {
+  width: 100%;
+  max-width: var(--spine-max);
+  margin-inline: auto;
+  padding-inline: var(--s-5);
+}
+@media (min-width: 768px) {
+  .spine { padding-inline: var(--spine-pad); }
+  :root {
+    --scene-inset: var(--spine-inset);
+    --scene-baseline: 24px;
+  }
+}
+
+/* ── Chrome button ──────────────────────────────────────────────────────────
+   The 36px icon button that floats over the scene — header actions, the back
+   button, the tracker's controls. One recipe; `data-on` is the lit state. */
+.chrome-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  color: rgba(255, 255, 255, 0.82);
+  backdrop-filter: var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
+  box-shadow: var(--sh-1);
+  cursor: pointer;
+  transition: background var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              color var(--t-base) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .chrome-btn:hover {
+    background: var(--chrome-bg-hover);
+    border-color: var(--chrome-border-hi);
+    color: #fff;
+  }
+}
+.chrome-btn:active { transform: scale(0.94); }
+.chrome-btn[data-on="true"] {
+  background: var(--chrome-bg-active);
+  border-color: var(--chrome-border-hi);
+  color: #fff;
+}
+.chrome-btn[data-tone="positive"] {
+  background: rgba(80, 220, 140, 0.18);
+  border-color: rgba(80, 220, 140, 0.34);
+  color: #6ee7a0;
+}
+
+/* ── Chip ───────────────────────────────────────────────────────────────────
+   The uppercase capsule the scene toggles and status markers use. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px var(--s-4);
+  border-radius: var(--r-full);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  color: rgba(255, 255, 255, 0.78);
+  backdrop-filter: var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
+  box-shadow: var(--sh-1);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              color var(--t-base) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .chip:hover {
+    background: var(--chrome-bg-hover);
+    border-color: var(--chrome-border-hi);
+    color: #fff;
+  }
+}
+.chip:active { transform: scale(0.97); }
+.chip[data-on="true"] {
+  background: rgba(var(--accent-warm-rgb), 0.15);
+  border-color: rgba(var(--accent-warm-rgb), 0.36);
+  color: var(--accent-warm);
+}
+@media (hover: hover) {
+  .chip[data-on="true"]:hover {
+    background: rgba(var(--accent-warm-rgb), 0.22);
+    border-color: rgba(var(--accent-warm-rgb), 0.5);
+    color: var(--accent-warm);
+  }
+}
+
+/* ── Panel ──────────────────────────────────────────────────────────────────
+   A surface sitting on the page's own black rather than over the scene. */
+.panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--sh-2), var(--specular);
+  backdrop-filter: var(--blur-panel);
+  -webkit-backdrop-filter: var(--blur-panel);
+}
+
+/* ── Labels and figures ─────────────────────────────────────────────────────
+   The caption/number pair the whole interface is made of — stat blocks, card
+   footers, the tracker's readouts, the flanking annotations in the scene. */
+.label {
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+.label-dim { color: var(--text-quaternary); }
+.figure {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: var(--tr-tight);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+/* ── Edge fade ──────────────────────────────────────────────────────────────
+   For the full-bleed ticker: content dissolves into the page at both ends
+   instead of being guillotined at the viewport edge. */
+.edge-fade-x {
+  -webkit-mask-image: linear-gradient(to right,
+      transparent 0, #000 var(--fade, 80px),
+      #000 calc(100% - var(--fade, 80px)), transparent 100%);
+  mask-image: linear-gradient(to right,
+      transparent 0, #000 var(--fade, 80px),
+      #000 calc(100% - var(--fade, 80px)), transparent 100%);
+}
+
+/* ── Lift ───────────────────────────────────────────────────────────────────
+   The one hover gesture for a thing you can open. */
+@media (hover: hover) {
+  .lift {
+    transition: transform var(--t-base) var(--ease-out),
+                box-shadow var(--t-base) var(--ease-out),
+                border-color var(--t-base) var(--ease-out);
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--sh-3), var(--specular);
+    border-color: var(--panel-border-hi);
+  }
+  .lift:active { transform: translateY(0); }
+}
+
+h1 { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: var(--tr-tighter); color: var(--text-primary); }
+h2 { font-size: var(--fs-xl);  font-weight: 600; letter-spacing: var(--tr-tight);   color: var(--text-primary); }
+h3 { font-size: var(--fs-md);  font-weight: 600; letter-spacing: var(--tr-tight);   color: rgba(255,255,255,0.9); }
+
+/* Every number in the interface is either being compared to another number or
+   is watched while it changes. Both want fixed-width digits — a live readout
+   whose glyphs are proportional jitters on its own axis every tick. */
+.tnum,
+[class*="tabular"],
+.num-run {
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar       { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.13);
+  border-radius: var(--r-full);
+  /* Drawn inside a transparent border so the thumb reads as a slim capsule
+     floating in the gutter rather than a bar wedged against the content. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.24); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+::selection {
+  background: rgba(var(--accent-warm-rgb), 0.28);
+  color: #fff;
+}
 
 /* ── Legacy utilities (kept for compatibility) ──────────────── */
 @import "tailwindcss";

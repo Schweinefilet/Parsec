@@ -277,7 +277,7 @@ const SolarSystem3D = ({
         // ── Sky-entry cinematic (/sky's approach) ─────────────────────────────
         // utils/skyEntry.js holds the cross-route phase; the actual camera work
         // has to live here, the one place with Earth's live matrixWorld. Armed
-        // by AppShell.jsx / TonightPage.jsx before they navigate to /object/earth
+        // by AppShell.jsx before it navigates to /object/earth
         // (or immediately, if already there) — see the trigger check beside
         // "Detect focus changes" below for where phase 'armed' gets picked up.
         //
@@ -4141,20 +4141,13 @@ const SolarSystem3D = ({
                     layout that is an apology; in true distances it is a
                     distinction, because the distances become real and the
                     bodies stay drawn far too large to be seen otherwise. */}
-                <div style={{
-                    position: 'absolute',
-                    bottom: '14px',
-                    insetInlineEnd: '16px',
-                    pointerEvents: 'none',
-                    color: 'rgba(255,255,255,0.28)',
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    letterSpacing: '0.04em',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-                    zIndex: 2,
-                    maxWidth: 220,
-                    textAlign: 'end',
-                }}>
+                {/* Gone while a body is focused. It is a caveat about the
+                    overview's layout — how far apart the orbits are drawn —
+                    and once the camera is sitting on one planet there is no
+                    layout left for it to be about. It also frees the centre
+                    of the bottom bar, which on a focused view belongs to the
+                    chevron back up to the scene. */}
+                <div className="scene-note" data-hidden={!!focusedId || undefined}>
                     {t(scaleStage === SCALE_SIZES ? 'scene.allToScale'
                         : scaleStage === SCALE_DISTANCES ? 'scene.distancesToScale'
                             : 'scene.notToScale')}

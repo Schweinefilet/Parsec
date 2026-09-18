@@ -14,10 +14,10 @@
 // then calls resetSkyEntry() once the fade back out finishes. Neither side
 // needs to know the other's internals, only this phase name.
 //
-// armSkyEntry() is called from wherever the /sky nav icon or the /tonight
-// "See in 3D" CTA lives (AppShell.jsx, TonightPage.jsx) — both already know
-// the observer's location, and both just navigate to /object/earth right
-// after arming: whether that lands on an already-mounted scene or mounts a
+// armSkyEntry() is called from wherever the /sky nav icon lives
+// (AppShell.jsx) — it already knows the observer's location, and it just
+// navigates to /object/earth right after arming: whether that lands on an
+// already-mounted scene or mounts a
 // fresh one, the existing focus-on-Earth fly-in is what SolarSystem3D uses
 // to notice the armed flag and take over.
 

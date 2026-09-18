@@ -52,7 +52,7 @@ const AppShell = ({ children }) => {
     const { pathname } = useLocation();
     const navigate = useNavigate();
     const { location: skyLocation } = useObserverLocation();
-    const onOwnPage = ['/satellites', '/compare', '/tonight', '/sky'].includes(pathname);
+    const onOwnPage = ['/satellites', '/compare', '/sky'].includes(pathname);
     // The dive-to-Earth transition (utils/skyEntry.js) needs a real spot to
     // dive to and a mounted solar-system scene to dive through. Without a
     // remembered location there is nothing to zoom in on, so the icon just
@@ -97,7 +97,7 @@ const AppShell = ({ children }) => {
             canonicalPath = `/object/${focusedId}`;
         } else if (onOwnPage) {
             const key = {
-                '/tonight': 'tonight.title', '/compare': 'compare.title',
+                '/compare': 'compare.title',
                 '/satellites': 'tracker.title', '/sky': 'nightSky.title',
             }[pathname];
             name = key ? t(key) : null;
@@ -246,19 +246,28 @@ const AppShell = ({ children }) => {
             {/* Once the page scrolls, the ticker and cards pass beneath this
                 overlay header; a soft scrim keeps the logo readable instead of
                 letting the two sets of text collide. */}
+            {/* The bar itself is full-bleed so its scrim can reach both window
+                edges; the row inside it rides the .spine, which puts the
+                wordmark directly above the catalog heading and the leading edge
+                of the first card, and the actions directly above the last card's
+                trailing edge. Before this the header sat on the window's own
+                gutter and the content on a centred 1280px column — two left
+                edges 160px apart on a wide screen, which is most of why the
+                page read as unsettled. */}
             <header
-                className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 md:px-8"
+                className="fixed top-0 left-0 right-0 z-50"
                 style={{
                     height: 56,
                     pointerEvents: 'none',
                     background: scrolled
                         ? 'linear-gradient(to bottom, rgba(3,5,9,0.92) 0%, rgba(3,5,9,0.72) 55%, rgba(3,5,9,0) 100%)'
                         : 'none',
-                    backdropFilter: scrolled ? 'blur(6px)' : 'none',
-                    WebkitBackdropFilter: scrolled ? 'blur(6px)' : 'none',
-                    transition: 'background 350ms ease, backdrop-filter 350ms ease',
+                    backdropFilter: scrolled ? 'blur(8px)' : 'none',
+                    WebkitBackdropFilter: scrolled ? 'blur(8px)' : 'none',
+                    transition: 'background var(--t-slow) var(--ease-out), backdrop-filter var(--t-slow) var(--ease-out)',
                 }}
             >
+              <div className="spine flex items-center justify-between" style={{ height: '100%' }}>
                 {/* On a phone the open search field wants the whole bar, so the
                     wordmark steps aside for it. */}
                 {!(searchOpen && isMobile) && (
@@ -335,41 +344,21 @@ const AppShell = ({ children }) => {
                             onClick={share}
                             title={copied ? t('nav.copied') : t('nav.copyLink')}
                             aria-label={t('nav.copyLink')}
-                            className="flex items-center justify-center rounded-xl transition-all focus-ring"
-                            style={{
-                                width: 36, height: 36, flexShrink: 0,
-                                background: copied ? 'rgba(80,220,140,0.18)' : 'rgba(0,0,0,0.42)',
-                                border: `1px solid ${copied ? 'rgba(80,220,140,0.34)' : 'rgba(255,255,255,0.16)'}`,
-                                color: copied ? '#6ee7a0' : 'rgba(255,255,255,0.85)',
-                                backdropFilter: 'blur(14px)',
-                                WebkitBackdropFilter: 'blur(14px)',
-                                cursor: 'pointer',
-                            }}
+                            data-tone={copied ? 'positive' : undefined}
+                            className="chrome-btn focus-ring"
                         >
                             {copied
                                 ? <Check className="h-4 w-4" aria-hidden="true" />
                                 : <Link2 className="h-4 w-4" aria-hidden="true" />}
                         </button>
                     )}
-                    {/* The "What's up tonight" nav icon is stashed for now — see
-                        HeaderMenu.jsx for its mobile-menu counterpart. The route,
-                        page and its own header entry (onOwnPage/the title map
-                        below) are untouched, so a direct link still works. */}
                     {!searchOpen && !isMobile && (
                         <Link
                             to="/sky"
                             onClick={handleSkyClick}
                             title={t('nav.skyTitle')}
                             aria-label={t('nav.sky')}
-                            className="flex items-center justify-center rounded-xl transition-all focus-ring"
-                            style={{
-                                width: 36, height: 36, flexShrink: 0,
-                                background: 'rgba(0,0,0,0.42)',
-                                border: '1px solid rgba(255,255,255,0.16)',
-                                color: 'rgba(255,255,255,0.85)',
-                                backdropFilter: 'blur(14px)',
-                                WebkitBackdropFilter: 'blur(14px)',
-                            }}
+                            className="chrome-btn focus-ring"
                         >
                             <Star className="h-4 w-4" aria-hidden="true" />
                         </Link>
@@ -379,15 +368,7 @@ const AppShell = ({ children }) => {
                             to="/compare"
                             title={t('nav.compareTitle')}
                             aria-label={t('nav.compare')}
-                            className="flex items-center justify-center rounded-xl transition-all focus-ring"
-                            style={{
-                                width: 36, height: 36, flexShrink: 0,
-                                background: 'rgba(0,0,0,0.42)',
-                                border: '1px solid rgba(255,255,255,0.16)',
-                                color: 'rgba(255,255,255,0.85)',
-                                backdropFilter: 'blur(14px)',
-                                WebkitBackdropFilter: 'blur(14px)',
-                            }}
+                            className="chrome-btn focus-ring"
                         >
                             <Scale className="h-4 w-4" aria-hidden="true" />
                         </Link>
@@ -402,20 +383,13 @@ const AppShell = ({ children }) => {
                         aria-label={searchOpen ? t('nav.searchClose') : t('nav.search')}
                         aria-expanded={searchOpen}
                         title={t('nav.searchShortcut')}
-                        className="flex items-center justify-center rounded-xl transition-all focus-ring"
-                        style={{
-                            width: 36, height: 36, flexShrink: 0,
-                            background: searchOpen ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.42)',
-                            border: '1px solid rgba(255,255,255,0.16)',
-                            color: 'rgba(255,255,255,0.85)',
-                            backdropFilter: 'blur(14px)',
-                            WebkitBackdropFilter: 'blur(14px)',
-                            cursor: 'pointer',
-                        }}
+                        data-on={searchOpen || undefined}
+                        className="chrome-btn focus-ring"
                     >
                         <Search className="h-4 w-4" aria-hidden="true" />
                     </button>
                 </div>
+              </div>
             </header>
 
             {/* First-visit hint at the burger menu — position:fixed, viewport-
@@ -455,17 +429,18 @@ const AppShell = ({ children }) => {
                     // labels were barely legible. This needs to be opaque enough
                     // to read against anything scrolling underneath it.
                     background: 'rgba(6,8,12,0.92)',
-                    backdropFilter: 'blur(18px) saturate(140%)',
-                    WebkitBackdropFilter: 'blur(18px) saturate(140%)',
-                    borderTop: '1px solid rgba(255,255,255,0.12)',
+                    backdropFilter: 'blur(22px) saturate(150%)',
+                    WebkitBackdropFilter: 'blur(22px) saturate(150%)',
+                    borderTop: '1px solid var(--hairline-hi)',
                     boxShadow: '0 -8px 28px rgba(0,0,0,0.45)',
                     height: 68,
                     overflowX: 'auto',
                     overflowY: 'hidden',
-                    padding: '0 8px',
+                    padding: '0 var(--s-2)',
                     transform: navHidden ? 'translateY(100%)' : 'translateY(0)',
                     opacity: navHidden ? 0 : 1,
                     pointerEvents: navHidden ? 'none' : 'auto',
+                    transitionTimingFunction: 'var(--ease-glide)',
                 }}
             >
                 {/* Inner track: `margin: auto` centres the tabs when the window
@@ -489,29 +464,42 @@ const AppShell = ({ children }) => {
                             onClick={() => setTab(id)}
                             aria-current={isActive ? 'page' : undefined}
                             aria-label={`${label} — ${t('catalog.count', { count })}`}
-                            className="flex flex-col items-center justify-center gap-1 rounded-xl transition-all relative flex-shrink-0 focus-ring"
+                            className="cat-tab flex flex-col items-center justify-center gap-1 relative flex-shrink-0 focus-ring"
                             style={{
-                                minWidth: 72,
-                                padding: '8px 10px',
+                                minWidth: 76,
+                                padding: 'var(--s-2) var(--s-3)',
+                                borderRadius: 'var(--r-md)',
                                 color: isActive ? '#fff' : 'rgba(255,255,255,0.42)',
                                 cursor: 'pointer',
                             }}
                         >
                             <Icon
-                                className="h-5 w-5 transition-transform"
-                                style={{ transform: isActive ? 'scale(1.12)' : 'scale(1)' }}
+                                className="h-5 w-5"
+                                style={{
+                                    transform: isActive ? 'translateY(-1px) scale(1.1)' : 'none',
+                                    transition: 'transform var(--t-base) var(--ease-out)',
+                                }}
                                 aria-hidden="true"
                             />
                             {/* Label with the object count beside it, so a tab that
                                 holds one object reads differently from one that
                                 holds twenty before you open it. */}
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }} aria-hidden="true">
-                                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.02em' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }} aria-hidden="true">
+                                <span style={{
+                                    fontSize: 'var(--fs-label)', fontWeight: 600,
+                                    letterSpacing: '0.01em',
+                                }}>
                                     {label}
                                 </span>
+                                {/* The count sits in its own chip rather than
+                                    running on as a second number, so "Moons 23"
+                                    can't be misread as one label. */}
                                 <span style={{
                                     fontSize: 9, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-                                    color: isActive ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.30)',
+                                    padding: '1px 4px', borderRadius: 'var(--r-xs)', lineHeight: 1.3,
+                                    background: isActive ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.06)',
+                                    color: isActive ? 'rgba(255,255,255,0.80)' : 'rgba(255,255,255,0.34)',
+                                    transition: 'background var(--t-base) var(--ease-out), color var(--t-base) var(--ease-out)',
                                 }}>
                                     {count}
                                 </span>
@@ -519,7 +507,11 @@ const AppShell = ({ children }) => {
                             {isActive && (
                                 <span
                                     className="absolute rounded-full"
-                                    style={{ bottom: 2, width: 16, height: 2, background: 'var(--accent)' }}
+                                    style={{
+                                        bottom: 4, width: 20, height: 2,
+                                        background: 'var(--accent)',
+                                        boxShadow: '0 0 10px rgba(255,255,255,0.55)',
+                                    }}
                                 />
                             )}
                         </button>

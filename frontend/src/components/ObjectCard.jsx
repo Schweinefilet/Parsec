@@ -86,12 +86,16 @@ const ObjectCard = ({ object: source }) => {
                 flexDirection: 'column',
                 justifyContent: 'space-between',
                 width: '100%',
-                minHeight: 148,
+                // A 4:3-ish frame rather than a content-driven height, so a row
+                // of cards is a row of equal rectangles whatever each object's
+                // stats happen to run to. The min keeps a narrow column honest.
+                aspectRatio: '4 / 3',
+                minHeight: 168,
                 textAlign: 'start',
                 overflow: 'hidden',
                 borderRadius: 'var(--radius-card)',
-                border: '1px solid var(--glass-border)',
-                boxShadow: 'var(--glass-shadow), var(--glass-specular)',
+                border: '1px solid var(--panel-border)',
+                boxShadow: 'var(--sh-2), var(--specular)',
                 background: '#05070a',
                 cursor: 'pointer',
                 padding: 0,
@@ -115,13 +119,17 @@ const ObjectCard = ({ object: source }) => {
                             transition: 'opacity 0.5s ease, transform 0.6s cubic-bezier(0.22,0.61,0.36,1)',
                         }}
                     />}
-                    {/* Legibility scrim — darkest where the text sits */}
+                    {/* Legibility scrim — darkest where the text sits. Thins on
+                        hover (see .object-card-scrim in index.css), so the
+                        photograph brightens as the card comes forward. */}
                     <div
                         aria-hidden="true"
+                        className="object-card-scrim"
                         style={{
                             position: 'absolute', inset: 0,
                             background:
                                 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 42%, rgba(0,0,0,0.34) 100%)',
+                            transition: 'opacity var(--t-slow) var(--ease-out)',
                         }}
                     />
                 </>
@@ -131,30 +139,45 @@ const ObjectCard = ({ object: source }) => {
 
             {/* No category badge: every card in this grid is already filtered to
                 one category, so the badge only ever repeated the tab you were on. */}
-            <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 8, padding: '16px 16px 0' }}>
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 'var(--s-2)', padding: 'var(--s-5) var(--s-5) 0' }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                    <h3 style={{ color: '#fff', fontSize: '0.95rem', fontWeight: 700, letterSpacing: '-0.01em', margin: 0 }}>
+                    <h3 style={{
+                        color: '#fff', fontSize: 'var(--fs-base)', fontWeight: 700,
+                        letterSpacing: 'var(--tr-tight)', margin: 0, lineHeight: 1.2,
+                    }}>
                         {object.name}
                     </h3>
-                    <p style={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.72rem', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <p style={{
+                        color: 'var(--text-secondary)', fontSize: 'var(--fs-tiny)',
+                        margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
                         {object.type}
                     </p>
                 </div>
             </div>
 
-            <div style={{ position: 'relative', zIndex: 1, padding: '0 16px 16px', marginTop: 12 }}>
-                <p className="num-run" style={{ color: '#fff', fontSize: '1.05rem', fontWeight: 700, margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+            <div style={{ position: 'relative', zIndex: 1, padding: '0 var(--s-5) var(--s-5)', marginTop: 'var(--s-4)' }}>
+                <p className="num-run figure" style={{ margin: 0, fontSize: 'var(--fs-lg)' }}>
                     {object.keyStatValue}
                 </p>
-                <p style={{ color: 'rgba(255,255,255,0.48)', fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '1px 0 0' }}>
+                <p className="label" style={{ margin: '3px 0 0' }}>
                     {object.keyStatLabel}
                 </p>
                 {object.secondaryStatValue && (
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 7 }}>
-                        <span className="num-run" style={{ color: 'rgba(255,255,255,0.70)', fontSize: '0.74rem', fontWeight: 500 }}>
+                    <div style={{
+                        display: 'flex', alignItems: 'baseline', gap: 'var(--s-2)',
+                        marginTop: 'var(--s-2)', paddingTop: 'var(--s-2)',
+                        // A hairline tying the secondary figure to the headline one
+                        // above it, so the footer reads as one block of two rows
+                        // rather than three free-floating lines of text.
+                        borderTop: '1px solid rgba(255,255,255,0.10)',
+                    }}>
+                        <span className="num-run" style={{
+                            color: 'rgba(255,255,255,0.78)', fontSize: 'var(--fs-xs)', fontWeight: 600,
+                        }}>
                             {object.secondaryStatValue}
                         </span>
-                        <span style={{ color: 'rgba(255,255,255,0.42)', fontSize: '0.58rem', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+                        <span className="label label-dim" style={{ fontSize: '9px' }}>
                             {object.secondaryStatLabel}
                         </span>
                     </div>

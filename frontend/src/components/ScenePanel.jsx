@@ -19,13 +19,15 @@ import { useI18n } from '../i18n';
  * React state owned by the page, so it comes in as a prop.
  */
 const rowBtn = (active) => ({
-    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-    padding: '9px 11px', borderRadius: 10,
-    background: active ? 'rgba(255,209,102,0.16)' : 'rgba(255,255,255,0.06)',
-    border: `1px solid ${active ? 'rgba(255,209,102,0.34)' : 'rgba(255,255,255,0.13)'}`,
-    color: active ? '#ffd166' : 'rgba(255,255,255,0.84)',
-    fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-    lineHeight: 1.25, textAlign: 'start', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 'var(--s-2)', width: '100%',
+    padding: '10px var(--s-3)', borderRadius: 'var(--r-sm)',
+    background: active ? 'rgba(var(--accent-warm-rgb), 0.15)' : 'rgba(255,255,255,0.06)',
+    border: `1px solid ${active ? 'rgba(var(--accent-warm-rgb), 0.36)' : 'var(--hairline-hi)'}`,
+    color: active ? 'var(--accent-warm)' : 'rgba(255,255,255,0.84)',
+    fontSize: 'var(--fs-label)', fontWeight: 700,
+    letterSpacing: 'var(--tr-label)', textTransform: 'uppercase',
+    lineHeight: 1.3, textAlign: 'start', cursor: 'pointer',
+    transition: 'background var(--t-base) var(--ease-out), border-color var(--t-base) var(--ease-out), color var(--t-base) var(--ease-out)',
 });
 
 const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage, vizMode, trailsOn, disabled }) => {
@@ -52,7 +54,14 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage
         : scaleStage === SCALE_DISTANCES ? 'scene.trueDistances'
             : 'scene.compressedDistances';
 
-    const slide = reduced ? 'none' : 'transform 320ms cubic-bezier(0.32,0.72,0,1), inset-inline-start 320ms cubic-bezier(0.32,0.72,0,1)';
+    const slide = reduced ? 'none' : 'transform 320ms var(--ease-glide), inset-inline-start 320ms var(--ease-glide)';
+    // The tab carries its own hover treatment (background, width — see
+    // .edge-tab), and an inline `transition` replaces the class's outright
+    // rather than adding to it, so both halves have to be named here.
+    const tabSlide = reduced
+        ? 'none'
+        : `${slide}, background var(--t-base) var(--ease-out),`
+          + ' border-color var(--t-base) var(--ease-out), width var(--t-base) var(--ease-out)';
     const hiddenX = rtl ? 'translateX(100%)' : 'translateX(-100%)';
 
     // The handle mark is the focused-object sheet's pull handle laid on its
@@ -92,26 +101,27 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage
                 {/* The tab comes first in the DOM so a keyboard opening it then
                     tabs straight into the controls, not past them. Its place on
                     screen is set by position, not order. */}
-                {/* No box — same as the focused-object sheet's handle: a bare
-                    transparent button, the chevrons the only thing drawn. It
-                    sits a little in from the edge and bobs while closed with the
-                    sheet handle's own `scrollPromptBob`. */}
+                {/* A pull handle on the edge of the screen, not a bare glyph
+                    floating in the starfield. It used to be two transparent
+                    chevrons with no box at all, which over a black scene read
+                    as a stray mark rather than as something to take hold of —
+                    there was nothing to say it was a control, or that it
+                    belonged to the edge. The rail below is flush to that edge
+                    and rounded only on the side facing into the scene, so it
+                    reads as a tab attached to the window. It still bobs while
+                    closed. */}
                 <button
                     onClick={toggleOpen}
                     aria-expanded={open}
                     aria-label={t(open ? 'scene.viewOptionsClose' : 'scene.viewOptions')}
                     title={t(open ? 'scene.viewOptionsClose' : 'scene.viewOptions')}
                     data-coach="tab"
-                    className="focus-ring"
+                    className="edge-tab focus-ring"
                     style={{
                         position: 'absolute', top: '50%',
-                        insetInlineStart: open ? '100%' : 10,
+                        insetInlineStart: open ? '100%' : 0,
                         transform: 'translateY(-50%)',
-                        transition: slide,
-                        pointerEvents: 'auto',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        padding: '12px 6px',
-                        background: 'none', border: 'none', cursor: 'pointer',
+                        transition: tabSlide,
                     }}
                 >
                     {/* Bob + fade while closed — the sheet handle's animation,
@@ -138,22 +148,22 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage
                             style={{ display: 'flex', alignItems: 'center', direction: 'ltr' }}
                         >
                             <span style={{
-                                width: 14, height: 34, flexShrink: 0,
+                                width: 13, height: 30, flexShrink: 0,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}>
                                 <ChevronDown style={{
-                                    width: 40, height: 40, flexShrink: 0,
+                                    width: 34, height: 34, flexShrink: 0,
                                     color: `rgba(255,255,255,${chevLeft})`,
                                     transform: `rotate(${chevDeg}deg) scaleX(1.5)`,
                                     transition: 'transform 0.35s ease',
                                 }} />
                             </span>
                             <span style={{
-                                width: 14, height: 34, flexShrink: 0, marginInlineStart: -3,
+                                width: 13, height: 30, flexShrink: 0, marginInlineStart: -3,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}>
                                 <ChevronDown style={{
-                                    width: 40, height: 40, flexShrink: 0,
+                                    width: 34, height: 34, flexShrink: 0,
                                     color: `rgba(255,255,255,${chevRight})`,
                                     transform: `rotate(${chevDeg}deg) scaleX(1.5)`,
                                     transition: 'transform 0.35s ease',
@@ -178,21 +188,26 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage
                         // it has to be fully hidden, not ghosted. Near-opaque,
                         // like the category bar.
                         background: 'rgba(8,10,15,0.95)',
-                        border: '1px solid rgba(255,255,255,0.14)',
-                        backdropFilter: 'blur(16px) saturate(140%)',
-                        WebkitBackdropFilter: 'blur(16px) saturate(140%)',
-                        boxShadow: '0 12px 34px rgba(0,0,0,0.5)',
+                        border: '1px solid var(--chrome-border)',
+                        borderInlineStart: 'none',
+                        backdropFilter: 'var(--blur-chrome)',
+                        WebkitBackdropFilter: 'var(--blur-chrome)',
+                        boxShadow: 'var(--sh-3)',
+                        // Square against the window edge it slides out of,
+                        // rounded on the side facing the scene — the same
+                        // shape rule as the tab that opens it.
                         borderStartStartRadius: 0, borderEndStartRadius: 0,
-                        borderStartEndRadius: 16, borderEndEndRadius: 16,
+                        borderStartEndRadius: 'var(--r-lg)', borderEndEndRadius: 'var(--r-lg)',
                         pointerEvents: open ? 'auto' : 'none',
                         transform: open ? 'translateX(0)' : hiddenX,
                         transition: slide,
                     }}
                 >
-                    <p style={{
-                        fontSize: 10, fontWeight: 800, letterSpacing: '0.14em',
-                        textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)',
-                        margin: '0 0 10px',
+                    <p className="label" style={{
+                        color: 'rgba(255,255,255,0.5)',
+                        margin: '0 0 var(--s-3)',
+                        paddingBottom: 'var(--s-2)',
+                        borderBottom: '1px solid var(--hairline)',
                     }}>
                         {t('scene.viewOptions')}
                     </p>

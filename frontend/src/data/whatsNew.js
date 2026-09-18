@@ -12,6 +12,20 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.7',
+        changes: [
+            'The interface has been rebuilt on a single column. The wordmark, the catalog heading, the first card’s edge, each page’s title, the timeline and a focused planet’s name now all line up on one vertical spine — previously they sat on as many as five different left edges, which is most of why the page never quite settled.',
+            'Every surface, size and animation now comes from one shared set of values, so the header, the scene controls and the panels are drawn from the same material instead of five near-identical guesses at it.',
+            'The bottom of the solar system view reads as one bar: the timeline at one end, “Explore the catalog” at the other, the scale note centred between them.',
+            'A focused planet’s name and its figures now sit on shared baselines rather than a dozen pixels out from each other.',
+            'The live telemetry ticker is a proper band across the page now, fading out at both ends instead of being cut off at the window edge.',
+            'The compare table finally uses its full width — each body’s numbers sit in a column of their own, under a heading that follows you down the page.',
+            'Catalog cards are a consistent shape whatever the object, and the photograph now brightens and pushes in as you hover.',
+            'The satellite tracker’s readings sit in two even rows of four, instead of seven with a lonely eighth underneath.',
+            'The “What’s up tonight” page has been retired. The night sky view at the star icon answers the same question, and lets you look around the real sky instead of reading a chart. Old links land on the solar system.',
+        ],
+    },
+    {
         version: '5.6',
         changes: [
             'The rewind button now actually rewinds. It used to stop at real time; holding it now keeps going into reverse, up to a full year per second backward, mirroring fast-forward.',

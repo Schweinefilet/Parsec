@@ -13,7 +13,7 @@ const rowStyle = {
 
 /**
  * The mobile header's burger menu — AppShell.jsx's five action icons
- * (language, share, tonight, sky, compare) collapsed behind one button
+ * (language, share, sky, compare) collapsed behind one button
  * below the (max-width: 767px) breakpoint, where the six icon-only buttons
  * plus the wordmark measurably overflowed the header's own width (the
  * search button's right edge landed past the viewport edge). Desktop keeps
@@ -102,9 +102,6 @@ const HeaderMenu = ({ onShare, copied, onSkyClick, onOpen }) => {
                             : <Link2 style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />}
                         {copied ? t('nav.copied') : t('nav.copyLink')}
                     </button>
-
-                    {/* "What's up tonight" is stashed for now — see AppShell.jsx's
-                        own comment where its desktop icon used to be. */}
 
                     <Link role="menuitem" to="/sky" onClick={(e) => { onSkyClick(e); close(); }} style={rowStyle}>
                         <Star style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />

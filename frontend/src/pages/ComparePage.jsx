@@ -219,8 +219,10 @@ const ComparePage = () => {
         : 0;
 
     return (
-        <div style={{ position: 'relative', zIndex: 1, minHeight: 'var(--app-vh, 100vh)', paddingTop: 64 }}>
-            <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 16px 40px' }}>
+        <div style={{ position: 'relative', zIndex: 1, minHeight: 'var(--app-vh, 100vh)', paddingTop: 'var(--s-10)' }}>
+            {/* .spine, not a maxWidth of its own — this page's content lands on
+                the same column as the header above it and the catalog's cards. */}
+            <div className="spine" style={{ paddingBottom: 'var(--s-10)' }}>
 
                 {/* ── Header ── */}
                 <PageHeader
@@ -230,20 +232,14 @@ const ComparePage = () => {
                 />
 
                 {/* ── Pickers ── */}
-                <div className="glass flex flex-wrap items-end gap-3" style={{ padding: 16 }}>
+                <div className="glass flex flex-wrap items-end" style={{ padding: 'var(--s-4)', gap: 'var(--s-3)' }}>
                     <ObjectPicker label={t('compare.first')} value={idA} onChange={(v) => set(v, idB)}
                         groups={groups} fmtKm={fmtKm} localize={localize} t={t} />
                     <button
                         onClick={() => set(idB, idA)}
                         aria-label={t('compare.swap')}
                         title={t('compare.swapTitle')}
-                        className="flex items-center justify-center rounded-xl focus-ring flex-shrink-0"
-                        style={{
-                            width: 40, height: 40, marginBottom: 1,
-                            background: 'rgba(255,255,255,0.06)',
-                            border: '1px solid rgba(255,255,255,0.14)',
-                            color: 'rgba(255,255,255,0.8)', cursor: 'pointer',
-                        }}
+                        className="swap-btn focus-ring flex-shrink-0"
                     >
                         <ArrowLeftRight style={{ width: 16, height: 16 }} />
                     </button>
@@ -298,34 +294,58 @@ const ComparePage = () => {
                     </p>
                 </div>
 
-                {/* ── The numbers ── */}
+                {/* ── The numbers ──
+                    A real two-column table. The rows used to be
+                    `1fr auto 1fr`, which sounds balanced but puts the only
+                    fixed-width thing — the label — in the middle and lets the
+                    two flexible columns grow outwards, so both values ended up
+                    pinned either side of the centre with a third of the card
+                    empty on each flank. Fixing the *label* column instead
+                    gives each value a column of its own to sit in, and the two
+                    now line up under the names in the header row. */}
                 {sections.length > 0 && (
-                    <div className="glass" style={{ marginTop: 16, padding: '4px 20px 16px' }}>
+                    <div className="glass" style={{ marginTop: 'var(--s-4)', padding: 'var(--s-5) var(--s-6) var(--s-6)' }}>
+                        {/* Which column is which. Sticky, because the table is
+                            longer than the viewport and a bare pair of numbers
+                            halfway down it says nothing about whose they are. */}
+                        <div className="cmp-row cmp-head">
+                            <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 700, color: '#fff' }}>
+                                {localize(a).name}
+                            </span>
+                            <span />
+                            <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 700, color: '#fff' }}>
+                                {localize(b).name}
+                            </span>
+                        </div>
+
                         {sections.map(sec => (
-                            <div key={sec.section} style={{ marginTop: 16 }}>
-                                <p style={{
-                                    margin: '0 0 6px', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
-                                    textTransform: 'uppercase', color: 'var(--text-tertiary)',
-                                }}>
+                            <div key={sec.section} style={{ marginTop: 'var(--s-6)' }}>
+                                <p className="label" style={{ margin: '0 0 var(--s-2)', textAlign: 'center' }}>
                                     {sectionLabel(sec.section)}
                                 </p>
                                 {sec.rows.map(row => (
                                     <div
                                         key={row.label}
-                                        className="grid items-baseline"
+                                        className="cmp-row items-baseline"
                                         style={{
-                                            gridTemplateColumns: '1fr auto 1fr',
-                                            gap: 12, padding: '7px 0',
-                                            borderTop: '1px solid rgba(255,255,255,0.06)',
+                                            padding: 'var(--s-3) 0',
+                                            borderTop: '1px solid var(--hairline)',
                                         }}
                                     >
-                                        <span className="num-run" style={{ fontSize: '0.85rem', color: '#fff', textAlign: 'end', fontVariantNumeric: 'tabular-nums' }}>
+                                        <span className="num-run" style={{
+                                            fontSize: 'var(--fs-base)', fontWeight: 600, color: '#fff',
+                                        }}>
                                             {row.a}
                                         </span>
-                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                        <span style={{
+                                            fontSize: 'var(--fs-xs)', color: 'var(--text-tertiary)',
+                                            whiteSpace: 'nowrap',
+                                        }}>
                                             {statLabel(row.label)}
                                         </span>
-                                        <span className="num-run" style={{ fontSize: '0.85rem', color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+                                        <span className="num-run" style={{
+                                            fontSize: 'var(--fs-base)', fontWeight: 600, color: '#fff',
+                                        }}>
                                             {row.b}
                                         </span>
                                     </div>
@@ -335,18 +355,12 @@ const ComparePage = () => {
                     </div>
                 )}
 
-                <div className="flex flex-wrap justify-center gap-2" style={{ marginTop: 16 }}>
+                <div className="flex flex-wrap justify-center" style={{ marginTop: 'var(--s-6)', gap: 'var(--s-3)' }}>
                     {[a, b].map((o, i) => (
                         <button
                             key={`${o.id}-${i}`}
                             onClick={() => navigate(`/object/${o.id}`)}
-                            className="flex items-center gap-1.5 rounded-xl font-bold focus-ring"
-                            style={{
-                                padding: '9px 14px', fontSize: '0.8rem',
-                                background: 'rgba(255,255,255,0.06)',
-                                border: '1px solid rgba(255,255,255,0.14)',
-                                color: 'rgba(255,255,255,0.85)', cursor: 'pointer',
-                            }}
+                            className="ghost-btn focus-ring"
                         >
                             {t('compare.about', { name: localize(o).name })}
                             <ArrowUpRight className="flip-rtl" style={{ width: 14, height: 14 }} />

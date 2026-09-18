@@ -35,8 +35,6 @@ export const en = {
         hintMenu: 'Language, sharing and more',
         copyLink: 'Copy a link to this view',
         copied: 'Link copied',
-        tonight: 'What’s up tonight',
-        tonightTitle: 'What’s up tonight from where you are',
         sky: 'Night sky',
         skyTitle: 'See the real night sky from your location',
         compare: 'Compare two bodies',
@@ -290,47 +288,9 @@ export const en = {
         issTitle: 'Live high-definition views from the Space Station',
     },
 
-    tonight: {
-        title: 'What’s up tonight',
-        subtitle: 'The planets above you, and which way to look',
-        from: 'From {lat}, {lon} · {time}',
-        askTitle: 'Where are you standing?',
-        askBody: 'Which planets are above your horizon depends entirely on where you are.'
-            + ' Your location stays in this browser — the sky is worked out on your device,'
-            + ' and nothing is sent anywhere.',
-        asking: 'Asking…',
-        useLocation: 'Use my location',
-        updateLocation: 'Update location',
-        forget: 'Forget it',
-        trackSatellite: 'Track a satellite',
-        seeIn3d: 'See the sky in 3D',
-        skyAria: 'Sky chart: {count} bodies above the horizon',
-        nothingUp: 'Nothing above your horizon right now',
-        countUp: '{count} above the horizon · the bar is the view all the way round,'
-            + ' from north back to north',
-        tooBright: ' · the sky is still too bright for the fainter ones',
-        aboveHorizon: 'Above the horizon',
-        belowHorizon: 'Below the horizon',
-        look: 'Look',
-        lookAt: 'Look {compass}, {where}',
-        degreesUp: '({deg}° up)',
-        lit: '{pct}% lit',
-        mag: 'mag {m}',
-        sets: 'sets {time}',
-        rises: 'rises {time}',
-        notUpToday: 'not up today',
-        comingUp: 'Coming up',
-        comingUpNote: 'the next year, most notable first',
-        comingUpNoLocation: ' · a solar eclipse needs your location to know if it reaches you',
-        noEvents: 'Nothing found in the next year.',
-        setClockAria: 'Set the solar system to {title}',
-        footnote: 'Positions computed on your device from your latitude and longitude ·'
-            + ' Altitudes include atmospheric refraction · Magnitudes are current, not average',
-    },
 
-    // The night-sky dome (/sky) — a different page from "tonight" above, so
-    // its own strings even where the idea overlaps (asking for a location):
-    // this file groups keys by where they appear, not by what they mean.
+    // The night-sky dome (/sky). This file groups keys by where they appear,
+    // not by what they mean, so a phrase two pages both need is written twice.
     nightSky: {
         title: 'Night Sky',
         askTitle: 'See your real night sky',

@@ -40,8 +40,6 @@ export const vi = {
         hintMenu: 'Ngôn ngữ, chia sẻ và hơn thế nữa',
         copyLink: 'Sao chép liên kết đến khung nhìn này',
         copied: 'Đã sao chép liên kết',
-        tonight: 'Bầu trời đêm nay',
-        tonightTitle: 'Bầu trời đêm nay từ nơi bạn đứng',
         sky: 'Bầu trời đêm',
         skyTitle: 'Xem bầu trời đêm thực từ vị trí của bạn',
         compare: 'So sánh hai thiên thể',
@@ -295,43 +293,6 @@ export const vi = {
         issTitle: 'Hình ảnh độ nét cao trực tiếp từ Trạm Vũ trụ',
     },
 
-    tonight: {
-        title: 'Bầu trời đêm nay',
-        subtitle: 'Những hành tinh trên đầu bạn, và hướng nào để nhìn',
-        from: 'Từ {lat}, {lon} · {time}',
-        askTitle: 'Bạn đang đứng ở đâu?',
-        askBody: 'Những hành tinh nào trên chân trời của bạn hoàn toàn phụ thuộc vào nơi bạn đứng.'
-            + ' Vị trí của bạn được giữ lại trong trình duyệt này — bầu trời được tính trên thiết bị'
-            + ' của bạn, và không có gì được gửi đi đâu cả.',
-        asking: 'Đang hỏi…',
-        useLocation: 'Dùng vị trí của tôi',
-        updateLocation: 'Cập nhật vị trí',
-        forget: 'Quên đi',
-        trackSatellite: 'Theo dõi một vệ tinh',
-        seeIn3d: 'Xem bầu trời trong không gian 3D',
-        skyAria: 'Bản đồ bầu trời: {count} thiên thể trên chân trời',
-        nothingUp: 'Hiện không có gì trên chân trời của bạn',
-        countUp: '{count} thiên thể trên chân trời · thanh này là toàn cảnh vòng quanh,'
-            + ' từ hướng bắc trở lại hướng bắc',
-        tooBright: ' · trời vẫn còn quá sáng để thấy những thiên thể mờ hơn',
-        aboveHorizon: 'Trên chân trời',
-        belowHorizon: 'Dưới chân trời',
-        look: 'Nhìn',
-        lookAt: 'Nhìn về hướng {compass}, {where}',
-        degreesUp: '(cao {deg}°)',
-        lit: 'sáng {pct}%',
-        mag: 'cấp sao {m}',
-        sets: 'lặn lúc {time}',
-        rises: 'mọc lúc {time}',
-        notUpToday: 'không mọc hôm nay',
-        comingUp: 'Sắp tới',
-        comingUpNote: 'trong năm tới, đáng chú ý nhất trước',
-        comingUpNoLocation: ' · nhật thực cần vị trí của bạn để biết nó có tới nơi bạn không',
-        noEvents: 'Không tìm thấy gì trong năm tới.',
-        setClockAria: 'Đặt Hệ Mặt Trời về thời điểm {title}',
-        footnote: 'Vị trí được tính trên thiết bị của bạn từ vĩ độ và kinh độ ·'
-            + ' Độ cao đã tính khúc xạ khí quyển · Cấp sao là hiện tại, không phải trung bình',
-    },
 
     nightSky: {
         title: 'Bầu Trời Đêm',

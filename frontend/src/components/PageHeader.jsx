@@ -2,54 +2,51 @@ import { ChevronLeft } from 'lucide-react';
 import { useI18n } from '../i18n';
 
 /**
- * The header the standalone pages share — tracker, compare, "what's up
- * tonight". A back button and a title on one row, the subtitle on its own row
- * beneath, aligned with the title.
+ * The header the standalone pages share — the satellite tracker and compare.
  *
- * The subtitle used to stack under the title inside the flex row, which left
- * the back button vertically centred against a two-line block and wedged
- * against the title on a phone. Pulling it out drops the row to a single line:
- * `[back] [title] [trailing]`, with the title free to grow and truncate rather
- * than wrap into the button.
+ * The back button used to sit *beside* the title, which pushed the title (and,
+ * via a matching 48px indent, the subtitle) in from the page's leading edge
+ * while every panel below them stayed flush to it — three left edges on a page
+ * with one column. It is now a back *link* on its own row above the title, so
+ * the title, the subtitle and the content beneath all share a single edge and
+ * the button is where a back control is normally looked for anyway.
  */
 const PageHeader = ({ onBack, backLabel, title, subtitle, trailing }) => {
     const { t } = useI18n();
     return (
-        <div className="mb-4">
-            <div className="flex items-center gap-3">
-                <button
-                    onClick={onBack}
-                    aria-label={backLabel ?? t('nav.back')}
-                    className="flex items-center justify-center rounded-xl focus-ring flex-shrink-0"
-                    style={{
-                        width: 36, height: 36,
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.14)',
-                        color: 'rgba(255,255,255,0.85)', cursor: 'pointer',
-                    }}
-                >
-                    <ChevronLeft className="flip-rtl" style={{ width: 18, height: 18 }} />
-                </button>
-                <h1 style={{
-                    margin: 0, flex: 1, minWidth: 0,
-                    fontSize: 'clamp(1.15rem, 3vw, 1.6rem)', fontWeight: 800,
-                    letterSpacing: '-0.02em', color: '#fff',
-                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                }}>
-                    {title}
-                </h1>
+        <div style={{ marginBottom: 'var(--s-7)' }}>
+            <button
+                onClick={onBack}
+                aria-label={backLabel ?? t('nav.back')}
+                className="page-back focus-ring"
+            >
+                <ChevronLeft className="flip-rtl" style={{ width: 15, height: 15 }} aria-hidden="true" />
+                <span>{backLabel ?? t('nav.back')}</span>
+            </button>
+            <div
+                className="flex items-end justify-between"
+                style={{ gap: 'var(--s-4)', marginTop: 'var(--s-3)' }}
+            >
+                <div style={{ minWidth: 0 }}>
+                    <h1 style={{
+                        margin: 0,
+                        fontSize: 'clamp(1.5rem, 3.2vw, 2.15rem)', fontWeight: 700,
+                        letterSpacing: 'var(--tr-tighter)', color: '#fff', lineHeight: 1.1,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
+                        {title}
+                    </h1>
+                    {subtitle && (
+                        <p style={{
+                            margin: '7px 0 0',
+                            fontSize: 'var(--fs-sm)', color: 'var(--text-tertiary)',
+                        }}>
+                            {subtitle}
+                        </p>
+                    )}
+                </div>
                 {trailing && <div className="flex-shrink-0">{trailing}</div>}
             </div>
-            {subtitle && (
-                <p style={{
-                    // 48 = back button (36) + the row gap (12), so the subtitle
-                    // starts under the title in both directions.
-                    margin: '5px 0 0', marginInlineStart: 48,
-                    fontSize: '0.72rem', color: 'var(--text-tertiary)',
-                }}>
-                    {subtitle}
-                </p>
-            )}
         </div>
     );
 };

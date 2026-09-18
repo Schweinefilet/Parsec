@@ -34,21 +34,18 @@ const fmtAge = (date, t) => {
 
 const Stat = ({ label, value, sub, accent }) => (
     <div>
-        <p style={{
-            margin: 0, fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
-            textTransform: 'uppercase', color: 'var(--text-tertiary)',
-        }}>
-            {label}
-        </p>
-        <p style={{
-            margin: '3px 0 0', fontSize: '1.05rem', fontWeight: 700,
-            color: accent ?? '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15,
-        }}>
+        <p className="label" style={{ margin: 0 }}>{label}</p>
+        <p className="figure" style={{ margin: '5px 0 0', color: accent ?? '#fff' }}>
             {value}
         </p>
-        {sub && (
-            <p style={{ margin: '1px 0 0', fontSize: 10, color: 'var(--text-tertiary)' }}>{sub}</p>
-        )}
+        {/* Reserved whether or not this reading has a footnote, so the eight
+            cells stay the same height and the two rows keep their baselines. */}
+        <p style={{
+            margin: '3px 0 0', minHeight: '1.4em',
+            fontSize: 'var(--fs-tiny)', color: 'var(--text-quaternary)',
+        }}>
+            {sub ?? ''}
+        </p>
     </div>
 );
 
@@ -155,8 +152,10 @@ const SatelliteView = () => {
 
     return (
         <>
-            <div style={{ position: 'relative', zIndex: 1, minHeight: 'var(--app-vh, 100vh)', paddingTop: 64 }}>
-                <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 16px 40px' }}>
+            <div style={{ position: 'relative', zIndex: 1, minHeight: 'var(--app-vh, 100vh)', paddingTop: 'var(--s-10)' }}>
+                {/* .spine — the same column the header above and the catalog
+                    on the home route sit on. */}
+                <div className="spine" style={{ paddingBottom: 'var(--s-10)' }}>
 
                     {/* ── Header ── */}
                     <PageHeader
@@ -168,8 +167,10 @@ const SatelliteView = () => {
                             <span
                                 className="flex items-center gap-1.5"
                                 style={{
-                                    fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-                                    textTransform: 'uppercase', padding: '5px 10px', borderRadius: 999,
+                                    fontSize: 'var(--fs-label)', fontWeight: 700,
+                                    letterSpacing: 'var(--tr-label)',
+                                    textTransform: 'uppercase', padding: '6px var(--s-3)',
+                                    borderRadius: 'var(--r-full)',
                                     background: status === 'error' ? 'rgba(255,90,80,0.14)'
                                         : statusOk ? 'rgba(80,220,140,0.14)' : 'rgba(255,200,60,0.14)',
                                     border: `1px solid ${status === 'error' ? 'rgba(255,90,80,0.30)'
@@ -269,13 +270,15 @@ const SatelliteView = () => {
                     </div>
 
                     {/* ── Telemetry for the selected craft ── */}
+                    {/* A fixed four-column grid, not `auto-fit minmax(130px,
+                        1fr)`. There are eight readings, and auto-fit resolved
+                        to seven columns at the width this panel actually gets —
+                        so the eighth wrapped onto a row of its own and sat
+                        there alone looking like an afterthought. Four columns
+                        divide eight exactly, at every window width. */}
                     <div
-                        className="glass"
-                        style={{
-                            marginTop: 16, padding: 20,
-                            display: 'grid', gap: 20,
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                        }}
+                        className="glass stat-grid"
+                        style={{ marginTop: 'var(--s-4)', padding: 'var(--s-6)' }}
                     >
                         <Stat label={t('tracker.latitude')} value={fmtCoord(selected?.lat, N, S)} />
                         <Stat label={t('tracker.longitude')} value={fmtCoord(selected?.lon, E, W)} />

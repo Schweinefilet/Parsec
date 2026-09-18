@@ -48,7 +48,7 @@ in the telemetry ticker. Without one it falls back to `DEMO_KEY`.
 There is one `<Route path="*">` (`src/App.jsx`) so `AppShell`,
 `CategoryBrowser` and `SolarSystem3D` are never remounted while navigating —
 that is what preserves the Three.js camera state and lets the exit animation
-play. `/satellites`, `/compare` and `/tonight` are the other three routes.
+play. `/satellites`, `/compare` and `/sky` are the other three routes.
 
 ```text
 frontend/src/
@@ -57,7 +57,6 @@ frontend/src/
     CategoryBrowser.jsx  catalog + 3D scene + object detail — the home route
     SatelliteView.jsx    the satellite tracker (/satellites)
     ComparePage.jsx      two bodies side by side at true relative size (/compare)
-    TonightPage.jsx      what is above your horizon right now (/tonight)
     NightSkyPage.jsx     the night sky from your location (/sky) — lazily
                          loaded, the only route that is (see "The night sky")
   components/
@@ -411,34 +410,31 @@ re-derived every frame and rotated along with it. OrbitControls cannot roll, so
 the drift is applied by hand after `controls.update()` as three rotations of
 the camera about its target.
 
-### What's up tonight
-
-`/tonight` answers the question you ask outdoors rather than the one the rest of
-the site answers: not where a planet is in the solar system, but whether it is
-above *your* horizon, how high, and which way to face. Same ephemeris, different
-frame — `Astronomy.Horizon` turns a position and an observer into an altitude
-and an azimuth, and `skyPositions.js` is arranged around that one call.
-
-The chart is a panorama rather than the traditional round star map, because the
-question is not "what does the sky look like" but "which way do I turn and how
-far up", and laid out flat the answer is a pair of coordinates.
-
-The location is kept in `localStorage`, rounded to two decimals. A page whose
-point is "come back tomorrow night" cannot ask permission every time, and the
-sky does not change measurably across the kilometre that rounding costs — so
-the rest of a GPS fix is precision with no use and no business being stored.
-Nothing is sent anywhere; the positions are computed on the device.
-
 ### The night sky
 
-`/sky` is `/tonight`'s immersive sibling, not a replacement — a real star
-field and the traditional constellation figures, explorable by looking
-around, instead of a flat readout of what's above the horizon. It's lazily
-loaded (`React.lazy` in `App.jsx`, the only route that is): a dedicated
-three.js scene plus a real data catalog is a cost only a visitor who
-actually clicks through should pay. Both pages share
-`hooks/useObserverLocation.js`, so granting a location on one makes it
-available on the other with no second prompt.
+`/sky` answers the question you ask outdoors rather than the one the rest of
+the site answers: not where a planet is in the solar system, but what is above
+*your* head, and which way to face to see it. Same ephemeris, different frame —
+`Astronomy.Horizon` turns a position and an observer into an altitude and an
+azimuth, and `skyPositions.js` is arranged around that one call.
+
+It is a real star field with the traditional constellation figures, explored by
+looking around inside it. It's lazily loaded (`React.lazy` in `App.jsx`, the
+only route that is): a dedicated three.js scene plus a real data catalog is a
+cost only a visitor who actually clicks through should pay.
+
+The location is kept in `localStorage` (`hooks/useObserverLocation.js`),
+rounded to two decimals. A page whose point is "come back tomorrow night"
+cannot ask permission every time, and the sky does not change measurably
+across the kilometre that rounding costs — so the rest of a GPS fix is
+precision with no use and no business being stored. Nothing is sent anywhere;
+the positions are computed on the device.
+
+A flat panorama readout of what was above the horizon — `/tonight` — used to
+sit alongside this, sharing `skyPositions.js` and the stored location. It was
+removed in 5.7.0; `utils/skyEvents.js` (the year-ahead calendar of oppositions,
+eclipses and elongations it drove) is still here and still tested, unused, for
+whatever wants it next.
 
 **The data** comes from two real, separately-licensed sources, both CC
 BY-SA, joined and trimmed once by `scripts/build-sky-catalog.mjs` into
@@ -522,8 +518,7 @@ A "Look north" button resets the view to `skyRotation.js`'s own
 points at the drawer's closed tab, its own `p4rsec.coachSky` flag —
 independent of the solar-system scene's `p4rsec.coach` — because having
 seen one scene's hint says nothing about the other's different drawer.
-`/tonight` gained a CTA into `/sky` for the visitor who wants the immersive
-version of the same answer. A dim Milky Way band and a tap-a-star info card
+A dim Milky Way band and a tap-a-star info card
 were both in the original plan's "polish" list and are deliberately still
 not built: the band needs a texture asset and a light-pollution-aware blend
 that's easy to get looking cheap rather than atmospheric, and a real info

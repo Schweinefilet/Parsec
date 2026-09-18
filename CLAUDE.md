@@ -30,7 +30,7 @@ npm run build    # static bundle in frontend/dist
   moons, belts, orbit rings, the focus camera, the gravity overlays.
 - `src/pages/` — four routes: `CategoryBrowser` (catalog + scene + object
   detail, mounted on `path="*"`), `SatelliteView` (`/satellites`),
-  `ComparePage` (`/compare`), `TonightPage` (`/tonight`).
+  `ComparePage` (`/compare`), `NightSkyPage` (`/sky`, lazily loaded).
 - `src/data/` — `solarSystemBodies.js` is what the **scene** draws;
   `objectCatalog.js` is the **catalog's** 70 objects and their stats. Two
   different lists for two different jobs.

@@ -6,7 +6,6 @@ import SkyEntryCurtain from './components/SkyEntryCurtain';
 import CategoryBrowser from './pages/CategoryBrowser';
 import SatelliteView from './pages/SatelliteView';
 import ComparePage from './pages/ComparePage';
-import TonightPage from './pages/TonightPage';
 
 // The one lazily-loaded route in the app. /sky carries its own three.js scene
 // plus a real data catalog (the star field + constellation lines, ~175 KB
@@ -27,7 +26,6 @@ function App() {
                 <Routes>
                     <Route path="/satellites" element={<AppShell><SatelliteView /></AppShell>} />
                     <Route path="/compare" element={<AppShell><ComparePage /></AppShell>} />
-                    <Route path="/tonight" element={<AppShell><TonightPage /></AppShell>} />
                     <Route
                         path="/sky"
                         element={(

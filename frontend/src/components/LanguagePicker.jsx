@@ -68,16 +68,8 @@ const LanguagePicker = ({ variant = 'icon' }) => {
                     aria-expanded={open}
                     aria-label={t('language.choose')}
                     title={t('language.label')}
-                    className="flex items-center justify-center rounded-xl transition-all focus-ring"
-                    style={{
-                        width: 36, height: 36,
-                        background: open ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.42)',
-                        border: '1px solid rgba(255,255,255,0.16)',
-                        color: 'rgba(255,255,255,0.85)',
-                        backdropFilter: 'blur(14px)',
-                        WebkitBackdropFilter: 'blur(14px)',
-                        cursor: 'pointer',
-                    }}
+                    data-on={open || undefined}
+                    className="chrome-btn focus-ring"
                 >
                     <Languages className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -93,7 +85,8 @@ const LanguagePicker = ({ variant = 'icon' }) => {
                         // Logical, so the panel hangs off the same edge of the
                         // button in both directions instead of off the screen.
                         insetInlineEnd: 0,
-                        minWidth: 176, padding: 6, borderRadius: 16, zIndex: 60,
+                        minWidth: 176, padding: 'var(--s-1)',
+                        borderRadius: 'var(--r-lg)', zIndex: 60,
                     }}
                 >
                     {locales.map(l => {
@@ -108,13 +101,14 @@ const LanguagePicker = ({ variant = 'icon' }) => {
                                 onClick={() => { setLocale(l.code); setOpen(false); }}
                                 className="w-full flex items-center justify-between gap-3 focus-ring"
                                 style={{
-                                    padding: '9px 11px', borderRadius: 11, border: 'none',
-                                    background: active ? 'rgba(255,255,255,0.08)' : 'none',
+                                    padding: '9px var(--s-3)', borderRadius: 'var(--r-md)', border: 'none',
+                                    background: active ? 'rgba(255,255,255,0.09)' : 'none',
                                     color: active ? '#fff' : 'rgba(255,255,255,0.82)',
                                     cursor: 'pointer', textAlign: 'start',
+                                    transition: 'background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out)',
                                 }}
                             >
-                                <span style={{ fontSize: '0.92rem', fontWeight: 700 }}>
+                                <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600 }}>
                                     {l.endonym}
                                 </span>
                                 {active && (

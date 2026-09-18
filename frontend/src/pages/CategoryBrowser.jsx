@@ -60,29 +60,44 @@ const SortDropdown = ({ value, onChange }) => {
                 onClick={() => setOpen(o => !o)}
                 aria-expanded={open}
                 aria-haspopup="listbox"
-                className="flex items-center gap-1.5 text-sm"
-                style={{ color: 'var(--text-secondary)' }}
+                className="sort-trigger flex items-center gap-1.5 focus-ring"
+                style={{
+                    fontSize: 'var(--fs-sm)', color: 'var(--text-tertiary)',
+                    padding: '7px var(--s-3)', borderRadius: 'var(--r-sm)',
+                    border: '1px solid transparent', cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'background var(--t-base) var(--ease-out), border-color var(--t-base) var(--ease-out)',
+                }}
             >
                 {t('catalog.sort')}{' '}
-                <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
                     {selected && t(selected.key)}
                 </span>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                    className="h-3.5 w-3.5"
+                    style={{
+                        transform: open ? 'rotate(180deg)' : 'none',
+                        transition: 'transform var(--t-base) var(--ease-out)',
+                    }}
+                />
             </button>
             {open && (
-                <div className="glass absolute top-full mt-1 w-44 z-20 py-1 overflow-hidden"
-                    style={{ insetInlineEnd: 0 }} role="listbox">
+                <div className="glass animate-fade-in absolute top-full w-44 z-20 overflow-hidden"
+                    style={{ insetInlineEnd: 0, marginTop: 'var(--s-2)', padding: 'var(--s-1)' }} role="listbox">
                     {SORT_OPTIONS.map(opt => (
                         <button
                             key={opt.value}
                             role="option"
                             aria-selected={opt.value === value}
                             onClick={() => { onChange(opt.value); setOpen(false); }}
-                            className="w-full px-4 py-2 text-sm"
+                            className="sort-option w-full"
                             style={{
-                                textAlign: 'start',
+                                textAlign: 'start', display: 'block',
+                                padding: '9px var(--s-3)', borderRadius: 'var(--r-sm)',
+                                fontSize: 'var(--fs-sm)', cursor: 'pointer',
+                                transition: 'background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out)',
                                 ...(opt.value === value
-                                    ? { color: '#fff', background: 'rgba(255,255,255,0.12)' }
+                                    ? { color: '#fff', background: 'rgba(255,255,255,0.10)', fontWeight: 600 }
                                     : { color: 'var(--text-secondary)' }),
                             }}
                         >
@@ -635,25 +650,16 @@ const CategoryBrowser = () => {
                                 onClick={scrollToCatalog}
                                 aria-label={t('scene.scrollToCatalog')}
                                 inert={(!!id || pageScrolled) || undefined}
-                                className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
+                                className="chip explore-chip transition-opacity duration-700 focus-ring"
                                 style={{
                                     pointerEvents: id || pageScrolled ? 'none' : 'auto',
                                     opacity: id || pageScrolled ? 0 : 1,
-                                    // The liquid-glass treatment (index.css :root),
-                                    // not the flat black chip the toggles used.
-                                    background: 'var(--glass-fill)',
-                                    border: '1px solid var(--glass-border)',
-                                    backdropFilter: 'var(--glass-blur)',
-                                    WebkitBackdropFilter: 'var(--glass-blur)',
-                                    boxShadow: 'var(--glass-shadow), var(--glass-specular)',
-                                    color: 'rgba(255,255,255,0.9)',
-                                    padding: '7px 15px', fontSize: 10, fontWeight: 700,
-                                    letterSpacing: '0.1em', textTransform: 'uppercase',
-                                    cursor: 'pointer',
                                 }}
                             >
                                 {t('scene.exploreCatalog')}
-                                <ChevronDown style={{ width: 14, height: 14 }} />
+                                {/* Nudges down on hover, in the direction it
+                                    is about to send the page. */}
+                                <ChevronDown className="explore-chev" style={{ width: 14, height: 14 }} />
                             </button>
                         );
 
@@ -661,9 +667,23 @@ const CategoryBrowser = () => {
                         if (!isMobile) {
                             return (
                                 <>
+                                    {/* Against the trailing edge of the spine,
+                                        opposite the transport — so the bottom of
+                                        the scene reads as one bar with an anchor
+                                        at each end, the way the header does, and
+                                        the two can never collide. Centring it put
+                                        it hard against the transport's right edge
+                                        at every window width from 1280px up: the
+                                        transport is ~510px wide, and half a 1280px
+                                        window minus the spine gutter is exactly
+                                        that much room. */}
                                     <div
-                                        className="absolute inset-x-0 flex justify-center pointer-events-none"
-                                        style={{ bottom: 18, zIndex: 4, padding: '0 16px' }}
+                                        className="absolute flex pointer-events-none"
+                                        style={{
+                                            bottom: 'var(--scene-baseline)',
+                                            insetInlineEnd: 'var(--scene-inset)',
+                                            zIndex: 4,
+                                        }}
                                     >
                                         {exploreBtn}
                                     </div>
@@ -774,19 +794,13 @@ const CategoryBrowser = () => {
                             // The fade-in animation is `both`-filled, so it
                             // pins opacity at 1 and an inline opacity can't
                             // fade this out — the class has to come off.
-                            className={`absolute flex items-center justify-center rounded-xl focus-ring${skyDiving ? '' : ' animate-fade-in'}`}
+                            className={`chrome-btn absolute focus-ring${skyDiving ? '' : ' animate-fade-in'}`}
                             style={{
-                                top: 68, insetInlineStart: 20, zIndex: 20,
+                                // On the spine, directly under the wordmark.
+                                top: 68, insetInlineStart: 'var(--scene-inset)', zIndex: 20,
                                 opacity: skyDiving ? 0 : 1,
-                                transition: 'opacity 600ms ease',
+                                transition: 'opacity var(--t-slower) var(--ease-out)',
                                 pointerEvents: skyDiving ? 'none' : 'auto',
-                                width: 38, height: 38,
-                                background: 'rgba(0,0,0,0.45)',
-                                border: '1px solid rgba(255,255,255,0.16)',
-                                color: 'rgba(255,255,255,0.85)',
-                                backdropFilter: 'blur(14px)',
-                                WebkitBackdropFilter: 'blur(14px)',
-                                cursor: 'pointer',
                             }}
                         >
                             <ChevronLeft className="flip-rtl" style={{ width: 18, height: 18 }} />
@@ -796,7 +810,20 @@ const CategoryBrowser = () => {
                     {/* Desktop annotations flanking the body */}
                     {!compactFocus && object && (
                         <div
-                            className="absolute inset-0 pointer-events-none flex items-center justify-between px-6 md:px-16 transition-all duration-1000 ease-out"
+                            // One grid across the whole scene rather than two
+                            // independent flex columns. As two columns, each
+                            // side stacked from its own top edge — and because
+                            // the left one leads with a display-size name and
+                            // the right one with a single stat, the two stats
+                            // that were meant to read as a pair sat about 15px
+                            // apart vertically, which looked like a mistake
+                            // rather than a composition. Sharing row tracks
+                            // makes the rows line up by construction.
+                            //
+                            // The columns are anchored to the page spine and
+                            // read outward-in: the name's leading edge lands
+                            // directly under the wordmark.
+                            className="focus-annotations transition-all duration-1000 ease-out"
                             style={{
                                 zIndex: 5,
                                 opacity: id && !skyDiving ? 1 : 0,
@@ -806,63 +833,53 @@ const CategoryBrowser = () => {
                                 transitionDelay: id && !skyDiving ? '700ms' : '0ms',
                             }}
                         >
-                            <div className="flex flex-col gap-8 md:gap-14 items-end"
-                                style={{ maxWidth: '32%', textAlign: 'end', textShadow: '0 2px 6px rgba(0,0,0,0.95)' }}>
-                                <div>
-                                    <h1 className="font-extrabold tracking-tight leading-none text-white"
-                                        style={{ fontSize: 'clamp(1.2rem, 3.6vw, 2.2rem)' }}>
-                                        {object.shortName ?? object.name}
-                                    </h1>
-                                    <p className="font-bold tracking-widest uppercase text-white/45 mt-1"
-                                        style={{ fontSize: '0.62rem' }}>
-                                        {object.type}
+                            <div className="fa-col fa-start">
+                                <h1 className="font-extrabold leading-none text-white"
+                                    style={{
+                                        fontSize: 'clamp(1.4rem, 3.4vw, 2.4rem)',
+                                        letterSpacing: 'var(--tr-tighter)', margin: 0,
+                                    }}>
+                                    {object.shortName ?? object.name}
+                                </h1>
+                                <p className="label" style={{ marginTop: 6 }}>
+                                    {object.type}
+                                </p>
+                                {PLANETS_WITH_MOONS.has(id) && (
+                                    <p className="transition-opacity duration-700"
+                                        style={{
+                                            opacity: moonHintVisible ? 1 : 0,
+                                            color: 'var(--text-tertiary)',
+                                            fontSize: 'var(--fs-tiny)', fontWeight: 600,
+                                            letterSpacing: '0.04em', marginTop: 10,
+                                        }}>
+                                        {t('scene.clickMoon')}
                                     </p>
-                                    {PLANETS_WITH_MOONS.has(id) && (
-                                        <p className="transition-opacity duration-700"
-                                            style={{
-                                                opacity: moonHintVisible ? 1 : 0,
-                                                color: 'rgba(255,255,255,0.42)',
-                                                fontSize: '0.6rem', fontWeight: 600,
-                                                letterSpacing: '0.05em', marginTop: 10,
-                                            }}>
-                                            {t('scene.clickMoon')}
-                                        </p>
-                                    )}
-                                </div>
-                                {physicalRows[0] && (
-                                    <div>
-                                        <p className="font-extrabold text-white/90" style={{ fontSize: 'clamp(0.76rem, 2.2vw, 1rem)' }}>
-                                            {physicalRows[0].value}
-                                        </p>
-                                        <p className="font-bold tracking-wider uppercase text-white/35 mt-0.5" style={{ fontSize: '0.55rem' }}>
-                                            {physicalRows[0].label}
-                                        </p>
-                                    </div>
                                 )}
                             </div>
 
-                            <div className="flex-1" />
+                            <div className="fa-col fa-end">
+                                <p className="fa-figure num-run">{object.keyStatValue}</p>
+                                <p className="label label-dim" style={{ marginTop: 3 }}>
+                                    {object.keyStatLabel}
+                                </p>
+                            </div>
 
-                            <div className="flex flex-col gap-8 md:gap-14 items-start"
-                                style={{ maxWidth: '32%', textAlign: 'start', textShadow: '0 2px 6px rgba(0,0,0,0.95)' }}>
-                                <div>
-                                    <p className="font-extrabold text-white/90" style={{ fontSize: 'clamp(0.76rem, 2.2vw, 1rem)' }}>
-                                        {object.keyStatValue}
+                            <div className="fa-col fa-start">
+                                {physicalRows[0] && (<>
+                                    <p className="fa-figure num-run">{physicalRows[0].value}</p>
+                                    <p className="label label-dim" style={{ marginTop: 3 }}>
+                                        {physicalRows[0].label}
                                     </p>
-                                    <p className="font-bold tracking-wider uppercase text-white/35 mt-0.5" style={{ fontSize: '0.55rem' }}>
-                                        {object.keyStatLabel}
+                                </>)}
+                            </div>
+
+                            <div className="fa-col fa-end">
+                                {physicalRows[1] && (<>
+                                    <p className="fa-figure num-run">{physicalRows[1].value}</p>
+                                    <p className="label label-dim" style={{ marginTop: 3 }}>
+                                        {physicalRows[1].label}
                                     </p>
-                                </div>
-                                {physicalRows[1] && (
-                                    <div>
-                                        <p className="font-extrabold text-white/90" style={{ fontSize: 'clamp(0.76rem, 2.2vw, 1rem)' }}>
-                                            {physicalRows[1].value}
-                                        </p>
-                                        <p className="font-bold tracking-wider uppercase text-white/35 mt-0.5" style={{ fontSize: '0.55rem' }}>
-                                            {physicalRows[1].label}
-                                        </p>
-                                    </div>
-                                )}
+                                </>)}
                             </div>
                         </div>
                     )}
@@ -892,9 +909,17 @@ const CategoryBrowser = () => {
                             transform: descriptionOpen ? 'translateY(0)' : 'translateY(-100%)',
                             transition: `transform ${autoRevealing ? '1.05s' : '0.45s'} cubic-bezier(0.32,0.72,0,1)`,
                         }}>
-                            <div style={{ padding: '36px 16px 24px' }}>
-                                <div className="glass p-5" style={{ pointerEvents: 'auto' }}>
-                                    <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem', margin: 0 }}>
+                            <div style={{ padding: '72px var(--s-4) var(--s-6)' }}>
+                                {/* Clear of the header rather than tucked under
+                                    it: at 36px the card's top edge landed level
+                                    with the wordmark and read as a second row of
+                                    chrome instead of as something that had just
+                                    arrived over the scene. */}
+                                <div className="glass" style={{ pointerEvents: 'auto', padding: 'var(--s-6)' }}>
+                                    <p style={{
+                                        color: 'rgba(255,255,255,0.80)', lineHeight: 1.7,
+                                        fontSize: 'var(--fs-base)', margin: 0,
+                                    }}>
                                         {object.description}
                                     </p>
                                 </div>
@@ -1101,23 +1126,41 @@ const CategoryBrowser = () => {
                         minHeight: id || !isMobile ? undefined : 'calc(100vh - 120px)',
                         overflow: 'hidden',
                         pointerEvents: id ? 'none' : 'auto',
-                        paddingTop: 24,
-                        paddingBottom: 16,
+                        paddingTop: 'var(--s-8)',
+                        paddingBottom: 'var(--s-6)',
                     }}
                 >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
-                        <div>
-                            <h2 className="font-bold" style={{ fontSize: '1.25rem', color: '#fff' }}>
-                                {currentCategory.label}
-                            </h2>
-                            <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                                {currentCategory.description} &mdash; {t('catalog.count', { count: objects.length })}
+                    {/* Heading row, with a hairline under it. The rule is what
+                        makes the catalog read as its own chapter rather than as
+                        more page under the ticker — and it lands on exactly the
+                        spine the header and the cards use. */}
+                    <div
+                        className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-4"
+                        style={{ paddingBottom: 'var(--s-4)', borderBottom: '1px solid var(--hairline)' }}
+                    >
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s-3)' }}>
+                                <h2 style={{
+                                    fontSize: 'var(--fs-xl)', fontWeight: 700,
+                                    letterSpacing: 'var(--tr-tight)', color: '#fff', margin: 0,
+                                }}>
+                                    {currentCategory.label}
+                                </h2>
+                                <span className="label" style={{ color: 'var(--text-quaternary)' }}>
+                                    {t('catalog.count', { count: objects.length })}
+                                </span>
+                            </div>
+                            <p style={{
+                                fontSize: 'var(--fs-sm)', color: 'var(--text-tertiary)',
+                                margin: '5px 0 0',
+                            }}>
+                                {currentCategory.description}
                             </p>
                         </div>
                         <SortDropdown value={sortBy} onChange={setSortBy} />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                         {sorted.map(obj => <ObjectCard key={obj.id} object={obj} />)}
                         {sorted.length === 0 && (
                             <div className="col-span-full py-16 text-center" style={{ color: 'var(--text-tertiary)' }}>

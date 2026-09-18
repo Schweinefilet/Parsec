@@ -5,26 +5,24 @@ import { useI18n } from '../i18n';
 const SCROLL_SPEED = 0.45;
 
 const SpaceCell = ({ label, value, unit }) => (
-    <div className="flex items-center gap-3 px-4 py-2 border-e border-white/10 flex-shrink-0">
-        <span
-            className="text-[11px] font-bold uppercase tracking-wider"
-            style={{ color: 'var(--text-tertiary)' }}
-        >
-            {label}
-        </span>
+    <div className="ticker-cell flex items-baseline gap-2.5 flex-shrink-0">
+        <span className="label">{label}</span>
         {value != null ? (
             <span className="flex items-baseline gap-1">
-                <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                <span style={{
+                    fontSize: 'var(--fs-sm)', fontWeight: 700,
+                    fontVariantNumeric: 'tabular-nums', color: 'var(--text-primary)',
+                }}>
                     {value}
                 </span>
                 {unit && (
-                    <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                    <span style={{ fontSize: 'var(--fs-tiny)', color: 'var(--text-tertiary)' }}>
                         {unit}
                     </span>
                 )}
             </span>
         ) : (
-            <span className="text-xs animate-pulse" style={{ color: 'var(--text-tertiary)' }}>···</span>
+            <span className="animate-pulse" style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-tertiary)' }}>···</span>
         )}
     </div>
 );
@@ -132,8 +130,14 @@ const SpaceDataStrip = () => {
     return (
         <div
             ref={containerRef}
-            className="glass overflow-hidden select-none ltr-figure"
-            style={{ padding: '4px 0', cursor: 'grab', borderRadius: 'var(--radius-card)' }}
+            // A band, not a card. It runs the full width of the window, so a
+            // rounded rectangle with a border all the way round only ever had
+            // two of its corners on screen and read as a slab that had been cut
+            // off at both ends. Hairlines top and bottom make it a rule through
+            // the page instead, and .edge-fade-x dissolves the readings into the
+            // background at both ends rather than guillotining them.
+            className="ticker-band edge-fade-x overflow-hidden select-none ltr-figure"
+            style={{ cursor: 'grab' }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}

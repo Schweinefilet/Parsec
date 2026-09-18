@@ -16,6 +16,122 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.7.0
+
+- **A design system, and one column for the whole interface to stand on.**
+  The parts of this site were each well made and none of them agreed with any
+  other. The header sat on the window's own 32px gutter; the catalog below it
+  sat on a centred 1280px column, 160px further in; the telemetry ticker ran
+  edge to edge from zero. Three left edges on one page, which on a wide screen
+  is the whole width of a card. The scene's floating chrome had a fourth,
+  20px, and the focused-object annotations a fifth. Nothing was wrong enough
+  to point at, and the sum of it was a page that never settled.
+
+  Everything now lands on one spine — a `.spine` container dimensionally
+  identical to the `max-w-7xl` `<main>` it has to agree with, plus a
+  `--scene-inset` for the chrome that floats over the full-bleed 3D scene and
+  sits outside that `<main>`. The wordmark, the catalog heading, the leading
+  edge of the first card, each standalone page's title, the time transport and
+  the focused body's name are all on the same vertical line, and the header's
+  actions and the catalog's trailing edge on the same one opposite. On a
+  1920px window that is a 352px inset on both sides; below 1280px it collapses
+  to a plain gutter.
+
+- **One scale per dimension, instead of a value per call site.** Type ran to
+  something like twenty ad-hoc sizes (9, 9.5, 10, 10.5, 11, 0.55rem, 0.58rem,
+  0.6rem, 0.62rem, 0.72rem, 0.74rem, 0.82rem, 0.85rem, 0.87rem, 0.9rem,
+  0.92rem, 0.95rem, 1.05rem, 1.1rem, 17px…) with five different tracking
+  values for what was the same uppercase micro-label each time; radii ran to
+  eight; motion to nine durations across three easing curves, so no two things
+  on screen moved alike. `src/index.css` now opens with the whole list —
+  space, spine, radius, type, motion, surfaces, elevation, colour — and the
+  components draw from it.
+
+  The surfaces are the part that mattered most. There were two families
+  pretending to be one: chrome floating over the 3D scene, which has to stay
+  readable over the Sun and so is a dark scrim first, and panels sitting on
+  the page's own black, which are a light tint that lifts off it. Each had
+  been written out by hand four or five times with slightly different numbers
+  — `rgba(0,0,0,0.42)` here, `0.45` there, `blur(14px)` beside `blur(16px)`
+  beside `blur(18px)` — which is precisely what made a carefully built
+  interface read as a careless one. Both are now single recipes
+  (`--chrome-*`, `--panel-*`), shared by `.chrome-btn`, `.chip`, `.panel`,
+  `.edge-tab`, the time transport, the scene drawer and the header's buttons.
+
+- **The bottom of the scene is a bar now, with an anchor at each end.** It was
+  three things at three different offsets: the transport at 20px from the
+  window, the catalog pill centred at 18px, the scale footnote at 14px in the
+  corner. They now share one baseline and the spine — transport at the
+  leading edge, catalog chip at the trailing edge, the "not to scale" caption
+  centred between them as the caption for the picture it describes. Putting
+  the catalog chip opposite the transport rather than centred was forced as
+  well as tidier: the transport is about 510px wide, and half a 1280px window
+  less the spine gutter is exactly that much room, so a centred chip collided
+  with it at every window width the site supports. The caption steps aside
+  entirely while a body is focused, where the centre belongs to the chevron
+  back up to the scene.
+
+- **The focused-object annotations line up.** The name and three figures
+  flanking a focused body were two independent flex columns, each stacking
+  from its own top edge — and because the leading column opens with a
+  display-size name and the trailing one with a single stat, the two figures
+  meant to read as a pair sat about fifteen pixels apart vertically. They are
+  one grid now, sharing row tracks, aligned on the baseline: the body's name
+  and the first figure sit on the same line, and the pair below them on the
+  next.
+
+- **The telemetry ticker is a band rather than a card that has been cut off.**
+  It ran the full width of the window while carrying a 20px radius and a
+  border all the way round, so only two of its corners were ever on screen. It
+  now has hairlines top and bottom, a masked fade at both ends so the readings
+  dissolve into the page instead of being guillotined at the edge, and short
+  centred rules between cells in place of full-height dividers that made seven
+  live readings look like a spreadsheet.
+
+- **The compare table uses its width.** Rows were `1fr auto 1fr`, which puts
+  the only fixed-width thing — the label — in the middle and lets the two
+  flexible columns grow outwards, so both values ended up stacked against the
+  centre with a third of the card empty at either flank. Fixing the label
+  column instead gives each value a column of its own, centred under a new
+  sticky header naming which body it belongs to.
+
+- **The satellite tracker's telemetry no longer orphans a reading.** Eight
+  figures in a `repeat(auto-fit, minmax(130px, 1fr))` grid resolved to seven
+  columns at the width that panel actually gets, so the eighth wrapped onto a
+  row by itself. Four columns divide eight exactly, at every width.
+
+- **Removed "What's up tonight" (`/tonight`).** The page, its route, its nav
+  entry and its strings in all three locales are gone; the flat-panorama
+  readout it offered overlapped the `/sky` dome, which answers the same
+  question by letting you look around inside it. Old links fall through to the
+  catch-all route and land on the solar system rather than breaking. This
+  takes 37 kB off the main bundle. `utils/skyEvents.js` — the year-ahead
+  calendar of oppositions, eclipses and elongations that drove its "coming up"
+  list — is deliberately left in place and still tested, unused, since nothing
+  about it was specific to that page's presentation.
+
+- **Fixed: the tracker's and the "tonight" page's back buttons announced
+  themselves as `"tonight.back"`.** That key exists in no locale, and `t()`
+  returns the key itself when a lookup falls through both the active locale
+  and the English fallback — so a screen reader read out the dotted
+  identifier. Caught because the shared `PageHeader`'s back control became
+  visible text in this release rather than an icon's accessible name, which is
+  the only reason anyone would have seen it.
+
+- **Smaller things.** Cards hold a 4:3 frame so a row is a row of equal
+  rectangles whatever each object's stats run to, and their photograph pushes
+  in a little further than the card lifts, with the legibility scrim thinning
+  as it comes forward. The scene drawer's tab is a pull handle flush to the
+  window edge instead of two transparent chevrons floating in the starfield
+  with nothing to say they were a control. `PageHeader` puts its back control
+  on its own row, so the title, the subtitle and the panels below them share
+  one edge rather than three. The focus ring no longer forces a 10px radius
+  onto controls whose own corners are rounder than that. The scrollbar thumb
+  is a slim capsule drawn inside a transparent border. Category tabs carry
+  their object count in a chip, so "Moons 23" cannot be misread as one label.
+
+---
+
 ## 5.6.1
 
 - **A diagnostic readout for the AR compass, behind `?debug=ar`.** Testing AR

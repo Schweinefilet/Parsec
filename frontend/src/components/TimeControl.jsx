@@ -250,8 +250,13 @@ const TimeControl = ({ hidden, focused }) => {
             data-coach="time"
             style={{
                 position: 'absolute',
-                insetInlineStart: isMobile ? 12 : 20,
-                bottom: isMobile ? 12 : 18,
+                // On desktop this lands on the page's content spine — the same
+                // column the wordmark above and the catalog below sit on — so
+                // the transport reads as part of the layout rather than as
+                // something stuck to the window. The phone keeps its own tight
+                // gutter: there is no column to agree with on a 390px screen.
+                insetInlineStart: isMobile ? 12 : 'var(--scene-inset)',
+                bottom: isMobile ? 12 : 'var(--scene-baseline)',
                 // Above the detail sheet (z-index 12): that sheet's container
                 // spans the full width even though its card is centred, so at a
                 // lower index it silently swallowed every click down here.
@@ -267,11 +272,16 @@ const TimeControl = ({ hidden, focused }) => {
                 style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '7px 10px',
-                    borderRadius: 999,
-                    background: 'rgba(6,8,12,0.72)',
-                    border: '1px solid rgba(255,255,255,0.14)',
-                    backdropFilter: 'blur(14px)',
-                    WebkitBackdropFilter: 'blur(14px)',
+                    borderRadius: 'var(--r-full)',
+                    // The shared chrome recipe — the same scrim, hairline and
+                    // blur as the header buttons, the scene chips and the edge
+                    // tab, so the bottom bar and the top bar read as one
+                    // material rather than as two near-misses.
+                    background: 'var(--chrome-bg)',
+                    border: '1px solid var(--chrome-border)',
+                    backdropFilter: 'var(--blur-chrome)',
+                    WebkitBackdropFilter: 'var(--blur-chrome)',
+                    boxShadow: 'var(--sh-2)',
                     overflow: 'hidden',
                     // No `width` here on purpose — the collapse/expand effect
                     // above drives it directly on the DOM node, and leaving

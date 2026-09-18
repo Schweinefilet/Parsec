@@ -22,8 +22,8 @@ import { useI18n } from '../i18n';
 
 // The night sky, from one point on the ground, looking up.
 //
-// Reads the same real astronomy as utils/skyPositions.js (the /tonight page)
-// but answers a different question with it: not "what's up and how high",
+// Reads the same real astronomy as utils/skyPositions.js but answers a
+// different question with it: not "what's up and how high",
 // an explorable dome you look around inside rather than a flat readout. See
 // utils/skyRotation.js for the coordinate pipeline — the short version is
 // that every star is a fixed EQJ (J2000) direction, and the whole dome turns
@@ -294,8 +294,8 @@ const _lerpColor = new THREE.Color();
 /**
  * A continuous ground-horizon tint from the Sun's altitude, ramped through
  * the same boundaries utils/skyPositions.js's twilightPhase() uses (civil/
- * nautical/astronomical twilight), so this scene's horizon and /tonight's
- * twilight label always agree about where night begins.
+ * nautical/astronomical twilight), so this scene's horizon and any other
+ * reading of that function always agree about where night begins.
  */
 function horizonColorFor(sunAltDeg, out) {
     if (sunAltDeg <= -18) return out.copy(NIGHT);

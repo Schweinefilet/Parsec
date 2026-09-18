@@ -46,9 +46,9 @@ function isPortraitOrientation() {
 /**
  * The night sky, from your location, right now — a full-bleed 3D dome rather
  * than a page with a scene in it, the same posture the solar-system home
- * view takes. /tonight already asks for a location for the same reason (see
- * its own "askTitle"/"askBody" card, which this mirrors rather than shares —
- * this codebase groups i18n strings by where they appear, not by meaning);
+ * view takes. It asks for a location first, for the reason its own
+ * "askTitle"/"askBody" card gives — which sky you see depends on where you
+ * are standing;
  * granting it here also makes it available there, and back, with no second
  * prompt — both read the same utils/useObserverLocation.js.
  */
