@@ -18,7 +18,7 @@ function withSuperscripts(value) {
     );
 }
 
-const ObjectStatsPanel = ({ object: source }) => {
+const ObjectStatsPanel = ({ object: source, className = '' }) => {
     const { t, object: localize } = useI18n();
     const object = localize(source);
     const sections = Array.isArray(object?.stats) ? object.stats : [];
@@ -31,7 +31,7 @@ const ObjectStatsPanel = ({ object: source }) => {
 
     if (sections.length === 0) {
         return (
-            <div className="glass p-6" style={{ color: 'var(--text-tertiary)', fontSize: '0.875rem' }}>
+            <div className={`glass p-6 ${className}`} style={{ color: 'var(--text-tertiary)', fontSize: '0.875rem' }}>
                 {t('stats.none')}
             </div>
         );
@@ -42,7 +42,7 @@ const ObjectStatsPanel = ({ object: source }) => {
     const dense = current.section === 'Physical' || current.section === 'Orbital';
 
     return (
-        <div className="glass flex flex-col overflow-hidden" style={{ borderRadius: 'var(--radius-card)' }}>
+        <div className={`glass flex flex-col overflow-hidden ${className}`} style={{ borderRadius: 'var(--radius-card)' }}>
             <div className="flex px-4 pt-3 gap-1" role="tablist" aria-label={t('stats.aria', { name: object?.name ?? t('stats.object') })}>
                 {sections.map(s => {
                     const selected = current.section === s.section;

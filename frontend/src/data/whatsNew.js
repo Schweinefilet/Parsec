@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.9',
         changes: [
+            'On a phone, the cards in a focused object’s detail panel now slide behind one another as you scroll instead of being cut in half at the panel’s top edge. Each card stays put while the next one rides up over it, and lifts back off as you scroll up again.',
             'Opening the Satellite Tracker is now a flight rather than a page change. The camera flies to Earth in one movement and comes to rest with the planet filling the screen, daylit side toward you — and the tracker\u2019s own globe fades up out of that exact frame, same size, same continents, same daylight, before settling into its panel as the page appears around it. There is no black moment anywhere in it.',
             'Coming back from the tracker now pulls the camera back out of Earth into the wide solar system, instead of cutting to it.',
             'Fixed the Satellite Tracker only opening once. Every attempt after the first flew to Earth and then stopped there, with the page never arriving, until you reloaded the site.',

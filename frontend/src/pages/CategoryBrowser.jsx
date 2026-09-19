@@ -1016,7 +1016,11 @@ const CategoryBrowser = () => {
                                     ? 'linear-gradient(to bottom, rgba(4,6,10,0) 0%, rgba(4,6,10,0.86) 6%, rgba(4,6,10,0.96) 22%, #04060a 45%)'
                                     : 'none',
                             }}>
-                                <div className="max-w-2xl mx-auto flex flex-col gap-4">
+                                {/* On the compact sheet the cards stack rather
+                                    than scrolling off its top edge: each one
+                                    pins and the next rides up over it. See
+                                    `.detail-stack` in index.css. */}
+                                <div className={`max-w-2xl mx-auto flex flex-col gap-4${compactFocus ? ' detail-stack' : ''}`}>
                                     {/* The compact view carries the identity that the
                                         desktop annotations show flanking the body */}
                                     {compactFocus && (
@@ -1101,9 +1105,21 @@ const CategoryBrowser = () => {
                                                 armTrackerEntry();
                                                 navigate('/object/earth');
                                             }}
-                                            className="w-full rounded-2xl font-bold py-3.5 text-sm flex items-center justify-center gap-1.5 focus-ring"
+                                            // Rides over the stack rather than
+                                            // joining it: pinned, a 50px button
+                                            // would park at the top of the sheet
+                                            // permanently and slice the taller
+                                            // card behind it in half.
+                                            className="w-full rounded-2xl font-bold py-3.5 text-sm flex items-center justify-center gap-1.5 focus-ring detail-stack-flow"
                                             style={{
-                                                background: 'rgba(80,200,120,0.18)',
+                                                // Opaque in the stack: a pinned
+                                                // card behind this one would
+                                                // otherwise show through the
+                                                // green. Same tint, composited
+                                                // over the sheet's own base.
+                                                background: compactFocus
+                                                    ? 'linear-gradient(rgba(80,200,120,0.18), rgba(80,200,120,0.18)), var(--sheet-base)'
+                                                    : 'rgba(80,200,120,0.18)',
                                                 color: '#50e090',
                                                 border: '1px solid rgba(80,200,120,0.30)',
                                                 cursor: 'pointer',
@@ -1115,7 +1131,11 @@ const CategoryBrowser = () => {
                                     )}
 
                                     {/* Desktop already shows the description above the fold */}
-                                    <ObjectDetailBody object={object} showDescription={compactFocus} />
+                                    <ObjectDetailBody
+                                        object={object}
+                                        showDescription={compactFocus}
+                                        flush={compactFocus}
+                                    />
                                 </div>
                             </div>
                         </div>

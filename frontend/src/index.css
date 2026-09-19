@@ -101,6 +101,10 @@
   --panel-border:      rgba(255, 255, 255, 0.20);
   --panel-border-hi:   rgba(255, 255, 255, 0.30);
 
+  /* The compact detail sheet's own dark base, so the cards that stack inside
+     it can composite their glass over the same colour the sheet ends on. */
+  --sheet-base:        #04060a;
+
   --recess-bg:         rgba(255, 255, 255, 0.035);
   --hairline:          rgba(255, 255, 255, 0.08);
   --hairline-hi:       rgba(255, 255, 255, 0.14);
@@ -1085,6 +1089,41 @@ button:focus-visible {
   box-shadow: var(--sh-2), var(--specular);
   backdrop-filter: var(--blur-panel);
   -webkit-backdrop-filter: var(--blur-panel);
+}
+
+/* ── Detail-sheet card stack ────────────────────────────────────────────────
+   The compact (phone / landscape-phone) focused-object sheet. Its cards used
+   to scroll straight off the sheet's top edge, so the description was sliced
+   through the middle of a sentence against the scene behind it. Here each card
+   instead pins to the top of the sheet and the next card rides up over it —
+   scroll back up and each card lifts off the stack again in reverse.
+
+   No z-index anywhere: positioned siblings paint in document order, which is
+   already the order the stack wants (later card over earlier card).
+
+   `.detail-stack-flow` opts an element out of pinning, for two reasons:
+   it can outgrow the sheet (the stats panel, whose General tab runs long on a
+   narrow screen — a pinned card taller than the scrollport strands its own
+   lower half below the fold with no way to scroll to it), or it is too short
+   to cover the card behind it (the ISS button — parked at the top it sliced a
+   189px card through the middle of a line and read as a glitch). Those
+   elements still ride *over* the stack: `position: relative` is what keeps
+   them painting above the pinned cards instead of under them the way an
+   unpositioned box would. */
+.detail-stack > * {
+  position: sticky;
+  top: 0;
+}
+.detail-stack > .detail-stack-flow {
+  position: relative;
+}
+/* A stacked card has another card directly behind it, and translucent glass
+   over a pinned card is a smear of somebody else's text. Inside the stack the
+   same tint composites over the sheet's own base instead, so the card reads as
+   solid while keeping its border, shadow and exact fill. */
+.detail-stack > .glass {
+  background: linear-gradient(var(--panel-bg), var(--panel-bg)),
+              var(--sheet-base) !important;
 }
 
 /* ── Labels and figures ─────────────────────────────────────────────────────

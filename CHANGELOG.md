@@ -16,6 +16,44 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.5
+
+- **The cards in a phone's detail sheet now stack instead of being sliced off
+  at its top edge.** Scrolling the sheet used to carry each card straight out
+  of the scroller, so a description was cut through the middle of a line and
+  the severed half sat over the planet behind it. Each card now pins to the
+  top of the sheet and the next card rides up over it — the outgoing card goes
+  *behind* its neighbour rather than through the edge — and scrolling back up
+  lifts each one off the stack again in reverse.
+
+  It is plain `position: sticky` on the sheet's direct children
+  (`.detail-stack` in `index.css`), with no z-index anywhere: positioned
+  siblings already paint in document order, which is the order a stack wants.
+  Two things had to come with it. The cards are translucent glass, and glass
+  over a pinned card is a smear of somebody else's text, so inside the stack
+  the same tint composites over the sheet's own base (`--sheet-base`) and the
+  card reads as solid while keeping its border, shadow and exact fill. And
+  `ObjectDetailBody` gained a `flush` prop that drops its column wrapper, since
+  otherwise its description, stats and footnote reach the sheet as one block
+  and would pin as one.
+
+  `.detail-stack-flow` opts an element out of pinning, for the two cases where
+  pinning is wrong: the stats panel, which on a narrow screen can be taller
+  than the sheet and would strand its own lower rows below the fold with no
+  way to scroll to them, and the ISS card's "Track the ISS live" button, which
+  at 50px would park at the top of the sheet permanently and cut the 189px
+  card behind it through the middle of a line. Both still ride over the stack
+  — `position: relative` is what keeps them painting above the pinned cards
+  rather than under them the way an unpositioned box would.
+
+  Desktop is untouched: the stack is applied only in the compact layout, which
+  is the only one that shows the description inside the sheet at all. Verified
+  in headless Chrome at 390×844 across the ISS (the deepest stack: identity,
+  spacecraft, button, description, stats), Earth, Mimas (which carries the
+  painted-surface footnote) and Mars in Arabic.
+
+---
+
 ## 5.9.3
 
 - **The mobile description panel now opens 2.5s after focusing a body,

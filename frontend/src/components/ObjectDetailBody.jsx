@@ -1,4 +1,4 @@
-import { Component, useMemo, useState } from 'react';
+import { Component, Fragment, useMemo, useState } from 'react';
 import ObjectStatsPanel from './ObjectStatsPanel';
 import DistanceChart from './DistanceChart';
 import { computeDistanceSeries } from '../utils/astroFormatters';
@@ -46,8 +46,13 @@ class ChartBoundary extends Component {
  * Description, stats and orbital chart for one object. Rendered inside the
  * desktop overlay panel and inside the mobile bottom sheet, so both surfaces
  * stay in sync by construction.
+ *
+ * `flush` drops the column wrapper so these cards land as siblings of the
+ * caller's own cards rather than as one block inside it — which is what the
+ * phone sheet's `.detail-stack` needs, since it stacks its *direct* children.
+ * The caller then owns the column spacing (the same `flex flex-col gap-4`).
  */
-const ObjectDetailBody = ({ object: source, showDescription = true }) => {
+const ObjectDetailBody = ({ object: source, showDescription = true, flush = false }) => {
     const { t, object: localize } = useI18n();
     const object = localize(source);
     const [range, setRange] = useState('1y');
@@ -95,8 +100,15 @@ const ObjectDetailBody = ({ object: source, showDescription = true }) => {
     if (!object) return null;
     const accent = CATEGORY_ACCENT[object.category]?.rgb ?? '255,255,255';
 
+    // Everything from the stats panel down opts out of the card stack: the
+    // panel is the one card that can outgrow the sheet, and nothing follows it
+    // that would need to ride over it. See `.detail-stack` in index.css.
+    const flow = flush ? 'detail-stack-flow' : '';
+    const Column = flush ? Fragment : 'div';
+    const columnProps = flush ? {} : { className: 'flex flex-col gap-4' };
+
     return (
-        <div className="flex flex-col gap-4">
+        <Column {...columnProps}>
             {showDescription && (
                 <div className="glass p-5">
                     <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem', margin: 0 }}>
@@ -105,12 +117,12 @@ const ObjectDetailBody = ({ object: source, showDescription = true }) => {
                 </div>
             )}
 
-            <ObjectStatsPanel object={object} />
+            <ObjectStatsPanel object={object} className={flow} />
 
             {/* No global map exists for most of these bodies, so their surface
                 is generated. Say so rather than letting it pass as imagery. */}
             {isSurfacePainted(object.id) && (
-                <p style={{
+                <p className={flow} style={{
                     margin: 0, padding: '0 4px',
                     fontSize: '0.66rem', lineHeight: 1.5,
                     color: 'var(--text-tertiary)',
@@ -120,7 +132,7 @@ const ObjectDetailBody = ({ object: source, showDescription = true }) => {
             )}
 
             {SHOW_DISTANCE_CHART && chart && chart.points.length > 1 && (
-                <div className="glass p-5">
+                <div className={`glass p-5 ${flow}`}>
                     <div className="flex items-start justify-between gap-3 mb-3">
                         <div>
                             <h3 style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>
@@ -162,7 +174,7 @@ const ObjectDetailBody = ({ object: source, showDescription = true }) => {
                     </ChartBoundary>
                 </div>
             )}
-        </div>
+        </Column>
     );
 };
 
