@@ -330,16 +330,16 @@ const CategoryBrowser = () => {
     // object. On mobile there is only one panel, and it still opens fully.
     // Spacecraft cards have no fly-in, so they open immediately.
     //
-    // Mobile waits far longer than desktop, because on a phone this panel is
+    // Mobile waits longer than desktop, because on a phone this panel is
     // the thing that also moves the planet: opening it sets `focusOffsetY`
     // below, which lifts the body up the frame to make room. At 1.5s that
     // landed on top of the fly-in — the longest of which (true sizes) runs
     // 2.4s — so the body arrived centred and was immediately shoved upward
-    // while the sheet was still sliding. 4s clears every flight the scene has
-    // with room to spare, and lets the arrival be its own moment before
+    // while the sheet was still sliding. 2.5s clears every flight the scene
+    // has, with a small margin, and lets the arrival be its own moment before
     // anything else moves. (The lift itself is eased in the scene now too;
     // the delay is what stops the two motions overlapping at all.)
-    const revealDelay = compactFocus ? 4000 : 1500;
+    const revealDelay = compactFocus ? 2500 : 1500;
     useEffect(() => {
         setSheetOpen(false);
         setDescriptionOpen(false);

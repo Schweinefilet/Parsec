@@ -21,6 +21,7 @@ export const WHATS_NEW = [
             'Earth on the tracker page is much brighter and truer in colour — it had been rendering about a third as bright as the same planet in the solar system view — and it now has clouds, which it was missing.',
             'Moons leave a trail behind them along their orbit while you are focused on their planet, in the moon\u2019s own colour, the same way the planets do around the Sun.',
             'The loading screen no longer has a soft yellow glow behind the wordmark.',
+            'On a phone, the description panel for a focused object now opens sooner after you arrive — about 2.5 seconds instead of 4.',
         ],
     },
     {

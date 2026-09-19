@@ -16,6 +16,28 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.3
+
+- **The mobile description panel now opens 2.5s after focusing a body,
+  down from 4s.** That 4s was set to clear the true-sizes fly-in, the
+  scene's longest flight at 2.4s, with room to spare — 1.5s had landed the
+  panel's own lift on top of the tail of that flight. 2.5s keeps that same
+  margin over 2.4s while cutting the wait nearly in half; desktop, where
+  the description doesn't move the camera, is unchanged at 1.5s.
+
+- **Combed through `CHANGELOG.md`.** Six runs of small, single-topic
+  releases — chasing the same bug or tuning the same feature across
+  several patch versions — are now told as one entry apiece:
+  `4.1.0 – 4.1.2` (the idle-drift sliders), `4.3.5 – 4.3.7` (the
+  scene-drawer tab's final shape), `4.4.2 – 4.4.5` (the warped-grid
+  overlay's tuning), `5.0.7 – 5.0.10` (the /sky compass HUD), `5.1.0 – 5.1.2`
+  (the AR constellation viewer's three milestones) and `5.1.7 – 5.1.8` (the
+  Sun's lens-flare). Nothing outside those runs changed; the version
+  numbers are preserved in each combined heading the same way `5.3.4 –
+  5.3.13` already did it.
+
+---
+
 ## 5.9.2
 
 - **The tracker transition worked once per page load and then stalled.** Every
@@ -1397,61 +1419,39 @@ Every release is a commit titled with its version. The version in
 
 ---
 
-## 5.1.8
+## 5.1.7 – 5.1.8
 
-- **Toned the Sun's new lens-flare down.** 5.1.7 shipped it far too hot:
-  the halo element was 420px at full opacity, landing additively on a Sun
-  that is already white-hot under five `GLOW_LAYERS` shells, which blew
-  the middle of the frame out and hid the Sun's own surface texture behind
-  a featureless white ball. The halo is now 220px and roughly half as
-  opaque, the streak is dimmer and shorter, and the ghosts are pulled back
-  to about a third of their old opacity. The Sun reads as the Sun again,
-  with the glare sitting on top of it rather than replacing it.
-- **Fixed the streak rendering as a grey rectangle.** It was drawn with
-  `fillRect` and a horizontal-only gradient, so its top and bottom edges
-  were hard lines — at any opacity that made it visible, it read as a band
-  laid over the scene rather than as light. It is now a vertically
-  squashed radial gradient, which falls off on every side and so has no
-  edges to notice.
-- **Replaced 5.1.7's `depthWrite: false` on the Sun with a moving flare
-  anchor.** Dropping the Sun out of the depth buffer did stop it occluding
-  its own flare, but it also meant nothing else in the scene could be
-  correctly ordered against it — the Milky Way sphere (transparent, drawn
-  after the opaque pass) and the background stars were free to draw over
-  the Sun's disc. The Sun's depth behaviour is back to normal; instead the
-  flare hangs off its own `Object3D`, repositioned each frame onto the
-  camera-to-Sun line just clear of the Sun's surface. Since every point on
-  that line projects to the same pixel, the flare lands exactly where it
-  did, the Sun can no longer occlude it, and a planet crossing in front
-  still snuffs it out — which is the occlusion behaviour actually wanted.
+- **A camera lens-flare on the Sun, added and then brought under control.**
+  5.1.7 gave the Sun a proper camera-glare — a bright core, a tapering
+  horizontal streak, and a trail of small coloured "ghost" elements — built
+  on three.js's own `Lensflare` object rather than a custom shader. It hangs
+  off `mainLight` and needs no per-frame code of ours: three.js tracks its
+  screen position and occludes it against nearer geometry entirely through
+  `Object3D.onBeforeRender`. The textures — the halo, the streak, four
+  polygonal ghosts — are drawn on `<canvas>` (`utils/lensFlareTextures.js`),
+  the same way every planet and moon surface already is, rather than shipped
+  as image assets. One bug was fixed on the way in: the Sun's own opaque
+  sphere sat exactly at the flare's light position, so its near-facing
+  surface failed the flare's built-in occlusion probe every frame — the
+  flare rendered at ~3% visibility, in effect invisible — fixed with
+  `depthWrite: false` on `sunMat`. Gated behind the quality tier: on for
+  medium and high, off for the phone tier.
 
----
-
-## 5.1.7
-
-- **A camera lens-flare on the Sun.** Requested after seeing it on another
-  project: the Sun now throws a proper camera-glare — a bright core, a
-  tapering horizontal streak, and a trail of small coloured "ghost"
-  elements — built on three.js's own `Lensflare` object rather than a
-  custom shader. It hangs off `mainLight` (the point light already sitting
-  at the Sun's position) and needs no per-frame code of ours: three.js
-  tracks its screen position and occludes it against nearer geometry
-  entirely through `Object3D.onBeforeRender`.
-- The flare's own textures — the halo, the streak, and four polygonal
-  ghosts — are drawn on `<canvas>` (`utils/lensFlareTextures.js`), the same
-  way every planet and moon surface in this app already is
-  (`proceduralTextures.js`), rather than shipped as image assets.
-- Fixed along the way: the Sun's own opaque sphere sits exactly at the
-  flare's light position, so its near-facing surface was failing the
-  flare's built-in occlusion probe on every frame — the flare rendered at
-  ~3% visibility, in effect invisible. `sunMat` now sets `depthWrite:
-  false` (matching the treatment its own `GLOW_LAYERS` halo already gets a
-  few lines down), so the Sun can no longer occlude a probe sitting at its
-  own centre.
-- Gated behind the quality tier (`utils/quality.js`'s new `lensFlare`
-  flag): on for medium and high, off for the phone tier, where the extra
-  screen-space quads and two framebuffer copies a frame aren't worth it on
-  a device already trimming everything else.
+  It shipped far too hot. The halo element was 420px at full opacity,
+  landing additively on a Sun already white-hot under five `GLOW_LAYERS`
+  shells, blowing out the middle of the frame and hiding the Sun's own
+  surface texture behind a featureless white ball. 5.1.8 brought it down —
+  halo to 220px and roughly half as opaque, streak dimmer and shorter,
+  ghosts pulled back to about a third of their old opacity — and fixed the
+  streak itself rendering as a hard-edged grey rectangle (`fillRect` with a
+  horizontal-only gradient; now a vertically squashed radial gradient with
+  no edges to notice). It also replaced the `depthWrite: false` fix: dropping
+  the Sun out of the depth buffer stopped it occluding its own flare, but
+  also let the Milky Way sphere and background stars draw over its disc.
+  Normal depth behaviour is back; the flare now hangs off its own
+  `Object3D`, repositioned each frame onto the camera-to-Sun line just clear
+  of the surface — same screen position, the Sun can no longer occlude it,
+  and a planet crossing in front still snuffs it out correctly.
 
 ---
 
@@ -1562,140 +1562,59 @@ Every release is a commit titled with its version. The version in
 
 ---
 
-## 5.1.2
+## 5.1.0 – 5.1.2
 
-- **AR milestone 4, and the last one: marker glow, tuning, and a portrait
-  guard.** Completes the plan's four-milestone build: the AR sky viewer
-  now has an additive halo behind each Sun/Moon/planet marker while AR is
-  active (a second `THREE.Points` pass sharing the same position/size/
-  colour buffers as the core dot, so the two can never drift apart — the
-  same layered-glow idea `SolarSystem3D.jsx`'s own `GLOW_LAYERS` uses
-  around the Sun, adapted from concentric 3D shells there to one extra
-  point-sprite pass here), so a marker doesn't wash out against a bright
-  real Moon or a streetlight in the camera feed. Constellation lines get a
-  1.7× opacity boost in AR — a real camera image carries more visual
-  texture than a flat black canvas — and the star count is capped to the
-  low device tier's own budget (2000) on top of whatever tier a device
-  otherwise qualifies for, since decoding a live camera feed is real cost
-  the scene's existing tiers never accounted for. And AR is portrait-only
-  now with an actual guard, not just a design note: a landscape hold shows
-  a "rotate your phone" nudge rather than a silently misaligned sky —
-  `beta`/`gamma` are reported relative to the device's physical frame, not
-  the current screen orientation, and getting that compensation right for
-  both iOS and Android needs a real device this session doesn't have
-  access to.
-
-  One thing worth knowing about verifying this kind of change: a first
-  pass at testing the portrait guard found it showing even in a genuinely
-  portrait-shaped viewport — headless Chrome's own emulation defaults
-  `screen.orientation.type` to `landscape-primary` unless a CDP script
-  explicitly sets it, regardless of the actual emulated width/height. The
-  app's own logic was correct throughout (rightly trusting the standards-
-  based Orientation API over a viewport-shape guess, which is exactly why
-  it's preferred over a plain `innerWidth`/`innerHeight` comparison) — the
-  test setup was the thing missing a parameter, caught and fixed before
-  trusting the result either way.
-
-  This closes out the AR constellation viewer as originally planned across
-  all four milestones (capability gate + camera compositing → sensor-
-  driven heading + declination → marker glow + tuning), built end-to-end
-  without a real-device round trip past milestone 1, at the user's own
-  request. Everything CDP-testable was tested; the whatsNew.js
-  announcement is deliberately still not written, the same call made after
-  milestones 1 and 2/3 — the entire `webkitCompassHeading`/
-  `requestPermission()` path has no headless-Chrome equivalent at all, and
-  publicly calling this "done" before it's been held up against the real
-  sky isn't a call this session gets to make on its own.
-
----
-
-## 5.1.1
-
-- **AR milestones 2 and 3: the sky viewer is actually compass-driven now.**
-  `utils/deviceOrientation.js` turns `DeviceOrientationEvent` into the same
-  azimuth/altitude `utils/skyRotation.js` already accepted from a drag —
-  `setLookDirection()`/`applyLook()`/the crosshair constellation lookup all
-  keep working completely unchanged, since none of them know or care that
-  the numbers now come from a sensor. Heading prefers iOS's own
-  `webkitCompassHeading` (already in this app's own compass convention),
-  falls back to Chrome/Android's `deviceorientationabsolute`, and falls
-  back again to best-effort relative `alpha` on anything else — absorbed by
-  a manual calibration-offset drag (`nudgeCalibrationOffset`), which a drag
-  or arrow key now nudges instead of the view directly while AR is active,
-  and which `NightSkyPanel`'s "Look north" button resets (repurposed in AR
-  mode, where resetting azimuth/altitude directly would just be overwritten
-  by the next sensor reading). Magnetic declination is corrected to true
-  north via the `magvar` package (WMM 2025-2030, zero runtime deps),
-  looked up for the observer's own location using the *real* current date,
-  not the app's scrubbable simulated clock.
-
-  Two real bugs, not zero, on the way to a clean result — both caught by
-  testing rather than shipped blind: the Euler-angle heading formula's
-  East component needed its sign dropped (a first pass mirrored 90°/270°
-  across the N/S axis, caught by four independent alpha fixtures agreeing
-  on the fix at once, not just one); and headless Chrome's own device-
-  orientation emulation turned out to dispatch an empty, all-null event
-  before real values arrive — on *both* the absolute and plain event types
-  — which a naive handler processed as "phone lying flat, facing north"
-  (a real, wrong altitude of -90°) and let corrupt the smoothed state for
-  every real sample after it. Both are pinned by unit tests now, and the
-  full pipeline — sensor event to rotated star field to the compass HUD's
-  own rendered text — was confirmed end-to-end in headless Chrome by
-  dispatching synthetic orientation events directly (CDP's own
-  `DeviceOrientation.setDeviceOrientationOverride` barely re-dispatches
-  events for an unchanged value, which starves this module's smoothing of
-  the samples it needs — a quirk of that specific emulation path, not of
-  real hardware, and not of this module's own code).
-
-  Built and shipped without a real-device round trip, at the user's own
-  request after confirming milestone 1 (capability gate, camera
-  compositing, the iOS permission flow) worked well on their iPhone — the
-  entire `webkitCompassHeading`/`requestPermission()` half of this has no
-  Chrome/CDP equivalent to verify against at all, so whether it actually
-  points at the real sky is still an open question until the next
-  real-device check.
-
----
-
-## 5.1.0
-
-- **First milestone of an AR constellation viewer for /sky.** The long-term
+- **An AR constellation viewer for /sky, built in three milestones.** The
   goal: point a phone at the real sky and see constellation lines, names,
   and Sun/Moon/planet markers line up with it live, oriented by the
   device's own compass and tilt rather than a drag gesture — "compass AR,"
-  not WebXR (no iOS Safari support for `immersive-ar` at all, which would
-  exclude most mobile traffic; heading + tilt is enough since sky objects
-  are effectively at infinity).
+  not WebXR (no iOS Safari support for `immersive-ar` at all).
 
-  This milestone ships the capability gate, the permission flow, and the
-  camera compositing — deliberately **not** sensor-driven heading yet,
-  which is a follow-up. A new icon button next to /sky's back button (shown
-  only on a touchscreen device that actually exposes both
-  `DeviceOrientationEvent` and `getUserMedia` — `utils/arSupport.js`, built
-  on the same `(pointer: coarse)` signal `utils/quality.js` already uses to
-  mean "real touchscreen," not `useIsMobile()`'s bare width breakpoint)
-  opens an explainer card, then requests iOS's gesture-gated orientation
-  permission before the camera's — the more gesture-sensitive of the two —
-  via `hooks/useCameraStream.js`. Once granted, `NightSky3D.jsx`'s already-
-  transparent renderer composites the star/constellation canvas over the
-  live feed with no shader changes, and hides the synthetic ground
-  hemisphere (redundant once the real ground is on camera). Getting the
-  z-index layering right took an explicit `position:absolute` on the
-  canvas even outside AR mode — CSS paints unpositioned in-flow content
-  *before* positioned descendants in the same stacking context regardless
-  of DOM order, so a naively-added `<video>` behind an unpositioned canvas
-  would otherwise have painted on top of it, not behind it.
+  **Milestone 1 (5.1.0)** shipped the capability gate, the permission flow
+  and the camera compositing, deliberately not sensor-driven yet: a new
+  icon button, shown only on a touchscreen device exposing both
+  `DeviceOrientationEvent` and `getUserMedia`, opens an explainer card, then
+  requests iOS's gesture-gated orientation permission before the camera's.
+  Once granted, the already-transparent star/constellation renderer
+  composites over the live feed with no shader changes.
 
-  Verified in headless Chrome: capability gating across touch/mouse device
-  emulation, the permission-denial path (default headless behaviour with no
-  fake-media flags — there is no `NotAllowedError` equivalent to mock,
-  headless Chrome simply cannot show a permission prompt at all), and the
-  full compositing path against a synthetic camera feed
-  (`--use-fake-device-for-media-stream`). The entire iOS-specific half —
-  `DeviceOrientationEvent.requestPermission()`'s gesture flow — has no
-  Chrome/CDP equivalent to test against at all and needs a real iPhone,
-  which is what the next milestone's sensor-driven heading will be checked
-  against.
+  **Milestones 2 and 3 (5.1.1)** made it actually compass-driven:
+  `utils/deviceOrientation.js` turns `DeviceOrientationEvent` into the same
+  azimuth/altitude the drag control already accepted — nothing downstream
+  needed to change, since none of it knows or cares that the numbers now
+  come from a sensor. Heading prefers iOS's own `webkitCompassHeading`,
+  falls back to Chrome/Android's `deviceorientationabsolute`, then to
+  best-effort relative `alpha` absorbed by a manual calibration offset.
+  Magnetic declination is corrected to true north via the `magvar` package.
+  Two real bugs were caught by testing rather than shipped blind: a
+  mirrored heading formula (the East component needed its sign dropped, a
+  fix confirmed by four independent fixtures agreeing at once), and
+  headless Chrome's own device-orientation emulation dispatching an empty,
+  all-null event before real values arrive — which a naive handler
+  processed as a real, wrong altitude and let corrupt the smoothed state
+  for every real sample after it.
+
+  **Milestone 4 (5.1.2)** closed it out: an additive halo behind each
+  marker (sharing the core dot's own position/size/colour buffers, so the
+  two can never drift apart) so it doesn't wash out against a bright real
+  Moon or a streetlight in the feed; a 1.7× opacity boost on constellation
+  lines, since a real camera image carries more visual texture than a flat
+  black canvas; the star count capped to the low device tier's own budget
+  regardless of what tier a device otherwise qualifies for, since decoding
+  a live camera feed is real cost the scene's tiers never accounted for;
+  and AR made portrait-only with an actual guard — a landscape hold shows a
+  "rotate your phone" nudge rather than a silently misaligned sky, since
+  `beta`/`gamma` are reported relative to the device's physical frame and
+  getting that compensation right for both iOS and Android needs a real
+  device.
+
+  Built and shipped without a real-device round trip past milestone 1, at
+  the user's own request — the entire `webkitCompassHeading`/
+  `requestPermission()` path has no headless-Chrome equivalent at all, so
+  whether it actually points at the real sky stayed an open question until
+  it could be checked against one. Everything CDP-testable was tested at
+  each stage; the `whatsNew.js` announcement was deliberately left
+  unwritten until then.
 
 ---
 
@@ -1757,79 +1676,37 @@ Every release is a commit titled with its version. The version in
 
 ---
 
-## 5.0.10
+## 5.0.7 – 5.0.10
 
-- **5.0.9 solved the wrong problem — reverted, with the actual bug fixed
-  instead.** The report was "the compass is moving around when the
-  direction changes," and 5.0.9's diagnosis was that a rotating dial reads
-  as motion, so it swapped to a fixed dial with a sweeping needle. But
-  measuring `.sky-compass`/`.sky-compass-dial`'s own bounding boxes across
-  headings — the actual verification for that release — held heading
-  steady enough via drag that the digit count of the heading readout barely
-  changed, and altitude sat at a constant two digits the whole time, so the
-  real bug never showed up in that testing. It was `.sky-compass-stats`,
-  the heading/altitude text box: its width was never reserved, only ever
-  as wide as its current digits, so a change like `9°` → `10°` or `+9°` →
-  `+10°` grew the box, and since `.sky-compass` sizes itself to its widest
-  child and only pins its *right* edge (`inset-inline-end`), growth pushed
-  the whole column — dial included — further left. That reads exactly like
-  "the compass moving," rotating or not. Reverted the dial back to 5.0.8's
-  rotating-ring-with-upright-letters design (N still red), and this time
-  fixed the readout itself: `.sky-compass-stats b` now reserves `4ch` with
-  `text-align: end` and `tabular-nums`, wide enough for the longest values
-  either field produces (`359°`, `-90°`), so the box's own width — and
-  everything centred above it — never moves again regardless of digit
-  count.
-
----
-
-## 5.0.9
-
-- **The compass dial doesn't rotate anymore — N/E/S/W sit fixed, and a
-  needle sweeps around to point at the current heading instead.** Since
-  4.10.0 this was the other kind of compass: the whole dial spinning
-  beneath a fixed needle pointing "forward" — an aircraft heading
-  indicator's own convention. That was fine, if hard to read, while the
-  spinning letters were also garbled by the 5.0.7-and-earlier rotation bug;
-  once that got fixed and the letters turned legible, the dial's own
-  motion became the obvious thing left to notice, and for a corner-of-the-
-  eye "which way am I facing" HUD it was simply more movement than the
-  job needs. N/E/S/W are plain, non-rotating spans now, styled the same as
-  before; only `.sky-compass-needle-mount` — a full-dial wrapper the
-  needle already sat inside at its usual fixed top-centre spot, so
-  rotating the wrapper pivots the needle around the dial's own centre
-  rather than its own — turns, in `updateCompass()`, the same place the
-  ring's own rotation used to live.
-
----
-
-## 5.0.8
-
-- **5.0.7's letter-uprighting fix knocked the compass off-centre.**
-  `.sky-compass-ring span` — meant to lay out the four outer N/E/S/W
-  wrapper spans — is a descendant selector, not a direct-child one, so it
-  matched the new inner `.sky-compass-letter` span too and handed it
-  `position: absolute` with no offsets of its own. An absolutely
+- **Four releases finding the real shape of the /sky compass HUD.** 5.0.7
+  dropped the "Roll" line from the readout (this scene never introduces
+  roll, so it was always a static, uninformative 0°) and stopped the
+  N/E/S/W letters tipping over as the dial turned, by counter-rotating each
+  glyph in its own inner span. That inner span broke the layout in 5.0.8:
+  `.sky-compass-ring span` was a descendant selector rather than a
+  direct-child one, so it also matched the new letter span and handed it
+  `position: absolute` with no offsets of its own — an absolutely
   positioned element with nothing telling it where to sit escapes its
-  parent's centering rather than inheriting it, which is exactly what
-  the screenshot showed: the letters right about where an un-centred
-  absolute box happens to land, not near N/E/S/W at all. Changed to
-  `.sky-compass-ring > span` so the rule only ever reaches the four
-  outer spans it was written for. Re-verified at several headings.
+  parent's centring rather than inheriting it, exactly what the screenshot
+  showed. Narrowed to `.sky-compass-ring > span` and the dial was centred
+  again.
 
----
-
-## 5.0.7
-
-- **Two /sky compass fixes.** Dropped the "Roll" line from the readout —
-  this scene never introduces roll (see `skyRotation.js`'s own "no roll,
-  ever"), so it was always a static 0°, a row that could never tell anyone
-  anything. And the N/E/S/W letters no longer tip over as the dial turns:
-  they're carried around the ring by the same rotation as before (that
-  part was always right — turn to face east and E correctly slides to the
-  top), but each glyph now sits in its own inner span that gets counter-
-  rotated by the same amount every frame, so the letter itself stays
-  upright at every heading instead of only reading cleanly at 0°.
+  5.0.9 then read the compass's remaining motion as the problem and
+  redesigned it — fixed N/E/S/W, a needle sweeping to the current heading
+  instead, the aircraft-heading-indicator convention — but that solved the
+  wrong problem: measuring the dial's own bounding box across headings
+  (the actual verification for that release) held heading steady enough via
+  drag that the real bug never showed up. It was `.sky-compass-stats`, the
+  heading/altitude text box, never reserving its own width: a change like
+  `9°` → `10°` grew the box, and since `.sky-compass` sizes itself to its
+  widest child and only pins its right edge, growth pushed the whole
+  column — dial included — further left. That reads exactly like "the
+  compass moving," rotating or not. 5.0.10 reverted the needle redesign
+  back to the rotating-ring-with-upright-letters dial and fixed the actual
+  bug: `.sky-compass-stats b` now reserves `4ch` with `text-align: end` and
+  `tabular-nums`, wide enough for the longest values either field produces,
+  so the box's own width — and everything centred above it — never moves
+  again regardless of digit count.
 
 ---
 
@@ -2365,41 +2242,25 @@ Every release is a commit titled with its version. The version in
 
 ---
 
-## 4.4.5
+## 4.4.2 – 4.4.5
 
-- **Reverted the grid-plane change from 4.4.4.** Deriving the plane from the
-  analytic obliquity looked right on paper but not on screen — the Mars-sample
-  reference is what matches how the orbit rings actually sit in the default
-  view, and it stays.
+- **Four rounds of tuning the warped-grid gravity overlay.** The full sheet
+  came back as a ghost: rather than clipping the grid to a disc around each
+  body, the whole sheet draws again, but outside those windows it drops to a
+  faint grey (`gridPatch.outAlpha`, later brightened 0.14 → 0.32) while the
+  body windows keep their colour and full strength. The grid also thins by
+  half at true distances, where the far emptier layout was reading the
+  compressed density as clutter.
 
----
-
-## 4.4.4
-
-- **The grid plane sits on the ecliptic now.** *(Reverted in 4.4.5.)*
-- **The Sun's well is gentler at true distances.** Its depth multiplier drops
-  (`sunWellTrueScale` 3.4 → 2.3) so the wall isn't a near-vertical spike out
-  there — it grows into a broad deep bowl instead.
-
----
-
-## 4.4.3
-
-- The warped grid's ghost sheet is brighter — `gridPatch.outAlpha` 0.14 → 0.32.
-
----
-
-## 4.4.2
-
-- **The warped grid's full sheet is back — as a ghost.** Rather than clipping
-  the grid to a disc around each body, the whole sheet is drawn again, but
-  outside those windows it drops to a faint grey (`gridPatch.outAlpha`). The
-  body windows keep their colour and full strength.
-- **The grid thins by half at true distances.** The layout is so much emptier
-  out there that the compressed density read as clutter.
-- **The Sun's well at true distances is a spike, not a crater.** Its depth
-  still grows with the layout (`sunWellTrueScale` 3.4) but its radius grows far
-  less (`sunWellTrueScaleRadius` 1.7).
+  The Sun's well went through two shapes on the way to its final one: first
+  a spike rather than a crater at true distances (depth still growing with
+  the layout, `sunWellTrueScale` 3.4, radius growing far less), then gentler
+  still — the depth multiplier dropped to 2.3 so the wall grows into a
+  broad deep bowl instead of a near-vertical spike. One change didn't
+  survive along the way: putting the grid plane on the analytic ecliptic
+  obliquity looked right on paper but not on screen, and was reverted in
+  the same run — the Mars-sample-derived plane is what actually matches how
+  the orbit rings sit in the default view.
 
 ---
 
@@ -2434,25 +2295,15 @@ Every release is a commit titled with its version. The version in
 
 ---
 
-## 4.3.7
+## 4.3.5 – 4.3.7
 
-- Nudged the closed scene-drawer chevron a few pixels further off the edge.
-
----
-
-## 4.3.6
-
-- The scene-drawer tab's chevron bobs left–right now, the way it points,
-  instead of up–down.
-
----
-
-## 4.3.5
-
-- **The scene-drawer tab loses its box.** Now it is only the chevron — no
-  pill, no border, no backdrop — sitting a little in from the edge and bobbing
-  with the focused-object sheet's own `scrollPromptBob` while it is closed,
-  exactly like that handle.
+- **The scene-drawer tab settled into its final shape over three small
+  passes.** First it lost its box entirely — no pill, no border, no
+  backdrop, just the chevron sitting a little in from the edge and bobbing
+  with the focused-object sheet's own `scrollPromptBob` while closed,
+  exactly like that handle. Then the bob was turned to run left–right, the
+  way the chevron actually points, instead of up–down. Then nudged a few
+  pixels further off the edge.
 
 ---
 
@@ -2573,47 +2424,32 @@ Every release is a commit titled with its version. The version in
 
 ---
 
-## 4.1.2
+## 4.1.0 – 4.1.2
 
-- **Drift, reworked.** Three fixes to yesterday's sliders at once:
-  - **The labels follow a rolled view now.** They project against the camera,
-    and the roll was applied after that projection had already run for the
-    frame — so the scene tipped and the names stayed put. The camera's world
-    matrix is refreshed before the labels are placed.
-  - **No more limits, no more bouncing off them.** Pitch and roll ran between
-    soft stops and reversed. They are now applied as free rotations of the
-    camera about its own axes — pitch somersaults right over the poles, roll
-    spins all the way round — and `controls.update` reads the drifted position
-    back as its orbit, so a drag still picks up cleanly from wherever it left.
-  - **Half speed.** The top of each slider's range is halved; a fully cranked
-    drift is a slow tumble, not a fairground ride.
+- **Idle drift became something you can shape, in three passes.** A panel
+  next to the Drifting pill opened three sliders over the scene's always-on
+  slow turn — yaw, pitch, roll: yaw is the turntable spin, pitch swings the
+  elevation, roll leans the whole scene and swings back (accumulated per
+  frame and rotated onto the camera after OrbitControls has had its say,
+  since OrbitControls itself keeps the horizon level by design and unwound
+  to level whenever it is set back to centre, drift is held still, or the
+  pointer is on a body). Each slider is a signed rate and the settings
+  persist; "Held still" still stops everything in one click.
 
----
+  It shipped dead to the touch: the toolbar the sliders sit in is
+  `pointer-events: none` so a drag that misses a pill still orbits the
+  scene, and the drift popover's own trigger opted back in but never
+  re-enabled events for its own body — fixed the same release cycle.
 
-## 4.1.1
-
-- **The drift sliders were dead to the touch.** The toolbar they sit in is
-  `pointer-events: none` — so a drag that misses a pill still orbits the scene
-  — and each pill opts back in for itself. The drift popover opened (its
-  trigger opts in) but never re-enabled events for its own body, so the
-  sliders took the click and did nothing with it. Fixed.
-
----
-
-## 4.1.0
-
-- **The idle drift is yours to set.** The view has always turned slowly on its
-  own; a panel next to the Drifting pill now opens three sliders — yaw, pitch,
-  roll — that shape it. Yaw is the turntable spin. Pitch swings the elevation
-  between soft limits. Roll leans the whole scene and swings back, something
-  OrbitControls will not do on its own (it keeps the horizon level by design),
-  so it is an angle accumulated per frame and rotated onto the camera after
-  the controls have had their say — and unwound to level whenever it is set
-  back to centre, the drift is held still, or the pointer is on a body.
-
-  Each slider is a signed rate; the settings persist. The old fixed drift is
-  just the default slider positions, and "Held still" still stops everything
-  in one click.
+  Then reworked three things at once: the labels, which project against the
+  camera, were drifting a frame stale because roll was applied after that
+  frame's projection had already run; pitch and roll ran between soft stops
+  and bounced off them, replaced with free rotation about the camera's own
+  axes (pitch somersaults right over the poles, roll spins all the way
+  round, and `controls.update` reads the drifted position back as its orbit
+  so a drag still picks up cleanly); and the top of each slider's range was
+  halved, since a fully cranked drift read as a fairground ride rather than
+  a slow tumble.
 
 ---
 
