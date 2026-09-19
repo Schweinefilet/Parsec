@@ -810,12 +810,23 @@ const SolarSystem3D = ({
             // the same result.
             skyTex.colorSpace = THREE.SRGBColorSpace;
             textures.push(skyTex);
+            // The 50% dim is baked into the material color rather than done via
+            // `transparent`/`opacity`, which would leave this sphere the only
+            // translucent thing in the scene — its pixels would land in the
+            // render target at ~50% alpha and get composited onto the page's
+            // black background by the browser itself (renderer is `alpha: true,
+            // premultipliedAlpha: false`). That non-premultiplied composite step
+            // is an underspecified corner of the canvas/WebGL spec: Chrome and
+            // Safari don't agree on whether it blends in linear light or on the
+            // encoded sRGB bytes, and the two give visibly different brightness
+            // for anything but alpha 0/1. Tinting the color and keeping the
+            // material opaque does the blend inside three's own color-managed
+            // pipeline instead, so there's nothing left for the browser to
+            // disagree about.
             const skyMat = new THREE.MeshBasicMaterial({
-                map:         skyTex,
-                side:        THREE.BackSide,
-                depthWrite:  false,
-                transparent: true,
-                opacity:     0.5,
+                map:   skyTex,
+                color: 0x808080,
+                side:  THREE.BackSide,
             });
             geos.push(skyGeo);
             mats.push(skyMat);
