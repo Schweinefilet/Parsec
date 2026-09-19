@@ -4250,9 +4250,7 @@ const SolarSystem3D = ({
                 {/* Gone while a body is focused. It is a caveat about the
                     overview's layout — how far apart the orbits are drawn —
                     and once the camera is sitting on one planet there is no
-                    layout left for it to be about. It also frees the centre
-                    of the bottom bar, which on a focused view belongs to the
-                    chevron back up to the scene. */}
+                    layout left for it to be about. */}
                 <div className="scene-note" data-hidden={!!focusedId || undefined}>
                     {t(scaleStage === SCALE_SIZES ? 'scene.allToScale'
                         : scaleStage === SCALE_DISTANCES ? 'scene.distancesToScale'

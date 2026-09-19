@@ -633,11 +633,8 @@ button:focus-visible {
 }
 
 /* ── "Not to scale" caption ─────────────────────────────────────────────────
-   What the view is and is not honest about. On a phone it stays in the corner
-   it has always been in — the bottom of a phone screen is the transport's, and
-   there is no room to centre anything between it and the edge. On a desktop
-   window it becomes the centre of the scene's bottom bar, a caption between
-   the transport at one end and the catalog chip at the other. */
+   What the view is and is not honest about. Desktop only for now — see the
+   media query below for why this stays bottom-right on a phone. */
 .scene-note {
   position: absolute;
   bottom: 14px;
@@ -656,20 +653,21 @@ button:focus-visible {
 .scene-note[data-hidden] { opacity: 0; }
 @media (min-width: 768px) {
   .scene-note {
-    /* The extra offset optically centres this one line of 10px text against
-       the height of the chips either side of it. */
-    bottom: calc(var(--scene-baseline) + 9px);
-    /* Centred with `inset-inline: 0` + auto inline margins over a max-content
-       box, rather than `left: 50%` + a translate. Both centre it, but this one
-       never names a physical side: pairing `inset-inline-end: auto` with
-       `left` in one rule is the exact trap src/i18n/stylesheet.test.js exists
-       to catch — in a right-to-left page those two are the same property. */
-    inset-inline: 0;
-    margin-inline: auto;
-    width: max-content;
-    text-align: center;
-    white-space: nowrap;
-    max-width: none;
+    /* Moved to the top-end corner, clear of the header, at the same offset
+       the focused-body back button uses for the same clearance — by
+       request, off the bottom row, which already carries the transport and
+       the catalog chip. The header's own icon buttons sit directly above it
+       on the same side, so it reads as a footnote to them.
+
+       Phone keeps the original bottom corner: SystemTitle's compact heading
+       sits only 74px from the top there (88px on desktop) and, centred, can
+       run wide enough on a narrow screen to reach this corner — the two
+       collided directly when this was tried at every width. Desktop's
+       heading sits far enough below its own top offset, and 66px far enough
+       above it, that the two never compete for the same line. */
+    top: 66px;
+    bottom: auto;
+    inset-inline-end: var(--scene-inset);
   }
 }
 

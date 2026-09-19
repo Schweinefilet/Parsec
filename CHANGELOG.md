@@ -16,6 +16,20 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.8.2
+
+- **The scale disclaimer moved to the top of the screen, on desktop.** It sat
+  in the bottom-right corner, then centred on the bottom bar since 5.7.0; by
+  request it now sits top-right instead, clear of the header, a footnote to
+  the icon buttons sitting directly above it rather than a third thing
+  competing with the transport and the catalog chip for the bottom row.
+  Phone keeps the original bottom corner — SystemTitle's compact heading
+  sits close enough to the top there (74px, against 88px on desktop) that a
+  wide title can reach into that corner on a narrow screen, which is exactly
+  what happened the first time this was tried at every width.
+
+---
+
 ## 5.8.1
 
 - **Fixed: focusing anything at true distances and sizes could land the
