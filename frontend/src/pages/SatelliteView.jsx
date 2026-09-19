@@ -4,6 +4,8 @@ import { MapPin, Crosshair, Sun, Moon, ArrowUpRight } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import SatelliteGlobe from '../components/SatelliteGlobe';
 import LiveFeed from '../components/LiveFeed';
+import TrackerDebug from '../components/TrackerDebug';
+import { debugRequested } from '../utils/debugFlag';
 import { useSatelliteTracking } from '../hooks/useSatelliteTracking';
 import { useNearestCountry } from '../hooks/useNearestCountry';
 import { SATELLITES, DEFAULT_SATELLITE, satelliteById } from '../data/trackedSatellites';
@@ -195,6 +197,19 @@ const SatelliteView = () => {
         if (getTrackerPhase() !== IDLE) setTrackerPhase(IDLE);
     }, []);
 
+    // The outside edge of an arrival, measured from this page's own mount
+    // rather than from any phase inside it. The sequence's own worst case is
+    // about 2.4s — a hand-off that waits out the globe-ready timeout, then a
+    // full settle — so anything still lifted at 3.5s is not an animation, it
+    // is a page stuck with its globe out of the column and a hole where the
+    // card belongs. Every timer inside the sequence is one this cannot rely
+    // on; this one is held by the component that has something to lose.
+    useEffect(() => {
+        if (getTrackerPhase() === IDLE) return;
+        const cap = setTimeout(() => setTrackerPhase(IDLE), 3500);
+        return () => clearTimeout(cap);
+    }, []);
+
     // The scroll position has to be the one the rect was measured at, and an
     // arrival is also the one case where the page is revealed from behind a
     // full-bleed globe rather than scrolled to.
@@ -250,6 +265,7 @@ const SatelliteView = () => {
 
     return (
         <>
+            {debugRequested() && <TrackerDebug slotRef={cardSlotRef} cardRef={cardRef} />}
             <div style={{
                 position: 'relative',
                 // z-index here is a stacking context, so everything the

@@ -56,6 +56,11 @@ const SatelliteGlobe = ({
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.LinearToneMapping;
         renderer.toneMappingExposure = 1.3;
+        // Anything already in here is a canvas from a previous run of this
+        // effect that was not cleaned up. Stacked above the live one it pushes
+        // the globe down its card behind a band of nothing, looks exactly like
+        // a sizing fault, and survives everything but a reload.
+        for (const stale of mount.querySelectorAll('canvas')) stale.remove();
         mount.appendChild(renderer.domElement);
         renderer.domElement.setAttribute('role', 'img');
         renderer.domElement.setAttribute('aria-label',

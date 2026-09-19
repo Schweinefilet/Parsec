@@ -16,6 +16,48 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.8
+
+- **An arrival at the tracker can no longer outlive the page it arrives on,
+  and there is now a way to see what the phone is actually measuring.** Three
+  releases have gone at the tracker's empty-band-above-the-globe fault from one
+  screenshot, and it is still there on the reporter's phone — in both Chrome
+  and Safari, on every arrival from the solar system, and never on a direct
+  load. Headless Chrome at the same viewport lands the card correctly every
+  time, which means the fault is in numbers this end cannot see. Guessing at
+  them has had its three turns.
+
+  What is a real fix, whatever the cause: the arrival now has an outside edge
+  measured from the tracker page's own mount rather than from any phase inside
+  the sequence. The sequence's worst case is about 2.4s — a hand-off that waits
+  out the globe-ready timeout, then a full settle — so anything still lifted at
+  3.5s is not an animation but a page stuck with its globe out of the column
+  and a hole where the card belongs. Every timer inside the sequence is one
+  this cannot rely on; this one is held by the component with something to
+  lose. Verified by dropping the settle's own timer and watching the cap
+  recover the page.
+
+  Also: `SatelliteGlobe` now clears any canvas left in its mount before adding
+  its own. A dead canvas from a previous run of the effect, stacked above the
+  live one, pushes the globe down its card behind a band of nothing, looks
+  exactly like a sizing fault, and survives everything but a reload — which
+  fits the report precisely enough to be worth closing off.
+
+  And the diagnostic: `?debug=1` on any page turns on a readout over the
+  tracker (`components/TrackerDebug.jsx`, `utils/debugFlag.js`) printing the
+  phase, the viewport as the browser reports it, the slot's rect, the card's
+  rect and position, the mount's box, and every canvas in the card with its
+  drawing buffer. Remembered for the tab, since the page that needs it is one
+  the hand-off navigates to rather than one anybody types. **Temporary — both
+  files and the flag come out once the fault is found.**
+
+  Ruled out along the way, each by reproducing the state and comparing it to
+  the report: a settle stuck mid-phase (letterboxes the globe left and right,
+  not top), and a stale canvas the `ResizeObserver` never corrected (fixed in
+  5.9.7 and confirmed live in the deployed bundle, symptom unchanged).
+
+---
+
 ## 5.9.7
 
 - **The globe kept the size of the whole screen after flying into the
