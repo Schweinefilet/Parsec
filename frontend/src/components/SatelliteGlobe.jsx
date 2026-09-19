@@ -460,11 +460,19 @@ const SatelliteGlobe = ({
             window.__p4rsecGlobe = () => {
                 const gl = renderer.getContext();
                 const vp = gl.getParameter(gl.VIEWPORT);
+                const sc = gl.getParameter(gl.SCISSOR_BOX);
+                const size = renderer.getSize(new THREE.Vector2());
                 return {
                     dbuf: `${gl.drawingBufferWidth}x${gl.drawingBufferHeight}`,
                     glvp: `${vp[0]},${vp[1]} ${vp[2]}x${vp[3]}`,
                     pr: renderer.getPixelRatio(),
                     cam: `a${camera.aspect.toFixed(2)} d${camera.position.length().toFixed(2)} t${controls.target.length().toFixed(2)}`,
+                    // A scissor rect nobody set, a renderer that thinks it is
+                    // a different size than its buffer, or a camera rendering
+                    // a sub-rectangle of its own frame would each draw the
+                    // scene into part of the canvas and leave the rest empty.
+                    sc: `${gl.isEnabled(gl.SCISSOR_TEST) ? 'on' : 'off'} ${sc[0]},${sc[1]} ${sc[2]}x${sc[3]}`,
+                    rsz: `${Math.round(size.x)}x${Math.round(size.y)} fov${camera.fov} vo${camera.view ? 'yes' : 'no'}`,
                     frames,
                 };
             };

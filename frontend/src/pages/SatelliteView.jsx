@@ -210,6 +210,22 @@ const SatelliteView = () => {
         return () => clearTimeout(cap);
     }, []);
 
+    // Belt to the braces above: when the arrival ends, drop and rebuild the
+    // card's render object. Everything that happens to it over an arrival —
+    // fixed to absolute, a clip-path applied and removed, a transformed child
+    // — is the kind of thing that can leave a browser compositing the canvas
+    // inside it against geometry it no longer has. A reload is the only other
+    // cure for that, and this is the cheap version of a reload.
+    useEffect(() => {
+        if (arriving) return;
+        const el = cardRef.current;
+        if (!el) return;
+        const prev = el.style.display;
+        el.style.display = 'none';
+        void el.offsetHeight;
+        el.style.display = prev;
+    }, [arriving]);
+
     // The scroll position has to be the one the rect was measured at, and an
     // arrival is also the one case where the page is revealed from behind a
     // full-bleed globe rather than scrolled to.
@@ -367,17 +383,19 @@ const SatelliteView = () => {
                     >
                     <div
                         ref={cardRef}
-                        className={arriving ? undefined : 'glass'}
+                        className="glass"
+                        // Black, not glass, while it is the whole screen: a
+                        // translucent blurred panel over the entire viewport
+                        // is not what the shot cuts to. As an attribute rather
+                        // than by swapping the class — see `.glass[data-lifted]`
+                        // in index.css for what that cost.
+                        data-lifted={arriving ? '' : undefined}
                         style={{
                             position: arriving ? 'fixed' : 'absolute',
                             inset: 0,
                             zIndex: arriving ? 250 : undefined,
                             overflow: 'hidden',
                             padding: 0,
-                            // Black, not glass, while it is the whole screen:
-                            // a translucent blurred panel over the entire
-                            // viewport is not what the shot cuts to.
-                            background: arriving ? '#000' : undefined,
                             clipPath: arriving ? cardClip : undefined,
                             transition: settling
                                 ? `clip-path ${settleMs}ms ${SETTLE_EASE}`

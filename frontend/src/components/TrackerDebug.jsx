@@ -25,6 +25,14 @@ const TrackerDebug = ({ slotRef, cardRef }) => {
             const b = el.getBoundingClientRect();
             return `${Math.round(b.left)},${Math.round(b.top)} ${Math.round(b.width)}x${Math.round(b.height)}`;
         };
+        const hit = (card, dy) => {
+            if (!card) return '-';
+            const b = card.getBoundingClientRect();
+            const el = document.elementFromPoint(b.left + b.width / 2, b.top + dy);
+            if (!el) return 'none';
+            const cls = typeof el.className === 'string' ? el.className.split(' ')[0] : '';
+            return el.tagName.toLowerCase() + (cls ? `.${cls.slice(0, 10)}` : '');
+        };
         const read = () => {
             const card = cardRef.current;
             // Every canvas, not the first: a globe effect that set up twice
@@ -43,12 +51,19 @@ const TrackerDebug = ({ slotRef, cardRef }) => {
                 `cvs x${canvases.length} ${box(canvases[0])} buf ${canvases[0] ? `${canvases[0].width}x${canvases[0].height}` : '-'}`,
                 ...canvases.slice(1).map((c, i) => `cvs${i + 2} ${box(c)} buf ${c.width}x${c.height}`),
                 `clip ${card ? getComputedStyle(card).clipPath.slice(0, 44) : ''}`,
+                // What is actually on top at two points down the card: the
+                // difference between "something is painting over the globe"
+                // and "the globe's own layer is drawn wrong", which no
+                // measurement of the boxes can tell apart.
+                `hit ${hit(card, 40)} | ${hit(card, 240)}`,
                 ...(() => {
                     const g = window.__p4rsecGlobe?.();
                     return g ? [
                         `dbuf ${g.dbuf} pr ${g.pr}  frames ${g.frames}`,
                         `glvp ${g.glvp}`,
                         `cam ${g.cam}`,
+                        `scis ${g.sc}`,
+                        `rsz ${g.rsz}`,
                     ] : ['globe no readout'];
                 })(),
             ]);

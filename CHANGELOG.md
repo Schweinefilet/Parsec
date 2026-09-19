@@ -16,6 +16,43 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.10
+
+- **`.glass` — and the backdrop-filter it carries — was being added to the
+  globe's card at the exact moment the arrival ended, on an element already
+  holding a live WebGL canvas.** The second readout closed off everything
+  inside the renderer: `dbuf 526x615`, `glvp 0,0 526x615` (the GPU drawing
+  into the whole buffer), `cam a0.86 d7.78 t0.00` (right aspect, right
+  distance, aimed at Earth's centre), `frames` climbing. Correct canvas,
+  correct GL state, camera on the origin — and the globe still drawn into the
+  bottom of the frame. Nothing inside the canvas explains that, which leaves
+  how the canvas is *composited*.
+
+  The card's class was `arriving ? undefined : 'glass'`, so the whole of
+  `.glass` — background, border, shadow, and a `backdrop-filter: blur(22px)`
+  — landed on the card in the same commit that put it back in the column.
+  Adding a backdrop-filter to an ancestor of a composited canvas is a known
+  way to lose that child's layer geometry in WebKit: the canvas keeps
+  compositing against the rectangle it had while the card was full-bleed, so
+  every measurement reads correct and the picture is drawn somewhere else. A
+  direct load never hit it because the card carries the filter from its first
+  paint, and a reload cures it because the layer tree is built again — which
+  is the shape of the report exactly, in both browsers on that phone, since
+  both are WebKit.
+
+  The card now keeps `.glass` for the whole arrival and the lifted look is a
+  `[data-lifted]` state on it, so the class, the filter and the radius never
+  change; only the paint does. Belt to those braces, the card's render object
+  is dropped and rebuilt when the arrival ends — the cheap version of the
+  reload that was curing it.
+
+  The readout gains what would separate this from the other possibility if it
+  is still wrong: `elementFromPoint` down the card (is something painting over
+  the globe, or is the globe's own layer drawn wrong), the scissor box, and
+  the renderer's own idea of its size, fov and view offset.
+
+---
+
 ## 5.9.9
 
 - **The tracker's empty band is inside the canvas, not around it — the globe

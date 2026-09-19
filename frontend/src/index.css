@@ -1091,6 +1091,25 @@ button:focus-visible {
   -webkit-backdrop-filter: var(--blur-panel);
 }
 
+/* ── The tracker's globe card while it is lifted ────────────────────────────
+   Opaque black with no edge, for the stretch of an arrival where the card is
+   the whole screen rather than a card.
+
+   Written as a state on the element rather than by taking `.glass` off it,
+   which is what this used to do. `.glass` carries a backdrop-filter, so that
+   swap added one to an element already holding a live WebGL canvas, at the
+   exact moment the arrival ended — and WebKit mis-composites that child from
+   then on: the canvas keeps its layer's old geometry, the globe draws into a
+   corner of a canvas whose every measurement is correct, and only a reload
+   builds the layer tree again. A direct load never hit it because the card
+   carries the filter from its first paint. So the class, the filter and the
+   radius now stay put for the whole arrival and only the paint changes. */
+.glass[data-lifted] {
+  background:    #000 !important;
+  border-color:  transparent !important;
+  box-shadow:    none !important;
+}
+
 /* ── Detail-sheet card stack ────────────────────────────────────────────────
    The compact (phone / landscape-phone) focused-object sheet. Its cards used
    to scroll straight off the sheet's top edge, so the description was sliced
