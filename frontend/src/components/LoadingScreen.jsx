@@ -215,7 +215,6 @@ const LoadingScreen = () => {
                 data-leaving={finished || undefined}
                 style={{ top: `calc(50% - ${HERO_RISE}px)` }}
             >
-                <span className="boot-core" />
                 {RINGS.map((ring, i) => (
                     <div
                         key={ring.k}

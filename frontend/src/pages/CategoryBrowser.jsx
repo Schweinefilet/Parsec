@@ -30,6 +30,9 @@ import {
 import { getTrailsOn, toggleTrails, subscribeTrails } from '../utils/trailMode';
 import { decodeView } from '../utils/shareView';
 import { IDLE, getSkyEntryPhase, subscribeSkyEntry } from '../utils/skyEntry';
+import {
+    IDLE as TRK_IDLE, armTrackerEntry, getTrackerPhase, subscribeTracker,
+} from '../utils/trackerEntry';
 import { getRate, setRate, setOffsetDays } from '../utils/simTime';
 import { useI18n } from '../i18n';
 
@@ -221,9 +224,19 @@ const CategoryBrowser = () => {
     // focused-object treatment with it: the description sliding in over the
     // shot, the stats either side, the moon hint. None of that belongs on a
     // dive, so the overlay steps aside for the length of one.
-    const [skyDiving, setSkyDiving] = useState(() => getSkyEntryPhase() !== IDLE);
-    useEffect(() => subscribeSkyEntry(
-        () => setSkyDiving(getSkyEntryPhase() !== IDLE)), []);
+    //
+    // The tracker hand-off wants exactly the same thing for exactly the same
+    // reason — it focuses the ISS to get its first beat — so it shares the
+    // flag rather than growing a second one that does the same job. Both are
+    // "a cinematic owns the frame right now".
+    const cinematic = () => getSkyEntryPhase() !== IDLE || getTrackerPhase() !== TRK_IDLE;
+    const [skyDiving, setSkyDiving] = useState(cinematic);
+    useEffect(() => {
+        const sync = () => setSkyDiving(cinematic());
+        const unsubSky = subscribeSkyEntry(sync);
+        const unsubTrk = subscribeTracker(sync);
+        return () => { unsubSky(); unsubTrk(); };
+    }, []);
 
     // ── First-visit coach marks ────────────────────────────────────────────
     // Two hints the first time someone explores the scene, one after the other
@@ -1064,7 +1077,18 @@ const CategoryBrowser = () => {
 
                                     {object.id === 'iss' && (
                                         <button
-                                            onClick={() => navigate('/satellites')}
+                                            // Arms the hand-off rather than
+                                            // cutting to the page. The scene
+                                            // is already parked on the
+                                            // station here, so the pull-back
+                                            // starts on the next frame and
+                                            // this button is the one place
+                                            // the shot begins from where it
+                                            // would otherwise have to fly.
+                                            onClick={() => {
+                                                armTrackerEntry();
+                                                navigate('/object/iss');
+                                            }}
                                             className="w-full rounded-2xl font-bold py-3.5 text-sm flex items-center justify-center gap-1.5 focus-ring"
                                             style={{
                                                 background: 'rgba(80,200,120,0.18)',

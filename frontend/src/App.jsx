@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import ErrorBoundary from './components/ErrorBoundary';
 import SkyEntryCurtain from './components/SkyEntryCurtain';
+import TrackerHandoff from './components/TrackerHandoff';
 import CategoryBrowser from './pages/CategoryBrowser';
 import SatelliteView from './pages/SatelliteView';
 import ComparePage from './pages/ComparePage';
@@ -20,9 +21,11 @@ function App() {
     return (
         <ErrorBoundary>
             <Router>
-                {/* Outside <Routes> so it survives the route swap it itself
-                    triggers — see utils/skyEntry.js and its own header comment. */}
+                {/* Outside <Routes> so they survive the route swap they
+                    themselves trigger — see utils/skyEntry.js and
+                    utils/trackerEntry.js, and each component's own header. */}
                 <SkyEntryCurtain />
+                <TrackerHandoff />
                 <Routes>
                     <Route path="/satellites" element={<AppShell><SatelliteView /></AppShell>} />
                     <Route path="/compare" element={<AppShell><ComparePage /></AppShell>} />

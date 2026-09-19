@@ -12,6 +12,16 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.9',
+        changes: [
+            'Opening the Satellite Tracker is now a flight rather than a page change. The camera flies out to the ISS, holds on it, then pulls back until Earth fills the screen — and the tracker\u2019s own globe fades up out of that exact frame, same size, same continents, same daylight, before settling into its panel as the page appears around it. There is no black moment anywhere in it.',
+            'Coming back from the tracker now pulls the camera back out of Earth into the wide solar system, instead of cutting to it.',
+            'Earth on the tracker page is much brighter and truer in colour — it had been rendering about a third as bright as the same planet in the solar system view — and it now has clouds, which it was missing.',
+            'Moons leave a trail behind them along their orbit while you are focused on their planet, in the moon\u2019s own colour, the same way the planets do around the Sun.',
+            'The loading screen no longer has a soft yellow glow behind the wordmark.',
+        ],
+    },
+    {
         version: '5.8',
         changes: [
             'The solar system now opens already at true distances and true sizes — the honest, mostly-empty view of how far apart everything really is — rather than the compressed layout. Fly to any body to see it fill the frame.',

@@ -19,6 +19,7 @@ import { getScaleStage } from '../utils/scaleMode';
 import { subscribeLogo } from '../utils/assetLoading';
 import { syncDocumentHead } from '../utils/documentHead';
 import { armSkyEntry } from '../utils/skyEntry';
+import { armTrackerEntry } from '../utils/trackerEntry';
 import { useObserverLocation } from '../hooks/useObserverLocation';
 import { useI18n } from '../i18n';
 
@@ -59,6 +60,19 @@ const AppShell = ({ children }) => {
     // navigates — /sky's own ask-card handles the prompt from there, same as
     // it always has. A modified click (new tab, middle-click) is left alone:
     // the cinematic only makes sense replacing the tab you're already in.
+    // Arms the cinematic and goes to the station instead, which is on the
+    // catch-all route — so the scene is not torn down, and the ordinary
+    // focus fly-in becomes the first beat of the hand-off. Same modified-click
+    // bail-out as the sky icon below: a middle-click or a cmd-click is someone
+    // asking for a tab, not for a two-and-a-half second shot.
+    const handleTrackerClick = (e) => {
+        if (pathname === '/satellites') return;
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        armTrackerEntry();
+        navigate('/object/iss');
+    };
+
     const handleSkyClick = (e) => {
         if (pathname === '/sky' || !skyLocation) return;
         if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -335,6 +349,7 @@ const AppShell = ({ children }) => {
                     {!searchOpen && isMobile && (
                         <HeaderMenu
                             onShare={share} copied={copied} onSkyClick={handleSkyClick}
+                            onTrackerClick={handleTrackerClick}
                             onOpen={onMenuOpened}
                         />
                     )}
@@ -355,6 +370,7 @@ const AppShell = ({ children }) => {
                     {!searchOpen && !isMobile && (
                         <Link
                             to="/satellites"
+                        onClick={handleTrackerClick}
                             title={t('nav.trackerTitle')}
                             aria-label={t('nav.tracker')}
                             className="chrome-btn focus-ring"

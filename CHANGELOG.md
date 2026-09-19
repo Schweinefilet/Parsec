@@ -16,6 +16,85 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.0
+
+- **The Satellite Tracker is no longer a page you cut to — it is a place you
+  fly.** Asking for the tracker, from the header icon, the burger menu or the
+  "Track the ISS live" button on the station's own card, now arms a cinematic
+  instead of swapping the route. The camera flies to the ISS, holds on it for
+  half a second, then pulls back over two seconds until Earth fills the frame;
+  the station dissolves out as it goes and the last frame of the solar system
+  is captured and held up while the route changes underneath it. The tracker's
+  globe comes up behind that still, full-bleed, already drawing the same
+  picture — and the two cross-fade. There is no black beat anywhere in it: at
+  no point is the screen showing anything but Earth. The globe then eases out
+  of full bleed and settles into its card as the page is revealed around it.
+
+  It is a dissolve between two different renderers, two different scenes and
+  two different cameras, so the frames have to be made to match rather than
+  hoped to. Three things are arranged for that, and the arrangement is the
+  whole trick:
+
+  - **Size.** `utils/trackerEntry.js` holds `FRAME_FRACTION`, the share of the
+    vertical field of view Earth's disc spans — read off the globe's own
+    long-standing framing, a 38° camera at 3.89 Earth radii. The solar scene
+    solves `handoffDistance()` for the same fraction at its own 45°, which
+    puts it at 3.30 radii. Both ends then draw the disc at the same size
+    whatever the viewport.
+  - **Orientation and lighting, from one constraint.** Both scenes centre the
+    frame on the real sub-solar point. The solar side gets there by turning
+    Earth so that point faces its own Sun and then flying the camera down the
+    sun line — one rotation that buys both halves at once, because the ground
+    at the centre of the frame is then the sub-solar point (the same
+    continents the globe centres) *and* the disc is fully lit with the
+    terminator on the limb (the same lighting). Choosing either one on its own
+    would have cost the other.
+  - **Roll.** Both put Earth's north pole at screen-up.
+
+  Neither side hands the other any coordinates: the sub-solar point is derived
+  from the clock, so both compute it independently and agree. `utils/subsolar.js`
+  is new and exists precisely so there is one formula rather than two that
+  could drift.
+
+  The return trip needed no new machinery. Because the sequence arms by
+  navigating to `/object/iss`, the scene unmounts focused, which is the
+  condition the existing exit animation already looks for — the tracker's back
+  button goes to `/` rather than back through history, and the solar system
+  pulls the camera out from where the hand-off left it.
+
+- **The tracker's Earth was rendering at about a third of the brightness it
+  should.** Its three surface maps were tagged `SRGBColorSpace`, so three
+  decoded them to linear on the way in — but the globe's shader writes
+  `gl_FragColor` itself, without the chunk that would re-encode them on the
+  way out, so linear values went to the framebuffer raw and the planet came
+  out dark and desaturated. The solar system's Earth has always left the same
+  three maps untagged, which is the pair of wrongs that makes a right; the
+  globe now does the same. This was invisible for as long as the two were
+  never on screen together, and unmissable the moment they were.
+
+- **Clouds on the tracker's globe.** It drew the day and night maps but not
+  the cloud layer, the third of the set the solar scene has always used.
+  Added, mixed in exactly the way that scene mixes it — a dissolve between a
+  clouded Earth and a clear one is a dissolve you can see.
+
+- **Moons leave trails while you are focused on their planet.** Each moon of
+  the focused body now draws a tapering arc of the orbit behind it, in its own
+  colour, the same idea as the planet trails one level down and under the same
+  toggle. Built by sampling the parametric circle backwards from the moon's
+  live angle rather than from a baseline point list — a moon's path here *is*
+  that circle, so there is no nearest-sample search to do and the arc stays
+  exact at any true-size factor. The span is a fixed share of the orbit rather
+  than a fixed number of samples, so Phobos at 7.7 hours and Iapetus at 79
+  days draw the same shape. Only the focused planet's moons draw one, and the
+  moon you are actually looking at hides its own, matching what the planet
+  trails already do on focus.
+
+- **The intro screen lost the glow behind the wordmark.** The orrery's centre
+  carried a soft warm radial wash for the mark to stand in. Gone; the rings
+  and the wordmark now sit on plain black.
+
+---
+
 ## 5.8.4
 
 - **Earth and Venus lost their atmosphere glow.** Both planets carried a

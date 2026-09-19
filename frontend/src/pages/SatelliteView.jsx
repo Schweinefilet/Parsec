@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapPin, Crosshair, Sun, Moon, ArrowUpRight } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
@@ -7,9 +7,29 @@ import LiveFeed from '../components/LiveFeed';
 import { useSatelliteTracking } from '../hooks/useSatelliteTracking';
 import { useNearestCountry } from '../hooks/useNearestCountry';
 import { SATELLITES, DEFAULT_SATELLITE, satelliteById } from '../data/trackedSatellites';
+import {
+    HANDOFF, SETTLING, IDLE,
+    getTrackerPhase, subscribeTracker, setTrackerPhase,
+} from '../utils/trackerEntry';
+import { useReducedMotion } from '../hooks/useMediaQuery';
 import { useI18n } from '../i18n';
 
 const EARTH_R_KM = 6371;
+
+// How long the globe takes to leave full bleed and settle into its card on a
+// hand-off arrival. The cross-fade before it (TrackerHandoff.jsx) is the cut;
+// this is the beat after it, where the Earth you flew to becomes the Earth in
+// the card rather than being replaced by it.
+//
+// Done with transform and clip-path rather than by animating the element's
+// box: the canvas would otherwise be resized on every frame of it, and a
+// renderer.setSize per frame for three quarters of a second is exactly the
+// kind of cost utils/quality.js exists to keep out of this app. Scaling by
+// the height ratio and clipping to the card's rect happens to land on the
+// identical picture the card renders at its own size — same vertical field of
+// view, same pixels per degree — so the swap at the end has nothing to hide.
+const SETTLE_MS = 760;
+const SETTLE_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
 // Great-circle distance between two lat/lon pairs, in km
 function haversine(a, b) {
@@ -113,6 +133,59 @@ const SatelliteView = () => {
     const [observer, setObserver] = useState(null);
     const [geoError, setGeoError] = useState(null);
 
+    // ── Hand-off arrival ──────────────────────────────────────────────────
+    // Mirrored out of utils/trackerEntry.js rather than held here, for the
+    // usual reason in this codebase: the sequence starts in a component that
+    // has already been unmounted by the time this one mounts.
+    const reduceMotion = useReducedMotion();
+    const cardSlotRef = useRef(null);
+    const [trkPhase, setTrkPhase] = useState(() => getTrackerPhase());
+    const [settleBox, setSettleBox] = useState(null);
+    useEffect(() => subscribeTracker(() => setTrkPhase(getTrackerPhase())), []);
+
+    const arriving = trkPhase === HANDOFF || trkPhase === SETTLING;
+    const settling = trkPhase === SETTLING;
+
+    // Measure the card's resting rect — the slot holds it in the column while
+    // the card itself is lifted out to full bleed, so this is where it lands.
+    useEffect(() => {
+        if (trkPhase !== SETTLING || !cardSlotRef.current) return;
+        const r = cardSlotRef.current.getBoundingClientRect();
+        const vw = window.innerWidth, vh = window.innerHeight;
+        setSettleBox({
+            top: r.top, left: r.left,
+            right: vw - r.right, bottom: vh - r.bottom,
+            scale: r.height / vh,
+            dx: (r.left + r.width / 2) - vw / 2,
+            dy: (r.top + r.height / 2) - vh / 2,
+        });
+        const ms = reduceMotion ? 0 : SETTLE_MS;
+        const done = setTimeout(() => { setTrackerPhase(IDLE); setSettleBox(null); }, ms + 60);
+        return () => clearTimeout(done);
+    }, [trkPhase, reduceMotion]);
+
+    // Leaving mid-arrival must not stick the next one in a half-settled
+    // state, and an arrival is the one time this page owns a global phase.
+    useEffect(() => () => {
+        if (getTrackerPhase() !== IDLE) setTrackerPhase(IDLE);
+    }, []);
+
+    // The scroll position has to be the one the rect was measured at, and an
+    // arrival is also the one case where the page is revealed from behind a
+    // full-bleed globe rather than scrolled to.
+    useEffect(() => {
+        if (arriving) window.scrollTo({ top: 0, behavior: 'instant' });
+    }, [arriving]);
+
+    const settleMs = reduceMotion ? 0 : SETTLE_MS;
+    const clipStart = 'inset(0px 0px 0px 0px round 0px)';
+    const cardClip = settling && settleBox
+        ? `inset(${settleBox.top}px ${settleBox.right}px ${settleBox.bottom}px ${settleBox.left}px round var(--radius-card))`
+        : clipStart;
+    const globeTransform = settling && settleBox
+        ? `translate(${settleBox.dx}px, ${settleBox.dy}px) scale(${settleBox.scale})`
+        : 'translate(0px, 0px) scale(1)';
+
     // Tick once a second so the elements-age readout stays honest
     const [, setNow] = useState(Date.now());
     useEffect(() => {
@@ -152,14 +225,48 @@ const SatelliteView = () => {
 
     return (
         <>
-            <div style={{ position: 'relative', zIndex: 1, minHeight: 'var(--app-vh, 100vh)', paddingTop: 'var(--s-10)' }}>
+            <div style={{
+                position: 'relative',
+                // z-index here is a stacking context, so everything the
+                // arrival layers below is scoped to it — which is the whole
+                // reason it has to be lifted as a block. At its resting 1 the
+                // full-bleed globe sits under the app header (z-50) and under
+                // the reveal below no matter what number either of them
+                // carries, because both of those are resolved against this
+                // one, not against the page.
+                zIndex: arriving ? 260 : 1,
+                minHeight: 'var(--app-vh, 100vh)', paddingTop: 'var(--s-10)',
+            }}>
+                {/* Under the globe, over the page: what the settle reveals
+                    the page out of. Inside this div rather than beside it, so
+                    it is in the same stacking context as the card that has to
+                    cover it. Without it the chrome would simply be there, at
+                    full strength, the instant the clip uncovered it. */}
+                {arriving && (
+                    <div
+                        aria-hidden="true"
+                        style={{
+                            position: 'fixed', inset: 0, zIndex: 240,
+                            background: '#000', pointerEvents: 'none',
+                            opacity: settling ? 0 : 1,
+                            transition: `opacity ${settleMs}ms ease`,
+                        }}
+                    />
+                )}
                 {/* .spine — the same column the header above and the catalog
                     on the home route sit on. */}
                 <div className="spine" style={{ paddingBottom: 'var(--s-10)' }}>
 
                     {/* ── Header ── */}
                     <PageHeader
-                        onBack={() => navigate(-1)}
+                        // navigate('/') rather than back, the same choice
+                        // NightSkyPage makes and for the same reason: the
+                        // solar system remounts unfocused, finds the exit
+                        // state the hand-off left behind, and pulls the
+                        // camera back out from Earth instead of cutting to a
+                        // wide shot. It is also the only sane answer for
+                        // someone who arrived here on a shared link.
+                        onBack={() => navigate('/')}
                         backLabel={t('tracker.back')}
                         title={t('tracker.title')}
                         subtitle={t('tracker.subtitle', { name: bodyName(def.shortName), norad: def.norad })}
@@ -209,15 +316,42 @@ const SatelliteView = () => {
                     </div>
 
                     {/* ── Globe ── */}
+                    {/* The slot is what keeps the column's layout still: on a
+                        hand-off arrival the card is lifted out to position:
+                        fixed for the settle, and without something holding its
+                        height here everything below would jump up and back. */}
                     <div
-                        className="glass"
+                        ref={cardSlotRef}
+                        style={{ position: 'relative', height: 'clamp(340px, 56vh, 620px)' }}
+                    >
+                    <div
+                        className={arriving ? undefined : 'glass'}
                         style={{
-                            position: 'relative',
-                            height: 'clamp(340px, 56vh, 620px)',
+                            position: arriving ? 'fixed' : 'absolute',
+                            inset: 0,
+                            zIndex: arriving ? 250 : undefined,
                             overflow: 'hidden',
                             padding: 0,
+                            // Black, not glass, while it is the whole screen:
+                            // a translucent blurred panel over the entire
+                            // viewport is not what the shot cuts to.
+                            background: arriving ? '#000' : undefined,
+                            clipPath: arriving ? cardClip : undefined,
+                            transition: settling
+                                ? `clip-path ${settleMs}ms ${SETTLE_EASE}`
+                                : undefined,
                         }}
                     >
+                        <div
+                            style={{
+                                width: '100%', height: '100%',
+                                transformOrigin: 'center center',
+                                transform: arriving ? globeTransform : undefined,
+                                transition: settling
+                                    ? `transform ${settleMs}ms ${SETTLE_EASE}`
+                                    : undefined,
+                            }}
+                        >
                         <SatelliteGlobe
                             satellites={satellites}
                             selectedId={selectedId}
@@ -226,6 +360,7 @@ const SatelliteView = () => {
                             observer={observer}
                             onUserTakeOver={() => setFollow(false)}
                         />
+                        </div>
 
                         {status !== 'ready' && satellites.length === 0 && (
                             <div style={{
@@ -238,7 +373,12 @@ const SatelliteView = () => {
                         )}
 
                         {/* Overlay controls */}
-                        <div style={{ position: 'absolute', top: 12, insetInlineEnd: 12, display: 'flex', gap: 8 }}>
+                        <div style={{
+                            position: 'absolute', top: 12, insetInlineEnd: 12, display: 'flex', gap: 8,
+                            opacity: arriving ? 0 : 1,
+                            pointerEvents: arriving ? 'none' : 'auto',
+                            transition: `opacity ${settleMs}ms ease`,
+                        }}>
                             <button
                                 onClick={() => setFollow(f => !f)}
                                 aria-pressed={follow}
@@ -264,9 +404,12 @@ const SatelliteView = () => {
                         <p style={{
                             position: 'absolute', bottom: 10, insetInlineStart: 14, margin: 0,
                             fontSize: 10, color: 'rgba(255,255,255,0.35)', pointerEvents: 'none',
+                            opacity: arriving ? 0 : 1,
+                            transition: `opacity ${settleMs}ms ease`,
                         }}>
                             {t('tracker.orbitCaption', { name: bodyName(def.shortName) })}
                         </p>
+                    </div>
                     </div>
 
                     {/* ── Telemetry for the selected craft ── */}

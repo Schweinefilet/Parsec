@@ -2,34 +2,20 @@ import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { quality, texturePath, pixelRatioFor } from '../utils/quality';
+import { subsolar, latLonToVec3 } from '../utils/subsolar';
+import {
+    isTrackerArriving, markTrackerGlobeReady, handoffDistance,
+} from '../utils/trackerEntry';
 
 const R = 2;                    // Earth radius in scene units
 const ALT_SCALE = 1 / 6371;     // km → Earth radii, so altitude is to scale
 
 // Equirectangular lat/lon (degrees) → position on a three.js SphereGeometry.
+// The convention itself lives in utils/subsolar.js, because the solar-system
+// scene has to place points by the same rule for the tracker hand-off to land
+// on the same ground; this is the local spelling that defaults `out`.
 function toVec3(lat, lon, radius, out = new THREE.Vector3()) {
-    const la = (lat * Math.PI) / 180;
-    const lo = (lon * Math.PI) / 180;
-    return out.set(
-        radius * Math.cos(la) * Math.cos(lo),
-        radius * Math.sin(la),
-        -radius * Math.cos(la) * Math.sin(lo),
-    );
-}
-
-// Sub-solar point for a given time — drives the terminator.
-// Declination and the equation-of-time correction are the standard low-precision
-// solar position formulas; well inside a pixel at this globe size.
-function subsolar(date) {
-    const start = Date.UTC(date.getUTCFullYear(), 0, 0);
-    const dayOfYear = (date.getTime() - start) / 86400000;
-    const g = (357.529 + 0.98560028 * dayOfYear) * Math.PI / 180;
-    const decl = 23.44 * Math.sin((2 * Math.PI * (dayOfYear - 81)) / 365.24) * Math.PI / 180;
-    const eot = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g)
-        - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g)); // minutes
-    const utcMinutes = date.getUTCHours() * 60 + date.getUTCMinutes() + date.getUTCSeconds() / 60;
-    const lon = -((utcMinutes + eot) / 4 - 180);
-    return { lat: (decl * 180) / Math.PI, lon };
+    return latLonToVec3(lat, lon, radius, out);
 }
 
 /**
@@ -79,6 +65,26 @@ const SatelliteGlobe = ({
         const camera = new THREE.PerspectiveCamera(38, w / h, 0.05, 100);
         camera.position.set(0, 2.4, 7.4);
 
+        // Arriving through the hand-off from the solar system, this opens on
+        // the pose that scene just pulled back to rather than its own default
+        // three-quarter view: looking straight down the sun line at the
+        // sub-solar point, north up, far enough out that Earth's disc spans
+        // the same share of the frame. Both sides compute this from the clock
+        // alone (utils/trackerEntry.js explains why that is all it takes), so
+        // nothing has to be handed across but the fact that it is happening.
+        //
+        // Note this is the same distance the default view uses — 3.89 Earth
+        // radii, which is where 7.4/2.4 came from in the first place. Only the
+        // direction differs.
+        let dayMapReady = false;
+        let firstFrameDrawn = false;
+        if (isTrackerArriving()) {
+            const ss = subsolar(new Date());
+            toVec3(ss.lat, ss.lon, handoffDistance(camera.fov) * R, camera.position);
+            camera.up.set(0, 1, 0);
+            camera.lookAt(0, 0, 0);
+        }
+
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.07;
@@ -113,8 +119,10 @@ const SatelliteGlobe = ({
         const uniforms = {
             dayMap:       { value: null },
             nightMap:     { value: null },
+            cloudsMap:    { value: null },
             sunDirection: { value: new THREE.Vector3(1, 0, 0) },
             hasNight:     { value: 0 },
+            hasClouds:    { value: 0 },
         };
         const earthMat = new THREE.ShaderMaterial({
             uniforms,
@@ -130,8 +138,10 @@ const SatelliteGlobe = ({
             fragmentShader: `
                 uniform sampler2D dayMap;
                 uniform sampler2D nightMap;
+                uniform sampler2D cloudsMap;
                 uniform vec3 sunDirection;
                 uniform float hasNight;
+                uniform float hasClouds;
                 varying vec2 vUv;
                 varying vec3 vNormalW;
                 void main() {
@@ -143,6 +153,18 @@ const SatelliteGlobe = ({
                         ? texture2D(nightMap, vUv).rgb * 1.15
                         : day * 0.06;
                     vec3 col = mix(night, day, blend);
+                    // Same cloud layer, and the same way of mixing it in, as
+                    // the solar-system scene's Earth — baked into this sphere
+                    // rather than hung on a second one. It is the third of
+                    // that scene's three Earth maps and was the one thing
+                    // still missing here, which the tracker hand-off made
+                    // visible: a dissolve between a clouded Earth and a clear
+                    // one is a dissolve you can see.
+                    if (hasClouds > 0.5) {
+                        vec4 clouds = texture2D(cloudsMap, vUv);
+                        vec3 cloudColor = mix(clouds.rgb * 0.05, clouds.rgb, blend);
+                        col = mix(col, cloudColor, clouds.r * 0.85);
+                    }
                     // Cool rim where the limb catches light
                     float rim = pow(1.0 - abs(c), 3.0) * 0.16;
                     col += vec3(0.25, 0.45, 0.85) * rim;
@@ -155,17 +177,42 @@ const SatelliteGlobe = ({
 
         const loader = new THREE.TextureLoader();
         const loaded = [];
+        // None of these three declare a colour space, which is deliberate and
+        // is what the solar-system scene's Earth does too.
+        //
+        // The shader below writes gl_FragColor itself without three's
+        // <colorspace_fragment> chunk, so whatever it computes goes to the
+        // framebuffer as-is. Tagging the maps SRGBColorSpace — which this did
+        // until the hand-off put the two Earths side by side — makes
+        // texture2D() decode them to linear on the way in with nothing to
+        // re-encode them on the way out, and the planet renders at about a
+        // third of the brightness it should, muddy and desaturated with it.
+        // Leaving them untagged passes the bytes through, which is the pair
+        // of wrongs that makes a right here and, more to the point, is the
+        // same pair the rest of the app already relies on.
         loader.load(texturePath('earth.jpg'), (t) => {
             if (!mounted) { t.dispose(); return; }
-            t.colorSpace = THREE.SRGBColorSpace;
             uniforms.dayMap.value = t;
             loaded.push(t);
+            // The frame after this is the first one with a planet in it
+            // rather than a black sphere, which is the first one the tracker
+            // hand-off can dissolve to. Flagged for the animate loop rather
+            // than announced from here: the texture being assigned is not the
+            // same instant as it having been drawn.
+            dayMapReady = true;
         });
         loader.load(texturePath('earth_night.jpg'), (t) => {
             if (!mounted) { t.dispose(); return; }
-            t.colorSpace = THREE.SRGBColorSpace;
             uniforms.nightMap.value = t;
             uniforms.hasNight.value = 1;
+            loaded.push(t);
+        });
+        // Same file the solar-system scene loads for Earth, so on an arrival
+        // through the hand-off this is already in cache.
+        loader.load(texturePath('earth_clouds.jpg'), (t) => {
+            if (!mounted) { t.dispose(); return; }
+            uniforms.cloudsMap.value = t;
+            uniforms.hasClouds.value = 1;
             loaded.push(t);
         });
 
@@ -355,7 +402,17 @@ const SatelliteGlobe = ({
             // user takes over. Bias part of the way toward the sub-solar point
             // so the shot includes the lit limb and terminator rather than
             // staring at an unlit hemisphere whenever it is over Earth's night.
-            if (haveFocus && api.current.follow && !userDriving) {
+            // Nothing moves for the whole arrival: the dissolve is between
+            // two frames that match, and a camera already drifting off the
+            // pose during it is the one thing that would give the cut away.
+            // It stays held through the settle as well, so the beats read one
+            // at a time — the globe shrinks into its card still showing the
+            // face you flew to, and only then glides round to find the craft.
+            // Letting follow start at the cut meant arriving and immediately
+            // whipping most of the way round the planet, which made the
+            // matched frame it arrived on look like an accident.
+            const handingOff = isTrackerArriving();
+            if (haveFocus && api.current.follow && !userDriving && !handingOff) {
                 const dist = camera.position.length();
                 _camWanted.copy(focusCurrent).normalize()
                     .addScaledVector(_sun, 0.55)
@@ -371,8 +428,17 @@ const SatelliteGlobe = ({
                 camera.position.lerp(_camWanted, 0.012).setLength(dist);
             }
 
+            // Still called during the hand-off: with no input pending,
+            // damping resolves to the pose it is already at, and skipping it
+            // would only mean the controls' own spherical state was stale
+            // the moment the user first touched the globe.
             controls.update();
             renderer.render(scene, camera);
+
+            if (dayMapReady && !firstFrameDrawn) {
+                firstFrameDrawn = true;
+                markTrackerGlobeReady();
+            }
         };
         animate();
 

@@ -37,6 +37,12 @@ import {
     ARMED, APPROACHING, CURTAIN, ARRIVAL_ALTITUDE,
     getSkyEntryPhase, getSkyEntryObserver, setSkyEntryPhase, resetSkyEntry,
 } from '../utils/skyEntry';
+import {
+    ARMED as TRK_ARMED, APPROACHING as TRK_APPROACHING, HANDOFF as TRK_HANDOFF,
+    getTrackerPhase, setTrackerPhase, setTrackerSnapshot, resetTrackerEntry,
+    handoffDistance,
+} from '../utils/trackerEntry';
+import { subsolar, latLonToVec3 } from '../utils/subsolar';
 import { GRAVITY_BODIES, WEIGHT_CONFIG } from '../utils/gravityModel';
 import { makeGravityGrid } from '../utils/gravityGrid';
 import { makeGravityLines } from '../utils/gravityLines';
@@ -337,6 +343,49 @@ const SolarSystem3D = ({
         const skyHoldQuat    = new THREE.Quaternion();
         const skyHoldTarget  = new THREE.Vector3();
 
+        // ── Tracker hand-off (/satellites' arrival) ───────────────────────────
+        // utils/trackerEntry.js holds the cross-route phase and the reasoning
+        // for the whole sequence; this is the camera half. Armed by whichever
+        // control asked for the tracker, which then navigates to /object/iss —
+        // so the ordinary fly-in is stage one and this picks up where it ends.
+        //
+        // Two beats, not one (which is the opposite of the sky dive's single
+        // span, and for the opposite reason): there, the descent and the turn
+        // are one motion and stitching them read as two clips. Here the hold
+        // on the station and the pull-back are genuinely two things — the shot
+        // is "here is the station, now here is where it lives" — and running
+        // them off one curve would mean the camera was already retreating
+        // before you had a chance to look at what it flew you to.
+        const TRK_HOLD_SECONDS = 0.55;
+        const TRK_PULL_SECONDS = 2.0;
+        // Where the station starts dissolving. Its position in this scene is
+        // a decorative circular orbit at an arbitrary phase, not a TLE — so
+        // the green dot on the far side of the cut is somewhere else entirely,
+        // and a station still in frame at the dissolve would be contradicted
+        // by it. Gone before the cut, the shot still reads as the station
+        // becoming a dot; left in, it reads as the dot being in the wrong place.
+        const TRK_FADE_FROM = 0.55;
+        let trkStage = 0;          // 0 idle · 1 holding on the station · 2 pulling back
+        let trkTimer = 0;
+        let trkProgress = 0;
+        let trkHolding = false;    // same job as skyHolding — see its comment
+        let trkStartDist = 0;
+        const trkStartDir    = new THREE.Vector3();
+        const trkStartQuat   = new THREE.Quaternion();
+        const trkStartEarthQ = new THREE.Quaternion();
+        const trkTargetEarthQ = new THREE.Quaternion();
+        const trkEndQuat     = new THREE.Quaternion();
+        const trkEarthPos    = new THREE.Vector3();
+        const trkLocalSun    = new THREE.Vector3();
+        const trkWorldSun    = new THREE.Vector3();
+        const trkCamPoint    = new THREE.Vector3();
+        const trkUp          = new THREE.Vector3();
+        const trkDir         = new THREE.Vector3();
+        const trkLookMat     = new THREE.Matrix4();
+        const trkHoldCamPos  = new THREE.Vector3();
+        const trkHoldQuat    = new THREE.Quaternion();
+        const TRK_NORTH      = new THREE.Vector3(0, 1, 0);
+
         // ── Chase-camera state ────────────────────────────────────────────────
         // OrbitControls pins the camera in world space, so when the focused
         // body travels through time — a slider scrub, or the timeline's "back
@@ -457,6 +506,23 @@ const SolarSystem3D = ({
         // sample per point is the smoother curve.
         const TRAIL_REACH = 38;
         const TRAIL_OPACITY = 0.55;
+        // Moon trails: the same idea one level down, drawn only for the moons
+        // of whichever planet is focused. Built from moonOffset() sampled
+        // backwards from the moon's live angle rather than from a baseline
+        // point list the way a planet's is — a moon's path here *is* that
+        // parametric circle, so there is nothing to search for a nearest
+        // sample of, and the arc is exact at any true-size factor for free.
+        //
+        // A moon sweeps its whole orbit in seconds at MOON_SPEED, so this is
+        // a span of the orbit rather than a count of samples: a fixed sample
+        // count would draw a wildly different arc for Phobos (7.7h) than for
+        // Iapetus (79d). Just over a quarter-turn reads as motion without
+        // closing into something that looks like a ring.
+        const MOON_TRAIL_REACH = 40;
+        const MOON_TRAIL_SPAN = Math.PI * 0.55;
+        const MOON_TRAIL_OPACITY = 0.6;
+        // moon.name → { line, geo, mat, color }
+        const moonTrails = new Map();
         // How much of the ring's normal resting opacity survives while
         // trails are on — a faint guide rather than a competing bright
         // line, so the colour-tinted trail is what actually reads. Not
@@ -1997,6 +2063,35 @@ const SolarSystem3D = ({
             mats.push(moonMat);
             moonMeshRefs.set(moon.name, moonMesh);
 
+            // ── Moon trail ────────────────────────────────────────────────
+            // World-space like the moon mesh itself (both are added to the
+            // scene and positioned absolutely, rather than parented to the
+            // planet), so the trail is written as parent position + offset
+            // every frame exactly the way the moon's own position is.
+            const mTrailPos = new Float32Array((MOON_TRAIL_REACH + 1) * 3);
+            const mTrailCol = new Float32Array((MOON_TRAIL_REACH + 1) * 3);
+            const mTrailGeo = new THREE.BufferGeometry();
+            mTrailGeo.setAttribute('position', new THREE.BufferAttribute(mTrailPos, 3).setUsage(THREE.DynamicDrawUsage));
+            mTrailGeo.setAttribute('color', new THREE.BufferAttribute(mTrailCol, 3).setUsage(THREE.DynamicDrawUsage));
+            const mTrailMat = new THREE.LineBasicMaterial({
+                vertexColors: true, transparent: true, opacity: 0, depthWrite: false,
+            });
+            const mTrailLine = new THREE.Line(mTrailGeo, mTrailMat);
+            // Same reason as the planet trails: the buffer is rewritten from
+            // the render loop, so the bounding sphere three computes on first
+            // sight — from an all-zero buffer at the origin — would cull the
+            // trail the moment the Sun left the frame, which focusing a
+            // planet is precisely the case that does that.
+            mTrailLine.frustumCulled = false;
+            mTrailLine.visible = false;
+            scene.add(mTrailLine);
+            geos.push(mTrailGeo);
+            mats.push(mTrailMat);
+            moonTrails.set(moon.name, {
+                line: mTrailLine, geo: mTrailGeo, mat: mTrailMat,
+                color: new THREE.Color(moon.color),
+            });
+
             if (moon.id && MOON_TEXTURES[moon.id]) {
                 loader.load(texturePath(MOON_TEXTURES[moon.id]), (tex) => {
                     if (!mounted) { tex.dispose(); return; }
@@ -2531,6 +2626,15 @@ const SolarSystem3D = ({
         const positionLabels = () => {
             const els = labelElsRef.current;
             if (els.size === 0) return;
+            // Nothing but the planet during the tracker pull-back. The cut is
+            // to a globe that carries no names, so a label still standing
+            // here is a caption that vanishes halfway through the dissolve.
+            if (trkStage === 2 || trkHolding) {
+                for (const el of els.values()) {
+                    if (el.style.visibility !== 'hidden') el.style.visibility = 'hidden';
+                }
+                return;
+            }
             labelSpots.length = 0;
             for (const t of labelTargets) {
                 const el = els.get(t.key);
@@ -3250,6 +3354,21 @@ const SolarSystem3D = ({
                     resetSkyEntry();
                     skyApproachAnimating = false;
                 }
+                // Same for the tracker hand-off, which is anchored on the
+                // station rather than on Earth. Restores what the pull-back
+                // was part-way through changing: the station's own material
+                // and the camera's roll, neither of which the ordinary focus
+                // machinery knows it touched.
+                if (currentFocusedId !== 'iss' && trkStage > 0 && !trkHolding) {
+                    trkStage = 0;
+                    const issMesh = moonMeshRefs.get('ISS');
+                    if (issMesh?.material) {
+                        issMesh.material.opacity = 1;
+                        issMesh.material.transparent = false;
+                    }
+                    camera.up.set(0, 1, 0);
+                    resetTrackerEntry();
+                }
                 setMoonLabelsReady(false);
                 prevFocusedId  = currentFocusedId;
             }
@@ -3319,6 +3438,7 @@ const SolarSystem3D = ({
                 scrubBase = null;
             }
 
+            const moonTrailsOn = getTrailsOn();
             MOON_DATA.forEach(moon => {
                 const parentGroup = planetMeshRefs.get(moon.parent);
                 const moonMesh    = moonMeshRefs.get(moon.name);
@@ -3351,6 +3471,62 @@ const SolarSystem3D = ({
                 moonMesh.position.set(mx, my, mz);
                 const hitMesh = moonHitRefs.get(moon.name);
                 if (hitMesh) hitMesh.position.set(mx, my, mz);
+
+                // ── Moon trail ────────────────────────────────────────────
+                // Only the focused planet's own moons draw one. Everything
+                // else in the system keeps its planet-level trail and would
+                // just be noise at this scale — and a moon's trail is only
+                // legible at all once you are close enough for its orbit to
+                // be more than a few pixels across, which is exactly the
+                // state focusing its planet puts you in.
+                const trail = moonTrails.get(moon.name);
+                if (trail) {
+                    // The moon you are actually looking at hides its own,
+                    // the same way the focused planet hides its planet-level
+                    // trail: at that range the arc sweeps the whole frame and
+                    // is about where the body has been, which is not the
+                    // question you asked by flying to it.
+                    const want = (moonTrailsOn && parentFocused
+                        && moon.id !== currentFocusedId) ? MOON_TRAIL_OPACITY : 0;
+                    trail.mat.opacity += (want - trail.mat.opacity) * ease(0.08);
+                    // Below this the line is invisible anyway, and skipping
+                    // the rewrite is what keeps the other ~20 moons in the
+                    // system free rather than merely cheap.
+                    const lit = trail.mat.opacity > 0.004;
+                    trail.line.visible = lit;
+                    if (lit) {
+                        const rf = moonOrbitFactor(moon, sizeT);
+                        const r = moon.orbitR * (Number.isFinite(rf) ? rf : 1);
+                        // moonOffset() inlined: it returns a fresh object,
+                        // and this is 40 samples per moon per frame rather
+                        // than the one the position above needs.
+                        const incRad = (moon.inc * Math.PI) / 180;
+                        const iSin = Math.sin(incRad), iCos = Math.cos(incRad);
+                        const dir = moon.retrograde ? -1 : 1;
+                        const posA = trail.geo.attributes.position;
+                        const colA = trail.geo.attributes.color;
+                        const c = trail.color;
+                        for (let k = 0; k < MOON_TRAIL_REACH; k++) {
+                            const a = angle - dir * MOON_TRAIL_SPAN * (1 - k / MOON_TRAIL_REACH);
+                            const ca = Math.cos(a) * r, sa = Math.sin(a) * r;
+                            posA.setXYZ(k,
+                                parentGroup.position.x + ca,
+                                parentGroup.position.y + sa * iSin,
+                                parentGroup.position.z + sa * iCos);
+                            // Quadratic taper, matching the planet trails.
+                            const fade = k / MOON_TRAIL_REACH;
+                            const eased = fade * fade;
+                            colA.setXYZ(k, c.r * eased, c.g * eased, c.b * eased);
+                        }
+                        // The head is the moon's actual drawn position, not
+                        // a 41st sample — same reason the planet trails do
+                        // it: the trail should touch the body, not almost.
+                        posA.setXYZ(MOON_TRAIL_REACH, mx, my, mz);
+                        colA.setXYZ(MOON_TRAIL_REACH, c.r, c.g, c.b);
+                        posA.needsUpdate = true;
+                        colA.needsUpdate = true;
+                    }
+                }
             });
 
             // Scale hovered moon hitbox to 1.5× visual radius; restore previous on change
@@ -3490,12 +3666,21 @@ const SolarSystem3D = ({
                 // is read off Earth's live matrixWorld every frame (below), and
                 // a still target is what makes a plain lerp toward it smooth —
                 // otherwise the approach would be chasing a slowly spinning target.
+                // Earth also holds still for the tracker hand-off, and for a
+                // stronger reason than the sky dive's: that approach only
+                // needed a still target to fly at, while this one is turning
+                // Earth to a specific orientation the far side is matching.
+                // Both writes below set the euler, which rebuilds the
+                // quaternion the hand-off block assigns later in the frame,
+                // so the pin has to cover the tilt as well as the spin.
+                const earthPinned = m.userData.id === 'earth'
+                    && (skyApproachAnimating || trkStage === 2 || trkHolding);
                 if (!(m.userData.id === 'halley' && currentFocusedId === 'halley')
-                        && !(m.userData.id === 'earth' && skyApproachAnimating)) {
+                        && !earthPinned) {
                     m.rotation.y += meshRotSpeed * frameScale;
                 }
                 // Smoothly lerp axial tilt instead of snapping (avoids surface-texture jump)
-                const targetZ = tiltTargets.get(m.uuid);
+                const targetZ = earthPinned ? undefined : tiltTargets.get(m.uuid);
                 if (targetZ !== undefined) {
                     const diff = targetZ - m.rotation.z;
                     if (Math.abs(diff) < 0.0002) {
@@ -3984,6 +4169,147 @@ const SolarSystem3D = ({
                 }
             }
 
+            // -- Tracker hand-off: pick up the armed flag once the ISS settles --
+            // Same one-check-covers-both shape as the sky pickup above: the
+            // frame the ordinary fly-in finishes, and arming while already
+            // parked on the station.
+            if (currentFocusedId === 'iss' && earthMesh && !focusAnimating
+                    && getTrackerPhase() === TRK_ARMED) {
+                setTrackerPhase(TRK_APPROACHING);
+                trkStage = 1;
+                trkTimer = 0;
+            }
+
+            // -- Tracker hand-off: hold on the station, then pull back to Earth --
+            if ((trkStage > 0 || trkHolding) && earthMesh) {
+                earthMesh.updateMatrixWorld();
+                earthMesh.getWorldPosition(trkEarthPos);
+
+                if (trkHolding) {
+                    // Re-assert the final frame every frame until the route
+                    // actually changes, for exactly the reason skyHolding
+                    // does - controls.update() has already run this frame
+                    // with its ordinary minDistance and would otherwise
+                    // reclaim the camera the instant the animation stopped.
+                    // Earth is pinned too: its own spin would carry the
+                    // continents off the pose the far side is matching.
+                    camera.position.copy(trkHoldCamPos);
+                    camera.quaternion.copy(trkHoldQuat);
+                    camera.up.copy(trkUp);
+                    controls.target.copy(trkEarthPos);
+                    earthMesh.quaternion.copy(trkTargetEarthQ);
+                } else if (isInteracting) {
+                    // Grabbed the camera mid-flight: drop the choreography,
+                    // keep the destination. Snapshotting from an arbitrary
+                    // pose would hand the tracker a still that matches
+                    // nothing, so this one hands over no snapshot at all and
+                    // TrackerHandoff.jsx falls back to a plain fade.
+                    trkStage = 0;
+                    setTrackerSnapshot(null);
+                    setTrackerPhase(TRK_HANDOFF);
+                } else if (trkStage === 1) {
+                    trkTimer += deltaSec;
+                    if (trkTimer >= TRK_HOLD_SECONDS) {
+                        trkStage = 2;
+                        trkProgress = 0;
+                        trkStartDir.subVectors(camera.position, trkEarthPos);
+                        trkStartDist = trkStartDir.length() || 1e-6;
+                        trkStartDir.normalize();
+                        trkStartQuat.copy(camera.quaternion);
+                        earthMesh.getWorldQuaternion(trkStartEarthQ);
+                    }
+                } else {
+                    // Where the far side will be looking: the real sub-solar
+                    // point, which both scenes derive from the clock alone
+                    // with no data to hand each other.
+                    const ss = subsolar(new Date());
+                    latLonToVec3(ss.lat, ss.lon, 1, trkLocalSun);
+                    // Direction from Earth to the Sun, which sits at the origin.
+                    trkWorldSun.copy(trkEarthPos).negate().normalize();
+                    // Turn Earth so that real sub-solar point faces this
+                    // scene's own Sun. That single constraint buys both
+                    // halves of the match at once: the camera then flies down
+                    // the sun line, so the point at the centre of the frame
+                    // is the sub-solar point (the same ground the globe
+                    // centres) *and* the disc is fully lit with the
+                    // terminator on the limb (the same lighting), without
+                    // having to choose between the two.
+                    trkTargetEarthQ.setFromUnitVectors(trkLocalSun, trkWorldSun);
+
+                    const R = scaledRadius('earth', sizeProgress())
+                        || (PLANETS.find(pl => pl.id === 'earth')?.r ?? 1.31);
+                    const endDist = handoffDistance(camera.fov) * R;
+
+                    trkProgress = Math.min(1, trkProgress + deltaSec / TRK_PULL_SECONDS);
+                    const t = skyEaseInOut(trkProgress);
+
+                    // Distance eases in log space, the same way the ordinary
+                    // focus fly-in does and for the same reason: this leaves
+                    // a body a few metres away for one a couple of hundred
+                    // times its own size out, and a linear ramp across that
+                    // spends its first frames covering most of the ground.
+                    const dist = trkStartDist * Math.pow(endDist / trkStartDist, t);
+                    trkDir.copy(trkStartDir).lerp(trkWorldSun, t).normalize();
+                    camera.position.copy(trkEarthPos).addScaledVector(trkDir, dist);
+
+                    trkCamPoint.copy(trkEarthPos).addScaledVector(trkWorldSun, endDist);
+                    // North up on screen, matching the globe's own camera.up.
+                    trkUp.copy(TRK_NORTH).applyQuaternion(trkTargetEarthQ);
+                    trkLookMat.lookAt(trkCamPoint, trkEarthPos, trkUp);
+                    trkEndQuat.setFromRotationMatrix(trkLookMat);
+                    camera.quaternion.slerpQuaternions(trkStartQuat, trkEndQuat, t);
+                    camera.up.copy(trkUp);
+                    controls.target.copy(trkEarthPos);
+                    earthMesh.quaternion.slerpQuaternions(trkStartEarthQ, trkTargetEarthQ, t);
+
+                    // The near plane was set for a body a few metres across
+                    // and is being pulled back to one that fills the frame -
+                    // left where it was, the depth buffer has no precision
+                    // left to separate Earth from its own far side.
+                    const wantNear = Math.max(R * 0.05, 1e-4);
+                    if (Math.abs(camera.near - wantNear) > wantNear * 0.01) {
+                        camera.near = wantNear;
+                        camera.updateProjectionMatrix();
+                    }
+
+                    // Dissolve the station out - see TRK_FADE_FROM.
+                    const issMesh = moonMeshRefs.get('ISS');
+                    if (issMesh?.material) {
+                        const k = Math.max(0, (trkProgress - TRK_FADE_FROM) / (1 - TRK_FADE_FROM));
+                        issMesh.material.transparent = true;
+                        issMesh.material.opacity = 1 - k;
+                    }
+                    // And its orbit ring with it: a white circle round Earth
+                    // is the one thing in this frame the globe has no answer for.
+                    if (issOrbitMat) issOrbitMat.opacity *= Math.max(0, 1 - deltaSec * 6);
+
+                    if (trkProgress >= 1) {
+                        trkStage = 0;
+                        trkHolding = true;
+                        trkHoldCamPos.copy(camera.position);
+                        trkHoldQuat.copy(camera.quaternion);
+                        // Capture the frame the tracker cross-fades out from.
+                        // Rendered and read in the same synchronous block:
+                        // without preserveDrawingBuffer (which would cost
+                        // every frame of the app's life for one frame's use)
+                        // the buffer is only reliably readable until the task
+                        // that drew it yields.
+                        let url = null;
+                        try {
+                            renderer.render(scene, camera);
+                            url = renderer.domElement.toDataURL('image/jpeg', 0.92);
+                        } catch {
+                            // A tainted or oversized canvas: the cut falls
+                            // back to a plain fade, which is a worse cut but
+                            // not a broken one.
+                            url = null;
+                        }
+                        setTrackerSnapshot(url);
+                        setTrackerPhase(TRK_HANDOFF);
+                    }
+                }
+            }
+
             // Cheap, but there is no need to re-measure forty hitboxes every
             // frame — nothing moves far enough in a sixth of a second to matter.
             if (frameCount % 10 === 0) sizeHitboxes();
@@ -4173,6 +4499,13 @@ const SolarSystem3D = ({
             // leave it alone.
             if (getSkyEntryPhase() === ARMED || getSkyEntryPhase() === APPROACHING) {
                 resetSkyEntry();
+            }
+            // Same rule for the tracker: once it reaches 'handoff' the
+            // sequence belongs to TrackerHandoff.jsx, whose navigate() is
+            // what unmounts this scene. Before that, an unmount means the
+            // visitor left some other way and there is nothing to arrive at.
+            if (getTrackerPhase() === TRK_ARMED || getTrackerPhase() === TRK_APPROACHING) {
+                resetTrackerEntry();
             }
             // Nothing to share once this scene is gone
             setCameraSnapshot(null);

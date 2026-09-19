@@ -305,25 +305,6 @@ body::after {
   opacity: 0;
 }
 
-/* The glow the wordmark stands in. The mark is where the Sun goes in this
-   figure, and without something behind it the centre of a set of concentric
-   orbits reads as empty. Static paint, no animation — it costs one gradient
-   at first paint and nothing thereafter. */
-.boot-core {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: calc(var(--orr-r) * 1.3);
-  height: calc(var(--orr-r) * 1.3);
-  margin-left: calc(var(--orr-r) * 1.3 * -0.5);
-  margin-top: calc(var(--orr-r) * 1.3 * -0.5);
-  border-radius: 50%;
-  background: radial-gradient(circle,
-      rgba(var(--accent-warm-rgb), 0.085) 0%,
-      rgba(var(--accent-warm-rgb), 0.032) 28%,
-      rgba(var(--accent-warm-rgb), 0) 62%);
-}
-
 .boot-ring {
   position: absolute;
   left: 50%;

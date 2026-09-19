@@ -33,7 +33,7 @@ const rowStyle = {
  * ScenePanel.jsx/NightSkyPanel.jsx's edge-anchored scene drawers, which are
  * built around sitting flush with a vertical screen edge, not a header row.
  */
-const HeaderMenu = ({ onShare, copied, onSkyClick, onOpen }) => {
+const HeaderMenu = ({ onShare, copied, onSkyClick, onTrackerClick, onOpen }) => {
     const { t } = useI18n();
     const [open, setOpen] = useState(false);
     const wrapRef = useRef(null);
@@ -103,7 +103,7 @@ const HeaderMenu = ({ onShare, copied, onSkyClick, onOpen }) => {
                         {copied ? t('nav.copied') : t('nav.copyLink')}
                     </button>
 
-                    <Link role="menuitem" to="/satellites" onClick={close} style={rowStyle}>
+                    <Link role="menuitem" to="/satellites" onClick={(e) => { onTrackerClick(e); close(); }} style={rowStyle}>
                         <Satellite style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
                         {t('nav.tracker')}
                     </Link>
