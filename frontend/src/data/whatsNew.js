@@ -20,6 +20,7 @@ export const WHATS_NEW = [
             'The little tab that opens the scene’s view-options drawer is bare arrows again, without the box around it from last release.',
             'The frosted-glass look on cards and panels — most noticeably the description card over a focused planet — is stronger again: more visible, more like glass, less like a faint grey wash.',
             'On a desktop, the small "not to scale" note moved from the bottom-right corner up to the top, under the header icons.',
+            'The interface now reads in Montserrat everywhere it is written left-to-right, instead of the operating system’s own default typeface.',
         ],
     },
     {

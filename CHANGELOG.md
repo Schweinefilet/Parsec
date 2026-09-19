@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.8.3
+
+- **Montserrat, everywhere the interface reads left-to-right.** The `*`
+  font stack used to lead with the OS default (SF Pro on Apple, Segoe UI
+  on Windows), which meant the same page looked like a different piece of
+  software depending on what it was viewed on. Montserrat now loads from
+  Google Fonts (variable weight, 300–800) and sits first in that stack, so
+  English and Vietnamese render in the same typeface everywhere; the old
+  system stack stays as the fallback for the moment before the webfont
+  arrives. Arabic is untouched — Montserrat has no Arabic glyphs, and the
+  `:root[lang="ar"] *` rule already overrides the plain `*` rule by
+  specificity, so it keeps rendering in SF Arabic / Segoe UI / Noto Sans
+  Arabic as before.
+
+---
+
 ## 5.8.2
 
 - **The scale disclaimer moved to the top of the screen, on desktop.** It sat
