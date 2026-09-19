@@ -12,11 +12,19 @@
 //
 // Stage 2 is deliberately merciless. At one scale a unit is 1.56 million km,
 // so Earth is four thousandths of a unit across while its orbit is ninety-six
-// — every body in the scene is far below a pixel from the default view, and
-// what is left on screen is orbit rings, labels and a great deal of nothing.
-// That emptiness is the honest picture, and nothing here props it up with a
-// minimum dot size: fly to a body and it grows into its real proportions,
-// which is the only way anything in this solar system is ever actually seen.
+// — every body in the scene is far below a pixel from the default *camera*
+// framing, and what is left on screen is orbit rings, labels and a great deal
+// of nothing. That emptiness is the honest picture, and nothing here props it
+// up with a minimum dot size: fly to a body and it grows into its real
+// proportions, which is the only way anything in this solar system is ever
+// actually seen.
+//
+// Stage 2 is also where the site now opens (`stage` below), at the owner's
+// request — every fresh page load starts here rather than at stage 0, since
+// nothing persists a visitor's choice across visits and this module's default
+// is therefore the site's default. A shared-view link still overrides it
+// (CategoryBrowser reads `sharedView.scaleStage` once on mount), and cycling
+// still runs 0 → 1 → 2 → 0 starting whichever stage you're on.
 //
 // Held here rather than in React state for the same reason simTime is: the
 // render loop reads it every frame, and a two-second transition should not be
@@ -42,10 +50,16 @@ const DURATION_MS = 2200;
 // Two channels — how true the distances are, and how true the sizes are —
 // eased on one shared clock. Cycling from stage 2 back to 0 moves both at
 // once, which is the only case where they travel together.
-let distFrom = 0, distTo = 0;
-let sizeFrom = 0, sizeTo = 0;
+//
+// Starting both channels already at 1, with startedAt left at -Infinity
+// (channel() below returns `to` outright once `now` has cleared
+// startedAt + DURATION_MS, which -Infinity always has), lands the very first
+// frame already at true distances and true sizes with nothing to animate —
+// the opening view is the resting state, not a transition into it.
+let distFrom = 1, distTo = 1;
+let sizeFrom = 1, sizeTo = 1;
 let startedAt = -Infinity;
-let stage = SCALE_COMPRESSED;
+let stage = SCALE_SIZES;
 
 const listeners = new Set();
 const notify = () => listeners.forEach(fn => fn());

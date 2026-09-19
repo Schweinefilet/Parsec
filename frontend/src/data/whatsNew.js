@@ -12,6 +12,15 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.8',
+        changes: [
+            'The solar system now opens already at true distances and true sizes — the honest, mostly-empty view of how far apart everything really is — rather than the compressed layout. Fly to any body to see it fill the frame.',
+            'Fixed focused planets sometimes not appearing at all under that new default — the camera could end up closer to a shrunk-down planet than the scene renders anything, which is now corrected.',
+            'The little tab that opens the scene’s view-options drawer is bare arrows again, without the box around it from last release.',
+            'The frosted-glass look on cards and panels — most noticeably the description card over a focused planet — is stronger again: more visible, more like glass, less like a faint grey wash.',
+        ],
+    },
+    {
         version: '5.7',
         changes: [
             'The loading screen is an orrery: four orbits turning around the wordmark, each with a planet on it, and the four light up one by one as the scene loads. It used to be a bar and a list of filenames.',

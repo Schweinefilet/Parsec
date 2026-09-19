@@ -16,6 +16,59 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.8.0
+
+- **The scene now opens at true distances and true sizes, at the owner's
+  request.** `scaleMode.js`'s three stages — compressed, true distances, true
+  distances and sizes — used to default to compressed on every fresh page
+  load, nothing here persists a visitor's choice, so the module's own default
+  *is* the site's default. It now starts at stage 2 outright (`distFrom`,
+  `distTo`, `sizeFrom` and `sizeTo` all begin at 1, with `startedAt` already
+  past its own transition window), so the very first frame is the resting
+  state rather than an animated arrival at it. A shared-view link still
+  overrides it, same as before.
+
+  That surfaced a real bug rather than just a starker home view: focusing any
+  body smaller than the Sun landed the camera *inside* its own near clipping
+  plane. The fly-in distance is `focusDistDrawn * lastFocusSizeF` — deliberately
+  scaled down by the same factor a body's radius is, so it keeps filling the
+  same fraction of the frame it always did as it shrinks toward its true size
+  — and for a body drawn at true scale that factor is on the order of a
+  thousandth. Mars landed the camera roughly 0.018 units from a planet with
+  nothing rendering closer than 1 unit; the whole body was clipped out of the
+  frustum, and its object page opened onto an empty scene. The same formula
+  runs a second time, unguarded, when a stage change lands while something is
+  already focused, so both the initial fly-in and that settle pass are now
+  floored at `camera.near * 2.2` — just enough to clear the plane, since
+  floored any further out only shrinks an already-tiny body further. A
+  terrestrial planet is still a near-invisible speck at true scale — that is
+  the stage doing exactly what it says on the tin — but it is now an honest
+  speck rather than a rendering bug wearing its costume. Gas giants clear the
+  floor with real margin: Jupiter still reads as a small textured disc.
+
+- **The scene drawer's tab lost its box.** 5.7.0 put it on a rail flush to the
+  window edge, reasoning a bare glyph over a black scene read as a stray mark
+  rather than a control. Asked to take the box back off regardless — it read
+  as chrome sitting on top of the scene rather than as part of it — so it is
+  bare chevrons again, legibility carried by a drop-shadow behind the ink and
+  an opacity lift on hover/focus instead of a background plate.
+
+- **Liquid glass is back.** The same 5.7.0 pass that unified every hand-rolled
+  translucent panel into one `--panel-*`/`.glass` recipe also, as a side
+  effect, thinned it a good deal past the "iOS 26 Liquid Glass" look the site
+  had before — fill opacity roughly halved (0.08 → 0.045), border opacity
+  roughly halved again (0.18 → 0.09) — which was most visible on the
+  focused-object description card, a glass pane sitting directly over the
+  scene. `--panel-bg`, `--panel-bg-hover`, `--panel-border`, `--panel-border-hi`
+  and `--specular` are now brighter than the original values, not just restored
+  to them, paired with a stronger, more saturated blur (`saturate(170%)` over
+  the original `saturate(50%)`) that lifts the colour of whatever sits behind
+  the pane instead of dulling it. One token family, so every `.glass` surface
+  site-wide picks it up together rather than the description card getting a
+  one-off fix that drifts from everything else again.
+
+---
+
 ## 5.7.1
 
 - **The loading screen is an orrery now.** It is the first thing anyone sees

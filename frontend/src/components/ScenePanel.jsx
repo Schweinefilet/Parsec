@@ -55,13 +55,12 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage
             : 'scene.compressedDistances';
 
     const slide = reduced ? 'none' : 'transform 320ms var(--ease-glide), inset-inline-start 320ms var(--ease-glide)';
-    // The tab carries its own hover treatment (background, width — see
-    // .edge-tab), and an inline `transition` replaces the class's outright
-    // rather than adding to it, so both halves have to be named here.
+    // The tab carries its own hover treatment (opacity — see .edge-tab), and
+    // an inline `transition` replaces the class's outright rather than
+    // adding to it, so both halves have to be named here.
     const tabSlide = reduced
         ? 'none'
-        : `${slide}, background var(--t-base) var(--ease-out),`
-          + ' border-color var(--t-base) var(--ease-out), width var(--t-base) var(--ease-out)';
+        : `${slide}, opacity var(--t-base) var(--ease-out)`;
     const hiddenX = rtl ? 'translateX(100%)' : 'translateX(-100%)';
 
     // The handle mark is the focused-object sheet's pull handle laid on its
@@ -101,15 +100,13 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage
                 {/* The tab comes first in the DOM so a keyboard opening it then
                     tabs straight into the controls, not past them. Its place on
                     screen is set by position, not order. */}
-                {/* A pull handle on the edge of the screen, not a bare glyph
-                    floating in the starfield. It used to be two transparent
-                    chevrons with no box at all, which over a black scene read
-                    as a stray mark rather than as something to take hold of —
-                    there was nothing to say it was a control, or that it
-                    belonged to the edge. The rail below is flush to that edge
-                    and rounded only on the side facing into the scene, so it
-                    reads as a tab attached to the window. It still bobs while
-                    closed. */}
+                {/* Bare chevrons, no rail. 5.7.0 put this on a boxed plate flush
+                    to the window edge for affordance; asked to take the box
+                    back off, since a docked rail read as chrome sitting on
+                    top of the scene rather than as part of it. Legibility now
+                    comes from a drop-shadow behind the ink (see .edge-tab in
+                    index.css) instead of a background plate. It still bobs
+                    while closed. */}
                 <button
                     onClick={toggleOpen}
                     aria-expanded={open}

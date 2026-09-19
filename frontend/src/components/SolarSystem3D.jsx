@@ -2756,6 +2756,19 @@ const SolarSystem3D = ({
                         camera.position.sub(pivot).multiplyScalar(ratio).add(pivot);
                         focusEndCamPos.sub(pivot).multiplyScalar(ratio).add(pivot);
                         lastFocusSizeF = f;
+                        // Same near-clip floor as the initial fly-in (see the
+                        // comment on `dist` above): cycling into true sizes
+                        // while already focused on something small enough
+                        // shrinks `ratio` well past what would put the camera
+                        // inside camera.near, and this ratchet has no other
+                        // guard against that — it only ever scales whatever
+                        // distance it is handed.
+                        const nearPos = camera.position.distanceTo(pivot);
+                        if (nearPos < camera.near * 2.2 && nearPos > 1e-9) {
+                            const push = (camera.near * 2.2) / nearPos;
+                            camera.position.sub(pivot).multiplyScalar(push).add(pivot);
+                            focusEndCamPos.sub(pivot).multiplyScalar(push).add(pivot);
+                        }
                     }
                 }
                 sizeSettlePending = true;
@@ -2773,7 +2786,12 @@ const SolarSystem3D = ({
                 if (!focusId) {
                     sizeSettlePending = false;   // nothing focused, nothing to re-frame
                 } else if (pivot && focusDistDrawn > 0) {
-                    const want = focusDistDrawn * bodyScaleFactor(focusId, sizeT);
+                    // Floored the same way the initial fly-in's `dist` is —
+                    // this is the pass the comment above calls authoritative,
+                    // so if it re-asserts the unfloored distance it would
+                    // undo that floor the moment the size transition settles.
+                    const want = Math.max(
+                        focusDistDrawn * bodyScaleFactor(focusId, sizeT), camera.near * 2.2);
                     // Mid fly-in it is the destination that needs correcting,
                     // not where the camera has got to — and the flag is held
                     // until that flight lands, because a load that arrives
@@ -2984,7 +3002,19 @@ const SolarSystem3D = ({
                         focusDistDrawn = baseDist * (camera.aspect < 1
                             ? Math.min(2.0, Math.pow(1 / camera.aspect, 0.8))
                             : 1);
-                        const dist = focusDistDrawn * lastFocusSizeF;
+                        // Floored at just past the near clip plane. True sizes
+                        // shrinks a planet to a few thousandths of a drawn
+                        // unit, and this formula scales distance down with it
+                        // — for anything but the Sun (SUN_RADIUS=12 makes even
+                        // its true 0.45-unit radius land comfortably outside
+                        // the plane on its own), that lands the camera closer
+                        // than camera.near (1 unit), which does not render a
+                        // very small planet: it clips the whole body out of
+                        // the frustum, leaving nothing on screen at all. The
+                        // floor keeps the camera just outside that plane
+                        // instead — the body is still a tiny, honest speck at
+                        // true sizes, not a rendering bug pretending to be one.
+                        const dist = Math.max(focusDistDrawn * lastFocusSizeF, camera.near * 2.2);
                         // Normally the user's azimuth is kept, which is right
                         // for a planet: whichever side you approached from is
                         // the side you meant. Read off the camera's own current

@@ -29,19 +29,26 @@ const ENCOUNTERS = {
     'new-horizons': [['Jupiter', '2007-02-28']],
 };
 
+// Every call below pins progress explicitly to 0 (fully compressed). These
+// tests are about the compression curve itself — the drawn-ring mapping — not
+// about whatever scaleMode's live default happens to be, and that default is
+// no longer 0: the site now opens at true distances and sizes (scaleMode.js).
+// Leaving the argument out would let `sceneRadiusForAU`'s own default,
+// `scaleProgress()`, silently pick up the app-wide default instead, which is
+// exactly what broke this file the last time that default changed.
 describe('sceneRadiusForAU', () => {
     it('puts every planet on exactly the ring it is drawn on', () => {
         // The map is derived from these pairs, so this is the check that the
         // derivation still holds if someone moves a ring or corrects an axis.
         for (const p of PLANETS) {
-            expect(sceneRadiusForAU(p.au), p.id).toBeCloseTo(p.orbitR, 6);
+            expect(sceneRadiusForAU(p.au, 0), p.id).toBeCloseTo(p.orbitR, 6);
         }
     });
 
     it('never doubles back', () => {
         let prev = 0;
         for (let au = 0.05; au < 250; au *= 1.05) {
-            const r = sceneRadiusForAU(au);
+            const r = sceneRadiusForAU(au, 0);
             expect(r).toBeGreaterThan(prev);
             prev = r;
         }
@@ -49,7 +56,7 @@ describe('sceneRadiusForAU', () => {
 
     it('compresses — the outer system is not 30× the inner one', () => {
         // Neptune is 30 AU to Earth's 1, but only 3.5 rings out
-        expect(sceneRadiusForAU(30.069) / sceneRadiusForAU(1)).toBeLessThan(4);
+        expect(sceneRadiusForAU(30.069, 0) / sceneRadiusForAU(1, 0)).toBeLessThan(4);
     });
 });
 
@@ -87,11 +94,17 @@ describe('Voyager tracks', () => {
         // This is also the frame check. The pinned vectors this replaced were
         // ecliptic while the scene is equatorial, which would throw the probe
         // ~77 units off Jupiter's ring rather than the ~1 seen here.
+        //
+        // Both sides are pinned to the compressed layout (progress 0):
+        // computePlanetPos is given body.orbitR directly, always the
+        // compressed ring, so probeScenePos has to be pinned to match it —
+        // otherwise this is comparing a probe at whatever scaleMode's live
+        // default is against a planet that never moved off its drawn ring.
         for (const [id, encounters] of Object.entries(ENCOUNTERS)) {
             for (const [planet, when] of encounters) {
                 const body = ring(planet.toLowerCase());
                 const d = at(when);
-                const g = gap(probeScenePos({ id }, d), computePlanetPos(planet, body.orbitR, d));
+                const g = gap(probeScenePos({ id }, d, 0), computePlanetPos(planet, body.orbitR, d));
                 expect(g, `${id} at ${planet}`).toBeLessThan(body.r);
             }
         }
@@ -115,10 +128,13 @@ describe('Voyager tracks', () => {
     });
 
     it('keeps Voyager 1 away from Uranus and Neptune, which it never visited', () => {
+        // Same frame check as above: pin progress so a comparison against a
+        // planet on its compressed ring is not made against a probe sitting
+        // wherever scaleMode's live default happens to be.
         for (const [planet, when] of [['Uranus', '1986-01-24'], ['Neptune', '1989-08-25']]) {
             const body = ring(planet.toLowerCase());
             const d = at(when);
-            const g = gap(probeScenePos({ id: 'voyager1' }, d), computePlanetPos(planet, body.orbitR, d));
+            const g = gap(probeScenePos({ id: 'voyager1' }, d, 0), computePlanetPos(planet, body.orbitR, d));
             expect(g, planet).toBeGreaterThan(100);
         }
     });

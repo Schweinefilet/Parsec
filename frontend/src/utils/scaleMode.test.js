@@ -10,9 +10,17 @@ import { PLANETS } from '../data/solarSystemBodies';
 afterEach(() => __setScaleImmediate(false));
 
 describe('scaleMode', () => {
-    it('starts compressed', () => {
-        expect(isTrueScale()).toBe(false);
-        expect(scaleProgress()).toBe(0);
+    it('starts at true distances and sizes', () => {
+        // The module's own cold-load state — every fresh page load opens
+        // here, at the owner's request (see scaleMode.js's own doc comment).
+        // Every other test in this file runs after afterEach's
+        // __setScaleImmediate(false), so this is the one place that default
+        // is actually observable.
+        expect(getScaleStage()).toBe(SCALE_SIZES);
+        expect(isTrueScale()).toBe(true);
+        expect(isTrueSize()).toBe(true);
+        expect(scaleProgress()).toBe(1);
+        expect(sizeProgress()).toBe(1);
     });
 
     it('eases across rather than cutting', () => {

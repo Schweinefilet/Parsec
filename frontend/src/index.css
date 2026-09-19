@@ -78,31 +78,45 @@
      Two families, because they sit on different things and cannot share a
      recipe. `chrome` floats over the 3D scene, so it is a dark scrim first
      and a tint second — it has to stay readable over the Sun. `panel` sits
-     on the page's own black, so it is a light tint that lifts off it. */
+     on the page's own black — or, for the focused-object description card,
+     over the scene itself — so it is a light tint that lifts off whatever
+     is behind it: real frosted glass, not a faint grey wash.
+
+     panel-bg/panel-border started this system a good deal fainter than the
+     "iOS 26 Liquid Glass" look the site had before it — thin enough that the
+     description card reads as barely-there rather than as a pane of glass.
+     Brought back up past where it started (0.08 fill / 0.18 border, with
+     blur(6px) saturate(50%)), paired with a blur that is stronger still than
+     that: `saturate(170%)` lifts the colour of whatever sits behind the
+     pane instead of just softening it, which is the other half of a
+     convincing glass. */
   --chrome-bg:         rgba(10, 12, 17, 0.55);
   --chrome-bg-hover:   rgba(24, 28, 37, 0.72);
   --chrome-bg-active:  rgba(255, 255, 255, 0.14);
   --chrome-border:     rgba(255, 255, 255, 0.13);
   --chrome-border-hi:  rgba(255, 255, 255, 0.22);
 
-  --panel-bg:          rgba(255, 255, 255, 0.045);
-  --panel-bg-hover:    rgba(255, 255, 255, 0.075);
-  --panel-border:      rgba(255, 255, 255, 0.09);
-  --panel-border-hi:   rgba(255, 255, 255, 0.16);
+  --panel-bg:          rgba(255, 255, 255, 0.095);
+  --panel-bg-hover:    rgba(255, 255, 255, 0.135);
+  --panel-border:      rgba(255, 255, 255, 0.20);
+  --panel-border-hi:   rgba(255, 255, 255, 0.30);
 
   --recess-bg:         rgba(255, 255, 255, 0.035);
   --hairline:          rgba(255, 255, 255, 0.08);
   --hairline-hi:       rgba(255, 255, 255, 0.14);
 
   --blur-chrome: blur(20px) saturate(180%);
-  --blur-panel:  blur(14px) saturate(140%);
+  --blur-panel:  blur(22px) saturate(170%);
 
   /* ── Elevation ──────────────────────────────────────────────────────── */
   --sh-1: 0 1px 2px rgba(0, 0, 0, 0.30);
   --sh-2: 0 4px 16px rgba(0, 0, 0, 0.35);
   --sh-3: 0 12px 40px rgba(0, 0, 0, 0.50);
   --sh-4: 0 24px 70px rgba(0, 0, 0, 0.60);
-  --specular: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  /* The bright top-edge catch-light a glass pane needs to read as glass
+     rather than as a flat tinted rectangle. Raised alongside panel-bg/
+     panel-border above, for the same reason. */
+  --specular: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 
   /* ── Colour ─────────────────────────────────────────────────────────────
      White is the interface; amber is the one accent, and it means "this
@@ -659,40 +673,33 @@ button:focus-visible {
   }
 }
 
-/* ── Scene drawer edge tab ──────────────────────────────────── */
+/* ── Scene drawer edge tab ──────────────────────────────────────────────────
+   Bare chevrons, no rail — by request. 5.7.0 put these on a boxed plate flush
+   to the window edge, reasoning that a bare glyph over a black scene read as
+   a stray mark rather than a control; asked to remove it anyway, since a
+   docked rail read as chrome sitting on top of the scene rather than as part
+   of it. Legibility now comes from a drop-shadow behind the ink instead of a
+   background plate — the same trick the floating object labels already use —
+   plus the opacity lift on hover/focus below. */
 .edge-tab {
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
+  width: 46px;
   height: 64px;
   padding: 0;
   cursor: pointer;
-  background: var(--chrome-bg);
-  border: 1px solid var(--chrome-border);
-  /* Flush to the window edge: square where it meets it, rounded where it
-     faces into the scene. Logical corners, so it reattaches to the other
-     edge in a right-to-left layout without any JS. */
-  border-start-start-radius: 0;
-  border-end-start-radius: 0;
-  border-start-end-radius: var(--r-md);
-  border-end-end-radius: var(--r-md);
-  border-inline-start: none;
-  backdrop-filter: var(--blur-chrome);
-  -webkit-backdrop-filter: var(--blur-chrome);
-  box-shadow: var(--sh-2);
-  transition: background var(--t-base) var(--ease-out),
-              border-color var(--t-base) var(--ease-out),
-              width var(--t-base) var(--ease-out);
+  background: none;
+  border: none;
+  opacity: 0.7;
+  filter: drop-shadow(0 1px 5px rgba(0, 0, 0, 0.7));
+  transition: opacity var(--t-base) var(--ease-out);
 }
 @media (hover: hover) {
-  .edge-tab:hover {
-    background: var(--chrome-bg-hover);
-    border-color: var(--chrome-border-hi);
-    width: 34px;
-  }
+  .edge-tab:hover { opacity: 1; }
 }
+.edge-tab:focus-visible { opacity: 1; }
 
 /* ── Explore-the-catalog chip ───────────────────────────────── */
 .explore-chev {
