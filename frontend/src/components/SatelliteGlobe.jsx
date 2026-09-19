@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { quality, texturePath, pixelRatioFor } from '../utils/quality';
 import { subsolar, latLonToVec3 } from '../utils/subsolar';
 import {
-    isTrackerArriving, markTrackerGlobeReady, handoffDistance,
+    isTrackerArriving, markTrackerGlobeReady, handoffDistance, subscribeTracker,
 } from '../utils/trackerEntry';
 
 const R = 2;                    // Earth radius in scene units
@@ -304,18 +304,46 @@ const SatelliteGlobe = ({
             scene.add(new THREE.Line(g, gratMat));
         }
 
-        const ro = new ResizeObserver(([entry]) => {
+        // ── Staying the size of the box ───────────────────────────────────
+        // One place that measures, so the drawing buffer, the canvas's own
+        // box and the camera can never be sized from different numbers, and
+        // so every notice below can simply say "look again" without having to
+        // carry a size with it. `fit` reads the element rather than trusting
+        // what it was told, which is the whole point: the times this went
+        // wrong were the times something believed a stale number.
+        let fitW = w, fitH = h;
+        const fit = () => {
             if (!mounted) return;
-            const { width, height } = entry.contentRect;
-            if (!width || !height) return;
+            const width = mount.clientWidth, height = mount.clientHeight;
+            if (!width || !height || (width === fitW && height === fitH)) return;
+            fitW = width; fitH = height;
             // Re-budget on resize too: rotating a tablet changes the surface
             // area enough to matter.
             renderer.setPixelRatio(pixelRatioFor(width, height));
             renderer.setSize(width, height);
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
-        });
+        };
+
+        const ro = new ResizeObserver(fit);
         ro.observe(mount);
+
+        // The tracker's arrival ends by putting the card back in the page's
+        // column, and that shrinks the box under this globe from the whole
+        // viewport to a card a third its height. It is the one size change in
+        // the app that no window resize and no user action stands behind, and
+        // a phone that doesn't deliver it as a resize leaves the globe drawing
+        // a full-bleed frame inside the card: a band of empty black with the
+        // planet sitting low and cropped under it, which nothing short of a
+        // reload puts right — reported from an iPhone, every arrival, and only
+        // ever on the arrival. So the phase itself is a reason to measure
+        // again, over the beat the card's own transition takes.
+        const refitTimers = [];
+        const refitSoon = () => {
+            requestAnimationFrame(fit);
+            refitTimers.push(setTimeout(fit, 150), setTimeout(fit, 600));
+        };
+        const unsubPhase = subscribeTracker(refitSoon);
 
         // Where the camera is being drawn toward, smoothed so a jump in the
         // selection glides rather than snaps.
@@ -383,9 +411,17 @@ const SatelliteGlobe = ({
             follow: true,
         };
 
+        let frames = 0;
         const animate = () => {
             if (!mounted) return;
             animId = requestAnimationFrame(animate);
+
+            // Last word on the matter. Whatever the box does and whichever of
+            // the notices above arrives, the globe is drawing at the size of
+            // the element it sits in within half a second. Two layout reads a
+            // second, at the top of a frame that is about to render anyway, is
+            // nothing beside a page that can only be fixed by reloading it.
+            if ((frames++ % 30) === 0) fit();
 
             // Terminator follows real time
             const ss = subsolar(new Date());
@@ -447,6 +483,8 @@ const SatelliteGlobe = ({
             cancelAnimationFrame(animId);
             controls.dispose();
             ro.disconnect();
+            unsubPhase();
+            refitTimers.forEach(clearTimeout);
             [geo, atmoGeo, dropGeo, trackGeo, obsGeo, ...gratGeos, ...markerGeos]
                 .forEach(g => g.dispose());
             [earthMat, atmoMat, dropMat, trackMat, obsMat, gratMat, ...markerMats]

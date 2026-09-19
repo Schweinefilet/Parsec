@@ -16,6 +16,43 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.7
+
+- **The globe kept the size of the whole screen after flying into the
+  Satellite Tracker, so it drew a full-bleed frame inside a card a third that
+  height: a band of empty black with the planet sitting low and cropped under
+  it, which nothing but a reload put right.** 5.9.6 went after the settle's
+  clip-path on the strength of the same screenshot and did not touch this. The
+  reporter's own reading — "the container is the wrong size, and reloading is
+  what makes it resize" — was the right one, one level down: the card was
+  always the right size, the canvas inside it was not.
+
+  The arrival lifts the card out of the column to `position: fixed`, full
+  bleed, and the globe sizes itself to the box it is in — so during the
+  arrival that box is the viewport. When the settle ends and the card goes
+  back into the column, the box shrinks to the card, and `SatelliteGlobe`
+  heard about that exclusively through a `ResizeObserver`. Where that notice
+  doesn't arrive, nothing else ever measured again: not switching satellites,
+  not the live fixes coming in every second, nothing except a reload, which
+  builds a new renderer at the card's size. It is the one size change in the
+  app that no window resize and no user action stands behind, and it is the
+  only one that was left to a single notice.
+
+  Reproduced by stubbing `ResizeObserver` to a no-op before the app loads and
+  flying in from the ISS card: the canvas comes to rest at 390x844 inside a
+  350x473 card, which is the reported picture exactly. With the fix, under the
+  same stub, it comes to rest at 348x471.
+
+  The fix is one `fit()` that reads the element and sizes the renderer, the
+  canvas's box and the camera's aspect from that single measurement, called
+  from three places instead of one: the `ResizeObserver`, the tracker phase
+  itself (over the beat the card's transition takes), and once every 30 frames
+  of the loop that was already running. Two layout reads a second, at the top
+  of a frame about to render anyway, is nothing beside a page that can only be
+  fixed by reloading it.
+
+---
+
 ## 5.9.6
 
 - **A card being covered in the phone's detail sheet now shrinks as it goes,
