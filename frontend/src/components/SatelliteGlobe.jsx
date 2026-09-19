@@ -2,7 +2,6 @@ import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { quality, texturePath, pixelRatioFor } from '../utils/quality';
-import { debugRequested } from '../utils/debugFlag';
 import { subsolar, latLonToVec3 } from '../utils/subsolar';
 import {
     isTrackerArriving, markTrackerGlobeReady, handoffDistance, subscribeTracker,
@@ -450,33 +449,6 @@ const SatelliteGlobe = ({
         };
 
         let frames = 0;
-
-        // TEMPORARY, with components/TrackerDebug.jsx. The fault this is
-        // chasing is inside the canvas rather than around it, so the readout
-        // needs what only the renderer knows: what the context says its buffer
-        // is, what rectangle the GPU is actually drawing into, and whether the
-        // loop is still running at all.
-        if (debugRequested()) {
-            window.__p4rsecGlobe = () => {
-                const gl = renderer.getContext();
-                const vp = gl.getParameter(gl.VIEWPORT);
-                const sc = gl.getParameter(gl.SCISSOR_BOX);
-                const size = renderer.getSize(new THREE.Vector2());
-                return {
-                    dbuf: `${gl.drawingBufferWidth}x${gl.drawingBufferHeight}`,
-                    glvp: `${vp[0]},${vp[1]} ${vp[2]}x${vp[3]}`,
-                    pr: renderer.getPixelRatio(),
-                    cam: `a${camera.aspect.toFixed(2)} d${camera.position.length().toFixed(2)} t${controls.target.length().toFixed(2)}`,
-                    // A scissor rect nobody set, a renderer that thinks it is
-                    // a different size than its buffer, or a camera rendering
-                    // a sub-rectangle of its own frame would each draw the
-                    // scene into part of the canvas and leave the rest empty.
-                    sc: `${gl.isEnabled(gl.SCISSOR_TEST) ? 'on' : 'off'} ${sc[0]},${sc[1]} ${sc[2]}x${sc[3]}`,
-                    rsz: `${Math.round(size.x)}x${Math.round(size.y)} fov${camera.fov} vo${camera.view ? 'yes' : 'no'}`,
-                    frames,
-                };
-            };
-        }
 
         const animate = () => {
             if (!mounted) return;

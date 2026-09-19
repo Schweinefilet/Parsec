@@ -4,8 +4,6 @@ import { MapPin, Crosshair, Sun, Moon, ArrowUpRight } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import SatelliteGlobe from '../components/SatelliteGlobe';
 import LiveFeed from '../components/LiveFeed';
-import TrackerDebug from '../components/TrackerDebug';
-import { debugRequested } from '../utils/debugFlag';
 import { useSatelliteTracking } from '../hooks/useSatelliteTracking';
 import { useNearestCountry } from '../hooks/useNearestCountry';
 import { SATELLITES, DEFAULT_SATELLITE, satelliteById } from '../data/trackedSatellites';
@@ -281,7 +279,6 @@ const SatelliteView = () => {
 
     return (
         <>
-            {debugRequested() && <TrackerDebug slotRef={cardSlotRef} cardRef={cardRef} />}
             <div style={{
                 position: 'relative',
                 // z-index here is a stacking context, so everything the

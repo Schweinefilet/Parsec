@@ -16,6 +16,38 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.11
+
+- **Confirmed fixed on the phone that had it, and the diagnostic comes back
+  out.** `components/TrackerDebug.jsx`, `utils/debugFlag.js`, the `?debug=1`
+  flag and the renderer's telemetry hook are all gone; everything they were
+  holding up stays.
+
+  5.9.10 shipped two changes at once and the confirmation cannot tell them
+  apart, so both stay: the card keeps `.glass` for the whole arrival with the
+  lifted look as a `[data-lifted]` state, and its render object is dropped and
+  rebuilt when the arrival ends. The first is the one with a mechanism behind
+  it — a backdrop-filter arriving on an ancestor of a live WebGL canvas, which
+  is what makes WebKit composite that child against geometry it no longer has
+  — and the second is a reload in miniature, which was the only thing curing
+  it before. Neither costs anything on a page that is already changing every
+  property it touches.
+
+  Also kept, from the releases that missed: the arrival's 3.5s outside edge,
+  so it can never outlive the page it arrives on; `fit()` taking the renderer's
+  size off the context rather than trusting the number it asked for, with the
+  viewport forced through three's cache; the stale-canvas clear; and the frame
+  loop's own size check. None of them were this fault, all of them are
+  failures the tracker's arrival could otherwise still have.
+
+  Worth keeping in mind next time: the fault was invisible to headless Chrome
+  because it is WebKit-only and because that phone's `vh` and `innerHeight`
+  differ by the height of its URL bar (736 against 695 — a slot of 412px gave
+  it away). Three releases went out on theories reasoned from a screenshot and
+  all three were wrong. The readout found it on its second screenshot.
+
+---
+
 ## 5.9.10
 
 - **`.glass` — and the backdrop-filter it carries — was being added to the
