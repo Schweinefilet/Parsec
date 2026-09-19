@@ -16,6 +16,63 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.6
+
+- **A card being covered in the phone's detail sheet now shrinks as it goes,
+  so it reads as tucked underneath the next one rather than cropped by it.**
+  5.9.5 put the outgoing card behind its neighbour but left it full size, and
+  two cards at the same size with one ending in a straight edge still looks
+  like a cut. Each pinned card is now scaled down by however much of it the
+  next card has covered — 1 to 0.94 over the first 120px of coverage, anchored
+  at its own top edge, so the strip of it still showing narrows as it sinks.
+
+  `hooks/useCardStack.js`, outside React the way anything that moves with the
+  scroll has to be: the transform is written to the node inside a rAF off a
+  passive scroll listener, with a ResizeObserver on the column for the changes
+  that move cards without the sheet having been scrolled (switching the stats
+  panel's tab is the common one). It is off under `prefers-reduced-motion` —
+  the cards still stack, they just stop receding.
+
+  Two measurement notes, both load-bearing. `transform-origin: top center` is
+  what makes the card's own `rect.top` safe to read back while it is scaled;
+  and coverage is measured against `offsetHeight`, not `rect.height`, because
+  the latter is the *scaled* height and feeding it into the next frame's
+  arithmetic is a loop that settles on the wrong number. The stacked cards
+  also drop their `backdrop-filter` now: they composite over an opaque base,
+  so the blur was a per-frame cost for a picture nobody can see — and these
+  cards are re-rastered on every frame of a scroll now that they scale.
+
+- **Arriving at the Satellite Tracker through the flight from the ISS card
+  could leave the globe stranded outside its card, with an empty band in the
+  column where the card belongs, until the page was reloaded.** Reported from
+  an iPhone, where it happened on every arrival.
+
+  The settle lifts the globe card out of the column to `position: fixed`, full
+  bleed, and eases a clip-path down onto the rect its slot is holding open.
+  Two things about how that was written could strand it there.
+
+  The timer that ends the arrival sat *after* an early return that also
+  covered a missing ref, which made "could not measure the slot" and "the page
+  never comes back" the same branch — nothing else ever sets the phase back to
+  idle, so the card stays lifted and the slot stays empty. The timer is now set
+  first and is unconditional; a settle that cannot be measured degrades to a
+  cut, which is what it should always have done.
+
+  And the clip was resolved against `window.innerWidth/innerHeight` while it
+  applies to the lifted card's own box. Those are the same number only on a
+  browser whose toolbars don't overlap the viewport, and iOS Safari is exactly
+  where the two part company — mix them and the globe's window lands somewhere
+  the card isn't. It now measures the card's box directly, so the two cannot
+  disagree, and it measures a frame later, since the phase can be set while the
+  page is still on its first layout.
+
+  Not reproducible in headless Chrome at 390x844 — the arrival lands correctly
+  there before and after — so this is the failure mode being removed rather
+  than a confirmed repro being fixed. Verified in Chrome that the flight still
+  settles onto the card exactly and that the resting page is unchanged.
+
+---
+
 ## 5.9.5
 
 - **The cards in a phone's detail sheet now stack instead of being sliced off

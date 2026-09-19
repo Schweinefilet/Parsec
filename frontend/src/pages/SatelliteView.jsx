@@ -139,6 +139,7 @@ const SatelliteView = () => {
     // has already been unmounted by the time this one mounts.
     const reduceMotion = useReducedMotion();
     const cardSlotRef = useRef(null);
+    const cardRef = useRef(null);
     const [trkPhase, setTrkPhase] = useState(() => getTrackerPhase());
     const [settleBox, setSettleBox] = useState(null);
     useEffect(() => subscribeTracker(() => setTrkPhase(getTrackerPhase())), []);
@@ -148,20 +149,44 @@ const SatelliteView = () => {
 
     // Measure the card's resting rect — the slot holds it in the column while
     // the card itself is lifted out to full bleed, so this is where it lands.
+    //
+    // The timer that ends the arrival is set first, and nothing about it is
+    // conditional on the measuring working. It used to sit behind an early
+    // return that also covered a missing ref, which made "could not measure"
+    // and "the page never comes back" the same branch — the card stays lifted
+    // out of the column, the slot holding its place stays empty, and the only
+    // way out of it is a reload. A settle that cannot be measured has to
+    // degrade to a cut, not to that.
     useEffect(() => {
-        if (trkPhase !== SETTLING || !cardSlotRef.current) return;
-        const r = cardSlotRef.current.getBoundingClientRect();
-        const vw = window.innerWidth, vh = window.innerHeight;
-        setSettleBox({
-            top: r.top, left: r.left,
-            right: vw - r.right, bottom: vh - r.bottom,
-            scale: r.height / vh,
-            dx: (r.left + r.width / 2) - vw / 2,
-            dy: (r.top + r.height / 2) - vh / 2,
-        });
+        if (trkPhase !== SETTLING) return;
         const ms = reduceMotion ? 0 : SETTLE_MS;
         const done = setTimeout(() => { setTrackerPhase(IDLE); setSettleBox(null); }, ms + 60);
-        return () => clearTimeout(done);
+
+        // A frame late on purpose. This phase is set from another component
+        // the moment the cross-fade ends, which can be while this page is
+        // still on its first layout, and a rect read in that tick is not the
+        // one the card actually comes to rest at.
+        const frame = requestAnimationFrame(() => {
+            const slot = cardSlotRef.current?.getBoundingClientRect();
+            // Measured against the lifted card's own box rather than the
+            // window. `position: fixed; inset: 0` and `window.innerHeight` are
+            // the same number only on a browser whose toolbars don't overlap
+            // the viewport — iOS Safari is exactly where they part company —
+            // and a clip resolved against the wrong one of the two lands the
+            // globe's window somewhere the card isn't, leaving a hole in the
+            // column where the card should be. The box the clip applies to is
+            // the box to measure.
+            const box = cardRef.current?.getBoundingClientRect();
+            if (!slot || !box || slot.height < 120 || box.height < 120) return;
+            setSettleBox({
+                top: slot.top - box.top, left: slot.left - box.left,
+                right: box.right - slot.right, bottom: box.bottom - slot.bottom,
+                scale: slot.height / box.height,
+                dx: (slot.left + slot.width / 2) - (box.left + box.width / 2),
+                dy: (slot.top + slot.height / 2) - (box.top + box.height / 2),
+            });
+        });
+        return () => { clearTimeout(done); cancelAnimationFrame(frame); };
     }, [trkPhase, reduceMotion]);
 
     // Leaving mid-arrival must not stick the next one in a half-settled
@@ -325,6 +350,7 @@ const SatelliteView = () => {
                         style={{ position: 'relative', height: 'clamp(340px, 56vh, 620px)' }}
                     >
                     <div
+                        ref={cardRef}
                         className={arriving ? undefined : 'glass'}
                         style={{
                             position: arriving ? 'fixed' : 'absolute',

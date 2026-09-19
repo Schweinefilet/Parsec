@@ -19,7 +19,8 @@ import CoachMark from '../components/CoachMark';
 import { CATEGORY_TABS, getObjectsByCategory, getObjectById, resolveTab } from '../data/objectCatalog';
 import { hasSceneBody } from '../data/solarSystemBodies';
 import { useHorizons } from '../hooks/useHorizons';
-import { useIsMobile, useIsShortViewport } from '../hooks/useMediaQuery';
+import { useIsMobile, useIsShortViewport, useReducedMotion } from '../hooks/useMediaQuery';
+import { useCardStack } from '../hooks/useCardStack';
 import {
     getScaleStage, cycleScaleStage, subscribeScale, setScaleStage as setSceneStage,
     SCALE_COMPRESSED, SCALE_DISTANCES, SCALE_SIZES,
@@ -164,9 +165,15 @@ const CategoryBrowser = () => {
     // is wide enough to miss the mobile breakpoint but too short for the tall
     // desktop layout. The hero and the catalog grid stay keyed on width alone.
     const compactFocus = isMobile || isShort;
+    // Scroll-linked, so it goes the way parallax does when someone has asked
+    // for less movement: the cards still stack, they just stop receding.
+    const reduceMotion = useReducedMotion();
+    const sheetScrollRef = useRef(null);
 
     const object = useMemo(
         () => (id ? localize(getObjectById(id)) : null), [id, localize]);
+
+    useCardStack(sheetScrollRef, compactFocus && !!object && !reduceMotion);
 
     // Whether the scene has a body to fly to. Exoplanets, deep-sky targets,
     // near-Earth asteroids and most spacecraft have none — asking the category
@@ -1002,7 +1009,7 @@ const CategoryBrowser = () => {
                                 )}
                             </button>
 
-                            <div style={{
+                            <div ref={sheetScrollRef} style={{
                                 maxHeight: compactFocus ? '58vh' : '60vh',
                                 overflowY: 'auto',
                                 overscrollBehavior: 'contain',

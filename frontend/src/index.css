@@ -1113,6 +1113,11 @@ button:focus-visible {
 .detail-stack > * {
   position: sticky;
   top: 0;
+  /* hooks/useCardStack.js scales a card down as the next one covers it, so it
+     recedes instead of simply being cropped. Anchored at the top edge, which
+     is both the edge that stays put in the stack and what lets the hook read
+     a card's position back without its own scale moving the answer. */
+  transform-origin: top center;
 }
 .detail-stack > .detail-stack-flow {
   position: relative;
@@ -1124,6 +1129,11 @@ button:focus-visible {
 .detail-stack > .glass {
   background: linear-gradient(var(--panel-bg), var(--panel-bg)),
               var(--sheet-base) !important;
+  /* Nothing behind an opaque card is visible, so the blur is a per-frame cost
+     for a picture nobody sees — and these cards are re-rastered on every frame
+     of a scroll now that they scale. */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* ── Labels and figures ─────────────────────────────────────────────────────
