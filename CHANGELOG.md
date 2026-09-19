@@ -16,6 +16,28 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.8.4
+
+- **Earth and Venus lost their atmosphere glow.** Both planets carried a
+  translucent halo sphere — a soft blue rim on Earth, a dim gold one on Venus
+  — sitting just outside their surface mesh. Removed outright; both bodies now
+  render as a plain sphere like every other planet.
+- **Arabic numerals switched to Arabic-Indic (٠١٢٣) everywhere but scientific
+  exponents.** The atlas had deliberately kept Arabic in Western digits since
+  4.x, specifically because the catalog's mass and luminosity values carry
+  Unicode superscript exponents (`1.989 × 10³⁰ kg`) that have no Arabic-Indic
+  form — switching the digit set would have split a single number across two
+  scripts. That tradeoff is now resolved the other way: the locale's
+  `numerals` setting flips to `arab`, which converts every value built through
+  the shared translator and number/date formatters, plus a handful of places
+  that build a display string by hand instead (the ISS tracker's coordinates,
+  the space-data ticker, chart axis labels). Catalog designations that happen
+  to contain digits — `NGC 224`, `M31`, `G2V` — stay in Western digits on
+  purpose, the same as the exponents: they are names, not measurements, and
+  are typed and searched the same way in every language.
+
+---
+
 ## 5.8.3
 
 - **Montserrat, everywhere the interface reads left-to-right.** The `*`

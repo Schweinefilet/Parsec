@@ -903,40 +903,6 @@ const SolarSystem3D = ({
             geos.push(geo);
             mats.push(colorMat);
 
-            // Earth atmosphere glow
-            if (planet.name === 'Earth') {
-                const atmoGeo = new THREE.SphereGeometry(planet.r + 0.6, 32, 32);
-                const atmoMat = new THREE.MeshPhongMaterial({
-                    color:             '#1a6fa8',
-                    emissive:          '#1a6fa8',
-                    emissiveIntensity: 0.15,
-                    transparent:       true,
-                    opacity:           0.18,
-                    side:              THREE.FrontSide,
-                    depthWrite:        false,
-                });
-                mesh.add(new THREE.Mesh(atmoGeo, atmoMat));
-                geos.push(atmoGeo);
-                mats.push(atmoMat);
-            }
-
-            // Venus atmosphere glow
-            if (planet.name === 'Venus') {
-                const atmoGeo = new THREE.SphereGeometry(planet.r + 0.5, 32, 32);
-                const atmoMat = new THREE.MeshPhongMaterial({
-                    color:             '#c8a040',
-                    emissive:          '#c8a040',
-                    emissiveIntensity: 0.12,
-                    transparent:       true,
-                    opacity:           0.11,
-                    side:              THREE.FrontSide,
-                    depthWrite:        false,
-                });
-                mesh.add(new THREE.Mesh(atmoGeo, atmoMat));
-                geos.push(atmoGeo);
-                mats.push(atmoMat);
-            }
-
             // Group: sphere + optional rings move together on position update.
             // `bodyScale` sits between the two so true sizes can resize the
             // body and its rings as one piece — the hitbox hangs off `group`

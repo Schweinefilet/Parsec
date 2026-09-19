@@ -10,6 +10,7 @@
 
 import { LOCALES, DEFAULT_LOCALE, localeByCode } from './locales';
 import { en } from './locales/en';
+import { localizeDigits } from './digits';
 
 // Loaded strings, by locale code. Everything but English arrives when its
 // chunk does — see ./load.js. A translator built before its language has
@@ -51,10 +52,12 @@ function lookup(tree, key) {
  * getting HTML back. Nothing here is ever fed to dangerouslySetInnerHTML, and
  * that is deliberate.
  */
-function interpolate(text, vars) {
-    if (!vars) return text;
-    return text.replace(/\{(\w+)\}/g, (whole, name) =>
-        Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : whole);
+function interpolate(text, vars, numerals) {
+    const filled = vars
+        ? text.replace(/\{(\w+)\}/g, (whole, name) =>
+            Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : whole)
+        : text;
+    return localizeDigits(filled, numerals);
 }
 
 const pluralRulesCache = new Map();
@@ -116,7 +119,7 @@ export function makeTranslator(code) {
                 return key;
             }
         }
-        return interpolate(String(value), vars);
+        return interpolate(String(value), vars, locale.numerals);
     };
 
     t.locale = locale;
@@ -125,6 +128,12 @@ export function makeTranslator(code) {
     t.intl = locale.intl;
     /** True when this locale actually has the key, ignoring the English fallback. */
     t.has = (key) => lookup(strings, key) !== undefined;
+    /**
+     * Convert a pre-formatted number string (a raw `.toFixed()` result, say)
+     * to this locale's digits. For call sites that build a display string by
+     * hand instead of going through `t(key, vars)`, which does this already.
+     */
+    t.digits = (s) => localizeDigits(s, locale.numerals);
     return t;
 }
 

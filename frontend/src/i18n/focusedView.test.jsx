@@ -9,7 +9,7 @@ import { loadLocale } from './load';
 // read `row.value` and `row.label` off the catalog, which localizeObject keeps
 // in English on purpose — the translated pair sits beside them as `valueText`
 // and `labelText`, because a section and a row have to stay identifiable by a
-// name that does not move. So the page rendered زُحل, عملاق غازي and 29.46 سنة
+// name that does not move. So the page rendered زُحل, عملاق غازي and ٢٩.٤٦ سنة
 // correctly and then said MASS and EQUATORIAL RADIUS underneath them.
 //
 // Nothing about that is visible from the data tests, which is why this one
@@ -72,8 +72,9 @@ describe('a focused body, in Arabic', () => {
         const { container } = await openAt('/object/saturn', 'ar');
         expect(container.textContent).toContain('كم');
         expect(container.textContent).toContain('كغ');
-        // 29.46 years — the figure survives, the noun agrees with it.
-        expect(container.textContent).toContain('29.46 سنة');
+        // 29.46 years — the figure survives, the noun agrees with it, and the
+        // digits themselves switch to Arabic-Indic.
+        expect(container.textContent).toContain('٢٩.٤٦ سنة');
     });
 
     it('leaves no English prose anywhere on the page', async () => {

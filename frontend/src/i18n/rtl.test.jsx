@@ -66,8 +66,9 @@ describe('a catalog card', () => {
         await mount(<ObjectCard object={getObjectById('saturn')} />);
         expect(screen.getByText('زُحل')).toBeInTheDocument();
         expect(screen.getByText('عملاق غازي')).toBeInTheDocument();
-        // "29.46 years" — the number survives, the noun agrees with it.
-        expect(screen.getByText('29.46 سنة')).toBeInTheDocument();
+        // "29.46 years" — the number survives, the noun agrees with it, and
+        // the digits themselves switch to Arabic-Indic.
+        expect(screen.getByText('٢٩.٤٦ سنة')).toBeInTheDocument();
     });
 
     it('is still the English card in English', async () => {
@@ -92,11 +93,13 @@ describe('the stats panel', () => {
 
     it('keeps the figures, the units of measure and the superscripts', async () => {
         const { container } = await mount(<ObjectStatsPanel object={getObjectById('mercury')} />);
-        // 3.301 × 10²³ kg, with the exponent as a real <sup> and kg in Arabic.
+        // 3.301 × 10²³ kg, with the exponent as a real <sup> — rendered in
+        // Western digits, same as the mass's own digits are not, since
+        // Arabic-Indic has no superscript forms — and kg in Arabic.
         const sup = container.querySelector('sup');
         expect(sup).not.toBeNull();
         expect(sup.textContent).toBe('23');
-        expect(container.textContent).toContain('3.301');
+        expect(container.textContent).toContain('٣.٣٠١');
         expect(container.textContent).toContain('كغ');
     });
 

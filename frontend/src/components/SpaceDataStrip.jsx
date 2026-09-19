@@ -152,7 +152,7 @@ const SpaceDataStrip = () => {
                             label={t(cell.label)}
                             value={cell.valueKey
                                 ? t(cell.valueKey)
-                                : cell.value + (cell.suffixKey ? t(cell.suffixKey) : '')}
+                                : t.digits(cell.value) + (cell.suffixKey ? t(cell.suffixKey) : '')}
                             unit={cell.unit ? t(cell.unit) : undefined}
                             // Every copy past the first is decoration for the loop
                             aria-hidden={copy === 0 ? undefined : true}

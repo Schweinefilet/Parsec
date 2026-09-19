@@ -149,8 +149,8 @@ describe('plural selection', () => {
     it('drives the interface strings too', () => {
         const t = makeTranslator('ar');
         expect(t('time.days', { count: 2 })).toBe('يومين');
-        expect(t('time.days', { count: 5 })).toBe('5 أيام');
-        expect(t('time.days', { count: 30 })).toBe('30 يومًا');
+        expect(t('time.days', { count: 5 })).toBe('٥ أيام');
+        expect(t('time.days', { count: 30 })).toBe('٣٠ يومًا');
     });
 });
 
@@ -240,14 +240,14 @@ describe('catalog coverage', () => {
 
 describe('stat values', () => {
     it('agrees with the number in front of it', () => {
-        expect(translateValue('87.97 days', 'ar')).toBe('87.97 يوم');
-        expect(translateValue('5 days', 'ar')).toBe('5 أيام');
+        expect(translateValue('87.97 days', 'ar')).toBe('٨٧.٩٧ يوم');
+        expect(translateValue('5 days', 'ar')).toBe('٥ أيام');
         expect(translateValue('27.32 days (synchronous)', 'ar')).toContain('متزامن');
     });
 
     it('reorders a date to day-first', () => {
-        expect(translateValue('April 13, 2029', 'ar')).toBe('13 أبريل 2029');
-        expect(translateValue('October 4, 1957', 'ar')).toBe('4 أكتوبر 1957');
+        expect(translateValue('April 13, 2029', 'ar')).toBe('١٣ أبريل ٢٠٢٩');
+        expect(translateValue('October 4, 1957', 'ar')).toBe('٤ أكتوبر ١٩٥٧');
     });
 
     it('matches the longest phrase first', () => {
@@ -257,7 +257,11 @@ describe('stat values', () => {
     });
 
     it('keeps designations, numbers and superscripts intact', () => {
-        expect(translateValue('1.989 × 10³⁰ kg', 'ar')).toBe('1.989 × 10³⁰ كغ');
+        // The measurement's own digits switch to Arabic-Indic; the superscript
+        // exponent — a distinct set of Unicode code points — does not, and
+        // neither do the catalogue designations, which are names rather than
+        // numbers.
+        expect(translateValue('1.989 × 10³⁰ kg', 'ar')).toBe('١.٩٨٩ × ١٠³⁰ كغ');
         expect(translateValue('M31 / NGC 224', 'ar')).toBe('M31 / NGC 224');
         expect(translateValue('G2V', 'ar')).toBe('G2V');
     });
@@ -376,16 +380,16 @@ describe('signed numbers in a right-to-left page', () => {
 
     it('wraps a leading sign with the digits it belongs to', () => {
         expect(translateValue('−180 to 430 °C', 'ar'))
-            .toBe(`${LRI}−180${PDI} إلى 430 °م`);
+            .toBe(`${LRI}−١٨٠${PDI} إلى ٤٣٠ °م`);
     });
 
     it('wraps both ends of a negative range', () => {
         const out = translateValue('−143 to −173 °C', 'ar');
-        expect(out).toBe(`${LRI}−143${PDI} إلى ${LRI}−173${PDI} °م`);
+        expect(out).toBe(`${LRI}−١٤٣${PDI} إلى ${LRI}−١٧٣${PDI} °م`);
     });
 
     it('leaves unsigned numbers alone, which already read correctly', () => {
-        expect(translateValue('465 °C (avg)', 'ar')).toBe('465 °م (متوسط)');
+        expect(translateValue('465 °C (avg)', 'ar')).toBe('٤٦٥ °م (متوسط)');
         expect(translateValue('1.989 × 10³⁰ kg', 'ar')).not.toContain(LRI);
     });
 

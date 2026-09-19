@@ -12,13 +12,13 @@
 // `numerals` is a real editorial choice rather than an oversight. Arabic has
 // two digit sets in live use — Arabic-Indic (٠١٢٣) across the Mashriq and the
 // Gulf, Western (0123) across the Maghreb — and CLDR's default for `ar` is
-// Arabic-Indic. This atlas sets Western anyway, for two reasons that are
-// specific to what is on the screen: the catalog's values carry Unicode
-// superscripts (1.989 × 10³⁰ kg) that have no Arabic-Indic equivalent, so a
-// switch would render half of every mass in one digit set and half in the
-// other; and Arabic-language scientific and astronomical writing overwhelmingly
-// sets figures in Western digits. Changing this line is all it takes to revisit
-// the decision.
+// Arabic-Indic, which is what this atlas now sets. The one exception is the
+// catalog's Unicode superscript exponents (1.989 × 10³⁰ kg): those are a
+// separate set of code points that a digit swap never touches, and
+// ObjectStatsPanel renders them back as plain Western digits inside a <sup>
+// on purpose, since Arabic-Indic has no superscript forms and scientific
+// notation is conventionally Western in Arabic-language writing anyway.
+// Changing this line is all it takes to revisit the decision.
 //
 // `script` is the writing system, which a few tests key off. Arabic script
 // leaking a Latin word mid-sentence is a translation gap; Vietnamese *is*
@@ -58,7 +58,7 @@ export const LOCALES = [
         endonym: 'العربية',
         english: 'Arabic',
         dir: 'rtl',
-        numerals: 'latn',
+        numerals: 'arab',
         script: 'arab',
         intl: 'ar',
         bundled: false,

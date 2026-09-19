@@ -10,10 +10,10 @@ export const I18nContext = createContext(null);
 /**
  * The BCP-47 tag handed to Intl, carrying the numbering system.
  *
- * `ar` on its own formats with Arabic-Indic digits, which is right for prose
- * and wrong for this atlas — see the note in locales/index.js. The `-u-nu-`
- * extension is the standard way to say so, and it keeps the choice in the
- * locale table rather than scattered through the formatters.
+ * `ar` on its own already defaults to Arabic-Indic digits, but naming the
+ * numbering system explicitly — see the note in locales/index.js — keeps the
+ * choice in the locale table rather than left implicit in a language tag, and
+ * gives every other locale the same `-u-nu-` treatment for free.
  */
 export function intlTag(locale) {
     return locale.numerals && locale.numerals !== 'latn'

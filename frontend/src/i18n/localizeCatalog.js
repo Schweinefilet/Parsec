@@ -20,7 +20,26 @@
 // English-shaped assumption baked into the string.
 
 import { selectPlural } from './translate';
+import { localeByCode } from './locales';
+import { digitSetFor } from './digits';
 import { OBJECTS, CATEGORY_TABS } from '../data/objectCatalog';
+
+// A catalogue number or spectral class — letters immediately touching a
+// digit, with at most a hyphen or a space between — is a name, not a
+// measurement: "NGC 224", "M31", "G2V" and "S/2019" are read and searched in
+// Western digits everywhere they're written, in any language. Everything
+// else digit-shaped in a stat value (a mass, a period, a discovery year) is
+// prose, and prose does switch with the locale. This is the same boundary
+// `translatedCatalogs`' own leftover-prose test draws when it excuses these
+// tokens from looking like untranslated English.
+const DESIGNATION_OR_DIGIT = /([A-Za-z]+[-–\s]?\d[\w+.-]*|S\/\d+)|([0-9])/g;
+
+function localizeValueDigits(text, numerals) {
+    const digits = digitSetFor(numerals);
+    if (!digits || typeof text !== 'string') return text;
+    return text.replace(DESIGNATION_OR_DIGIT, (whole, designation, digit) =>
+        designation ?? digits[digit]);
+}
 
 const compiled = new Map();
 const objectCache = new Map();   // `${code}:${id}` → localized object
@@ -105,8 +124,9 @@ function rulesFor(code) {
 export function translateValue(raw, code) {
     const cat = CATALOGS[code];
     if (!cat || typeof raw !== 'string') return raw;
+    const numerals = localeByCode(code).numerals;
     if (cat.exact && Object.prototype.hasOwnProperty.call(cat.exact, raw)) {
-        return cat.exact[raw];
+        return localizeValueDigits(cat.exact[raw], numerals);
     }
 
     let out = raw;
@@ -124,7 +144,10 @@ export function translateValue(raw, code) {
     });
 
     for (const [re, to] of rulesFor(code)) out = out.replace(re, to);
-    return cat.rtl ? isolateSigned(out) : out;
+    if (cat.rtl) out = isolateSigned(out);
+    // After isolateSigned, whose SIGNED_NUMBER regex is ASCII-digit-only and
+    // has to see the original digits to find the numbers it wraps.
+    return localizeValueDigits(out, numerals);
 }
 
 // A signed number, wrapped so the sign stays in front of it.
@@ -167,13 +190,18 @@ export function localizeObject(object, code) {
     if (hit && hit.source === object) return hit.value;
 
     const entry = cat.objects?.[object.id] ?? {};
+    const numerals = localeByCode(code).numerals;
     const value = {
         ...object,
         localizedTo: code,
-        name: entry.name ?? object.name,
-        shortName: entry.shortName ?? (object.shortName ? object.shortName : undefined),
+        name: localizeValueDigits(entry.name ?? object.name, numerals),
+        shortName: localizeValueDigits(
+            entry.shortName ?? (object.shortName ? object.shortName : undefined), numerals),
         type: cat.types?.[object.type] ?? object.type,
-        description: entry.description ?? object.description,
+        // `description` is prose the translator wrote directly rather than a
+        // value `translateValue` rebuilt from English, so it needs its own
+        // pass to pick up the locale's digits.
+        description: localizeValueDigits(entry.description ?? object.description, numerals),
         keyStatLabel: cat.statLabels?.[object.keyStatLabel] ?? object.keyStatLabel,
         keyStatValue: translateValue(object.keyStatValue, code),
         secondaryStatLabel: cat.statLabels?.[object.secondaryStatLabel] ?? object.secondaryStatLabel,

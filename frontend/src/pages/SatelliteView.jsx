@@ -280,8 +280,8 @@ const SatelliteView = () => {
                         className="glass stat-grid"
                         style={{ marginTop: 'var(--s-4)', padding: 'var(--s-6)' }}
                     >
-                        <Stat label={t('tracker.latitude')} value={fmtCoord(selected?.lat, N, S)} />
-                        <Stat label={t('tracker.longitude')} value={fmtCoord(selected?.lon, E, W)} />
+                        <Stat label={t('tracker.latitude')} value={t.digits(fmtCoord(selected?.lat, N, S))} />
+                        <Stat label={t('tracker.longitude')} value={t.digits(fmtCoord(selected?.lon, E, W))} />
                         <Stat
                             label={t('tracker.nearestCountry')}
                             value={nearest ? countryName(nearest.name) : '—'}

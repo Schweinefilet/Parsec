@@ -124,7 +124,7 @@ const DistanceChart = ({ data, color = '#ffffff', unit = 'AU', ariaLabel }) => {
                                 x={PAD.left - 8} y={y + 3} textAnchor="end"
                                 fill="rgba(255,255,255,0.40)" fontSize="9" fontWeight="600"
                             >
-                                {v.toFixed(v < 10 ? 2 : 0)}
+                                {t.digits(v.toFixed(v < 10 ? 2 : 0))}
                             </text>
                         </g>
                     );

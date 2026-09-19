@@ -21,6 +21,8 @@ export const WHATS_NEW = [
             'The frosted-glass look on cards and panels — most noticeably the description card over a focused planet — is stronger again: more visible, more like glass, less like a faint grey wash.',
             'On a desktop, the small "not to scale" note moved from the bottom-right corner up to the top, under the header icons.',
             'The interface now reads in Montserrat everywhere it is written left-to-right, instead of the operating system’s own default typeface.',
+            'Earth and Venus no longer have a soft glowing halo around their edge.',
+            'Numbers throughout the Arabic interface — distances, dates, the ISS tracker’s coordinates, a planet’s mass — now display in Arabic-Indic digits (٠١٢٣) instead of Western ones. Catalog names and scientific exponents are unaffected.',
         ],
     },
     {

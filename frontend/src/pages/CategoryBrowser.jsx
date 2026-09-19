@@ -122,7 +122,7 @@ const LiveDistanceRow = ({ spacecraftId }) => {
                 {t('spacecraft.distanceFromSun')}
             </p>
             <p className="text-lg font-bold mt-1 text-white num-run" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {distanceAU.toFixed(2)}{' '}
+                {t.digits(distanceAU.toFixed(2))}{' '}
                 <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>
                     {t('spacecraft.au')}
                 </span>

@@ -1254,12 +1254,12 @@ const NightSky3D = ({
             // without the glyphs themselves tipping over along with it.
             const letterRotation = `rotate(${az}deg)`;
             compassLetterEls.forEach(el => { el.style.transform = letterRotation; });
-            const headingText = `${Math.round(az)}°`;
+            const headingText = i18nRef.current.t.digits(`${Math.round(az)}°`);
             if (headingText !== lastHeadingText) {
                 lastHeadingText = headingText;
                 compassHeadingEl.textContent = headingText;
             }
-            const altitudeText = `${alt >= 0 ? '+' : ''}${Math.round(alt)}°`;
+            const altitudeText = i18nRef.current.t.digits(`${alt >= 0 ? '+' : ''}${Math.round(alt)}°`);
             if (altitudeText !== lastAltitudeText) {
                 lastAltitudeText = altitudeText;
                 compassAltitudeEl.textContent = altitudeText;
