@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { quality, texturePath, pixelRatioFor } from '../utils/quality';
+import { debugRequested } from '../utils/debugFlag';
 import { subsolar, latLonToVec3 } from '../utils/subsolar';
 import {
     isTrackerArriving, markTrackerGlobeReady, handoffDistance, subscribeTracker,
@@ -326,8 +327,40 @@ const SatelliteGlobe = ({
             // area enough to matter.
             renderer.setPixelRatio(pixelRatioFor(width, height));
             renderer.setSize(width, height);
-            camera.aspect = width / height;
+
+            // And then take the size back off the context rather than trusting
+            // the one we just asked for. Two things go wrong otherwise, and
+            // both of them draw the scene into a corner of the canvas with the
+            // rest left empty — which is not a layout fault, but is
+            // indistinguishable from one at a glance.
+            //
+            // A browser can hand back a smaller drawing buffer than the canvas
+            // it is attached to, leaving three's viewport describing a
+            // rectangle the buffer doesn't have. And three only issues
+            // gl.viewport() when the value differs from the one it remembers
+            // issuing — a record that survives the buffer underneath it being
+            // swapped, so the GPU can be left on the previous frame's
+            // rectangle while three is satisfied that it isn't. Setting the
+            // viewport to something else and straight back guarantees the call
+            // actually reaches the GPU.
+            const gl = renderer.getContext();
+            const ratio = renderer.getPixelRatio();
+            const bw = gl.drawingBufferWidth, bh = gl.drawingBufferHeight;
+            lastBW = bw; lastBH = bh;
+            renderer.setViewport(0, 0, 1, 1);
+            renderer.setViewport(0, 0, bw / ratio, bh / ratio);
+            camera.aspect = bw / bh;
             camera.updateProjectionMatrix();
+        };
+
+        // The same fault from the other direction: the buffer changing without
+        // the element having changed, which no resize of any kind announces.
+        let lastBW = 0, lastBH = 0;
+        const checkBuffer = () => {
+            const gl = renderer.getContext();
+            if (gl.drawingBufferWidth === lastBW && gl.drawingBufferHeight === lastBH) return;
+            fitW = 0; fitH = 0;   // so fit() doesn't dismiss it as no change
+            fit();
         };
 
         const ro = new ResizeObserver(fit);
@@ -417,6 +450,26 @@ const SatelliteGlobe = ({
         };
 
         let frames = 0;
+
+        // TEMPORARY, with components/TrackerDebug.jsx. The fault this is
+        // chasing is inside the canvas rather than around it, so the readout
+        // needs what only the renderer knows: what the context says its buffer
+        // is, what rectangle the GPU is actually drawing into, and whether the
+        // loop is still running at all.
+        if (debugRequested()) {
+            window.__p4rsecGlobe = () => {
+                const gl = renderer.getContext();
+                const vp = gl.getParameter(gl.VIEWPORT);
+                return {
+                    dbuf: `${gl.drawingBufferWidth}x${gl.drawingBufferHeight}`,
+                    glvp: `${vp[0]},${vp[1]} ${vp[2]}x${vp[3]}`,
+                    pr: renderer.getPixelRatio(),
+                    cam: `a${camera.aspect.toFixed(2)} d${camera.position.length().toFixed(2)} t${controls.target.length().toFixed(2)}`,
+                    frames,
+                };
+            };
+        }
+
         const animate = () => {
             if (!mounted) return;
             animId = requestAnimationFrame(animate);
@@ -426,7 +479,7 @@ const SatelliteGlobe = ({
             // the element it sits in within half a second. Two layout reads a
             // second, at the top of a frame that is about to render anyway, is
             // nothing beside a page that can only be fixed by reloading it.
-            if ((frames++ % 30) === 0) fit();
+            if ((frames++ % 30) === 0) { fit(); checkBuffer(); }
 
             // Terminator follows real time
             const ss = subsolar(new Date());

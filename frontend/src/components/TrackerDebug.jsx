@@ -43,6 +43,14 @@ const TrackerDebug = ({ slotRef, cardRef }) => {
                 `cvs x${canvases.length} ${box(canvases[0])} buf ${canvases[0] ? `${canvases[0].width}x${canvases[0].height}` : '-'}`,
                 ...canvases.slice(1).map((c, i) => `cvs${i + 2} ${box(c)} buf ${c.width}x${c.height}`),
                 `clip ${card ? getComputedStyle(card).clipPath.slice(0, 44) : ''}`,
+                ...(() => {
+                    const g = window.__p4rsecGlobe?.();
+                    return g ? [
+                        `dbuf ${g.dbuf} pr ${g.pr}  frames ${g.frames}`,
+                        `glvp ${g.glvp}`,
+                        `cam ${g.cam}`,
+                    ] : ['globe no readout'];
+                })(),
             ]);
         };
         read();

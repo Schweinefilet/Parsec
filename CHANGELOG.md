@@ -16,6 +16,45 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.9
+
+- **The tracker's empty band is inside the canvas, not around it — the globe
+  was drawing into a corner of a correctly sized canvas.** The readout shipped
+  in 5.9.8 came back from the phone and settled it in one line. Everything the
+  last three releases went after is right: `phase idle`, `card 20,237 353x412
+  absolute` sitting exactly on `slot 20,237 353x412`, `mount 351x410`, one
+  canvas at `351x410`, no clip. The arrival ends properly, the card lands where
+  it belongs, the canvas fills it. The picture *in* the canvas occupies its
+  lower half.
+
+  That is a viewport fault, and the same readout shows why this end could never
+  see it: `win 393x695` against a slot of 412px, which is 56% of **736** — the
+  page's `vh` and the window's own height differ by 41px on that phone, the
+  height of its URL bar. Headless Chrome doesn't split those two numbers, so
+  the arrival is measured and drawn against one consistent viewport here and
+  two different ones there.
+
+  `fit()` now takes the size back off the context instead of trusting the one
+  it asked for. Two things go wrong otherwise and both draw the scene into a
+  corner: a browser can hand back a smaller drawing buffer than the canvas it
+  is attached to, leaving three's viewport describing a rectangle the buffer
+  does not have; and three only issues `gl.viewport()` when the value differs
+  from the one it remembers issuing — a record that survives the buffer
+  underneath it being swapped, so the GPU can be left on the previous frame's
+  rectangle while three is satisfied that it isn't. The viewport is now set
+  from `drawingBufferWidth/Height`, set to something else and straight back so
+  the call actually reaches the GPU, and the camera's aspect comes from the
+  same two numbers. A buffer that changes without the element changing — which
+  nothing announces — is caught by the same check the frame loop already runs.
+
+  The readout grew the three lines that would have found this on day one:
+  the context's buffer size, the rectangle the GPU is actually drawing into,
+  and the camera's aspect, distance and target, with a frame counter to say
+  whether the loop is running at all. `?debug=1` still turns it on, and it
+  still comes out once this is confirmed fixed.
+
+---
+
 ## 5.9.8
 
 - **An arrival at the tracker can no longer outlive the page it arrives on,
