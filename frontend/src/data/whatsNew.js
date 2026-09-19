@@ -14,6 +14,9 @@ export const WHATS_NEW = [
     {
         version: '5.7',
         changes: [
+            'The loading screen is an orrery: four orbits turning around the wordmark, each with a planet on it, and the four light up one by one as the scene loads. It used to be a bar and a list of filenames.',
+            'Something appears now before the app itself has finished loading — a single faint ring, drawn straight from the page, so the first moment of the site is no longer a blank black window while the code arrives.',
+            'The handover into the solar system is one movement: the orbits swell and dissolve as though you were moving forward through them, and the wordmark flies up into the header as the scene comes through underneath.',
             'The interface has been rebuilt on a single column. The wordmark, the catalog heading, the first card’s edge, each page’s title, the timeline and a focused planet’s name now all line up on one vertical spine — previously they sat on as many as five different left edges, which is most of why the page never quite settled.',
             'Every surface, size and animation now comes from one shared set of values, so the header, the scene controls and the panels are drawn from the same material instead of five near-identical guesses at it.',
             'The bottom of the solar system view reads as one bar: the timeline at one end, “Explore the catalog” at the other, the scale note centred between them.',

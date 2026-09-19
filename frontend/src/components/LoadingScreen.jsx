@@ -17,24 +17,49 @@ const FAILSAFE_MS = 9000;
 // as a flicker rather than as an opening.
 const MIN_ON_SCREEN_MS = 3000;
 
-// The handoff. The wordmark leads and the rest gets out of its way: the list
-// and the bar go first, the black lifts underneath it, and the logo arrives
-// last, into the header's own position.
-const DETAIL_FADE_MS = 240;   // the bar and the asset names
+// The handoff. The wordmark leads and the rest gets out of its way: the
+// readout goes first, the orrery swells and dissolves as though the view were
+// moving forward through it, the black lifts underneath, and the wordmark
+// arrives last into the header's own position.
+const DETAIL_FADE_MS = 260;   // the bar, the count and the asset name
 const FLIGHT_MS = 950;        // centre → header
 const BACKDROP_MS = 620;      // black → transparent, started under the flight
 const BACKDROP_DELAY_MS = 140;
 // Ease in and ease out — it gathers itself, travels, and sets down, rather
 // than leaving at full speed. No overshoot: bounce is the wrong note for
 // something arriving at its permanent home.
-const FLIGHT_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)';
+const FLIGHT_EASE = 'var(--ease-inout)';
 
 // How much larger the wordmark is while loading. It is rendered at the header's
 // exact size and scaled up, rather than rendered large and scaled down, so the
 // state it finishes in is untransformed and pixel-identical to the header's.
 const HERO_SCALE = 1.9;
-// Sits above centre, leaving the bar and the names the space below it.
+// Sits above centre: the orrery is symmetrical about the wordmark but the
+// readout hangs below it, so the composition as a whole is bottom-heavy and
+// this lifts it back onto the optical centre.
 const HERO_RISE = 58;
+// How far below the wordmark's centre the readout sits is --boot-drop, worked
+// out in CSS from the ring size (see .boot-readout) — the outermost orbit's
+// lower edge scales with the figure, so this cannot be a constant.
+
+/**
+ * The orbits. `k` multiplies the base diameter (the CSS clamps that against
+ * the viewport), and each takes longer than the one inside it — not Kepler's
+ * exact 3/2 power, but the same direction, which is what makes a set of
+ * concentric rings read as a system rather than as a target.
+ *
+ * The negative delays start each orbit part-way round. They are not arbitrary:
+ * they are solved so the four bodies sit near 45°, 135°, 225° and 315° at
+ * t = 2s — one per quadrant, at about the moment the screen is most likely to
+ * be looked at. Left at zero the four line up into a spoke, which is the one
+ * arrangement that reads as a diagram rather than as a system.
+ */
+const RINGS = [
+    { k: 1,    dur: 17, delay: -0.13,  angle: 45 },
+    { k: 1.45, dur: 26, delay: -7.75,  angle: 135 },
+    { k: 2.02, dur: 38, delay: -21.75, angle: 225 },
+    { k: 2.72, dur: 55, delay: -46.1,  angle: 315 },
+];
 
 /**
  * The wordmark itself, at the header's exact size. Two of these are stacked in
@@ -149,11 +174,11 @@ const LoadingScreen = () => {
 
     if (suppressed || gone) return null;
 
-    // The last few that finished, newest first, plus whatever is in flight.
+    // One name, not a list. What is arriving if anything is, otherwise the
+    // last thing that did — so the line has something to say from the first
+    // texture to the last, and never blinks out between two of them.
     const items = assets?.items ?? [];
-    const inFlight = items.filter(i => !i.done).slice(0, 3);
-    const recent = items.filter(i => i.done).slice(-4).reverse();
-    const shown = [...inFlight, ...recent].slice(0, 5);
+    const current = items.find(i => !i.done) ?? items[items.length - 1] ?? null;
 
     // Centre-of-viewport, scaled up — expressed as a transform away from the
     // header's box, so that clearing the transform *is* the landing.
@@ -163,90 +188,119 @@ const LoadingScreen = () => {
           + `scale(${HERO_SCALE})`
         : null;
 
-    const detailStyle = {
-        opacity: finished ? 0 : 1,
-        transition: `opacity ${DETAIL_FADE_MS}ms ease`,
-    };
-
     return (
         <>
-            {/* The black, and everything that is not the wordmark. */}
+            {/* The black. Nothing but the ground now — the orrery and the
+                readout are siblings above it rather than children of it, so
+                each can leave on its own schedule instead of all of them
+                fading together with the backdrop underneath them. */}
             <div
-                aria-hidden={finished || undefined}
-                role="status"
-                aria-live="polite"
+                aria-hidden="true"
                 style={{
-                    position: 'fixed', inset: 0, zIndex: 200,
+                    position: 'fixed', inset: 0, zIndex: 199,
                     background: '#000',
                     opacity: finished ? 0 : 1,
                     transition: finished
-                        ? `opacity ${reduceMotion ? 200 : BACKDROP_MS}ms ease ${reduceMotion ? 0 : BACKDROP_DELAY_MS}ms`
+                        ? `opacity ${reduceMotion ? 200 : BACKDROP_MS}ms var(--ease-out) ${reduceMotion ? 0 : BACKDROP_DELAY_MS}ms`
                         : 'none',
                     pointerEvents: finished ? 'none' : 'auto',
                 }}
+            />
+
+            {/* The orrery, centred on the wordmark's hero position — the
+                wordmark stands where the Sun would. */}
+            <div
+                className="boot-orrery"
+                aria-hidden="true"
+                data-leaving={finished || undefined}
+                style={{ top: `calc(50% - ${HERO_RISE}px)` }}
             >
-                <div style={{
-                    position: 'absolute', left: '50%', top: `calc(50% - ${HERO_RISE - 46}px)`,
-                    transform: 'translateX(-50%)',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    width: 'min(340px, 76vw)',
-                    ...detailStyle,
-                }}>
-                    {/* The bar */}
-                    <div style={{
-                        width: '100%', height: 2, borderRadius: 2,
-                        background: 'rgba(255,255,255,0.12)', overflow: 'hidden',
-                    }}>
-                        <div style={{
-                            width: `${finished ? 100 : pct}%`, height: '100%',
-                            background: 'linear-gradient(90deg, rgba(255,209,102,0.7), #ffd166)',
-                            transition: 'width 300ms ease',
-                        }} />
-                    </div>
-
-                    <p style={{
-                        margin: '14px 0 0', fontSize: 10, fontWeight: 700,
-                        letterSpacing: '0.14em', textTransform: 'uppercase',
-                        color: 'rgba(255,255,255,0.42)', fontVariantNumeric: 'tabular-nums',
-                    }}>
-                        {finished ? t('loading.ready')
-                            : total ? t('loading.progress', { loaded, total })
-                            : t('loading.starting')}
-                    </p>
-
-                    {/* What those numbers are. A fixed-height block, so the
-                        layout does not jump every time a name comes or goes. */}
-                    <div style={{
-                        marginTop: 16, height: 88, width: '100%',
-                        display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden',
-                    }}>
-                        {shown.map(item => (
-                            <span
-                                key={item.key}
-                                className="flex items-center gap-2"
-                                style={{
-                                    fontSize: 11,
-                                    color: item.done ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.78)',
-                                    transition: 'color 400ms ease',
-                                }}
-                            >
-                                <span style={{
-                                    width: 4, height: 4, borderRadius: 999, flexShrink: 0,
-                                    background: item.failed ? '#ff8a80'
-                                        : item.done ? 'rgba(255,255,255,0.28)' : '#ffd166',
-                                }} />
-                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {assetLabel(item.name)}
+                <span className="boot-core" />
+                {RINGS.map((ring, i) => (
+                    <div
+                        key={ring.k}
+                        className="boot-ring"
+                        style={{ '--k': ring.k }}
+                    >
+                        <div
+                            className="boot-orbit"
+                            style={{
+                                '--dur': `${ring.dur}s`,
+                                '--delay': `${ring.delay}s`,
+                                // Only read under prefers-reduced-motion, where
+                                // it stands in for the animation's position.
+                                '--angle': `${ring.angle}deg`,
+                            }}
+                        >
+                            <span className="boot-body-anchor">
+                                {/* Runs the orbit backwards so the body keeps
+                                    facing the viewer — see .boot-body-spin. */}
+                                <span className="boot-body-spin">
+                                    {/* Lit once the load has passed this
+                                        orbit's share of the whole, so the
+                                        figure reports progress as well as
+                                        decorating it — and all four are lit
+                                        the moment the screen says READY, which
+                                        is the beat the whole thing builds to.
+                                        `finished` has to be part of that test:
+                                        the bar is forced full there, and an
+                                        outermost body still sitting dim beside
+                                        a full bar reads as something stuck. */}
+                                    <span
+                                        className="boot-body"
+                                        data-lit={finished || pct >= ((i + 1) / RINGS.length) * 100 || undefined}
+                                    />
                                 </span>
-                                {item.failed && (
-                                    <span style={{ fontSize: 10, color: '#ff8a80' }}>
-                                        {t('loading.skipped')}
-                                    </span>
-                                )}
                             </span>
-                        ))}
+                        </div>
                     </div>
+                ))}
+            </div>
+
+            {/* The readout. Centred like everything else — this used to be a
+                five-name list set flush left inside a centred column, which
+                put the only ragged edge on screen directly under a centred
+                wordmark and a centred bar. */}
+            <div
+                className="boot-readout"
+                role="status"
+                aria-live="polite"
+                data-leaving={finished || undefined}
+                style={{
+                    top: `calc(50% - ${HERO_RISE}px + var(--boot-drop))`,
+                    transitionDuration: `${DETAIL_FADE_MS}ms`,
+                }}
+            >
+                <div className="boot-bar">
+                    <div
+                        className="boot-bar-fill"
+                        style={{ '--p': finished ? 1 : (total ? loaded / total : 0) }}
+                    />
+                    {!finished && <div className="boot-bar-gleam" />}
                 </div>
+
+                <p className="boot-count">
+                    {finished ? t('loading.ready')
+                        : total ? t('loading.progress', { loaded, total })
+                        : t('loading.starting')}
+                </p>
+
+                {/* Keyed on the name so React swaps the node when it changes,
+                    which replays the entry animation — that is the cross-fade.
+
+                    Out of the live region: it changes once per texture, and a
+                    polite region that renames itself fourteen times in three
+                    seconds is noise rather than information. The count above
+                    carries the state; these names are colour. */}
+                <p
+                    key={current?.key ?? 'none'}
+                    aria-hidden="true"
+                    className={`boot-asset${current?.failed ? ' boot-asset-failed' : ''}`}
+                >
+                    {current
+                        ? `${assetLabel(current.name)}${current.failed ? ` · ${t('loading.skipped')}` : ''}`
+                        : ' '}
+                </p>
             </div>
 
             {/* The wordmark, above the black so it is still there once the black

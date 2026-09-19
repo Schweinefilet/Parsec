@@ -39,9 +39,38 @@
     <meta name="twitter:description" content="An interactive 3D atlas of the solar system, with live ISS tracking." />
     <meta name="twitter:image" content="https://p4rsec.com/og-image.png" />
     <link rel="canonical" href="https://p4rsec.com/" />
+
+    <!-- The first paint, before a byte of the bundle has run.
+         Until this existed, the opening moment of the site was an empty black
+         window for as long as ~200 KB of JavaScript took to arrive and parse —
+         on a slow connection, seconds of nothing at all, which reads as a page
+         that has failed rather than one that is coming. This draws the same
+         black the loading screen uses and one faint pulsing ring in the exact
+         place its orrery appears, so when React mounts there is no seam: the
+         ring is simply joined by the rest of the figure.
+
+         Inline and tiny on purpose — it has to paint from the HTML alone, with
+         no stylesheet and no script. The markup lives inside #root, so React
+         removes it on mount without anyone having to remember to. -->
+    <style>
+      @keyframes p4-boot-pulse {
+        0%, 100% { opacity: .25; transform: translate(-50%, -50%) rotateX(69deg) scale(1); }
+        50%      { opacity: .5;  transform: translate(-50%, -50%) rotateX(69deg) scale(1.035); }
+      }
+      #p4-boot { position: fixed; inset: 0; background: #000; z-index: 1; }
+      #p4-boot i {
+        position: absolute; left: 50%; top: calc(50% - 58px);
+        width: clamp(240px, 23vw, 286px); aspect-ratio: 1;
+        border: 1px solid rgba(255,255,255,.5); border-radius: 50%;
+        transform: translate(-50%, -50%) rotateX(69deg);
+        animation: p4-boot-pulse 2.6s ease-in-out infinite;
+      }
+      @media (prefers-reduced-motion: reduce) { #p4-boot i { animation: none; opacity: .38; } }
+    </style>
   </head>
   <body>
     <div id="root">
+      <div id="p4-boot" aria-hidden="true"><i></i></div>
       <!-- The home view is a 3D scene with no visible heading by design, so the
            app renders a screen-reader-only <h1>. That one is client-rendered;
            this copy sits in the served HTML so a crawler that snapshots before

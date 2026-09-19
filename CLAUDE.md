@@ -126,6 +126,20 @@ navigates, focuses a body (`/object/<id>`), manipulates time or the toggles,
 and screenshots. Plain headless Chrome falls back to the error boundary (no
 WebGL); `--headless=new` with no `--use-gl` flags uses the real GPU.
 
+Two traps in that setup, both of which produce confident, wrong screenshots:
+
+- **Headless Chrome reports `prefers-reduced-motion: reduce` by default**, and
+  this app honours it — `index.css` collapses every duration to 0.001ms and
+  `LoadingScreen` skips the logo flight outright. Screenshots of any animation
+  will show it already finished and tell you nothing. Send
+  `Emulation.setEmulatedMedia` with
+  `features: [{name:'prefers-reduced-motion', value:'no-preference'}]` first,
+  and flip it to `reduce` when that path is what you're checking.
+- **Time your captures off the page's own `performance.now()`**, not your
+  script's clock. `Page.navigate` returning, and `Page.captureScreenshot` on a
+  live 3D scene, each cost enough to drift the two by the better part of a
+  second — long enough to miss a 950ms animation entirely.
+
 ## Deployment
 
 Static build served by Render from `frontend/dist`, with Cloudflare (DNS + CDN)

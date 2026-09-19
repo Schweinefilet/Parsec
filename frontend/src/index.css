@@ -231,6 +231,294 @@ body::after {
   to { transform: rotate(360deg); }
 }
 
+/* ═══ The loading screen ═══════════════════════════════════════════════════
+   The first thing anyone sees, and it is shown at the one moment the main
+   thread has nothing to spare: it is busy decoding textures, building
+   geometry and uploading to the GPU. So everything here animates on
+   `transform` and `opacity` only, which the compositor owns — these keep
+   running at full rate through a main thread that is completely blocked,
+   which is exactly the opposite of what a JS-driven or a width/colour
+   animation would do here.
+
+   The picture is an orrery: tilted orbit rings with a body on each, echoing
+   the scene that is being built behind it, with the wordmark at the centre
+   where the Sun goes. The rings are real 3D — a circle turned on its X axis,
+   so the foreshortening is genuine rather than an ellipse drawn by hand, and
+   a body travelling round it follows the perspective on its own.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* Ring radii climb ~1.37× — enough separation to read as distinct orbits
+   without the outermost running off a laptop screen. The base clamps so the
+   whole figure scales with the window instead of overflowing a phone. */
+/* The innermost orbit's diameter, and the figure's one dimension: everything
+   else is a multiple of it. It has to clear the wordmark standing at the
+   centre — a tilted ring's widest points sit at exactly the wordmark's own
+   vertical centre, so anything narrower than the lettering draws a line
+   straight through it. On a phone the outer rings run off both edges, which
+   reads as orbits continuing past the frame; a fixed-position element cannot
+   extend the scroll area, so nothing overflows in the harmful sense.
+
+   On :root rather than on .boot-orrery because the readout, which is a
+   sibling, has to know how far down to sit to clear the outermost ring. */
+:root {
+  --orr-r: clamp(240px, 23vw, 286px);
+  /* The angle the orbit plane is turned through. Named once because three
+     rules depend on it agreeing exactly — the ring, the counter-rotation that
+     keeps a body facing the viewer, and the pre-React ring in index.html.
+     69° rather than something flatter: concentric tilted circles crowd their
+     far edges together, and past about 73° the four upper arcs converge into
+     a single noisy band instead of reading as four separate orbits. */
+  --orr-tilt: 69deg;
+}
+
+.boot-orrery {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  z-index: 200;
+  pointer-events: none;
+  perspective: 900px;
+  transform-style: preserve-3d;
+  /* The exit: the rings swell and dissolve, as if the view were moving
+     forward through them into the scene that has just finished loading. */
+  transition: transform var(--boot-exit, 760ms) var(--ease-out),
+              opacity var(--boot-exit, 760ms) var(--ease-out);
+}
+.boot-orrery[data-leaving="true"] {
+  transform: scale(1.38);
+  opacity: 0;
+}
+
+/* The glow the wordmark stands in. The mark is where the Sun goes in this
+   figure, and without something behind it the centre of a set of concentric
+   orbits reads as empty. Static paint, no animation — it costs one gradient
+   at first paint and nothing thereafter. */
+.boot-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--orr-r) * 1.3);
+  height: calc(var(--orr-r) * 1.3);
+  margin-left: calc(var(--orr-r) * 1.3 * -0.5);
+  margin-top: calc(var(--orr-r) * 1.3 * -0.5);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+      rgba(var(--accent-warm-rgb), 0.085) 0%,
+      rgba(var(--accent-warm-rgb), 0.032) 28%,
+      rgba(var(--accent-warm-rgb), 0) 62%);
+}
+
+.boot-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--orr-r) * var(--k));
+  height: calc(var(--orr-r) * var(--k));
+  margin-left: calc(var(--orr-r) * var(--k) * -0.5);
+  margin-top: calc(var(--orr-r) * var(--k) * -0.5);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 50%;
+  /* Close to the angle the solar-system scene's own default camera looks
+     down on the ecliptic at, so the two agree when one replaces the other. */
+  transform: rotateX(var(--orr-tilt));
+  transform-style: preserve-3d;
+}
+
+/* The carrier that goes round. Separate from the ring so the ring's tilt and
+   the orbit's rotation do not have to share one transform. */
+.boot-orbit {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: bootOrbit var(--dur, 30s) linear infinite;
+  animation-delay: var(--delay, 0s);
+  will-change: transform;
+}
+@keyframes bootOrbit {
+  to { transform: rotate(360deg); }
+}
+
+/* Where on the ring the body currently is — a zero-sized point carried round
+   by .boot-orbit above it. */
+.boot-body-anchor {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+
+/* Turning the body back to face the viewer takes two undos, not one, and
+   missing the second is what made the dots render as smeared arcs: the ring
+   contributes rotateX(72deg) and the orbit contributes rotate(θ), and θ
+   changes every frame, so no static transform can cancel it. This runs the
+   very same animation in reverse off the same duration and delay — the two
+   are exact inverses at every instant, so what is left for .boot-body to undo
+   is only the fixed tilt. */
+.boot-body-spin {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  animation: bootOrbit var(--dur, 30s) linear infinite reverse;
+  animation-delay: var(--delay, 0s);
+  will-change: transform;
+}
+
+.boot-body {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.34);
+  transform: rotateX(calc(var(--orr-tilt) * -1));
+  transition: background var(--t-slower) var(--ease-out),
+              box-shadow var(--t-slower) var(--ease-out);
+}
+/* Lit as the load passes this orbit's share of the total — the figure is a
+   progress readout as well as a picture. */
+.boot-body[data-lit="true"] {
+  background: var(--accent-warm);
+  box-shadow: 0 0 10px rgba(var(--accent-warm-rgb), 0.85);
+}
+
+/* ── The block under the orrery ─────────────────────────────────────────────
+   --boot-drop is how far below the wordmark's centre this sits. It is derived
+   from the ring size rather than fixed, because the outermost orbit's lower
+   edge moves with it: the perspective pushes the near side of a tilted circle
+   further from the centre than the far side (0.73 × the base diameter, for
+   this tilt, this perspective and the outermost ring's multiplier), so a
+   constant offset that cleared the rings on a laptop had the count line
+   sitting straight on top of the outermost one. The 44px is the gap below
+   that — and this number has to be re-measured if the tilt, the perspective
+   or the last entry in RINGS changes. */
+.boot-readout {
+  --boot-drop: calc(var(--orr-r) * 0.73 + 44px);
+  position: fixed;
+  left: 50%;
+  z-index: 200;
+  width: min(320px, 74vw);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  transition: opacity 260ms var(--ease-out), transform 260ms var(--ease-out);
+}
+.boot-readout[data-leaving="true"] {
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px);
+}
+
+.boot-bar {
+  position: relative;
+  width: 100%;
+  height: 2px;
+  border-radius: var(--r-full);
+  background: rgba(255, 255, 255, 0.10);
+  overflow: hidden;
+}
+/* Scaled on the X axis rather than animated on `width`: width is a layout
+   property and would relayout the bar on every texture that lands, on the
+   one thread that cannot afford it. */
+.boot-bar-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  background: linear-gradient(90deg,
+      rgba(var(--accent-warm-rgb), 0.55), var(--accent-warm));
+  transition: transform 420ms var(--ease-out);
+  will-change: transform;
+}
+:root[dir="rtl"] .boot-bar-fill { transform-origin: right center; }
+/* A slow gleam travelling the bar, so it reads as working even during the
+   long pause while one large texture decodes and the count does not move. */
+.boot-bar-gleam {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+      transparent, rgba(255, 255, 255, 0.55), transparent);
+  width: 40%;
+  animation: bootGleam 2.4s var(--ease-inout) infinite;
+  will-change: transform;
+}
+@keyframes bootGleam {
+  from { transform: translateX(-140%); }
+  to   { transform: translateX(340%); }
+}
+
+.boot-count {
+  margin: var(--s-4) 0 0;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.40);
+  font-variant-numeric: tabular-nums;
+}
+
+/* One line naming what is arriving, centred under everything else. It used to
+   be a five-deep list, left-aligned inside a centred column — the only
+   ragged edge in an otherwise symmetrical composition, and the thing that
+   made the screen look unfinished. Each name is keyed in React so this
+   animation replays and the change reads as a cross-fade rather than a jump. */
+.boot-asset {
+  margin: 10px 0 0;
+  min-height: 1.4em;
+  font-size: var(--fs-sm);
+  color: rgba(255, 255, 255, 0.66);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  /* Short, and it never starts from nothing. Names arrive as fast as one
+     every couple of hundred milliseconds, so a 420ms fade from zero never
+     finished before the next one replaced it — the line spent its whole life
+     part-way through an entrance, which read as a flicker rather than as a
+     cross-fade. A brief lift from most of the way up is legible at every
+     frame however fast they come. */
+  animation: bootAssetIn 200ms var(--ease-out) both;
+}
+@keyframes bootAssetIn {
+  from { opacity: 0.35; transform: translateY(2px); }
+  to   { opacity: 1; transform: none; }
+}
+.boot-asset-failed { color: #ff8a80; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* The orrery stops turning and simply fades; the gleam goes entirely. The
+     global reduced-motion rule below already collapses durations, but these
+     are decoration with no state in them, so they are removed outright.
+     .boot-body-spin goes with .boot-orbit — it exists only to cancel it, and
+     leaving one of the pair running would tilt every body out of true.
+
+     With the animations gone both would rest at 0°, which parks all four
+     bodies at the same clock position: a spoke, the one arrangement that
+     reads as a diagram rather than as a system. --angle puts each back in
+     its own quadrant as a still, and .boot-body-spin cancels it exactly as
+     it cancels the animation. */
+  .boot-orbit {
+    animation: none;
+    transform: rotate(var(--angle, 0deg));
+  }
+  .boot-body-spin {
+    animation: none;
+    transform: rotate(calc(var(--angle, 0deg) * -1));
+  }
+  .boot-bar-gleam { display: none; }
+  .boot-orrery[data-leaving="true"] { transform: none; }
+}
+
 /* ── Focus visibility ───────────────────────────────────────── */
 /* Keyboard users get a clear ring; pointer users see nothing extra. */
 .focus-ring:focus-visible,

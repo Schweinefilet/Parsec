@@ -16,6 +16,74 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.7.1
+
+- **The loading screen is an orrery now.** It is the first thing anyone sees
+  and it was a wordmark, a two-pixel bar, and a five-name list set flush left
+  inside a centred column — the one ragged edge on an otherwise symmetrical
+  screen, which is what made the opening of the site look unfinished. It is
+  now a set of four tilted orbit rings with a body travelling each, drawn
+  around the wordmark standing where the Sun goes, with the progress readout
+  centred beneath them.
+
+  The rings are real 3D — a circle turned on its X axis rather than an ellipse
+  drawn by hand — so the foreshortening is genuine and a body going round one
+  follows the perspective on its own. The tilt is 69°, close to the angle the
+  solar-system scene's own camera looks down on the ecliptic at, so the
+  picture agrees with the one that replaces it.
+
+  Keeping a body facing the viewer takes two undos, not one, and missing the
+  second is what made the first attempt render them as smeared arcs: the ring
+  contributes a fixed `rotateX`, the orbit contributes a rotation that changes
+  every frame, and no static transform can cancel a moving one. Each body
+  therefore sits inside a wrapper running the very same animation in reverse
+  off the same duration and delay — exact inverses at every instant — leaving
+  only the fixed tilt for the body itself to undo.
+
+- **It is also a progress readout.** The four bodies light amber in turn as
+  the load passes each orbit's quarter of the total, so the whole system is
+  lit at the moment the screen says READY and the wordmark leaves. The bar
+  animates on `scaleX` rather than `width`, since width is a layout property
+  and the one thread that cannot afford a relayout per texture is the one
+  building the scene.
+
+  Everything on this screen animates on `transform` and `opacity` only. That
+  is not a general tidiness point here: this screen is shown at the exact
+  moment the main thread is saturated decoding textures and uploading to the
+  GPU, and compositor-driven animation is the only kind that keeps its frame
+  rate through a main thread that is fully blocked.
+
+- **Something now paints before the bundle does.** Until this release the
+  opening moment of the site was an empty black window for as long as ~200 KB
+  of JavaScript took to arrive, parse and mount — on a slow connection,
+  several seconds of nothing, which reads as a page that has failed rather
+  than one that is coming. `index.html` now carries a few lines of inline CSS
+  that draw the same black and one faint pulsing ring in the exact position
+  the orrery's innermost orbit appears, so there is no seam when React mounts:
+  the ring is simply joined by the rest of the figure. It lives inside `#root`,
+  so React removes it on mount with nothing to remember.
+
+- **The handover choreography.** The readout fades and drops away, the orrery
+  swells and dissolves as though the view were moving forward through the
+  orbits into the scene behind them, the black lifts underneath, and the
+  wordmark flies last into the header's own position — landing untransformed
+  and pixel-identical to the header's copy, which is what makes it a handover
+  rather than a cross-fade. Under `prefers-reduced-motion` the orbits hold
+  still at a fixed angle each (one per quadrant, rather than all four resting
+  at 0° and forming a spoke), the bar's gleam is removed outright, and the
+  flight is skipped.
+
+- **Two traps in the headless-Chrome verification setup, now written down in
+  CLAUDE.md.** Headless Chrome reports `prefers-reduced-motion: reduce` by
+  default, which this app honours — so every screenshot of an animation shows
+  it already finished, plausibly and wrongly. And capture timing has to be
+  driven off the page's own `performance.now()`, not the driving script's
+  clock: `Page.navigate` returning and `captureScreenshot` on a live 3D scene
+  drift the two by most of a second, which is enough to miss a 950ms
+  animation completely. Both cost real time here before being spotted.
+
+---
+
 ## 5.7.0
 
 - **A design system, and one column for the whole interface to stand on.**
