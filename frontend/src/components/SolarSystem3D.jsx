@@ -346,45 +346,82 @@ const SolarSystem3D = ({
         // ── Tracker hand-off (/satellites' arrival) ───────────────────────────
         // utils/trackerEntry.js holds the cross-route phase and the reasoning
         // for the whole sequence; this is the camera half. Armed by whichever
-        // control asked for the tracker, which then navigates to /object/iss —
-        // so the ordinary fly-in is stage one and this picks up where it ends.
+        // control asked for the tracker, which then navigates to /object/earth.
         //
-        // Two beats, not one (which is the opposite of the sky dive's single
-        // span, and for the opposite reason): there, the descent and the turn
-        // are one motion and stitching them read as two clips. Here the hold
-        // on the station and the pull-back are genuinely two things — the shot
-        // is "here is the station, now here is where it lives" — and running
-        // them off one curve would mean the camera was already retreating
-        // before you had a chance to look at what it flew you to.
-        const TRK_HOLD_SECONDS = 0.55;
-        const TRK_PULL_SECONDS = 2.0;
-        // Where the station starts dissolving. Its position in this scene is
-        // a decorative circular orbit at an arbitrary phase, not a TLE — so
-        // the green dot on the far side of the cut is somewhere else entirely,
-        // and a station still in frame at the dissolve would be contradicted
-        // by it. Gone before the cut, the shot still reads as the station
-        // becoming a dot; left in, it reads as the dot being in the wrong place.
-        const TRK_FADE_FROM = 0.55;
-        let trkStage = 0;          // 0 idle · 1 holding on the station · 2 pulling back
-        let trkTimer = 0;
-        let trkProgress = 0;
+        // The ordinary focus fly-in *is* the move. Rather than flying to Earth
+        // and then correcting to the pose the tracker needs, the fly-in is
+        // told where to land — the landing spot and the orientation to arrive
+        // on are overridden where the focus block computes them, and Earth is
+        // turned to face its own Sun across the same eased progress. So the
+        // camera makes one continuous flight from wherever it was to a frame
+        // the tracker's globe can be dissolved into, with no second beat and
+        // nothing to hold on.
+        //
+        // The one case that cannot ride the fly-in is arming while already
+        // focused on Earth, where there is no focus change to override. That
+        // gets TRK_REFRAME_SECONDS of the same motion on its own.
+        const TRK_REFRAME_SECONDS = 1.6;
+        let trkFlyIn = false;      // the focus fly-in is carrying the hand-off
+        let trkReframing = false;  // the already-on-Earth case, moving under its own power
         let trkHolding = false;    // same job as skyHolding — see its comment
+        let trkProgress = 0;
         let trkStartDist = 0;
         const trkStartDir    = new THREE.Vector3();
-        const trkStartQuat   = new THREE.Quaternion();
+        const trkStartUp     = new THREE.Vector3();
         const trkStartEarthQ = new THREE.Quaternion();
         const trkTargetEarthQ = new THREE.Quaternion();
-        const trkEndQuat     = new THREE.Quaternion();
         const trkEarthPos    = new THREE.Vector3();
         const trkLocalSun    = new THREE.Vector3();
         const trkWorldSun    = new THREE.Vector3();
         const trkCamPoint    = new THREE.Vector3();
         const trkUp          = new THREE.Vector3();
         const trkDir         = new THREE.Vector3();
+        const trkDirUp       = new THREE.Vector3();
         const trkLookMat     = new THREE.Matrix4();
         const trkHoldCamPos  = new THREE.Vector3();
         const trkHoldQuat    = new THREE.Quaternion();
+        const trkArcFull     = new THREE.Quaternion();
+        const trkArcPart     = new THREE.Quaternion();
+        const TRK_IDENTITY   = new THREE.Quaternion();
         const TRK_NORTH      = new THREE.Vector3(0, 1, 0);
+
+        // Where the hand-off is aiming, in world space, for Earth drawn at
+        // radius R right now. Both ends of the cut centre the real sub-solar
+        // point; turning Earth so that point faces this scene's own Sun and
+        // then placing the camera down the sun line is what makes the ground
+        // at frame centre and the lighting match together rather than one at
+        // the other's expense. Writes trkTargetEarthQ, trkCamPoint and trkUp.
+        const trkSolvePose = (earthWorldPos, R) => {
+            const ss = subsolar(new Date());
+            latLonToVec3(ss.lat, ss.lon, 1, trkLocalSun);
+            trkWorldSun.copy(earthWorldPos).negate().normalize();
+            trkTargetEarthQ.setFromUnitVectors(trkLocalSun, trkWorldSun);
+            trkCamPoint.copy(earthWorldPos)
+                .addScaledVector(trkWorldSun, handoffDistance(camera.fov) * R);
+            trkUp.copy(TRK_NORTH).applyQuaternion(trkTargetEarthQ);
+        };
+
+        // Pin the frame the cut is made on, capture it, and hand over. The
+        // render here is deliberate and read back in the same synchronous
+        // block: without preserveDrawingBuffer (which would cost every frame
+        // of the app's life for one frame's use) the buffer is only reliably
+        // readable until the task that drew it yields.
+        const trkCapture = () => {
+            trkHolding = true;
+            trkHoldCamPos.copy(camera.position);
+            trkHoldQuat.copy(camera.quaternion);
+            let url = null;
+            try {
+                renderer.render(scene, camera);
+                url = renderer.domElement.toDataURL('image/jpeg', 0.92);
+            } catch {
+                // A tainted or oversized canvas: the cut falls back to a
+                // plain fade, which is a worse cut but not a broken one.
+                url = null;
+            }
+            setTrackerSnapshot(url);
+            setTrackerPhase(TRK_HANDOFF);
+        };
 
         // ── Chase-camera state ────────────────────────────────────────────────
         // OrbitControls pins the camera in world space, so when the focused
@@ -2629,7 +2666,7 @@ const SolarSystem3D = ({
             // Nothing but the planet during the tracker pull-back. The cut is
             // to a globe that carries no names, so a label still standing
             // here is a caption that vanishes halfway through the dissolve.
-            if (trkStage === 2 || trkHolding) {
+            if (trkFlyIn || trkReframing || trkHolding) {
                 for (const el of els.values()) {
                     if (el.style.visibility !== 'hidden') el.style.visibility = 'hidden';
                 }
@@ -3305,11 +3342,27 @@ const SolarSystem3D = ({
                                 planetPos.z + dist * Math.cos(TILT) * Math.cos(az)
                             );
                         }
+                        // Flying to Earth to hand off to the tracker: land on
+                        // the pose the globe opens at instead of the ordinary
+                        // framing, so the flight the visitor sees is the whole
+                        // transition rather than its first half. Earth's own
+                        // turn to match runs off this same flight's progress,
+                        // in the per-frame block below.
+                        let trkUpOverride = null;
+                        if (currentFocusedId === 'earth' && earthMesh
+                                && getTrackerPhase() === TRK_ARMED) {
+                            trkSolvePose(planetPos, trueRadius);
+                            focusEndCamPos.copy(trkCamPoint);
+                            trkUpOverride = trkUp;
+                            trkFlyIn = true;
+                            earthMesh.getWorldQuaternion(trkStartEarthQ);
+                            setTrackerPhase(TRK_APPROACHING);
+                        }
                         // The orientation to land on — looking from
                         // focusEndCamPos at the body — captured once here as a
                         // quaternion rather than as a point to aim at. See the
                         // per-frame update for why.
-                        _focusLookMat.lookAt(focusEndCamPos, planetPos, camera.up);
+                        _focusLookMat.lookAt(focusEndCamPos, planetPos, trkUpOverride ?? camera.up);
                         focusEndQuat.setFromRotationMatrix(_focusLookMat);
                         focusProgress  = 0;
                         focusAnimating = true;
@@ -3354,18 +3407,12 @@ const SolarSystem3D = ({
                     resetSkyEntry();
                     skyApproachAnimating = false;
                 }
-                // Same for the tracker hand-off, which is anchored on the
-                // station rather than on Earth. Restores what the pull-back
-                // was part-way through changing: the station's own material
-                // and the camera's roll, neither of which the ordinary focus
-                // machinery knows it touched.
-                if (currentFocusedId !== 'iss' && trkStage > 0 && !trkHolding) {
-                    trkStage = 0;
-                    const issMesh = moonMeshRefs.get('ISS');
-                    if (issMesh?.material) {
-                        issMesh.material.opacity = 1;
-                        issMesh.material.transparent = false;
-                    }
+                // Same for the tracker hand-off. Restores the camera roll it
+                // had started leaning into, which the ordinary focus
+                // machinery has no idea was touched.
+                if (currentFocusedId !== 'earth' && !trkHolding
+                        && (trkFlyIn || trkReframing)) {
+                    trkFlyIn = trkReframing = false;
                     camera.up.set(0, 1, 0);
                     resetTrackerEntry();
                 }
@@ -3674,7 +3721,7 @@ const SolarSystem3D = ({
                 // quaternion the hand-off block assigns later in the frame,
                 // so the pin has to cover the tilt as well as the spin.
                 const earthPinned = m.userData.id === 'earth'
-                    && (skyApproachAnimating || trkStage === 2 || trkHolding);
+                    && (skyApproachAnimating || trkFlyIn || trkReframing || trkHolding);
                 if (!(m.userData.id === 'halley' && currentFocusedId === 'halley')
                         && !earthPinned) {
                     m.rotation.y += meshRotSpeed * frameScale;
@@ -4169,28 +4216,34 @@ const SolarSystem3D = ({
                 }
             }
 
-            // -- Tracker hand-off: pick up the armed flag once the ISS settles --
-            // Same one-check-covers-both shape as the sky pickup above: the
-            // frame the ordinary fly-in finishes, and arming while already
-            // parked on the station.
-            if (currentFocusedId === 'iss' && earthMesh && !focusAnimating
+            // ── Tracker hand-off ──────────────────────────────────────────────
+            // Arming while already parked on Earth: there was no focus change
+            // for the block above to override, so the same motion runs on its
+            // own clock from wherever the camera is sitting.
+            if (currentFocusedId === 'earth' && earthMesh && !focusAnimating
+                    && !trkFlyIn && !trkReframing && !trkHolding
                     && getTrackerPhase() === TRK_ARMED) {
                 setTrackerPhase(TRK_APPROACHING);
-                trkStage = 1;
-                trkTimer = 0;
+                trkReframing = true;
+                trkProgress = 0;
+                earthMesh.getWorldPosition(trkEarthPos);
+                trkStartDir.subVectors(camera.position, trkEarthPos);
+                trkStartDist = trkStartDir.length() || 1e-6;
+                trkStartDir.normalize();
+                trkStartUp.copy(camera.up).normalize();
+                earthMesh.getWorldQuaternion(trkStartEarthQ);
             }
 
-            // -- Tracker hand-off: hold on the station, then pull back to Earth --
-            if ((trkStage > 0 || trkHolding) && earthMesh) {
+            if ((trkFlyIn || trkReframing || trkHolding) && earthMesh) {
                 earthMesh.updateMatrixWorld();
                 earthMesh.getWorldPosition(trkEarthPos);
 
                 if (trkHolding) {
                     // Re-assert the final frame every frame until the route
                     // actually changes, for exactly the reason skyHolding
-                    // does - controls.update() has already run this frame
+                    // does — controls.update() has already run this frame
                     // with its ordinary minDistance and would otherwise
-                    // reclaim the camera the instant the animation stopped.
+                    // reclaim the camera the instant the motion stopped.
                     // Earth is pinned too: its own spin would carry the
                     // continents off the pose the far side is matching.
                     camera.position.copy(trkHoldCamPos);
@@ -4202,112 +4255,87 @@ const SolarSystem3D = ({
                     // Grabbed the camera mid-flight: drop the choreography,
                     // keep the destination. Snapshotting from an arbitrary
                     // pose would hand the tracker a still that matches
-                    // nothing, so this one hands over no snapshot at all and
+                    // nothing, so this hands over no snapshot at all and
                     // TrackerHandoff.jsx falls back to a plain fade.
-                    trkStage = 0;
+                    trkFlyIn = trkReframing = false;
                     setTrackerSnapshot(null);
                     setTrackerPhase(TRK_HANDOFF);
-                } else if (trkStage === 1) {
-                    trkTimer += deltaSec;
-                    if (trkTimer >= TRK_HOLD_SECONDS) {
-                        trkStage = 2;
-                        trkProgress = 0;
-                        trkStartDir.subVectors(camera.position, trkEarthPos);
-                        trkStartDist = trkStartDir.length() || 1e-6;
-                        trkStartDir.normalize();
-                        trkStartQuat.copy(camera.quaternion);
-                        earthMesh.getWorldQuaternion(trkStartEarthQ);
+                } else if (trkFlyIn) {
+                    // Riding the focus fly-in. It owns the camera; all this
+                    // adds is Earth's turn, eased off the same progress with
+                    // the same curve, so the planet finishes rotating exactly
+                    // as the camera finishes arriving.
+                    const t = focusProgress < 0.5
+                        ? 4 * focusProgress * focusProgress * focusProgress
+                        : 1 - Math.pow(-2 * focusProgress + 2, 3) / 2;
+                    earthMesh.quaternion.slerpQuaternions(trkStartEarthQ, trkTargetEarthQ, t);
+                    if (!focusAnimating) {
+                        // The flight has landed on the pose. Nothing to hold
+                        // for — the cross-fade's own fade-in is the pause.
+                        trkFlyIn = false;
+                        camera.up.copy(trkUp);
+                        trkCapture();
                     }
                 } else {
-                    // Where the far side will be looking: the real sub-solar
-                    // point, which both scenes derive from the clock alone
-                    // with no data to hand each other.
-                    const ss = subsolar(new Date());
-                    latLonToVec3(ss.lat, ss.lon, 1, trkLocalSun);
-                    // Direction from Earth to the Sun, which sits at the origin.
-                    trkWorldSun.copy(trkEarthPos).negate().normalize();
-                    // Turn Earth so that real sub-solar point faces this
-                    // scene's own Sun. That single constraint buys both
-                    // halves of the match at once: the camera then flies down
-                    // the sun line, so the point at the centre of the frame
-                    // is the sub-solar point (the same ground the globe
-                    // centres) *and* the disc is fully lit with the
-                    // terminator on the limb (the same lighting), without
-                    // having to choose between the two.
-                    trkTargetEarthQ.setFromUnitVectors(trkLocalSun, trkWorldSun);
-
+                    // The already-on-Earth case, under its own power.
                     const R = scaledRadius('earth', sizeProgress())
                         || (PLANETS.find(pl => pl.id === 'earth')?.r ?? 1.31);
-                    const endDist = handoffDistance(camera.fov) * R;
+                    trkSolvePose(trkEarthPos, R);
 
-                    trkProgress = Math.min(1, trkProgress + deltaSec / TRK_PULL_SECONDS);
+                    trkProgress = Math.min(1, trkProgress + deltaSec / TRK_REFRAME_SECONDS);
                     const t = skyEaseInOut(trkProgress);
 
                     // Distance eases in log space, the same way the ordinary
-                    // focus fly-in does and for the same reason: this leaves
-                    // a body a few metres away for one a couple of hundred
-                    // times its own size out, and a linear ramp across that
-                    // spends its first frames covering most of the ground.
+                    // focus fly-in does and for the same reason: at true
+                    // sizes the two ends of this can differ by a large
+                    // factor, and a linear ramp across that spends its first
+                    // frames covering most of the ground.
+                    const endDist = trkCamPoint.distanceTo(trkEarthPos);
                     const dist = trkStartDist * Math.pow(endDist / trkStartDist, t);
-                    trkDir.copy(trkStartDir).lerp(trkWorldSun, t).normalize();
+                    // Swept as a rotation, not as lerp-then-normalise. Being
+                    // already focused on Earth means being on the framing the
+                    // focus block picked, which puts the Sun at ten o'clock
+                    // and the camera very nearly over the night side — so the
+                    // two ends of this are close to antiparallel, a straight
+                    // lerp between them passes through the zero vector around
+                    // halfway, and normalising that sends the camera
+                    // somewhere arbitrary. It did: the planet left the frame
+                    // entirely for the middle third of the move.
+                    // setFromUnitVectors picks a sane axis even at exactly
+                    // 180°, so the camera takes a clean arc round the planet.
+                    trkArcFull.setFromUnitVectors(trkStartDir, trkWorldSun);
+                    trkArcPart.copy(TRK_IDENTITY).slerp(trkArcFull, t);
+                    trkDir.copy(trkStartDir).applyQuaternion(trkArcPart).normalize();
                     camera.position.copy(trkEarthPos).addScaledVector(trkDir, dist);
 
-                    trkCamPoint.copy(trkEarthPos).addScaledVector(trkWorldSun, endDist);
-                    // North up on screen, matching the globe's own camera.up.
-                    trkUp.copy(TRK_NORTH).applyQuaternion(trkTargetEarthQ);
-                    trkLookMat.lookAt(trkCamPoint, trkEarthPos, trkUp);
-                    trkEndQuat.setFromRotationMatrix(trkLookMat);
-                    camera.quaternion.slerpQuaternions(trkStartQuat, trkEndQuat, t);
-                    camera.up.copy(trkUp);
+                    // Aimed from where the camera actually is this frame,
+                    // rather than slerped between the look-at quaternions of
+                    // the two ends. Those two agree only at the ends: halfway
+                    // round an arc this wide the interpolated orientation is
+                    // no longer pointing at the thing both ends are pointing
+                    // at, and the planet slides off toward the edge of the
+                    // frame and back. Re-aiming each frame keeps it dead
+                    // centre for the whole swing, and sweeping the up vector
+                    // on the same arc is what still delivers the roll.
+                    trkArcFull.setFromUnitVectors(trkStartUp, trkUp);
+                    trkArcPart.copy(TRK_IDENTITY).slerp(trkArcFull, t);
+                    trkDirUp.copy(trkStartUp).applyQuaternion(trkArcPart).normalize();
+                    trkLookMat.lookAt(camera.position, trkEarthPos, trkDirUp);
+                    camera.quaternion.setFromRotationMatrix(trkLookMat);
+                    camera.up.copy(trkDirUp);
                     controls.target.copy(trkEarthPos);
                     earthMesh.quaternion.slerpQuaternions(trkStartEarthQ, trkTargetEarthQ, t);
 
-                    // The near plane was set for a body a few metres across
-                    // and is being pulled back to one that fills the frame -
-                    // left where it was, the depth buffer has no precision
-                    // left to separate Earth from its own far side.
-                    const wantNear = Math.max(R * 0.05, 1e-4);
-                    if (Math.abs(camera.near - wantNear) > wantNear * 0.01) {
-                        camera.near = wantNear;
-                        camera.updateProjectionMatrix();
-                    }
-
-                    // Dissolve the station out - see TRK_FADE_FROM.
-                    const issMesh = moonMeshRefs.get('ISS');
-                    if (issMesh?.material) {
-                        const k = Math.max(0, (trkProgress - TRK_FADE_FROM) / (1 - TRK_FADE_FROM));
-                        issMesh.material.transparent = true;
-                        issMesh.material.opacity = 1 - k;
-                    }
-                    // And its orbit ring with it: a white circle round Earth
-                    // is the one thing in this frame the globe has no answer for.
-                    if (issOrbitMat) issOrbitMat.opacity *= Math.max(0, 1 - deltaSec * 6);
-
                     if (trkProgress >= 1) {
-                        trkStage = 0;
-                        trkHolding = true;
-                        trkHoldCamPos.copy(camera.position);
-                        trkHoldQuat.copy(camera.quaternion);
-                        // Capture the frame the tracker cross-fades out from.
-                        // Rendered and read in the same synchronous block:
-                        // without preserveDrawingBuffer (which would cost
-                        // every frame of the app's life for one frame's use)
-                        // the buffer is only reliably readable until the task
-                        // that drew it yields.
-                        let url = null;
-                        try {
-                            renderer.render(scene, camera);
-                            url = renderer.domElement.toDataURL('image/jpeg', 0.92);
-                        } catch {
-                            // A tainted or oversized canvas: the cut falls
-                            // back to a plain fade, which is a worse cut but
-                            // not a broken one.
-                            url = null;
-                        }
-                        setTrackerSnapshot(url);
-                        setTrackerPhase(TRK_HANDOFF);
+                        trkReframing = false;
+                        trkCapture();
                     }
                 }
+
+                // The ISS orbit ring fades up on Earth focus, and a white
+                // circle round the planet is the one thing in this frame the
+                // globe has no answer for.
+                if (issOrbitMat) issOrbitMat.opacity *= Math.max(0, 1 - deltaSec * 6);
             }
 
             // Cheap, but there is no need to re-measure forty hitboxes every

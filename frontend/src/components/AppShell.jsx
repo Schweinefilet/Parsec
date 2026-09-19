@@ -60,17 +60,18 @@ const AppShell = ({ children }) => {
     // navigates — /sky's own ask-card handles the prompt from there, same as
     // it always has. A modified click (new tab, middle-click) is left alone:
     // the cinematic only makes sense replacing the tab you're already in.
-    // Arms the cinematic and goes to the station instead, which is on the
-    // catch-all route — so the scene is not torn down, and the ordinary
-    // focus fly-in becomes the first beat of the hand-off. Same modified-click
-    // bail-out as the sky icon below: a middle-click or a cmd-click is someone
-    // asking for a tab, not for a two-and-a-half second shot.
+    // Arms the cinematic and goes to Earth instead, which is on the catch-all
+    // route — so the scene is not torn down, and the ordinary focus fly-in
+    // becomes the transition itself rather than the first half of it: it is
+    // told to land on the pose the tracker's globe opens at. Same
+    // modified-click bail-out as the sky icon below: a middle-click or a
+    // cmd-click is someone asking for a tab, not for a two-second shot.
     const handleTrackerClick = (e) => {
         if (pathname === '/satellites') return;
         if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
         e.preventDefault();
         armTrackerEntry();
-        navigate('/object/iss');
+        navigate('/object/earth');
     };
 
     const handleSkyClick = (e) => {

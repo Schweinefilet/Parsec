@@ -16,6 +16,47 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.1
+
+- **The flight to the tracker goes straight to Earth, and is now one motion
+  rather than three.** 5.9.0 routed the hand-off through the ISS: fly to the
+  station, hold on it for half a second, then pull back until Earth filled the
+  frame. The hold was the weak beat — at true sizes the station is a few
+  metres across and, as often as not, over the night side, so the shot paused
+  on something there was nothing to see of. It also bought less than it looked
+  like it did, because the station in this scene sits on a decorative circular
+  orbit at an arbitrary phase rather than on live elements, so it was never in
+  the place the tracker's own marker would be anyway.
+
+  Arming now navigates to `/object/earth`, and rather than flying there and
+  correcting, **the fly-in is told where to land**: the focus block's own
+  landing spot and arrival orientation are overridden with the hand-off pose,
+  and Earth's turn to face its own Sun is eased across that same flight's
+  progress. So there is one continuous movement from wherever the camera was
+  to a frame the globe can be dissolved into — no second beat, and nothing to
+  hold on. The pull-back, the station fade and the hold are all gone with it.
+
+- **A camera arc that could send Earth out of frame entirely.** Arming while
+  already focused on Earth is the one case with no focus change to override,
+  so it sweeps to the pose under its own power — and that start point is the
+  ordinary focused framing, which puts the Sun at ten o'clock and the camera
+  very nearly over the night side. The two ends of the sweep were therefore
+  close to antiparallel, and interpolating the camera's direction by
+  `lerp().normalize()` passes through the zero vector around halfway: the
+  normalise then returned an arbitrary direction and the planet left the frame
+  for the middle third of the move. The direction is now swept as a rotation
+  (`setFromUnitVectors` into a slerp), which is well defined even at exactly
+  180°.
+
+  The orientation along that arc is also now re-derived from where the camera
+  actually is each frame, instead of slerped between the look-at quaternions
+  of the two ends. Those two agree only at the ends; halfway round an arc this
+  wide the interpolated orientation is no longer aimed at what both ends are
+  aimed at, and Earth slid toward the edge of the frame and back. The roll is
+  still delivered, by sweeping the up vector along the same arc.
+
+---
+
 ## 5.9.0
 
 - **The Satellite Tracker is no longer a page you cut to — it is a place you

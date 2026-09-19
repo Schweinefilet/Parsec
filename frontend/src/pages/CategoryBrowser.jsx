@@ -1078,16 +1078,14 @@ const CategoryBrowser = () => {
                                     {object.id === 'iss' && (
                                         <button
                                             // Arms the hand-off rather than
-                                            // cutting to the page. The scene
-                                            // is already parked on the
-                                            // station here, so the pull-back
-                                            // starts on the next frame and
-                                            // this button is the one place
-                                            // the shot begins from where it
-                                            // would otherwise have to fly.
+                                            // cutting to the page. From the
+                                            // station's own card that is a
+                                            // short flight out to Earth,
+                                            // which is the shot the tracker
+                                            // opens on.
                                             onClick={() => {
                                                 armTrackerEntry();
-                                                navigate('/object/iss');
+                                                navigate('/object/earth');
                                             }}
                                             className="w-full rounded-2xl font-bold py-3.5 text-sm flex items-center justify-center gap-1.5 focus-ring"
                                             style={{
