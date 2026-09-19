@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Star, Scale, Link2, Check } from 'lucide-react';
+import { Menu, Satellite, Star, Scale, Link2, Check } from 'lucide-react';
 import LanguagePicker from './LanguagePicker';
 import { useI18n } from '../i18n';
 
@@ -12,9 +12,9 @@ const rowStyle = {
 };
 
 /**
- * The mobile header's burger menu — AppShell.jsx's five action icons
- * (language, share, sky, compare) collapsed behind one button
- * below the (max-width: 767px) breakpoint, where the six icon-only buttons
+ * The mobile header's burger menu — AppShell.jsx's six action icons
+ * (language, share, tracker, sky, compare) collapsed behind one button
+ * below the (max-width: 767px) breakpoint, where the seven icon-only buttons
  * plus the wordmark measurably overflowed the header's own width (the
  * search button's right edge landed past the viewport edge). Desktop keeps
  * the original inline row untouched — this component only ever mounts on
@@ -102,6 +102,11 @@ const HeaderMenu = ({ onShare, copied, onSkyClick, onOpen }) => {
                             : <Link2 style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />}
                         {copied ? t('nav.copied') : t('nav.copyLink')}
                     </button>
+
+                    <Link role="menuitem" to="/satellites" onClick={close} style={rowStyle}>
+                        <Satellite style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
+                        {t('nav.tracker')}
+                    </Link>
 
                     <Link role="menuitem" to="/sky" onClick={(e) => { onSkyClick(e); close(); }} style={rowStyle}>
                         <Star style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />

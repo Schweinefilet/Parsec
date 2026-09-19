@@ -40,6 +40,8 @@ export const vi = {
         hintMenu: 'Ngôn ngữ, chia sẻ và hơn thế nữa',
         copyLink: 'Sao chép liên kết đến khung nhìn này',
         copied: 'Đã sao chép liên kết',
+        tracker: 'Theo dõi vệ tinh',
+        trackerTitle: 'Theo dõi Trạm ISS và các vệ tinh khác theo thời gian thực',
         sky: 'Bầu trời đêm',
         skyTitle: 'Xem bầu trời đêm thực từ vị trí của bạn',
         compare: 'So sánh hai thiên thể',

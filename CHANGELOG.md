@@ -16,6 +16,49 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.8.1
+
+- **Fixed: focusing anything at true distances and sizes could land the
+  camera nowhere near it.** 5.8.0 made that layout the site's default, and
+  the fly-in distance formula that had always run underneath it —
+  deliberately scaled down by the same factor a body's radius shrinks by, so
+  a body keeps filling the same fraction of the frame at any scale — had
+  never been exercised at the far end of that scale before. Three separate
+  gaps opened up there, all specific to a body small enough for the ratio to
+  matter:
+
+  The fly-in's landing distance could fall closer than the camera's own near
+  clipping plane, which does not render a very small planet, it clips the
+  whole body out of the frustum — an object page could open onto a
+  completely empty scene. Dwarf planets and asteroids (Ceres, Vesta, Pallas…)
+  had no correct starting position at all on a direct link straight to their
+  page: their only placement ran on the compressed layout, one frame after
+  the code that aims a fresh fly-in already needs it, so the flight aimed at
+  wherever that placement happened to leave them rather than anywhere
+  Ceres actually was. Moons had the same gap, one step worse — nothing
+  placed a moon anywhere before its own per-frame update, so a direct link to
+  one aimed at the scene origin instead.
+
+  All three are fixed at the root: the fly-in distance is now floored
+  against the body's own true radius rather than against a stale read of the
+  camera's near plane (which does not update until a frame after a fresh
+  focus needs it); dwarf planets and asteroids get a true-distance-aware
+  starting position at creation instead of a compressed one; and moons —
+  which had no starting position at all — get one from a new bootstrap pass
+  that positions every body correctly for the current scale once, before the
+  render loop's first frame, the same way an existing pass already
+  bootstraps every body's size. A focused Mars, Ceres or the Moon now lands
+  close and clearly framed, the way any of them always did before 5.8.0;
+  Jupiter and Earth, which happened not to trip any of the three gaps,
+  render exactly as they did before this release.
+
+- **A Satellite Tracker button in the header**, beside the night-sky and
+  compare icons — desktop between the copy-link and night-sky buttons,
+  mobile's menu in the same position. `/satellites` existed already; nothing
+  in the header pointed at it.
+
+---
+
 ## 5.8.0
 
 - **The scene now opens at true distances and true sizes, at the owner's

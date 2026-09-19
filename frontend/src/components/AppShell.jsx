@@ -326,8 +326,8 @@ const AppShell = ({ children }) => {
                     className="flex items-center gap-2"
                     style={{ pointerEvents: 'auto', ...(searchOpen && isMobile ? { flex: 1 } : {}) }}
                 >
-                    {/* Below the (max-width: 767px) breakpoint these five collapse
-                        behind one burger button — at a ~390px viewport the six
+                    {/* Below the (max-width: 767px) breakpoint these six collapse
+                        behind one burger button — at a ~390px viewport the seven
                         icon buttons plus the wordmark measurably overflowed the
                         header (the search button's own right edge landed past
                         the viewport edge). Desktop keeps the original inline row,
@@ -351,6 +351,16 @@ const AppShell = ({ children }) => {
                                 ? <Check className="h-4 w-4" aria-hidden="true" />
                                 : <Link2 className="h-4 w-4" aria-hidden="true" />}
                         </button>
+                    )}
+                    {!searchOpen && !isMobile && (
+                        <Link
+                            to="/satellites"
+                            title={t('nav.trackerTitle')}
+                            aria-label={t('nav.tracker')}
+                            className="chrome-btn focus-ring"
+                        >
+                            <Satellite className="h-4 w-4" aria-hidden="true" />
+                        </Link>
                     )}
                     {!searchOpen && !isMobile && (
                         <Link

@@ -15,7 +15,8 @@ export const WHATS_NEW = [
         version: '5.8',
         changes: [
             'The solar system now opens already at true distances and true sizes — the honest, mostly-empty view of how far apart everything really is — rather than the compressed layout. Fly to any body to see it fill the frame.',
-            'Fixed focused planets sometimes not appearing at all under that new default — the camera could end up closer to a shrunk-down planet than the scene renders anything, which is now corrected.',
+            'Fixed focused planets, moons, dwarf planets and asteroids sometimes not appearing at all under that new default, or the camera stopping well short of them instead of flying in close — a direct link straight to Mars, the Moon, Ceres and others could open onto empty space, or onto a body left tiny and distant. All now fly in and land close, the way they always used to.',
+            'A Satellite Tracker button in the header, beside the night-sky and compare icons.',
             'The little tab that opens the scene’s view-options drawer is bare arrows again, without the box around it from last release.',
             'The frosted-glass look on cards and panels — most noticeably the description card over a focused planet — is stronger again: more visible, more like glass, less like a faint grey wash.',
         ],

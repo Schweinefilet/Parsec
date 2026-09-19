@@ -35,6 +35,8 @@ export const en = {
         hintMenu: 'Language, sharing and more',
         copyLink: 'Copy a link to this view',
         copied: 'Link copied',
+        tracker: 'Track a satellite',
+        trackerTitle: 'Track the ISS and other satellites live',
         sky: 'Night sky',
         skyTitle: 'See the real night sky from your location',
         compare: 'Compare two bodies',

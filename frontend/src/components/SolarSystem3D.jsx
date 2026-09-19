@@ -1649,7 +1649,23 @@ const SolarSystem3D = ({
         let halleyGroupRef = null; // for per-frame coma orientation
 
         SMALL_BODIES.forEach(body => {
-            const rawP = keplerianScenePos(body.el, body.scale);
+            // True-distance-aware from the start, the same factor the
+            // per-frame update below (smallBodyGroups.forEach) applies —
+            // matters because the per-frame update runs *after* this in the
+            // same file, and so after the block that reads a freshly-focused
+            // body's position to aim a fly-in at it. A direct link straight
+            // onto a small body's page used to focus on wherever this
+            // creation-time position was; left compressed, that is nowhere
+            // close to the true-distance position every later frame settles
+            // on, and the fly-in landed at a point already tens of units from
+            // where the body actually was by the time it got there — which
+            // is a focus on nothing, not a small one. Planets sidestep this
+            // because their own creation-time placement gets a forced
+            // same-frame correction (lastScaleT starts at -1 specifically to
+            // trigger one); this gives small bodies the same true-distance
+            // starting position outright instead of relying on catching up.
+            const f0   = 1 + (AU_UNITS / body.scale - 1) * scaleProgress();
+            const rawP = keplerianScenePos(body.el, body.scale * f0);
             const pv   = new THREE.Vector3(rawP.x, rawP.y, rawP.z).applyQuaternion(beltQuat);
             const p    = { x: pv.x, y: pv.y, z: pv.z };
 
@@ -2503,6 +2519,40 @@ const SolarSystem3D = ({
         };
         applyTrueSizes(sizeProgress());
 
+        // Every body correctly *positioned* for the current scale before the
+        // render loop's first frame, the same way the call just above
+        // bootstraps every body's SIZE. Planets get this again on frame 1
+        // regardless of this call — lastScaleT starts at -1 below
+        // specifically to force it — but that correction runs inside
+        // animate(), after this synchronous setup and, critically, before
+        // the block further down that reads a freshly-focused body's
+        // position to aim a fly-in at it. Small bodies are already correct
+        // at creation (see the true-distance factor where SMALL_BODIES is
+        // built, above) for the same reason. Moons have neither: they have
+        // no creation-time position at all — nothing sets one — and their
+        // own per-frame correction, a few hundred lines further down this
+        // file, runs *after* that fly-in setup rather than before it. A
+        // direct link straight onto a moon's page used to aim its fly-in at
+        // the scene origin, where every mesh starts, rather than anywhere
+        // near the moon itself. Correcting planets again here first is what
+        // makes the moon offset below land somewhere real: moon position is
+        // parent position plus an offset, and the parent has not had its own
+        // frame-1 correction yet at this point in a fresh load.
+        updatePlanetPositions(new Date(simNow()));
+        MOON_DATA.forEach(moon => {
+            const parentGroup = planetMeshRefs.get(moon.parent);
+            const moonMesh = moonMeshRefs.get(moon.name);
+            if (!parentGroup || !moonMesh) return;
+            const off = moonOffset(moon, moon.phase0, moonOrbitFactor(moon, sizeProgress()));
+            moonMesh.position.set(
+                parentGroup.position.x + off.x,
+                parentGroup.position.y + off.y,
+                parentGroup.position.z + off.z,
+            );
+            const hitMesh = moonHitRefs.get(moon.name);
+            if (hitMesh) hitMesh.position.copy(moonMesh.position);
+        });
+
         const _labelProj = new THREE.Vector3();
         // Where labels have already landed this pass. Two bodies can be a pixel
         // apart on screen — a conjunction, or the whole inner system once
@@ -2756,16 +2806,15 @@ const SolarSystem3D = ({
                         camera.position.sub(pivot).multiplyScalar(ratio).add(pivot);
                         focusEndCamPos.sub(pivot).multiplyScalar(ratio).add(pivot);
                         lastFocusSizeF = f;
-                        // Same near-clip floor as the initial fly-in (see the
-                        // comment on `dist` above): cycling into true sizes
-                        // while already focused on something small enough
-                        // shrinks `ratio` well past what would put the camera
-                        // inside camera.near, and this ratchet has no other
-                        // guard against that — it only ever scales whatever
-                        // distance it is handed.
+                        // Same floor as the initial fly-in, and the same
+                        // fix: against the body's own true radius, not
+                        // against camera.near, which is not this body's near
+                        // plane at the instant this runs either — see the
+                        // comment on `dist` above for why that reads stale.
+                        const floorDist = scaledRadius(focusId, sizeT) * 2.5;
                         const nearPos = camera.position.distanceTo(pivot);
-                        if (nearPos < camera.near * 2.2 && nearPos > 1e-9) {
-                            const push = (camera.near * 2.2) / nearPos;
+                        if (nearPos < floorDist && nearPos > 1e-9) {
+                            const push = floorDist / nearPos;
                             camera.position.sub(pivot).multiplyScalar(push).add(pivot);
                             focusEndCamPos.sub(pivot).multiplyScalar(push).add(pivot);
                         }
@@ -2790,8 +2839,12 @@ const SolarSystem3D = ({
                     // this is the pass the comment above calls authoritative,
                     // so if it re-asserts the unfloored distance it would
                     // undo that floor the moment the size transition settles.
+                    // Against the body's own true radius, not camera.near —
+                    // see the comment on the initial `dist` for why that
+                    // reads stale at the one place it actually mattered.
                     const want = Math.max(
-                        focusDistDrawn * bodyScaleFactor(focusId, sizeT), camera.near * 2.2);
+                        focusDistDrawn * bodyScaleFactor(focusId, sizeT),
+                        scaledRadius(focusId, sizeT) * 2.5);
                     // Mid fly-in it is the destination that needs correcting,
                     // not where the camera has got to — and the flag is held
                     // until that flight lands, because a load that arrives
@@ -3002,19 +3055,42 @@ const SolarSystem3D = ({
                         focusDistDrawn = baseDist * (camera.aspect < 1
                             ? Math.min(2.0, Math.pow(1 / camera.aspect, 0.8))
                             : 1);
-                        // Floored at just past the near clip plane. True sizes
-                        // shrinks a planet to a few thousandths of a drawn
-                        // unit, and this formula scales distance down with it
-                        // — for anything but the Sun (SUN_RADIUS=12 makes even
-                        // its true 0.45-unit radius land comfortably outside
-                        // the plane on its own), that lands the camera closer
-                        // than camera.near (1 unit), which does not render a
-                        // very small planet: it clips the whole body out of
-                        // the frustum, leaving nothing on screen at all. The
-                        // floor keeps the camera just outside that plane
-                        // instead — the body is still a tiny, honest speck at
-                        // true sizes, not a rendering bug pretending to be one.
-                        const dist = Math.max(focusDistDrawn * lastFocusSizeF, camera.near * 2.2);
+                        // Floored against the body's own true radius, not
+                        // against camera.near — camera.near is a stale read
+                        // here. This block runs once, the moment a new focus
+                        // is detected, and camera.near only shrinks to match
+                        // the target *after* this point, in the per-frame
+                        // "if (targetMesh)" block below (which reads the same
+                        // scaledRadius() this does). Flooring against the near
+                        // plane's pre-shrink value — still 1, the unfocused
+                        // default, the first time anything is focused —
+                        // landed every true-size body at a fixed ~2.2 units
+                        // regardless of how small it actually was, which is
+                        // much further out than true sizes calls for: the
+                        // unfloored distance already reproduces the exact
+                        // apparent size a compressed-mode focus has (that is
+                        // the whole point of scaling it by lastFocusSizeF),
+                        // so a good close-up was sitting right there,
+                        // unreachable, on the other side of an unrelated
+                        // number. `trueRadius * 2.5` mirrors
+                        // controls.minDistance below: the scripted fly-in
+                        // should never land closer than a reader's own manual
+                        // zoom is allowed to. For every body actually in the
+                        // catalog the unfloored distance already clears this
+                        // by a comfortable margin — it is a floor for a
+                        // malformed radius, not a normal landing spot.
+                        const trueRadius = radius * lastFocusSizeF;
+                        const dist = Math.max(focusDistDrawn * lastFocusSizeF, trueRadius * 2.5);
+                        // Set right here rather than left for the per-frame
+                        // "if (targetMesh)" block further down to pick up on
+                        // its next tick. That block reads the same
+                        // scaledRadius() and would converge on the same near
+                        // plane one frame later regardless — this only closes
+                        // the gap outright, so the very first frame of a
+                        // fresh focus is never judged against the previous
+                        // (likely far too large) near plane.
+                        camera.near = Math.max(Math.min(0.01, trueRadius * 0.02), trueRadius * 0.1);
+                        camera.updateProjectionMatrix();
                         // Normally the user's azimuth is kept, which is right
                         // for a planet: whichever side you approached from is
                         // the side you meant. Read off the camera's own current
