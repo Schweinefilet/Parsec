@@ -51,11 +51,31 @@ const TrackerHandoff = () => {
         const after = (ms, fn) => { timersRef.current.push(setTimeout(fn, ms)); };
 
         // Guards the one-shot navigate: this runs again on every phase
-        // change, and 'handoff' is still the phase while the dissolve plays.
+        // change, and 'handoff' is still the phase for the length of the
+        // dissolve, so without a latch the navigate would fire repeatedly.
+        //
+        // It has to be cleared when the sequence ends, which is the whole
+        // reason 'idle' is handled here rather than in an effect of its own.
+        // It wasn't, and the latch survived the trip: the first visit to the
+        // tracker worked and every one after it stalled on the hand-off
+        // frame — camera pinned, chrome hidden, no navigate — until the page
+        // was reloaded and the component remounted with a fresh closure.
         let started = false;
 
         const run = () => {
-            if (getTrackerPhase() !== HANDOFF || started) return;
+            const phase = getTrackerPhase();
+
+            if (phase === IDLE) {
+                // Sequence finished, or was abandoned. Re-arm for the next
+                // one and drop any still left standing.
+                started = false;
+                clearTimers();
+                setStill(null);
+                setFading(false);
+                return;
+            }
+
+            if (phase !== HANDOFF || started) return;
             started = true;
             clearTimers();
             const crossMs = reduceMotion ? 0 : CROSS_MS;
@@ -109,12 +129,6 @@ const TrackerHandoff = () => {
         return () => { unsub(); clearTimers(); };
     }, [reduceMotion]);
 
-    // Belt and braces: if the page never reaches 'idle' (an unmount mid-
-    // settle, say), don't leave a stale still frame behind on the next arm.
-    useEffect(() => subscribeTracker(() => {
-        if (getTrackerPhase() === IDLE) { setStill(null); setFading(false); }
-    }), []);
-
     if (!still) return null;
 
     return (
@@ -127,7 +141,7 @@ const TrackerHandoff = () => {
                 width: '100%', height: '100%',
                 // The capture is of the scene canvas, which is the full
                 // viewport whenever the scene is focused on something — and
-                // it always is here, since the sequence runs from /object/iss.
+                // it always is here, since the sequence runs from /object/earth.
                 objectFit: 'cover',
                 opacity: fading ? 0 : 1,
                 transition: `opacity ${reduceMotion ? 0 : CROSS_MS}ms linear`,

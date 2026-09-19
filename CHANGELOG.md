@@ -16,6 +16,42 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.2
+
+- **The tracker transition worked once per page load and then stalled.** Every
+  visit after the first flew to Earth, came to rest on the hand-off frame —
+  camera pinned, page chrome hidden — and stopped there. The route never
+  changed, and the only way out was a reload.
+
+  `TrackerHandoff` latches a flag when it starts a hand-off, because 'handoff'
+  stays the phase for the length of the dissolve and without the latch the
+  `navigate()` would fire on every notification during it. The latch lives in
+  the effect's closure, and the effect only re-runs when the reduced-motion
+  preference changes — so it was set on the first trip and never cleared. The
+  second trip's notification hit the guard and returned, having done nothing,
+  while the scene sat holding the pose it had correctly arrived at. It is now
+  cleared when the phase returns to 'idle', which is why that case is handled
+  in the same callback rather than in a second effect of its own.
+
+  Verified by driving three round trips without a reload, and by confirming
+  the previous build fails the same test on the second.
+
+- **The focused-body view and the night sky get the tracker's back control.**
+  Both carried a circular icon button with nothing but a chevron in it — over
+  a planet that reads as scene furniture rather than as the way out. Both now
+  use `.page-back`, the plain "‹ GO BACK" the tracker and compare pages
+  already share.
+
+  Two details came with it. The accessible name is now the visible text
+  instead of a fuller phrase that did not contain it, which is the WCAG
+  "label in name" trap; the longer wording stays as the tooltip. And the
+  night sky's copy moves from a hard-coded 20px to `--scene-inset`, so it
+  lands on the same spine as the wordmark above it — as a 38px icon pill it
+  sat far enough off that edge to look deliberate, but as text it just looked
+  misaligned.
+
+---
+
 ## 5.9.1
 
 - **The flight to the tracker goes straight to Earth, and is now one motion

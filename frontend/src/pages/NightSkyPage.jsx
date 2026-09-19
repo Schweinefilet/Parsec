@@ -175,23 +175,23 @@ const NightSkyPage = () => {
         return () => clearTimeout(timer);
     }, [showCoach, endCoach]);
 
+    // .page-back, the same control the tracker and compare pages use, in
+    // place of the glass icon pill this was. Nothing here needs the pill's
+    // backdrop: the sky behind it is near-black with sparse point stars, so
+    // plain text holds up against it the same way it does on a panel page.
     const backButton = (
         <button
             onClick={() => navigate('/')}
-            aria-label={t('nav.back')}
-            className="absolute flex items-center justify-center rounded-xl focus-ring"
-            style={{
-                top: 68, insetInlineStart: 20, zIndex: 20,
-                width: 38, height: 38,
-                background: 'rgba(0,0,0,0.45)',
-                border: '1px solid rgba(255,255,255,0.16)',
-                color: 'rgba(255,255,255,0.85)',
-                backdropFilter: 'blur(14px)',
-                WebkitBackdropFilter: 'blur(14px)',
-                cursor: 'pointer',
-            }}
+            className="page-back absolute focus-ring"
+            // --scene-inset, not a bare 20px, so it lands on the same spine
+            // as the wordmark above it and as the focused-body view's copy of
+            // this control. The old glass pill was a 38px icon and sat far
+            // enough off that edge to read as deliberate; as text it just
+            // read as misaligned.
+            style={{ top: 68, insetInlineStart: 'var(--scene-inset)', zIndex: 20 }}
         >
-            <ChevronLeft className="flip-rtl" style={{ width: 18, height: 18 }} />
+            <ChevronLeft className="flip-rtl" style={{ width: 15, height: 15 }} aria-hidden="true" />
+            <span>{t('nav.back')}</span>
         </button>
     );
 

@@ -802,21 +802,35 @@ const CategoryBrowser = () => {
                     {id && (
                         <button
                             onClick={() => navigate('/')}
-                            aria-label={t('scene.back')}
                             title={t('scene.backTitle')}
+                            // .page-back, the same control the tracker and
+                            // compare pages use, rather than the circular
+                            // icon button this was: a named link reads as a
+                            // way out where a lone chevron over a planet
+                            // reads as scene furniture. No aria-label — the
+                            // visible text is the accessible name now, and
+                            // one that didn't contain the other would be the
+                            // WCAG "label in name" trap; the fuller wording
+                            // stays as the tooltip.
+                            //
                             // The fade-in animation is `both`-filled, so it
                             // pins opacity at 1 and an inline opacity can't
                             // fade this out — the class has to come off.
-                            className={`chrome-btn absolute focus-ring${skyDiving ? '' : ' animate-fade-in'}`}
+                            className={`page-back absolute focus-ring${skyDiving ? '' : ' animate-fade-in'}`}
                             style={{
                                 // On the spine, directly under the wordmark.
+                                // .page-back's own -8px start margin is what
+                                // makes the chevron optically flush with it,
+                                // rather than the glyph's side bearing
+                                // sitting a few pixels proud.
                                 top: 68, insetInlineStart: 'var(--scene-inset)', zIndex: 20,
                                 opacity: skyDiving ? 0 : 1,
                                 transition: 'opacity var(--t-slower) var(--ease-out)',
                                 pointerEvents: skyDiving ? 'none' : 'auto',
                             }}
                         >
-                            <ChevronLeft className="flip-rtl" style={{ width: 18, height: 18 }} />
+                            <ChevronLeft className="flip-rtl" style={{ width: 15, height: 15 }} aria-hidden="true" />
+                            <span>{t('nav.back')}</span>
                         </button>
                     )}
 
