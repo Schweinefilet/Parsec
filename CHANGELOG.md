@@ -16,6 +16,17 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.9
+
+**The Compare page is pulled off the site while it gets a visual rework.**
+Its route, dock icon and header-menu entry are removed from `App.jsx`,
+`AppShell.jsx` and `HeaderMenu.jsx`, but `pages/ComparePage.jsx` and its
+`compare.*`/`nav.compare*` i18n strings stay in place untouched — the page
+still mounts fine in its own tests, there is just no longer a path to it from
+the running site. Bringing it back is re-adding the route and the two links.
+
+---
+
 ## 5.10.8
 
 - **The scene build no longer blocks the opening, so the wordmark scrambles on

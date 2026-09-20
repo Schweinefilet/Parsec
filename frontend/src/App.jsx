@@ -6,7 +6,8 @@ import SkyEntryCurtain from './components/SkyEntryCurtain';
 import TrackerHandoff from './components/TrackerHandoff';
 import CategoryBrowser from './pages/CategoryBrowser';
 import SatelliteView from './pages/SatelliteView';
-import ComparePage from './pages/ComparePage';
+// ComparePage is stashed — its route and nav links are pulled out below
+// while the page gets a visual rework, but the file and its tests stay.
 
 // The one lazily-loaded route in the app. /sky carries its own three.js scene
 // plus a real data catalog (the star field + constellation lines, ~175 KB
@@ -28,7 +29,6 @@ function App() {
                 <TrackerHandoff />
                 <Routes>
                     <Route path="/satellites" element={<AppShell><SatelliteView /></AppShell>} />
-                    <Route path="/compare" element={<AppShell><ComparePage /></AppShell>} />
                     <Route
                         path="/sky"
                         element={(

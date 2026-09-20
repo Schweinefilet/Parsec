@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Satellite, Star, Scale, Link2, Check } from 'lucide-react';
+import { Menu, Satellite, Star, Link2, Check } from 'lucide-react';
 import LanguagePicker from './LanguagePicker';
 import { useI18n } from '../i18n';
 
@@ -12,16 +12,16 @@ const rowStyle = {
 };
 
 /**
- * The mobile header's burger menu — AppShell.jsx's six action icons
- * (language, share, tracker, sky, compare) collapsed behind one button
- * below the (max-width: 767px) breakpoint, where the seven icon-only buttons
- * plus the wordmark measurably overflowed the header's own width (the
- * search button's right edge landed past the viewport edge). Desktop keeps
+ * The mobile header's burger menu — AppShell.jsx's action icons
+ * (language, share, tracker, sky) collapsed behind one button below the
+ * (max-width: 767px) breakpoint, where the icon-only buttons plus the
+ * wordmark measurably overflowed the header's own width (the search
+ * button's right edge landed past the viewport edge). Desktop keeps
  * the original inline row untouched — this component only ever mounts on
  * mobile, gated in AppShell.jsx itself.
  *
  * Search stays outside this menu, its own always-visible icon next to the
- * burger button: it's the most frequently reached-for of the six, and it
+ * burger button: it's the most frequently reached-for of the set, and it
  * already has its own expand-in-place behaviour (replaces the header row
  * with a full-width input) — nesting it here would cost every search an
  * extra tap for no benefit.
@@ -113,10 +113,6 @@ const HeaderMenu = ({ onShare, copied, onSkyClick, onTrackerClick, onOpen }) => 
                         {t('nav.sky')}
                     </Link>
 
-                    <Link role="menuitem" to="/compare" onClick={close} style={rowStyle}>
-                        <Scale style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
-                        {t('nav.compare')}
-                    </Link>
                 </div>
             )}
         </div>

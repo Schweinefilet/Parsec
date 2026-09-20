@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams, useMatch, useLocation } from 'react-router-dom';
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
-    Crosshair, Sparkles, Satellite, Aperture, Radio, Archive, Scale,
+    Crosshair, Sparkles, Satellite, Aperture, Radio, Archive,
     Link2, Check,
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
@@ -54,7 +54,7 @@ const AppShell = ({ children }) => {
     const { pathname } = useLocation();
     const navigate = useNavigate();
     const { location: skyLocation } = useObserverLocation();
-    const onOwnPage = ['/satellites', '/compare', '/sky'].includes(pathname);
+    const onOwnPage = ['/satellites', '/sky'].includes(pathname);
     // The dive-to-Earth transition (utils/skyEntry.js) needs a real spot to
     // dive to and a mounted solar-system scene to dive through. Without a
     // remembered location there is nothing to zoom in on, so the icon just
@@ -113,7 +113,6 @@ const AppShell = ({ children }) => {
             canonicalPath = `/object/${focusedId}`;
         } else if (onOwnPage) {
             const key = {
-                '/compare': 'compare.title',
                 '/satellites': 'tracker.title', '/sky': 'nightSky.title',
             }[pathname];
             name = key ? t(key) : null;
@@ -424,19 +423,6 @@ const AppShell = ({ children }) => {
                                         className="chrome-btn focus-ring"
                                     >
                                         <Star className="h-4 w-4" aria-hidden="true" />
-                                    </Link>
-                                </DockItem>
-                            )}
-                            {!searchOpen && (
-                                <DockItem label={t('nav.compare')}>
-                                    <Link
-                                        to="/compare"
-                                        title={t('nav.compareTitle')}
-                                        aria-label={t('nav.compare')}
-                                        data-on={pathname === '/compare' || undefined}
-                                        className="chrome-btn focus-ring"
-                                    >
-                                        <Scale className="h-4 w-4" aria-hidden="true" />
                                     </Link>
                                 </DockItem>
                             )}
