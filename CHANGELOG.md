@@ -16,6 +16,80 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.2
+
+- **The flight home is slower.** Backing out of a focused object to the wide
+  view took 1.6 seconds, which read as a snap rather than as a movement. It is
+  now 2.8. The motion itself is unchanged — one cubic ease-in-out carrying the
+  pull-back and the recentring on the Sun together — it simply has time to be
+  watched. The fly-in stays where it was, 1.2 seconds ordinarily and 2.4 at
+  true sizes: going somewhere should feel eager and coming back should not.
+
+- **Halley is framed by its tails now, not by its nucleus.** Two separate
+  faults, both of which put the camera somewhere useless.
+
+  The first was the distance. Every focus distance in the scene is scaled by
+  how much the body itself shrank when true sizes came on, which is right for
+  a planet and catastrophic here: Halley's coma and tails are built at the
+  scene's drawn scale and true sizes never touches them, so only the nucleus
+  moved — from 0.11 units to about three millionths of one. The framing
+  followed it down and landed the camera four ten-thousandths of a unit out,
+  inside a seventeen-unit ion tail, looking at a speck. `framingScaleFactor`
+  is the fix: for this one body the camera's numbers — the distance flown to,
+  the floor under it, the near plane, how close a reader may zoom — stay on
+  the drawn radius at every stage. The nucleus still shrinks honestly, which
+  is the point of stage 2. It is just no longer what decides where you stand.
+
+  The second was the angle. At true distances and true sizes a focused body is
+  framed with the Sun in shot, over the shoulder and off to one side, which is
+  the right instinct for a rock at the far end of an empty orbit. For a comet
+  it is exactly wrong: the tails stream anti-sunward, so that framing put the
+  camera on the tail's own axis and seventeen units of ion tail came at the
+  lens end-on, reading as a smear across the corner of the frame. Halley is
+  framed broadside instead, off to the side of the Sun-comet line, tipped 15°
+  out of that plane so the dust tail's curve reads as a curve. The tails then
+  lie across the screen's horizontal — the axis with the most room on any
+  landscape window — at their full length, with the nucleus at one end. Giving
+  up the Sun in shot is worth it: this is the one view that says "comet".
+
+  The distance went from 14 to 34 to go with it. The camera looks at the
+  nucleus, so the tail has to fit in *half* the frame; at a 45° vertical field
+  the horizontal half-extent is about 0.66 of the distance, which puts the far
+  tip inside the right-hand edge with a little room left over.
+
+- **The opening no longer flashes its logo before decoding.** The telescope
+  appeared at full strength for a single frame, then vanished and eased in
+  again properly behind the last of the ciphertext. The decode was gated on
+  `home` — the header's measured box, which is what the flying wordmark is
+  laid out on — and the hook's resting state is *settled*, so the first frame
+  after that measurement landed rendered a finished mark and the effect that
+  resets it to ciphertext only ran after that frame had painted.
+
+  Removing the gate fixes it, and fixes something larger at the same time.
+  Measuring `home` needs a commit, and on a cold load the main thread is busy
+  enough building the scene that the one it needed landed nearly three seconds
+  in — the whole decode sat behind that, so the ciphertext appeared late and
+  was over almost as soon as it arrived. Measured in headless Chrome with the
+  cache disabled: the wordmark's first frame moved from 5166ms to 1478ms, and
+  it is ciphertext with the logo at zero rather than the finished mark.
+
+  What made the gate necessary was that the mark was not rendered at all until
+  `home` existed. It now falls back to a centred row that puts it in exactly
+  the place the header-box transform puts it, so the swap when `home` arrives
+  is invisible and the decode is on screen from the loading screen's first
+  paint. A load that somehow never measures a box now ends with the mark
+  fading out on the spot rather than with no mark ever having appeared.
+
+  The decode also runs for 2600ms rather than 1200. It is measured against the
+  clock rather than counted in frames, and this screen is on during the one
+  stretch of the session where the main thread is least able to deliver a
+  frame. A short decode spends most of itself inside one of those gaps and
+  what finally paints is the tail of it. At 2600 it is still running when the
+  thread comes back up, so the wordmark is seen to decode rather than seen to
+  have decoded.
+
+---
+
 ## 5.10.1
 
 - **No more halo on the compared bodies.** Each disc on `/compare` carried an
