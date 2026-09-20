@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.10',
         changes: [
+            'The two bodies on the Compare page no longer have a coloured halo around them.',
             'The opening screen now arrives as a line of ciphertext that decodes, letter by letter, into P4RSEC — with the telescope resolving alongside the last of it.',
             'The opening screen’s orbits have lost their drawn rings: four lights moving on paths you infer, rather than four circles with dots on them. They also run a fifth faster.',
         ],

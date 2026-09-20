@@ -16,6 +16,27 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.1
+
+- **No more halo on the compared bodies.** Each disc on `/compare` carried an
+  outer glow in its category's accent colour — by request, gone: a coloured
+  halo around a photograph of a planet reads as decoration, and the two discs
+  on that page are a measurement.
+
+  Only the outer shadow goes. The `inset` half of the same `box-shadow` is a
+  terminator, and it is what makes a flat crop of a photograph read as a body
+  lit from one side rather than as a circle of texture, so it stays.
+
+  The small-disc branch was *entirely* glow — a hard 6px bloom that existed to
+  keep something like Ceres beside Jupiter findable at two pixels. Removing it
+  loses nothing, because the disc under 6px already carries an offset outline
+  that marks it without lighting it up; checked against Jupiter/Ceres, where
+  Ceres comes out at 2px and still reads. The margin reserved either side of
+  the pair stays as it was: it was protecting the halo *and* the disc's own
+  edge from the card's `overflow: hidden`, and the edge is reason enough.
+
+---
+
 ## 5.10.0
 
 - **The opening decodes itself.** The loading screen's wordmark now arrives as
