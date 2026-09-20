@@ -8,6 +8,7 @@ import {
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
 import HeaderMenu from './HeaderMenu';
+import FloatingDock from './FloatingDock';
 import CoachMark from './CoachMark';
 import WhatsNew from './WhatsNew';
 import pkg from '../../package.json';
@@ -250,6 +251,20 @@ const AppShell = ({ children }) => {
     // scroll to reach is the only other way into the catalog. Keep it visible.
     const navHidden = onOwnPage || !!focusedId || (!scrolled && !isMobile);
 
+    const searchButton = (
+        <button
+            key="search"
+            onClick={() => setSearchOpen(v => !v)}
+            aria-label={searchOpen ? t('nav.searchClose') : t('nav.search')}
+            aria-expanded={searchOpen}
+            title={t('nav.searchShortcut')}
+            data-on={searchOpen || undefined}
+            className="chrome-btn focus-ring"
+        >
+            <Search className="h-4 w-4" aria-hidden="true" />
+        </button>
+    );
+
     return (
         <div
             className="min-h-screen text-white flex flex-col"
@@ -345,8 +360,8 @@ const AppShell = ({ children }) => {
                         behind one burger button — at a ~390px viewport the seven
                         icon buttons plus the wordmark measurably overflowed the
                         header (the search button's own right edge landed past
-                        the viewport edge). Desktop keeps the original inline row,
-                        completely unchanged. */}
+                        the viewport edge). Desktop keeps the inline row, as a
+                        FloatingDock below. */}
                     {!searchOpen && isMobile && (
                         <HeaderMenu
                             onShare={share} copied={copied} onSkyClick={handleSkyClick}
@@ -354,67 +369,66 @@ const AppShell = ({ children }) => {
                             onOpen={onMenuOpened}
                         />
                     )}
-                    {!searchOpen && !isMobile && <LanguagePicker />}
-                    {!searchOpen && !isMobile && (
-                        <button
-                            onClick={share}
-                            title={copied ? t('nav.copied') : t('nav.copyLink')}
-                            aria-label={t('nav.copyLink')}
-                            data-tone={copied ? 'positive' : undefined}
-                            className="chrome-btn focus-ring"
-                        >
-                            {copied
-                                ? <Check className="h-4 w-4" aria-hidden="true" />
-                                : <Link2 className="h-4 w-4" aria-hidden="true" />}
-                        </button>
-                    )}
-                    {!searchOpen && !isMobile && (
-                        <Link
-                            to="/satellites"
-                        onClick={handleTrackerClick}
-                            title={t('nav.trackerTitle')}
-                            aria-label={t('nav.tracker')}
-                            className="chrome-btn focus-ring"
-                        >
-                            <Satellite className="h-4 w-4" aria-hidden="true" />
-                        </Link>
-                    )}
-                    {!searchOpen && !isMobile && (
-                        <Link
-                            to="/sky"
-                            onClick={handleSkyClick}
-                            title={t('nav.skyTitle')}
-                            aria-label={t('nav.sky')}
-                            className="chrome-btn focus-ring"
-                        >
-                            <Star className="h-4 w-4" aria-hidden="true" />
-                        </Link>
-                    )}
-                    {!searchOpen && !isMobile && (
-                        <Link
-                            to="/compare"
-                            title={t('nav.compareTitle')}
-                            aria-label={t('nav.compare')}
-                            className="chrome-btn focus-ring"
-                        >
-                            <Scale className="h-4 w-4" aria-hidden="true" />
-                        </Link>
-                    )}
                     {searchOpen && (
                         <div className="animate-fade-in" style={{ width: isMobile ? '100%' : 'clamp(200px, 52vw, 340px)' }}>
                             <ObjectSearch autoFocus onClose={() => setSearchOpen(false)} />
                         </div>
                     )}
-                    <button
-                        onClick={() => setSearchOpen(v => !v)}
-                        aria-label={searchOpen ? t('nav.searchClose') : t('nav.search')}
-                        aria-expanded={searchOpen}
-                        title={t('nav.searchShortcut')}
-                        data-on={searchOpen || undefined}
-                        className="chrome-btn focus-ring"
-                    >
-                        <Search className="h-4 w-4" aria-hidden="true" />
-                    </button>
+                    {/* Desktop: the row of controls is a dock — each swells as
+                        the pointer nears it. The search toggle is inside it
+                        too; the field it opens sits just outside, to its left. */}
+                    {!isMobile && (
+                        <FloatingDock>
+                            {!searchOpen && <LanguagePicker />}
+                            {!searchOpen && (
+                                <button
+                                    onClick={share}
+                                    title={copied ? t('nav.copied') : t('nav.copyLink')}
+                                    aria-label={t('nav.copyLink')}
+                                    data-tone={copied ? 'positive' : undefined}
+                                    className="chrome-btn focus-ring"
+                                >
+                                    {copied
+                                        ? <Check className="h-4 w-4" aria-hidden="true" />
+                                        : <Link2 className="h-4 w-4" aria-hidden="true" />}
+                                </button>
+                            )}
+                            {!searchOpen && (
+                                <Link
+                                    to="/satellites"
+                                    onClick={handleTrackerClick}
+                                    title={t('nav.trackerTitle')}
+                                    aria-label={t('nav.tracker')}
+                                    className="chrome-btn focus-ring"
+                                >
+                                    <Satellite className="h-4 w-4" aria-hidden="true" />
+                                </Link>
+                            )}
+                            {!searchOpen && (
+                                <Link
+                                    to="/sky"
+                                    onClick={handleSkyClick}
+                                    title={t('nav.skyTitle')}
+                                    aria-label={t('nav.sky')}
+                                    className="chrome-btn focus-ring"
+                                >
+                                    <Star className="h-4 w-4" aria-hidden="true" />
+                                </Link>
+                            )}
+                            {!searchOpen && (
+                                <Link
+                                    to="/compare"
+                                    title={t('nav.compareTitle')}
+                                    aria-label={t('nav.compare')}
+                                    className="chrome-btn focus-ring"
+                                >
+                                    <Scale className="h-4 w-4" aria-hidden="true" />
+                                </Link>
+                            )}
+                            {searchButton}
+                        </FloatingDock>
+                    )}
+                    {isMobile && searchButton}
                 </div>
               </div>
             </header>

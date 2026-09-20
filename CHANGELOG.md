@@ -16,6 +16,29 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.14
+
+- **The header's buttons are a dock.** On desktop the row of controls in the top
+  right — language, copy link, tracker, night sky, compare, search — now swells
+  toward the pointer, macOS-dock style: the nearest button grows to about 1.25×
+  and its neighbours ease up with it, falling off to nothing 90px out. It is
+  Aceternity UI's FloatingDock reshaped for this header. Theirs takes a list of
+  `{ title, icon, href }` and renders every entry as a link, which these are not
+  (a dropdown, a clipboard button, three router links, a toggle), so
+  `components/FloatingDock.jsx` takes the buttons as children and wraps each in
+  a DockItem. The buttons keep their own markup, handlers and state; the dock
+  only decides how big they are. The magnification is the wrapper's width plus a
+  scale on its content, so neighbours are pushed apart instead of overlapped and
+  the header's fixed 56px height never moves.
+  Pointer only — a touch has no "near" — and `prefers-reduced-motion` gets the
+  plain row, since a spring is JS and `index.css` zeroing CSS durations does not
+  reach it. The dock has no backdrop-filter of its own: each button already
+  carries one, and stacking a filter inside a filter over the live canvas is the
+  trap 5.9.10 backed out of. On a phone nothing changes; the burger menu stays.
+  Adds `motion` (the framer-motion successor) as a dependency, for the springs.
+
+---
+
 ## 5.9.13
 
 - **The timeline pill keeps one width.** Its readout column was a `minWidth`, so

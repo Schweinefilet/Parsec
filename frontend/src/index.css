@@ -995,6 +995,15 @@ button:focus-visible {
 /* ── Chrome button ──────────────────────────────────────────────────────────
    The 36px icon button that floats over the scene — header actions, the back
    button, the tracker's controls. One recipe; `data-on` is the lit state. */
+/* The header's swelling row of chrome buttons (FloatingDock.jsx). No blur of its
+   own — each button already carries one, and a filter nested in a filter over
+   the live canvas is the trap 5.9.10 backed out of. */
+.floating-dock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .chrome-btn {
   display: inline-flex;
   align-items: center;
