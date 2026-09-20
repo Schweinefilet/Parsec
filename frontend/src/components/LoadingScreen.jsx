@@ -39,15 +39,30 @@ const HERO_SCALE = 1.9;
 // How long the wordmark takes to decode out of its ciphertext, and how far
 // through that the logo starts resolving with it.
 //
-// The decode is measured against the clock, not counted in frames, and this
-// screen is on during the one stretch of the session where the main thread is
-// least able to deliver a frame — building the scene can swallow whole seconds
-// at a time. A short decode spends most of itself inside one of those gaps and
-// what finally paints is the tail of it, or nothing at all. At 2600 it is
-// still running when the thread comes back up, so the wordmark is seen to
-// decode rather than seen to have decoded.
-const DECODE_MS = 2600;
+// The decode does not start with the screen. It starts when the scene is
+// ready, and is the last thing that happens before the handoff — see
+// `start` below. Running it any earlier does not work: the decode is a
+// real-time animation driven from the main thread, and this screen is on
+// during the one stretch of the session where that thread is least able to
+// deliver a frame. Building the scene blocks it for seconds at a time on a
+// phone, and a decode inside one of those gaps is not slowed, it is skipped:
+// the clock runs on regardless and the next frame to paint is the finished
+// word. Held until the thread is free, every frame of it is drawn.
+//
+// Which also means it can be brisk again. It was stretched to 2600 to try to
+// outlast the build, and nothing has to outlast anything now.
+const DECODE_MS = 1800;
 const ICON_FROM = 0.55;
+// The telescope is not absent while the wordmark is still encrypted, only
+// unresolved: it is drawn faintly, at its own size, from the first frame.
+// It has to be, because the mark is centred as a whole — icon, gap and
+// lettering — so an icon that is not drawn at all leaves its space empty and
+// the lettering sitting half an icon's width to the right of the progress bar
+// and the orrery it is supposed to share a centre line with. That is the
+// composition sitting visibly off centre for as long as the load takes, and
+// then correcting itself when the telescope finally arrives. Holding its place
+// costs nothing and the icon still resolves with the tail of the decode.
+const ICON_HELD = 0.32;
 // Sits above centre: the orrery is symmetrical about the wordmark but the
 // readout hangs below it, so the composition as a whole is bottom-heavy and
 // this lifts it back onto the optical centre.
@@ -148,21 +163,23 @@ const LoadingScreen = () => {
     // MIN_ON_SCREEN_MS, so the mark is standing plainly for a beat before it
     // ever starts moving.
     const appName = t('app.name');
-    // Runs from mount. It used to be held until `home` — the header's measured
-    // box — had landed, because the mark was not rendered until then, and
-    // holding it meant the decode could not play out against a wordmark nobody
-    // could see. The mark now renders centred from the first paint whether or
-    // not `home` has arrived (see the fallback layout below), so there is
-    // nothing left to wait for, and waiting cost real time: measuring `home`
-    // needs a commit, and on a cold load the main thread is busy enough
-    // building the scene that the one it needed landed nearly three seconds
-    // in. The whole decode sat behind that.
+    // The ciphertext is on screen from the loading screen's first paint; the
+    // decode itself waits for the scene. `assets.done` is the scene's own
+    // signal that the last texture has landed and it has drawn a frame with
+    // it — which is also the moment the main thread stops being swallowed
+    // whole by the build, and so the first moment an animation driven from it
+    // can actually be seen. The failsafe below covers the case where that
+    // signal never comes.
+    const sceneReady = !!assets?.done;
     const { shown: markText, progress: decoded } = useEncryptedText(appName, {
-        duration: DECODE_MS, enabled: !suppressed,
+        duration: DECODE_MS, enabled: !suppressed, start: sceneReady,
     });
     // The logo arrives with the tail of the wordmark rather than alongside all
-    // of it, so the two read as one thing resolving rather than as a fade.
-    const iconReveal = Math.min(1, Math.max(0, (decoded - ICON_FROM) / (1 - ICON_FROM)));
+    // of it, so the two read as one thing resolving rather than as a fade — but
+    // from ICON_HELD rather than from nothing, so it is standing in its own
+    // place the whole time. See ICON_HELD.
+    const revealT = Math.min(1, Math.max(0, (decoded - ICON_FROM) / (1 - ICON_FROM)));
+    const iconReveal = ICON_HELD + (1 - ICON_HELD) * revealT;
 
     useEffect(() => subscribeAssets(setAssets), []);
 
@@ -206,23 +223,20 @@ const LoadingScreen = () => {
         return () => clearTimeout(timer);
     }, [suppressed, minElapsed]);
 
-    // The failsafe is not held back by the minimum — it is longer than it
-    // anyway, and it exists for the case where nothing else will fire.
-    // The handoff waits for the wordmark to finish decoding. `home` is measured
-    // off the header, and on a cold load the main thread is busy enough
-    // building the scene that it can land a second or two in — so the decode
-    // starts late, and without this the three-second minimum would call the
-    // flight while letters were still turning over. The failsafe is deliberately
-    // not gated: it exists for the case where nothing else will fire.
+    // The handoff waits for the wordmark to finish decoding, which is the
+    // whole shape of the ending: the scene reports ready, the word comes good,
+    // and only then does it fly. Without this the three-second minimum would
+    // call the flight over a wordmark still turning over — and now that the
+    // decode does not begin until the scene is ready, that is the usual case
+    // rather than the unlucky one. The failsafe is deliberately not gated: it
+    // exists for the case where nothing else will fire.
     const decodeSettled = decoded >= 1;
-    const finished = expired || (!!assets?.done && minElapsed && decodeSettled);
+    const finished = expired || (sceneReady && minElapsed && decodeSettled);
     const flightMs = reduceMotion ? 0 : FLIGHT_MS;
 
-    // The decode starts when this mounts; MIN_ON_SCREEN_MS is counted from the
-    // navigation. On a cold load those are nearly the same moment, so a fast
-    // set of assets can call the handoff while letters are still turning over.
-    // The wordmark that flies to the header is the one the header will keep, so
-    // it settles the instant the flight is called rather than arriving as
+    // The failsafe can call the handoff over a half-decoded wordmark. The
+    // wordmark that flies to the header is the one the header will keep, so it
+    // settles the instant the flight is called rather than arriving as
     // ciphertext and decoding in the corner of the screen.
     const settledText = finished ? appName : markText;
     const settledReveal = finished ? 1 : iconReveal;
@@ -253,25 +267,44 @@ const LoadingScreen = () => {
 
     // Centre-of-viewport, scaled up — expressed as a transform away from the
     // header's box, so that clearing the transform *is* the landing.
+    //
+    // documentElement.clientWidth/Height rather than window.innerWidth/Height:
+    // this is a fixed element, so it is laid out against the layout viewport,
+    // and those are the two numbers that measure it. window.innerHeight is the
+    // *visual* viewport, which on a phone is shorter than the layout one by
+    // however much of the URL bar is currently showing — centring against it
+    // puts the wordmark off centre by half that, and the two disagree by a
+    // scrollbar's width on a desktop as well.
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
     const heroTransform = home
-        ? `translate(${(window.innerWidth / 2 - (home.left + home.width / 2)).toFixed(1)}px, `
-          + `${(window.innerHeight / 2 - HERO_RISE - (home.top + home.height / 2)).toFixed(1)}px) `
+        ? `translate(${(vw / 2 - (home.left + home.width / 2)).toFixed(1)}px, `
+          + `${(vh / 2 - HERO_RISE - (home.top + home.height / 2)).toFixed(1)}px) `
           + `scale(${HERO_SCALE})`
         : null;
 
-    // Where the mark is laid out before `home` has been measured: a full-width
-    // row centred on the viewport, which lands the wordmark in exactly the
-    // place the transform above lands it on. Same position, same scale, so the
-    // swap to the header-box layout the moment `home` arrives is invisible —
-    // and the wordmark is on screen, decoding, from the loading screen's very
-    // first paint instead of from whenever the main thread next has a commit
-    // to spare. With no `home` there is nowhere to fly to, so a load that
-    // somehow never measures one simply ends with the mark fading out on the
-    // spot rather than with no mark at all, which is what used to happen.
+    // Where the mark is laid out before `home` has been measured: pinned to the
+    // centre of the viewport and pulled back by half its own size, which lands
+    // the wordmark in exactly the place the transform above lands it on. Same
+    // position, same scale, so the swap to the header-box layout the moment
+    // `home` arrives is invisible — and the wordmark is on screen from the
+    // loading screen's very first paint instead of from whenever the main
+    // thread next has a commit to spare. With no `home` there is nowhere to fly
+    // to, so a load that somehow never measures one simply ends with the mark
+    // fading out on the spot rather than with no mark at all.
+    //
+    // It has to shrink to fit the wordmark, exactly as the header-box layout
+    // does. This was a full-width flex row centred on the viewport, which put
+    // the *first* copy of the mark in the right place and threw the second one
+    // — the gold one, laid over it with `inset: 0` — across the whole width of
+    // the screen and then scaled that by 1.9 about its centre, leaving it
+    // hanging off the left edge. So the opening showed two wordmarks, one
+    // centred and one adrift, until `home` landed and collapsed the box back
+    // onto the mark. On a phone `home` can be seconds late, which is the whole
+    // time anybody was looking.
     const heroBox = {
-        left: 0, right: 0, top: '50%',
-        display: 'flex', justifyContent: 'center',
-        transform: `translateY(${-HERO_RISE}px) scale(${HERO_SCALE})`,
+        left: '50%', top: '50%',
+        transform: `translate(-50%, calc(-50% - ${HERO_RISE}px)) scale(${HERO_SCALE})`,
     };
 
     return (

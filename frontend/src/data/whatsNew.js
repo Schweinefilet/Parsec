@@ -14,10 +14,12 @@ export const WHATS_NEW = [
     {
         version: '5.10',
         changes: [
+            'The opening wordmark now waits for the solar system to finish loading before it decodes. It used to start straight away, while the browser was still building the scene — which on a phone meant the decode was skipped entirely and the word simply appeared, already readable.',
+            'The opening no longer briefly shows a second copy of the wordmark hanging off the left edge of the screen, and the lettering no longer drifts sideways as it decodes.',
             'Coming back from a focused object to the whole solar system is now a slower, calmer flight — it used to snap back to the Sun.',
             'Halley’s Comet is now framed side-on and far enough back to see the whole of its tails. At true sizes the camera used to fly to the nucleus itself, which left you inside the tail looking at a speck.',
             'The telescope in the opening logo no longer flashes on for an instant before the ciphertext starts decoding.',
-            'The opening ciphertext now appears as soon as the loading screen does, and takes longer to decode, instead of turning up a few seconds in and being over at once.',
+            'The opening ciphertext now appears as soon as the loading screen does, instead of turning up a few seconds in and being over at once.',
             'The two bodies on the Compare page no longer have a coloured halo around them.',
             'The opening screen now arrives as a line of ciphertext that decodes, letter by letter, into P4RSEC — with the telescope resolving alongside the last of it.',
             'The opening screen’s orbits have lost their drawn rings: four lights moving on paths you infer, rather than four circles with dots on them. They also run a fifth faster.',

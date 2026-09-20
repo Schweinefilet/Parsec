@@ -16,6 +16,84 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.3
+
+- **The opening decode waits for the scene now.** 5.10.0 moved the ciphertext
+  to the loading screen's first paint, which is the right place for it to
+  *appear* and the wrong place for it to *run*. The decode is a real-time
+  animation driven from a `setInterval` on the main thread, and the stretch it
+  was running in is the one stretch of the session where that thread cannot
+  deliver a frame: building the scene blocks it solid. Profiled in headless
+  Chrome at 6× CPU throttle, a phone-sized viewport and a cold cache, the first
+  two seconds of the load are two long tasks of 1.4s and 1.0s back to back —
+  roughly a second of `proceduralSurface` painting thirty moons and small
+  bodies, then a second of `texSubImage2D` pushing them to the GPU. A decode
+  measured against the clock does not slow down inside a gap like that, it is
+  skipped: it ran to three painted frames out of forty-seven, the middle one
+  1.9 seconds after the one before it. On a real phone it is not seen at all.
+
+  So the decode is held. The ciphertext still stands there from the first
+  paint — full length, going nowhere — and starts resolving when `assets.done`
+  says the last texture has landed and the scene has drawn with it, which is
+  also the moment the main thread comes free. The handoff already waited for
+  the decode to settle, so the ending now reads in order: the scene reports
+  ready, the word comes good, the wordmark flies to the header. Same probe, and
+  the decode draws thirty-seven frames across its full length with nothing
+  dropped.
+
+  It can be brisk again as well. `DECODE_MS` had been stretched to 2600 purely
+  to try to outlast the build; at 1800 it settles before the three-second
+  minimum on any warm load, so the screen is on for exactly as long as it was.
+
+- **And the opening no longer shows two wordmarks.** The flying mark is two
+  stacked copies — white underneath, gold over the top, cross-fading on opacity
+  because colour cannot be composited — and the gold one is positioned with
+  `inset: 0` against whatever box its parent has. 5.10.2 gave that parent, for
+  as long as the header's own box has not been measured yet, a full-width flex
+  row. So the white copy was centred as a flex item and the gold copy was
+  stretched across the whole viewport and then scaled by 1.9 about its centre,
+  which put its lettering off the left-hand edge of the screen. Two wordmarks,
+  one centred and one adrift, until `home` landed and collapsed the box back
+  onto the mark — and on a phone `home` lands behind that same two-second
+  block, so that was the whole of the opening.
+
+  The fallback shrinks to fit the mark now, exactly as the header-box layout
+  does: pinned to the centre of the viewport and pulled back by half its own
+  size. Both layouts put the mark's centre in the same place to the pixel, so
+  the swap stays invisible and there is only ever one wordmark. The hero
+  transform is measured off `documentElement.clientWidth/Height` rather than
+  `window.innerWidth/Height` while we are here — a fixed element is laid out
+  against the layout viewport, and `innerHeight` is the *visual* one, shorter
+  than the layout viewport by however much of a phone's URL bar is showing.
+
+- **The ciphertext keeps to the wordmark's own letter positions.** The overlay
+  was one string drawn from the box's leading edge over the settled text. Its
+  glyphs are not the widths of the letters they stand in for, so the run was a
+  few pixels wider or narrower than the wordmark and hung off one side, then
+  crept back as letters landed — the text visibly sliding into place rather
+  than decoding in it. Each character now gets its own slot, held open by the
+  glyph it will become, with whatever the cipher currently says drawn over that
+  slot from its centre. Nothing moves for the whole decode, and the line stays
+  on the centre it started on.
+
+- **The telescope holds its place while the wordmark is encrypted.** It is
+  drawn at 0.32 from the first frame and resolves the rest of the way with the
+  tail of the decode, instead of not being drawn at all until then. The mark is
+  centred as a whole — icon, gap and lettering — so an icon rendered at zero
+  leaves its space empty and puts the lettering half an icon's width to the
+  right of the progress bar and the orrery it shares a centre line with. That
+  was tolerable when it lasted the back half of a decode. It is not when it
+  lasts the entire load.
+
+  Still outstanding, and the reason all of this was needed: the ~2.4s of
+  synchronous procedural painting and texture upload at the top of the
+  `SolarSystem3D` setup effect. Nothing on screen depends on the main thread
+  during it — the orrery is a CSS transform animation and runs on the
+  compositor throughout — but the page is frozen, and the fix is to drain that
+  work off the critical path rather than to keep working around it.
+
+---
+
 ## 5.10.2
 
 - **The flight home is slower.** Backing out of a focused object to the wide

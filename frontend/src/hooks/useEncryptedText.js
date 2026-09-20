@@ -44,10 +44,19 @@ export function cipherText(text, progress) {
 }
 
 /**
+ * `start` is the go signal, and until it comes the string sits at full length
+ * as ciphertext rather than as nothing: the wordmark is standing there the
+ * whole time, encrypted, and the decode is the moment it comes good. The
+ * caller holds it because the decode is a real-time animation and the main
+ * thread is not always able to run one — see the loading screen, which waits
+ * for the scene to stop building before it lets this go.
+ *
  * Reduced motion gets the plain string, settled, from the first frame — the
  * durations index.css collapses are CSS ones, and this is a timer.
  */
-export function useEncryptedText(text, { duration = 1400, interval = 55, enabled = true } = {}) {
+export function useEncryptedText(text, {
+    duration = 1400, interval = 55, enabled = true, start = true,
+} = {}) {
     const reduced = useReducedMotion();
     const live = enabled && !reduced;
     // Ciphertext from the very first paint, not an empty box that fills in.
@@ -62,18 +71,20 @@ export function useEncryptedText(text, { duration = 1400, interval = 55, enabled
 
     useEffect(() => {
         if (!live) { setState({ shown: text, progress: 1 }); return undefined; }
+        // Held: full-length ciphertext, going nowhere until the caller says so.
+        if (!start) { setState({ shown: cipherText(text, 0), progress: 0 }); return undefined; }
         setState({ shown: cipherText(text, 0), progress: 0 });
         // Measured against the clock rather than counted in ticks, so a frame
-        // the main thread is too busy to deliver — which, on this screen, is
-        // most of them — shortens the decode instead of stretching it.
-        const start = performance.now();
+        // the main thread is too busy to deliver shortens the decode instead of
+        // stretching it — the string still comes good when it said it would.
+        const began = performance.now();
         const id = setInterval(() => {
-            const p = Math.min(1, (performance.now() - start) / duration);
+            const p = Math.min(1, (performance.now() - began) / duration);
             setState({ shown: cipherText(textRef.current, p), progress: p });
             if (p >= 1) clearInterval(id);
         }, interval);
         return () => clearInterval(id);
-    }, [text, duration, interval, live]);
+    }, [text, duration, interval, live, start]);
 
     return { ...state, done: state.progress >= 1 };
 }
