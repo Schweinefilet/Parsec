@@ -317,7 +317,11 @@ body::after {
   height: calc(var(--orr-r) * var(--k));
   margin-left: calc(var(--orr-r) * var(--k) * -0.5);
   margin-top: calc(var(--orr-r) * var(--k) * -0.5);
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  /* No drawn orbit — by request. The box stays exactly as it was, because it
+     is what carries the bodies round and what --boot-drop measures the
+     readout's position from; only the line it used to paint is gone, leaving
+     four lights moving on paths you infer rather than four rings with dots on
+     them. index.html's pre-React figure was the same ring and went with it. */
   border-radius: 50%;
   /* Close to the angle the solar-system scene's own default camera looks
      down on the ecliptic at, so the two agree when one replaces the other. */

@@ -16,15 +16,57 @@ Every release is a commit titled with its version. The version in
 
 ---
 
-## 5.9.17
+## 5.10.0
 
-**Dropped the glow on the Compare page's discs.** Each body's disc there kept
-a soft outer glow at its rim — meant to help a flat photo crop read as a
-sphere, but it landed as a soft-focus halo instead, out of step with the
-rest of the page's flat, precise styling. The terminator/rim shading that
-gives a disc its roundness stays; only the outer glow is gone, and the small
-bodies under 8px (which had no shading, just a plain glow) now render with
-no shadow at all instead.
+- **The opening decodes itself.** The loading screen's wordmark now arrives as
+  ciphertext and resolves into P4RSEC a letter at a time, after Aceternity UI's
+  EncryptedText; the orrery has lost its drawn orbits and runs a fifth faster.
+
+  The cipher and the markup are separate — `hooks/useEncryptedText.js` and
+  `components/EncryptedText.jsx` — because the flying wordmark is two stacked
+  copies, a gold one over a white one, cross-fading on opacity across the
+  flight. Two components each running their own scramble would land different
+  letters on the same frame and the cross-fade would show it, so one hook runs
+  the decode and both copies draw the same frame of it. It is at full length
+  from the first frame rather than typing itself on, which is both the effect
+  asked for and what stops the wordmark growing across the screen while the
+  scene behind it is loading.
+
+  The settled string stays in flow, invisible, holding the box open while the
+  ciphertext is laid over it from the same leading edge. So a letter that has
+  decoded cannot shift again, only the undecoded tail moves, and the last frame
+  of the decode occupies exactly the space the plain text that replaces it
+  will — which the flight depends on, since it ends by clearing a transform and
+  expecting to be pixel-identical to the header's own mark. The cipher alphabet
+  drops I, J, M and W for the same reason: at the wordmark's tracking, glyphs
+  that wide or narrow make the tail visibly breathe.
+
+  The logo resolves with the last 45% of the wordmark rather than being there
+  from the start, on opacity and scale alone. A blur would say "diffuse" more
+  literally and is a paint property; every frame of it would land on the main
+  thread at the one moment it is busiest building the scene.
+
+  Two things the first cut got wrong, both found by measuring rather than
+  looking. The decode was starting on mount, but the mark is laid out on the
+  header's measured box and is not rendered until that measurement lands — which
+  on a cold load is a second or two in, behind the scene build — so what
+  actually appeared on screen was the last third of a decode that had run
+  invisibly. It now starts when the mark does. And the handoff was not waiting
+  for it: `MIN_ON_SCREEN_MS` is counted from the navigation, so a fast set of
+  assets called the flight while letters were still turning over. It now waits
+  for the decode, except on the failsafe path, which stays unconditional because
+  it exists for the case where nothing else will fire.
+
+  The orbits: `.boot-ring` keeps its box, which is what carries the bodies round
+  and what `--boot-drop` measures the readout against, and loses only the line
+  it painted. index.html's pre-React figure was that same ring, drawn so the
+  first paint has no seam with what React mounts — with the orbits gone it would
+  have become the one thing on the screen that vanished on mount instead of
+  being joined, so it is now a pulsing point at the centre the wordmark decodes
+  on top of. Periods are the old set times 0.8, with every negative delay
+  re-solved from `delay = 2 - dur × (angle / 360 + n)`: they are what hold the
+  four bodies one per quadrant at t = 2s, and a duration changed without them
+  collapses the figure back into a spoke.
 
 ---
 

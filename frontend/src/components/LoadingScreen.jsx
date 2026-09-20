@@ -4,6 +4,8 @@ import {
     subscribeAssets, assetsEverReady, holdLogo, releaseLogo,
 } from '../utils/assetLoading';
 import { useReducedMotion } from '../hooks/useMediaQuery';
+import EncryptedText from './EncryptedText';
+import { useEncryptedText } from '../hooks/useEncryptedText';
 import { useI18n } from '../i18n';
 
 // However slow the scene is, the screen never outstays this. A loading screen
@@ -34,6 +36,10 @@ const FLIGHT_EASE = 'var(--ease-inout)';
 // exact size and scaled up, rather than rendered large and scaled down, so the
 // state it finishes in is untransformed and pixel-identical to the header's.
 const HERO_SCALE = 1.9;
+// How long the wordmark takes to decode out of its ciphertext, and how far
+// through that the logo starts resolving with it.
+const DECODE_MS = 1200;
+const ICON_FROM = 0.55;
 // Sits above centre: the orrery is symmetrical about the wordmark but the
 // readout hangs below it, so the composition as a whole is bottom-heavy and
 // this lifts it back onto the optical centre.
@@ -53,12 +59,19 @@ const HERO_RISE = 58;
  * t = 2s — one per quadrant, at about the moment the screen is most likely to
  * be looked at. Left at zero the four line up into a spoke, which is the one
  * arrangement that reads as a diagram rather than as a system.
+ *
+ * Which means a period cannot be changed on its own. These are the original
+ * set taken a fifth faster, by request, with every delay re-solved from
+ * `delay = 2 - dur × (angle / 360 + n)` — n being whatever whole turn it takes
+ * to keep the delay negative, since a positive one would hold the orbit still
+ * until it elapsed. Change a duration without redoing that and the quadrants
+ * collapse back into a spoke.
  */
 const RINGS = [
-    { k: 1,    dur: 17, delay: -0.13,  angle: 45 },
-    { k: 1.45, dur: 26, delay: -7.75,  angle: 135 },
-    { k: 2.02, dur: 38, delay: -21.75, angle: 225 },
-    { k: 2.72, dur: 55, delay: -46.1,  angle: 315 },
+    { k: 1,    dur: 13.6, delay: -13.3, angle: 45 },
+    { k: 1.45, dur: 20.8, delay: -5.8,  angle: 135 },
+    { k: 2.02, dur: 30.4, delay: -17,   angle: 225 },
+    { k: 2.72, dur: 44,   delay: -36.5, angle: 315 },
 ];
 
 /**
@@ -66,7 +79,7 @@ const RINGS = [
  * the flying copy so the colour change can be an opacity cross-fade; keeping
  * them one component is what stops the two from drifting apart.
  */
-const Mark = ({ iconColor, textColor, style, name }) => (
+const Mark = ({ iconColor, textColor, style, name, shown, reveal = 1 }) => (
     <span
         className="flex items-center gap-2"
         style={{
@@ -75,11 +88,24 @@ const Mark = ({ iconColor, textColor, style, name }) => (
             ...style,
         }}
     >
-        <Telescope className="h-5 w-5" aria-hidden="true" style={{ color: iconColor }} />
+        {/* The logo resolves with the last of the wordmark rather than being
+            there from the start — opacity and scale only. A blur would say
+            "diffuse" more literally, but it is a paint property, and every
+            frame of it would land on the main thread at the one moment it is
+            busiest building the scene. These two composite. */}
+        <Telescope
+            className="h-5 w-5"
+            aria-hidden="true"
+            style={{
+                color: iconColor,
+                opacity: reveal,
+                transform: `scale(${(0.72 + 0.28 * reveal).toFixed(3)})`,
+            }}
+        />
         {/* Latin whatever the page language, and its tracking is the whole
             look of it — see the [data-latin] rule in index.css. */}
         <span data-latin style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
-            {name}
+            <EncryptedText text={name} shown={shown ?? name} />
         </span>
     </span>
 );
@@ -108,6 +134,22 @@ const LoadingScreen = () => {
     const [home, setHome] = useState(null);
     const reduceMotion = useReducedMotion();
     const flyingRef = useRef(null);
+
+    // One decode, shared by both copies of the flying wordmark — see
+    // EncryptedText.jsx for why it cannot be two. Settles well inside
+    // MIN_ON_SCREEN_MS, so the mark is standing plainly for a beat before it
+    // ever starts moving.
+    const appName = t('app.name');
+    // Held until `home` lands, because until it does the mark is not rendered
+    // at all — it is laid out on the header's measured box. Started on mount
+    // instead, the decode ran against a wordmark nobody could see yet and what
+    // finally appeared was the last third of it.
+    const { shown: markText, progress: decoded } = useEncryptedText(appName, {
+        duration: DECODE_MS, enabled: !suppressed && !!home,
+    });
+    // The logo arrives with the tail of the wordmark rather than alongside all
+    // of it, so the two read as one thing resolving rather than as a fade.
+    const iconReveal = Math.min(1, Math.max(0, (decoded - ICON_FROM) / (1 - ICON_FROM)));
 
     useEffect(() => subscribeAssets(setAssets), []);
 
@@ -153,8 +195,24 @@ const LoadingScreen = () => {
 
     // The failsafe is not held back by the minimum — it is longer than it
     // anyway, and it exists for the case where nothing else will fire.
-    const finished = expired || (!!assets?.done && minElapsed);
+    // The handoff waits for the wordmark to finish decoding. `home` is measured
+    // off the header, and on a cold load the main thread is busy enough
+    // building the scene that it can land a second or two in — so the decode
+    // starts late, and without this the three-second minimum would call the
+    // flight while letters were still turning over. The failsafe is deliberately
+    // not gated: it exists for the case where nothing else will fire.
+    const decodeSettled = decoded >= 1;
+    const finished = expired || (!!assets?.done && minElapsed && decodeSettled);
     const flightMs = reduceMotion ? 0 : FLIGHT_MS;
+
+    // The decode starts when this mounts; MIN_ON_SCREEN_MS is counted from the
+    // navigation. On a cold load those are nearly the same moment, so a fast
+    // set of assets can call the handoff while letters are still turning over.
+    // The wordmark that flies to the header is the one the header will keep, so
+    // it settles the instant the flight is called rather than arriving as
+    // ciphertext and decoding in the corner of the screen.
+    const settledText = finished ? appName : markText;
+    const settledReveal = finished ? 1 : iconReveal;
 
     // Hand the wordmark back at the moment the flight lands, and only then stop
     // rendering — so the canvas is not left behind a transparent full-screen
@@ -331,14 +389,18 @@ const LoadingScreen = () => {
                     {/* The one that stays: the header's own colours, so what is
                         left standing at the end is what the header draws. */}
                     <Mark
-                        name={t('app.name')}
+                        name={appName}
+                        shown={settledText}
+                        reveal={settledReveal}
                         iconColor="var(--accent)"
                         textColor="rgba(255,255,255,0.92)"
                     />
                     {/* The one that goes: gold, over the top, faded out across
                         the flight. */}
                     <Mark
-                        name={t('app.name')}
+                        name={appName}
+                        shown={settledText}
+                        reveal={settledReveal}
                         iconColor="#ffd166"
                         textColor="#fff"
                         style={{
