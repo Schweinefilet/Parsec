@@ -30,4 +30,9 @@ export const useIsShortViewport = () => useMediaQuery('(max-height: 520px)');
 // Wide enough for the expanded time control to sit at bottom-left without
 // reaching the centred controls. Below this it opens on request instead.
 export const useHasRoomForTimeline = () => useMediaQuery('(min-width: 1280px)');
+// A phone or a tablet, as opposed to a narrow desktop window — the primary
+// pointer is what separates the two, and a touchscreen laptop with a mouse
+// still reports `fine`. Width would catch a half-width browser on a desktop,
+// which is not what anything asking this wants to know.
+export const useIsTouch = () => useMediaQuery('(pointer: coarse)');
 export const useReducedMotion = () => useMediaQuery('(prefers-reduced-motion: reduce)');

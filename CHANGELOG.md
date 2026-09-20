@@ -16,6 +16,39 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.6
+
+- **On a phone the wordmark now waits offstage.** The held scramble is CSS so
+  that it can run while the main thread cannot, and on a desktop it does. On a
+  phone it has now been reported wrong twice — first as letters blinking rather
+  than cycling, then, after the reel replaced the stack of layers, as still not
+  right. Whatever an engine is doing with a dozen little animations at the
+  exact moment it is also compiling shaders and uploading thirty textures, the
+  answer is not to keep guessing at it from a laptop.
+
+  So on a touch device nothing of the wordmark is drawn while the scene is
+  being built: the orrery turns, the bar fills, the middle of the screen is
+  empty. When the scene reports ready the mark fades in over 420ms, stands
+  there as ciphertext for a further 140, and only then decodes. There is
+  nothing to get wrong in an empty middle, and every frame of the decode —
+  which is the part anybody actually came for — now happens on a thread that
+  has finished building the scene and against a wordmark that is already fully
+  on screen. The fade and the decode are deliberately not overlapped: the whole
+  of the decode should play at full strength, not the last 85% of it.
+
+  Desktop is untouched and keeps scrambling from the loading screen's first
+  paint. The split is `(pointer: coarse)` rather than a width — a phone or a
+  tablet is what this is about, and a half-width browser window on a desktop is
+  not. A touchscreen laptop with a mouse reports `fine` and gets the desktop
+  behaviour, correctly.
+
+  The reel is not rendered at all while the mark is offstage. A dozen
+  compositor animations nobody can see, running through the busiest two seconds
+  of the load, is exactly the kind of thing this release is trying to stop
+  doing.
+
+---
+
 ## 5.10.5
 
 - **The held scramble is a reel now, because the stack of glyphs did not work

@@ -14,7 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.10',
         changes: [
-            'The opening wordmark now scrambles from the moment the page opens, and resolves into P4RSEC once the solar system has finished loading. It used to try to decode while the browser was still building the scene — which on a phone meant the animation was skipped and the word simply appeared, already readable.',
+            'The opening wordmark scrambles from the moment the page opens and resolves into P4RSEC once the solar system has finished loading. On a phone it stays out of sight while the loading runs and fades in just before it decodes: a phone is too busy building the solar system to draw the scramble, and this way the whole decode happens where it can actually be seen.',
             'The opening no longer briefly shows a second copy of the wordmark hanging off the left edge of the screen, and the lettering no longer drifts sideways as it decodes.',
             'Coming back from a focused object to the whole solar system is now a slower, calmer flight — it used to snap back to the Sun.',
             'Halley’s Comet is now framed side-on and far enough back to see the whole of its tails. At true sizes the camera used to fly to the nucleus itself, which left you inside the tail looking at a speck.',
