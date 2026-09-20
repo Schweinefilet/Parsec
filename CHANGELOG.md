@@ -16,6 +16,36 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.10
+
+**Opening the language dropdown no longer drags the whole header dock around
+as you hover down the list.** The header's icon row is a magnifying dock
+(`FloatingDock.jsx`): every button's size tracks a shared `mouseX`, published
+as a spring so nearby icons swell toward the pointer. The language picker's
+dropdown hangs off its button as `position: absolute`, but it is still a DOM
+descendant of that button's dock item — so hovering the language list, or
+just the button underneath it, kept feeding `mouseX`, resizing that very item
+and, since the row is anchored from one edge, shifting every button after it
+along with the dropdown itself. Moving toward the top of the list swelled the
+dock; moving toward the bottom shrank it back, dragging the open dropdown
+sideways either way.
+
+`FloatingDock` now exposes `useDockSuspend()`: while `LanguagePicker`'s
+dropdown is open, it freezes `mouseX` for the whole dock, so no item's target
+size moves regardless of where the pointer wanders. That alone wasn't quite
+enough — `useTransform`'s derived values re-read each item's live
+`getBoundingClientRect()` on every render of the item that owns them, not
+only when `mouseX` changes, so a *different* icon's hover state flipping
+could still nudge its own size mid-freeze and shift the row. Gating each
+item's hover state on the same suspended flag stops every other icon from
+re-rendering at all while one item's popover is open, so nothing has a
+chance to catch up mid-freeze. Verified over CDP in headless Chrome: sweeping
+the cursor across the open dropdown, and separately roaming it across the
+other four dock icons, now leaves every item's `getBoundingClientRect()`
+byte-for-byte identical across the whole sweep.
+
+---
+
 ## 5.10.9
 
 **The Compare page is pulled off the site while it gets a visual rework.**

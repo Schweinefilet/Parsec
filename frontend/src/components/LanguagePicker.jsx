@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Languages, Check } from 'lucide-react';
 import { useI18n } from '../i18n';
+import { useDockSuspend } from './FloatingDock';
 
 /**
  * Choose a language.
@@ -27,6 +28,18 @@ const LanguagePicker = ({ variant = 'icon' }) => {
     const { locale, locales, setLocale, t } = useI18n();
     const [open, setOpen] = useState(false);
     const wrapRef = useRef(null);
+    const setDockSuspended = useDockSuspend();
+
+    // On the icon variant this sits inside the header's FloatingDock. The
+    // dropdown hangs below the button as `position: absolute`, but is still
+    // a DOM descendant of it — so without this, hovering the language list
+    // keeps feeding the dock's pointer-follow swell, resizing the button
+    // mid-menu and dragging the dropdown anchored to it sideways. `undefined`
+    // outside a dock (the burger-menu `variant="row"`) makes this a no-op.
+    useEffect(() => {
+        setDockSuspended?.(open);
+        return () => setDockSuspended?.(false);
+    }, [open, setDockSuspended]);
 
     useEffect(() => {
         if (!open) return;

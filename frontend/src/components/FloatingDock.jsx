@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { motion as Motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { useReducedMotion } from '../hooks/useMediaQuery';
 
@@ -28,6 +28,26 @@ import { useReducedMotion } from '../hooks/useMediaQuery';
  * Pointer only — a touch has no "near" to swell toward — and reduced motion
  * gets a plain, still row, since a spring is JS and index.css collapsing every
  * CSS duration does not reach it.
+ *
+ * `useDockSuspend()` lets an item with its own popover (the language picker)
+ * freeze the whole row for as long as it's open. The dropdown is `position:
+ * absolute`, but still a DOM descendant of its DockItem, so pointer moves
+ * over it (or over the language button while it stays hovered) would
+ * otherwise keep driving the swell — resizing that very item and dragging
+ * the dropdown anchored to it sideways as the cursor wanders across the
+ * list. Suspending stops `mouseX` from updating at all, so every item (and
+ * the popover riding on one of them) holds still until it closes.
+ *
+ * That alone isn't quite enough: `useTransform`'s derived values re-read
+ * `ref.current.getBoundingClientRect()` on every render of the item that
+ * owns them, not only when `mouseX` itself changes. If the cursor merely
+ * passes over a *different* item while the dock is suspended, that item's
+ * own hover state still flips, it still re-renders, and that re-render can
+ * pick up a bounds reading it hadn't caught up to yet — nudging its size,
+ * which (since the whole row is anchored from one edge) can shift every
+ * item after — or before — it, dropdown included. Gating `hovered` itself
+ * on suspension keeps every *other* item from re-rendering at all while one
+ * item's popover is open, so nothing has a chance to catch up mid-freeze.
  */
 
 const BASE = 36;      // .chrome-btn's resting size, and the header's row height
@@ -39,16 +59,25 @@ const DockContext = createContext(null);
 export const FloatingDock = ({ children, className = '', style }) => {
     const mouseX = useMotionValue(Infinity);
     const reduced = useReducedMotion();
+    const suspended = useRef(false);
 
     const onPointerMove = (e) => {
-        if (e.pointerType === 'mouse') mouseX.set(e.clientX);
+        if (e.pointerType === 'mouse' && !suspended.current) mouseX.set(e.clientX);
     };
+    // Stable identity: a new function (or context object) every render would
+    // re-fire every DockItem's and LanguagePicker's effects that depend on it.
+    const setSuspended = useCallback((v) => { suspended.current = v; }, []);
+    const isSuspended = useCallback(() => suspended.current, []);
+    const context = useMemo(
+        () => (reduced ? null : { mouseX, setSuspended, isSuspended }),
+        [reduced, mouseX, setSuspended, isSuspended],
+    );
 
     return (
-        <DockContext.Provider value={reduced ? null : mouseX}>
+        <DockContext.Provider value={context}>
             <div
                 onPointerMove={reduced ? undefined : onPointerMove}
-                onPointerLeave={reduced ? undefined : () => mouseX.set(Infinity)}
+                onPointerLeave={reduced ? undefined : () => { if (!suspended.current) mouseX.set(Infinity); }}
                 className={`floating-dock ${className}`.trim()}
                 style={style}
             >
@@ -58,8 +87,12 @@ export const FloatingDock = ({ children, className = '', style }) => {
     );
 };
 
+/** Freeze/unfreeze the dock's swell — see the module comment above. */
+export const useDockSuspend = () => useContext(DockContext)?.setSuspended;
+
 export const DockItem = ({ label, children }) => {
-    const mouseX = useContext(DockContext);
+    const ctx = useContext(DockContext);
+    const mouseX = ctx?.mouseX;
     // Hooks cannot be conditional, so a reduced-motion dock gets a motion value
     // that never leaves Infinity — every item then stays at BASE.
     const idle = useMotionValue(Infinity);
@@ -79,8 +112,10 @@ export const DockItem = ({ label, children }) => {
     return (
         <Motion.div
             ref={ref}
-            onPointerEnter={() => setHovered(true)}
-            onPointerLeave={() => setHovered(false)}
+            // Ignored while a *different* item's popover is open — see the
+            // module comment on useDockSuspend.
+            onPointerEnter={() => { if (!ctx?.isSuspended()) setHovered(true); }}
+            onPointerLeave={() => { if (!ctx?.isSuspended()) setHovered(false); }}
             style={{
                 // Square, and centred by the dock, so the icon grows evenly out
                 // of the pill top and bottom. The header row cannot grow with
