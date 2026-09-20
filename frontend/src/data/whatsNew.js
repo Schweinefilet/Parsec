@@ -14,7 +14,9 @@ export const WHATS_NEW = [
     {
         version: '5.9',
         changes: [
-            'The buttons in the top right now swell toward your cursor like a dock, on a computer. Nothing changes on a phone.',
+            'The buttons in the top right now sit in a dock: bare round icons on one dark bar, swelling toward your cursor as you move along them, with the name of whichever one you are pointing at shown beside it. Only the page you are currently on stays lit. On a computer only — nothing changes on a phone.',
+            'The date and clock in the timeline control now roll digit by digit as time passes, instead of snapping.',
+            'A focused planet’s figures — its mass, its radius, its orbital period — now wind up from zero to their real value as you arrive. The exponent on a number like 10²⁷ stays put while the rest counts.',
             'The timeline control no longer changes width as the date and time change — most noticeable in Arabic, where the wider numerals used to make it swell and shrink as you scrubbed.',
             'Fixed the globe being drawn into the bottom of its card, under a band of empty black, after flying into the Satellite Tracker on a phone. It only happened on the flight in, never on opening the tracker directly, and nothing but reloading the page cleared it.',
             'On a phone, the cards in a focused object’s detail panel now slide behind one another as you scroll instead of being cut in half at the panel’s top edge. Each card stays put and shrinks a little as the next one rides up over it, and lifts back off as you scroll up again.',

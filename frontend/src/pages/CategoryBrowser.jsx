@@ -11,6 +11,7 @@ import SpaceDataStrip from '../components/SpaceDataStrip';
 import ObjectCard from '../components/ObjectCard';
 import ObjectDetailBody from '../components/ObjectDetailBody';
 import ObjectHero from '../components/ObjectHero';
+import { CountUpNumber } from '../components/SlidingNumber';
 import SpacecraftViewer from '../components/SpacecraftViewer';
 import TimeControl from '../components/TimeControl';
 import DriftPanel from '../components/DriftPanel';
@@ -892,7 +893,7 @@ const CategoryBrowser = () => {
                             </div>
 
                             <div className="fa-col fa-end">
-                                <p className="fa-figure num-run">{object.keyStatValue}</p>
+                                <p className="fa-figure num-run"><CountUpNumber value={object.keyStatValue} delay={700} /></p>
                                 <p className="label label-dim" style={{ marginTop: 3 }}>
                                     {object.keyStatLabel}
                                 </p>
@@ -900,7 +901,7 @@ const CategoryBrowser = () => {
 
                             <div className="fa-col fa-start">
                                 {physicalRows[0] && (<>
-                                    <p className="fa-figure num-run">{physicalRows[0].value}</p>
+                                    <p className="fa-figure num-run"><CountUpNumber value={physicalRows[0].value} delay={700} /></p>
                                     <p className="label label-dim" style={{ marginTop: 3 }}>
                                         {physicalRows[0].label}
                                     </p>
@@ -909,7 +910,7 @@ const CategoryBrowser = () => {
 
                             <div className="fa-col fa-end">
                                 {physicalRows[1] && (<>
-                                    <p className="fa-figure num-run">{physicalRows[1].value}</p>
+                                    <p className="fa-figure num-run"><CountUpNumber value={physicalRows[1].value} delay={700} /></p>
                                     <p className="label label-dim" style={{ marginTop: 3 }}>
                                         {physicalRows[1].label}
                                     </p>

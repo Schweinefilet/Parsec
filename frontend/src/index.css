@@ -995,13 +995,130 @@ button:focus-visible {
 /* ── Chrome button ──────────────────────────────────────────────────────────
    The 36px icon button that floats over the scene — header actions, the back
    button, the tracker's controls. One recipe; `data-on` is the lit state. */
-/* The header's swelling row of chrome buttons (FloatingDock.jsx). No blur of its
-   own — each button already carries one, and a filter nested in a filter over
-   the live canvas is the trap 5.9.10 backed out of. */
+/* The header's swelling row of chrome buttons (FloatingDock.jsx).
+
+   The row keeps the header's own 36px height and the buttons grow past its
+   bottom edge onto the scene, so a magnified icon never reflows the 56px
+   header. `--dock-size` is published per item by the component as a real
+   animated length — the button is sized by it rather than transformed, which
+   keeps its border and glyph crisp at the peak and leaves an open language
+   dropdown at its natural size instead of scaling it up too. */
 .floating-dock {
+  /* The labels anchor to the dock rather than to the item they describe —
+     see .dock-label. */
+  position: relative;
   display: flex;
+  /* Centred, so a magnified icon grows out of the pill evenly above and below
+     rather than hanging off the bottom edge. */
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  /* 48 = the 36px row plus 5px of padding and a hairline either side. Under the
+     56px header either way, so a magnified icon spills past the pill's bottom
+     edge without the header ever reflowing. */
+  height: 50px;
+  padding: 6px;
+  /* A rounded rectangle rather than a full pill — the icons are the circles
+     here, and a pill around a row of circles reads as two competing radii. */
+  border-radius: 18px;
+  /* The dock now carries the chrome its buttons used to carry individually —
+     one scrim and one blur for the whole row rather than six. That is also what
+     keeps the blur un-nested: a backdrop-filter inside a backdrop-filter over
+     the live canvas is the trap 5.9.10 backed out of. */
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  backdrop-filter: var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
+  box-shadow: var(--sh-2);
+}
+
+/* Round wells on the dock's own surface: a soft fill and no outline at all.
+   A button only lights up when it is *on* — the page you are looking at, a
+   panel you have opened, a link you just copied — so the row reads as one
+   material with one thing picked out, instead of six outlined boxes. */
+.floating-dock .chrome-btn {
+  width: var(--dock-size, 36px);
+  height: var(--dock-size, 36px);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.055);
+  border-color: transparent;
+  box-shadow: none;
+  /* The dock carries one blur for the whole row; a backdrop-filter inside a
+     backdrop-filter over the live canvas is the trap 5.9.10 backed out of. */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+/* No hover scrim: the magnification is already the hover affordance, and a
+   second one only muddies the well it sits in. */
+@media (hover: hover) {
+  .floating-dock .chrome-btn:hover {
+    background: rgba(255, 255, 255, 0.055);
+    border-color: transparent;
+  }
+}
+.floating-dock .chrome-btn[data-on="true"],
+.floating-dock .chrome-btn[data-on="true"]:hover {
+  background: var(--chrome-bg-active);
+  color: #fff;
+}
+/* Beats the icons' own `h-4 w-4`: these rules are unlayered and Tailwind's
+   utilities live in @layer utilities, which loses to unlayered CSS outright. */
+.floating-dock .chrome-btn svg {
+  width: calc(var(--dock-size, 36px) * 0.44);
+  height: calc(var(--dock-size, 36px) * 0.44);
+}
+
+/* The label sits beside the dock, not above or below it.
+ *
+ * Aceternity floats it above the hovered icon, which works for a dock at the
+ * bottom of a page. This one is pinned to the top of the window: above is
+ * off-screen, and below is taken — `.scene-note`, the "everything to scale"
+ * footnote, is deliberately parked in that exact corner on desktop (it is a
+ * footnote to these very buttons), with SystemTitle's centred heading just
+ * under it. A label under the icons covered the footnote outright.
+ *
+ * So it hangs off the dock's leading edge, vertically centred, inside the 56px
+ * header band where nothing else lives. That means it is anchored to the dock
+ * rather than to the individual item — one position for all six — which is why
+ * the item itself is not a containing block. Only one is ever visible, and that
+ * icon is the magnified one, so which button it belongs to stays obvious.
+ *
+ * No blur of its own: the dock already carries one, and a filter nested in a
+ * filter over the live canvas is the trap 5.9.10 backed out of. */
+.dock-label {
+  position: absolute;
+  top: 50%;
+  /* Logical, so it swaps to the other side of the dock in the Arabic layout,
+     where the dock itself is on the other side of the header. */
+  inset-inline-end: calc(100% + 10px);
+  padding: 4px 9px;
+  border-radius: var(--r-md);
+  background: rgba(6, 8, 12, 0.94);
+  border: 1px solid var(--hairline-hi);
+  box-shadow: var(--sh-2);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  /* Direction-neutral, so the same rule reads correctly in both layouts —
+     a translateX here would slide the wrong way in Arabic. */
+  transform: translateY(-50%) scale(0.96);
+  transition: opacity var(--t-fast) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+.dock-label[data-show="true"] {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+/* An item whose own panel is open hangs that panel directly below itself —
+   exactly where the label sits, which put "Language" on top of the first row of
+   the language list. The panel is the better answer to "what is this button",
+   so the label gets out of its way. Keyed on aria-expanded rather than on a
+   prop, so it covers every item that opens something without either side
+   having to know about the other. */
+.floating-dock > div:has([aria-expanded="true"]) > .dock-label {
+  opacity: 0;
 }
 
 .chrome-btn {

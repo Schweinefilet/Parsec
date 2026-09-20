@@ -5,6 +5,7 @@ import {
     setRate, togglePaused, glideToNow, setOffsetDays, offsetDays, setSimTime, subscribe,
 } from '../utils/simTime';
 import { useIsMobile, useHasRoomForTimeline, useReducedMotion } from '../hooks/useMediaQuery';
+import SlidingNumber from './SlidingNumber';
 import { useI18n } from '../i18n';
 
 /**
@@ -303,7 +304,7 @@ const TimeControl = ({ hidden, focused }) => {
                             display: 'inline-block', minWidth: 84, textAlign: 'center',
                             fontVariantNumeric: 'tabular-nums',
                         }}>
-                            {live ? t('time.live') : fmtDate(date)}
+                            {live ? t('time.live') : <SlidingNumber value={fmtDate(date)} />}
                         </span>
                     </button>
                 ) : (
@@ -363,7 +364,7 @@ const TimeControl = ({ hidden, focused }) => {
                                             cursor: 'pointer',
                                         }}
                                     >
-                                        {fmtDate(date)}
+                                        <SlidingNumber value={fmtDate(date)} />
                                     </button>
                                     {/* Invisible, but a real focusable input — not
                                         display:none — so showPicker()/focus() above
@@ -397,7 +398,7 @@ const TimeControl = ({ hidden, focused }) => {
                                     fontSize: 10.5, fontWeight: 600, color: 'rgba(255,255,255,0.5)',
                                     fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
                                 }}>
-                                    {fmtTime(date)}
+                                    <SlidingNumber value={fmtTime(date)} />
                                 </span>
                             </div>
                             <div style={{

@@ -8,7 +8,7 @@ import {
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
 import HeaderMenu from './HeaderMenu';
-import FloatingDock from './FloatingDock';
+import FloatingDock, { DockItem } from './FloatingDock';
 import CoachMark from './CoachMark';
 import WhatsNew from './WhatsNew';
 import pkg from '../../package.json';
@@ -379,53 +379,70 @@ const AppShell = ({ children }) => {
                         too; the field it opens sits just outside, to its left. */}
                     {!isMobile && (
                         <FloatingDock>
-                            {!searchOpen && <LanguagePicker />}
                             {!searchOpen && (
-                                <button
-                                    onClick={share}
-                                    title={copied ? t('nav.copied') : t('nav.copyLink')}
-                                    aria-label={t('nav.copyLink')}
-                                    data-tone={copied ? 'positive' : undefined}
-                                    className="chrome-btn focus-ring"
-                                >
-                                    {copied
-                                        ? <Check className="h-4 w-4" aria-hidden="true" />
-                                        : <Link2 className="h-4 w-4" aria-hidden="true" />}
-                                </button>
+                                <DockItem label={t('language.label')}>
+                                    <LanguagePicker />
+                                </DockItem>
                             )}
                             {!searchOpen && (
-                                <Link
-                                    to="/satellites"
-                                    onClick={handleTrackerClick}
-                                    title={t('nav.trackerTitle')}
-                                    aria-label={t('nav.tracker')}
-                                    className="chrome-btn focus-ring"
-                                >
-                                    <Satellite className="h-4 w-4" aria-hidden="true" />
-                                </Link>
+                                <DockItem label={copied ? t('nav.copied') : t('nav.copyLink')}>
+                                    <button
+                                        onClick={share}
+                                        title={copied ? t('nav.copied') : t('nav.copyLink')}
+                                        aria-label={t('nav.copyLink')}
+                                        data-tone={copied ? 'positive' : undefined}
+                                        className="chrome-btn focus-ring"
+                                    >
+                                        {copied
+                                            ? <Check className="h-4 w-4" aria-hidden="true" />
+                                            : <Link2 className="h-4 w-4" aria-hidden="true" />}
+                                    </button>
+                                </DockItem>
                             )}
                             {!searchOpen && (
-                                <Link
-                                    to="/sky"
-                                    onClick={handleSkyClick}
-                                    title={t('nav.skyTitle')}
-                                    aria-label={t('nav.sky')}
-                                    className="chrome-btn focus-ring"
-                                >
-                                    <Star className="h-4 w-4" aria-hidden="true" />
-                                </Link>
+                                <DockItem label={t('nav.tracker')}>
+                                    <Link
+                                        to="/satellites"
+                                        onClick={handleTrackerClick}
+                                        title={t('nav.trackerTitle')}
+                                        aria-label={t('nav.tracker')}
+                                        data-on={pathname === '/satellites' || undefined}
+                                        className="chrome-btn focus-ring"
+                                    >
+                                        <Satellite className="h-4 w-4" aria-hidden="true" />
+                                    </Link>
+                                </DockItem>
                             )}
                             {!searchOpen && (
-                                <Link
-                                    to="/compare"
-                                    title={t('nav.compareTitle')}
-                                    aria-label={t('nav.compare')}
-                                    className="chrome-btn focus-ring"
-                                >
-                                    <Scale className="h-4 w-4" aria-hidden="true" />
-                                </Link>
+                                <DockItem label={t('nav.sky')}>
+                                    <Link
+                                        to="/sky"
+                                        onClick={handleSkyClick}
+                                        title={t('nav.skyTitle')}
+                                        aria-label={t('nav.sky')}
+                                        data-on={pathname === '/sky' || undefined}
+                                        className="chrome-btn focus-ring"
+                                    >
+                                        <Star className="h-4 w-4" aria-hidden="true" />
+                                    </Link>
+                                </DockItem>
                             )}
-                            {searchButton}
+                            {!searchOpen && (
+                                <DockItem label={t('nav.compare')}>
+                                    <Link
+                                        to="/compare"
+                                        title={t('nav.compareTitle')}
+                                        aria-label={t('nav.compare')}
+                                        data-on={pathname === '/compare' || undefined}
+                                        className="chrome-btn focus-ring"
+                                    >
+                                        <Scale className="h-4 w-4" aria-hidden="true" />
+                                    </Link>
+                                </DockItem>
+                            )}
+                            <DockItem label={searchOpen ? t('nav.searchClose') : t('nav.search')}>
+                                {searchButton}
+                            </DockItem>
                         </FloatingDock>
                     )}
                     {isMobile && searchButton}

@@ -16,6 +16,58 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.15
+
+- **The dock gets its own bar, and numbers roll.** Two things, both of them
+  motion work in the header and the scene.
+
+  The dock from 5.9.14 now looks like the thing it was modelled on, which
+  supersedes that entry's description of it. The six controls are bare round
+  icons sitting on one rounded bar — the scrim, the hairline and the blur that
+  each button used to carry individually now belong to the bar, which is also
+  what keeps the blur un-nested over the live canvas. A button draws its own
+  fill only when it is *on*: the page you are looking at (the three route links
+  read `pathname`), a panel you have opened, a link you just copied. An icon
+  magnifies to 58px and grows out of the bar evenly top and bottom, which is a
+  real width/height on the box rather than a `scale()` — a transform took the
+  whole subtree with it and ballooned the language dropdown along with the
+  button that opened it.
+
+  Its label hangs off the bar's leading edge rather than above or below the
+  hovered icon. Above is off-screen in a 56px header, and below is taken:
+  `.scene-note`, the "everything to scale" footnote, is deliberately parked in
+  that exact corner on desktop, and a label under the icons covered it outright.
+
+  `components/SlidingNumber.jsx` is new and exports two readouts, after
+  motion-primitives' component of that name. The timeline pill takes
+  `<SlidingNumber>`, where each digit springs to its new value by the shortest
+  route. A focused body's three figures take `<CountUpNumber>`, where every
+  number winds up from zero in one 0.9s sweep. Neither takes a number — they
+  take the already-formatted string and animate only the digits in it, so a
+  superscript exponent holds still while its mantissa counts, and the caller
+  keeps its `Intl` formatting.
+
+  Three things had to be got right that are invisible in English. Digits are
+  matched by asking `Intl.NumberFormat` for the locale's own ten, not by testing
+  `[0-9]`, or the Arabic pill would have sat unanimated. Every number is wrapped
+  in a left-to-right isolate, because splitting digits into inline-blocks turns
+  each one into a neutral the paragraph reorders — Arabic first rendered ١٩
+  سبتمبر ٢٠٢٦ as "٩١ سبتمبر ٦٢٠٢", and once that was isolated per run, "١.٨٩٨"
+  still came out "٨٩٨.١" until a number's own decimal and thousands marks were
+  folded into the run with it. And a counting column chases `floor(v / place)`
+  rather than `v / place`: a geared odometer reads 898 with its hundreds wheel
+  98% of the way to a 9, which on screen is just an unreadable number, and did
+  in fact render Jupiter's mass as "1.9₀8 × 10²⁷ kg".
+
+  The rolling column holds all ten glyphs at once, so it is `aria-hidden` behind
+  a visually hidden copy of the real string — which is also what keeps these
+  values findable by text. Reduced motion gets the plain string from both, since
+  index.css zeroing CSS durations does not reach a spring. The pill's fixed
+  width from 5.9.13 is unaffected; it was measured through a full minute of
+  ticks and never moved.
+
+---
+
 ## 5.9.14
 
 - **The header's buttons are a dock.** On desktop the row of controls in the top
