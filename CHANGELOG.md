@@ -16,6 +16,33 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.12
+
+- **Two `/sky` chrome bugs on phones, and a disclaimer for the mode that
+  causes them.** The "what am I looking at" constellation readout sat fixed
+  at `top:16px`, dead-centre — on a narrow viewport that ran it straight
+  into the header's wordmark and version number, since `/sky` never
+  scrolls and so never gets the opaque scrim that header otherwise picks up
+  past `scrollY 40`. It now sits at `top:68px`, clear of the header, in
+  line with the page's own back button and AR toggle.
+
+  That AR toggle had its own overlap: fixed 68px in from the same edge as
+  the back button, on the same row, it happily sat on top of "Go back"'s
+  own text — even in English, let alone a longer translation — since
+  nothing reserved it that space. It now stacks below the back button
+  instead of beside it, so it never has to guess how wide that text is.
+
+  The compass dial's lubber line (`.sky-compass-needle`) drops the thin
+  stem it grew reaching toward the centre; the triangle sitting on the rim
+  reads the heading marker on its own.
+
+  And since AR mode's rough edges are the reason two of the above existed
+  in the first place: the permission card now says so — an amber line
+  underneath the usual camera/compass explainer, warning that the feature
+  is early and can drift or misalign labels.
+
+---
+
 ## 5.9.11
 
 - **Confirmed fixed on the phone that had it, and the diagnostic comes back

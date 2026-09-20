@@ -1149,7 +1149,15 @@ const NightSky3D = ({
         // matrix the stars use.
         const crosshairEl = document.createElement('div');
         crosshairEl.style.cssText = [
-            'position:absolute', 'top:16px', 'left:50%', 'transform:translateX(-50%)',
+            // top:68px, not 16px: this page's own AppShell header sits at
+            // top:0 with a 56px-tall wordmark/version row, and — since /sky
+            // never scrolls — never gets the opaque scrim that header
+            // otherwise picks up past scrollY 40. At 16px this readout's
+            // centred text ran right into that still-transparent header,
+            // reading as one garbled run of text on a narrow phone. 68px
+            // matches NightSkyPage.jsx's own back button and AR toggle, the
+            // page's next chrome row down.
+            'position:absolute', 'top:68px', 'left:50%', 'transform:translateX(-50%)',
             'font-size:11px', 'font-weight:700', 'letter-spacing:0.1em', 'text-transform:uppercase',
             'color:rgba(255,255,255,0.55)', 'text-shadow:0 1px 4px rgba(0,0,0,0.9)',
             'pointer-events:none', 'z-index:4',

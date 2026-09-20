@@ -33,6 +33,9 @@ const ArPermissionCard = ({ onEnable, onCancel, asking, error }) => {
                 <p style={{ margin: '6px auto 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                     {t('nightSky.arAskBody')}
                 </p>
+                <p style={{ margin: '10px auto 0', fontSize: '0.78rem', color: '#ffd166', opacity: 0.85 }}>
+                    {t('nightSky.arExperimental')}
+                </p>
                 {error && (
                     <p style={{ margin: '10px 0 0', fontSize: '0.8rem', color: '#ff8a80' }}>{error}</p>
                 )}
