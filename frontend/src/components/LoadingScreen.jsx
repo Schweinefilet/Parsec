@@ -38,7 +38,15 @@ const FLIGHT_EASE = 'var(--ease-inout)';
 const HERO_SCALE = 1.9;
 // How long the wordmark takes to decode out of its ciphertext, and how far
 // through that the logo starts resolving with it.
-const DECODE_MS = 1200;
+//
+// The decode is measured against the clock, not counted in frames, and this
+// screen is on during the one stretch of the session where the main thread is
+// least able to deliver a frame — building the scene can swallow whole seconds
+// at a time. A short decode spends most of itself inside one of those gaps and
+// what finally paints is the tail of it, or nothing at all. At 2600 it is
+// still running when the thread comes back up, so the wordmark is seen to
+// decode rather than seen to have decoded.
+const DECODE_MS = 2600;
 const ICON_FROM = 0.55;
 // Sits above centre: the orrery is symmetrical about the wordmark but the
 // readout hangs below it, so the composition as a whole is bottom-heavy and
@@ -140,12 +148,17 @@ const LoadingScreen = () => {
     // MIN_ON_SCREEN_MS, so the mark is standing plainly for a beat before it
     // ever starts moving.
     const appName = t('app.name');
-    // Held until `home` lands, because until it does the mark is not rendered
-    // at all — it is laid out on the header's measured box. Started on mount
-    // instead, the decode ran against a wordmark nobody could see yet and what
-    // finally appeared was the last third of it.
+    // Runs from mount. It used to be held until `home` — the header's measured
+    // box — had landed, because the mark was not rendered until then, and
+    // holding it meant the decode could not play out against a wordmark nobody
+    // could see. The mark now renders centred from the first paint whether or
+    // not `home` has arrived (see the fallback layout below), so there is
+    // nothing left to wait for, and waiting cost real time: measuring `home`
+    // needs a commit, and on a cold load the main thread is busy enough
+    // building the scene that the one it needed landed nearly three seconds
+    // in. The whole decode sat behind that.
     const { shown: markText, progress: decoded } = useEncryptedText(appName, {
-        duration: DECODE_MS, enabled: !suppressed && !!home,
+        duration: DECODE_MS, enabled: !suppressed,
     });
     // The logo arrives with the tail of the wordmark rather than alongside all
     // of it, so the two read as one thing resolving rather than as a fade.
@@ -245,6 +258,21 @@ const LoadingScreen = () => {
           + `${(window.innerHeight / 2 - HERO_RISE - (home.top + home.height / 2)).toFixed(1)}px) `
           + `scale(${HERO_SCALE})`
         : null;
+
+    // Where the mark is laid out before `home` has been measured: a full-width
+    // row centred on the viewport, which lands the wordmark in exactly the
+    // place the transform above lands it on. Same position, same scale, so the
+    // swap to the header-box layout the moment `home` arrives is invisible —
+    // and the wordmark is on screen, decoding, from the loading screen's very
+    // first paint instead of from whenever the main thread next has a commit
+    // to spare. With no `home` there is nowhere to fly to, so a load that
+    // somehow never measures one simply ends with the mark fading out on the
+    // spot rather than with no mark at all, which is what used to happen.
+    const heroBox = {
+        left: 0, right: 0, top: '50%',
+        display: 'flex', justifyContent: 'center',
+        transform: `translateY(${-HERO_RISE}px) scale(${HERO_SCALE})`,
+    };
 
     return (
         <>
@@ -363,55 +391,61 @@ const LoadingScreen = () => {
             {/* The wordmark, above the black so it is still there once the black
                 has gone. Laid out on the header's own box and transformed away
                 from it, so the finished state is no transform at all — which is
-                what makes the handover invisible rather than a cross-fade. */}
-            {home && (
-                <div
-                    ref={flyingRef}
-                    aria-hidden="true"
+                what makes the handover invisible rather than a cross-fade.
+                Until that box has been measured it falls back to a centred row
+                that puts the mark in the same place, so the decode is visible
+                from the first paint. */}
+            <div
+                ref={flyingRef}
+                aria-hidden="true"
+                style={{
+                    position: 'fixed', zIndex: 201, pointerEvents: 'none',
+                    ...(home
+                        ? { left: home.left, top: home.top, height: home.height }
+                        : heroBox),
+                    transformOrigin: 'center center',
+                    transform: home
+                        ? (finished ? 'none' : heroTransform)
+                        : heroBox.transform,
+                    opacity: !home && finished ? 0 : 1,
+                    // Transform only. Colour was animated here before and
+                    // it is a paint property — it cannot run on the
+                    // compositor, so every frame of the flight forced a
+                    // repaint on a main thread that is busy building the
+                    // scene, which is exactly when it could least afford
+                    // one. The gold-to-white change is now two stacked
+                    // copies cross-fading on opacity, which composites.
+                    transition: finished
+                        ? `transform ${flightMs}ms ${FLIGHT_EASE}, opacity ${flightMs}ms ease`
+                        : 'none',
+                    willChange: 'transform',
+                }}
+            >
+                {/* The one that stays: the header's own colours, so what is
+                    left standing at the end is what the header draws. */}
+                <Mark
+                    name={appName}
+                    shown={settledText}
+                    reveal={settledReveal}
+                    iconColor="var(--accent)"
+                    textColor="rgba(255,255,255,0.92)"
+                />
+                {/* The one that goes: gold, over the top, faded out across
+                    the flight. */}
+                <Mark
+                    name={appName}
+                    shown={settledText}
+                    reveal={settledReveal}
+                    iconColor="#ffd166"
+                    textColor="#fff"
                     style={{
-                        position: 'fixed', zIndex: 201, pointerEvents: 'none',
-                        left: home.left, top: home.top, height: home.height,
-                        transformOrigin: 'center center',
-                        transform: finished ? 'none' : heroTransform,
-                        // Transform only. Colour was animated here before and
-                        // it is a paint property — it cannot run on the
-                        // compositor, so every frame of the flight forced a
-                        // repaint on a main thread that is busy building the
-                        // scene, which is exactly when it could least afford
-                        // one. The gold-to-white change is now two stacked
-                        // copies cross-fading on opacity, which composites.
-                        transition: finished
-                            ? `transform ${flightMs}ms ${FLIGHT_EASE}`
-                            : 'none',
-                        willChange: 'transform',
+                        position: 'absolute', inset: 0,
+                        opacity: finished ? 0 : 1,
+                        transition: finished ? `opacity ${flightMs}ms ease` : 'none',
+                        willChange: 'opacity',
                     }}
-                >
-                    {/* The one that stays: the header's own colours, so what is
-                        left standing at the end is what the header draws. */}
-                    <Mark
-                        name={appName}
-                        shown={settledText}
-                        reveal={settledReveal}
-                        iconColor="var(--accent)"
-                        textColor="rgba(255,255,255,0.92)"
-                    />
-                    {/* The one that goes: gold, over the top, faded out across
-                        the flight. */}
-                    <Mark
-                        name={appName}
-                        shown={settledText}
-                        reveal={settledReveal}
-                        iconColor="#ffd166"
-                        textColor="#fff"
-                        style={{
-                            position: 'absolute', inset: 0,
-                            opacity: finished ? 0 : 1,
-                            transition: finished ? `opacity ${flightMs}ms ease` : 'none',
-                            willChange: 'opacity',
-                        }}
-                    />
-                </div>
-            )}
+                />
+            </div>
         </>
     );
 };

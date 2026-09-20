@@ -216,6 +216,14 @@ const SolarSystem3D = ({
         // together, the same shape utils/skyEntry.js's own approach uses.
         let exitPhase      = 0; // 0=normal  1=exiting
         let exitProgress   = 0;
+        // How long the flight home takes. It was 1.6s, which read as a snap:
+        // this motion is a recentring of the whole scene, not a nudge, and it
+        // covers everything from a moon's own diameter to the width of the
+        // Kuiper belt. 2.8s lets the eye follow the planet you left going
+        // small rather than having it yanked away. The fly-in is deliberately
+        // quicker (see focusFlySeconds) — going somewhere should feel eager,
+        // coming back should feel like an exhale.
+        const EXIT_SECONDS = 2.8;
         let exitStartDistance = 0;
         const exitStartCamPos = new THREE.Vector3();
         const exitStartTarget = new THREE.Vector3();
@@ -2596,6 +2604,21 @@ const SolarSystem3D = ({
         const bodyScaleFactor = (id, t) => sizeFactor(DRAWN_RADIUS.get(id), bodyRadiusKm(id), t);
         /** The radius a body is actually drawn at now, in scene units. */
         const scaledRadius = (id, t) => (DRAWN_RADIUS.get(id) ?? 0) * bodyScaleFactor(id, t);
+        // Halley is the one body the camera must not frame off its own
+        // surface. Its coma and tails are built at the scene's drawn scale
+        // and true sizes never touches them — only the nucleus shrinks, from
+        // 0.11 units to about three millionths of one — so a framing derived
+        // from the nucleus lands the camera four ten-thousandths of a unit
+        // out, deep inside a seventeen-unit ion tail, staring at a speck with
+        // the thing worth looking at stretching away behind the lens. Every
+        // framing number for this comet therefore stays on its drawn radius
+        // at every stage: the distance flown to, the floor under it, the near
+        // plane and how close a reader may zoom. The nucleus still shrinks
+        // honestly, which is the point of stage 2 — it is just no longer what
+        // decides where you stand to look at it.
+        const framingScaleFactor = (id, t) => (id === 'halley' ? 1 : bodyScaleFactor(id, t));
+        /** The radius the camera frames a body against — see framingScaleFactor. */
+        const framingRadius = (id, t) => (DRAWN_RADIUS.get(id) ?? 0) * framingScaleFactor(id, t);
         const moonOrbitFactor = (moon, t) => sizeFactor(moon.orbitR, moonOrbitKm(moon.id), t);
 
         // Where the focused body is right now, for the camera correction that
@@ -2917,7 +2940,7 @@ const SolarSystem3D = ({
                 // was fixed at the size the body was when it set off.
                 const focusId = focusedIdRef.current;
                 if (focusId && lastFocusSizeF > 0) {
-                    const f = bodyScaleFactor(focusId, sizeT);
+                    const f = framingScaleFactor(focusId, sizeT);
                     const pivot = focusedWorldPos(focusId, _sizePivot);
                     if (f > 0 && f !== lastFocusSizeF && pivot) {
                         const ratio = f / lastFocusSizeF;
@@ -2929,7 +2952,7 @@ const SolarSystem3D = ({
                         // against camera.near, which is not this body's near
                         // plane at the instant this runs either — see the
                         // comment on `dist` above for why that reads stale.
-                        const floorDist = scaledRadius(focusId, sizeT) * 2.5;
+                        const floorDist = framingRadius(focusId, sizeT) * 2.5;
                         const nearPos = camera.position.distanceTo(pivot);
                         if (nearPos < floorDist && nearPos > 1e-9) {
                             const push = floorDist / nearPos;
@@ -2961,8 +2984,8 @@ const SolarSystem3D = ({
                     // see the comment on the initial `dist` for why that
                     // reads stale at the one place it actually mattered.
                     const want = Math.max(
-                        focusDistDrawn * bodyScaleFactor(focusId, sizeT),
-                        scaledRadius(focusId, sizeT) * 2.5);
+                        focusDistDrawn * framingScaleFactor(focusId, sizeT),
+                        framingRadius(focusId, sizeT) * 2.5);
                     // Mid fly-in it is the destination that needs correcting,
                     // not where the camera has got to — and the flag is held
                     // until that flight lands, because a load that arrives
@@ -2977,7 +3000,7 @@ const SolarSystem3D = ({
                             camera.position.sub(pivot).multiplyScalar(ratio).add(pivot);
                         }
                     }
-                    lastFocusSizeF = bodyScaleFactor(focusId, sizeT);
+                    lastFocusSizeF = framingScaleFactor(focusId, sizeT);
                     if (!focusAnimating) sizeSettlePending = false;
                 }
             }
@@ -3152,8 +3175,16 @@ const SolarSystem3D = ({
                         // much too far.
                         const baseDist = newMesh.userData.id === 'sun' ? 62
                                      : newMesh.userData.id === 'iss' ? 0.3
-                                     // Back off further for Halley so coma + tails frame the shot
-                                     : newMesh.userData.id === 'halley' ? 14
+                                     // Halley is framed by its tails, not its
+                                     // nucleus: the ion tail is 17 units long
+                                     // and the camera looks at the nucleus,
+                                     // so the tail has to fit in *half* the
+                                     // frame. At 45° vertical on a landscape
+                                     // window the horizontal half-extent is
+                                     // about 0.66 of the distance, so 34 puts
+                                     // the far tip of the ion tail comfortably
+                                     // inside the right-hand edge.
+                                     : newMesh.userData.id === 'halley' ? 34
                                      : focusDef?.focusDist
                                      ?? (isTinyBody ? Math.max(radius * 5.5, 0.5)
                                                     : radius * 4.5 + 3);
@@ -3166,7 +3197,7 @@ const SolarSystem3D = ({
                         // by the same factor the body went down by — the body
                         // fills exactly the fraction of the frame it always did,
                         // from proportionally closer in.
-                        lastFocusSizeF = bodyScaleFactor(currentFocusedId, sizeProgress());
+                        lastFocusSizeF = framingScaleFactor(currentFocusedId, sizeProgress());
                         // Kept unscaled as well, so a later change of stage can
                         // work out the framing from scratch rather than having
                         // to have watched every frame of the change.
@@ -3190,15 +3221,20 @@ const SolarSystem3D = ({
                         // the whole point of scaling it by lastFocusSizeF),
                         // so a good close-up was sitting right there,
                         // unreachable, on the other side of an unrelated
-                        // number. `trueRadius * 2.5` mirrors
+                        // number. `framedRadius * 2.5` mirrors
                         // controls.minDistance below: the scripted fly-in
                         // should never land closer than a reader's own manual
                         // zoom is allowed to. For every body actually in the
                         // catalog the unfloored distance already clears this
                         // by a comfortable margin — it is a floor for a
                         // malformed radius, not a normal landing spot.
-                        const trueRadius = radius * lastFocusSizeF;
-                        const dist = Math.max(focusDistDrawn * lastFocusSizeF, trueRadius * 2.5);
+                        // The radius everything below is measured against.
+                        // For every body but one this is the true radius at
+                        // the current stage; Halley is framed off its drawn
+                        // nucleus instead, for the reason framingScaleFactor
+                        // gives.
+                        const framedRadius = radius * lastFocusSizeF;
+                        const dist = Math.max(focusDistDrawn * lastFocusSizeF, framedRadius * 2.5);
                         // Set right here rather than left for the per-frame
                         // "if (targetMesh)" block further down to pick up on
                         // its next tick. That block reads the same
@@ -3207,7 +3243,7 @@ const SolarSystem3D = ({
                         // the gap outright, so the very first frame of a
                         // fresh focus is never judged against the previous
                         // (likely far too large) near plane.
-                        camera.near = Math.max(Math.min(0.01, trueRadius * 0.02), trueRadius * 0.1);
+                        camera.near = Math.max(Math.min(0.01, framedRadius * 0.02), framedRadius * 0.1);
                         camera.updateProjectionMatrix();
                         // Normally the user's azimuth is kept, which is right
                         // for a planet: whichever side you approached from is
@@ -3284,9 +3320,22 @@ const SolarSystem3D = ({
                         // over-the-shoulder angle.
                         const wide = wideFraming();
                         const stage = getScaleStage();
-                        const sunFramed = isProbe || (currentFocusedId !== 'sun'
-                            && (stage === SCALE_SIZES || (wide && stage === SCALE_DISTANCES)));
-                        if (sunFramed) {
+                        // Halley wants the opposite of the Sun-in-frame angle.
+                        // Its tails stream anti-sunward, which is the exact
+                        // direction that framing approaches from — so it put
+                        // the camera on the tail's own axis and the seventeen
+                        // units of ion tail came at the lens end-on, reading
+                        // as a smear across the corner of the frame rather
+                        // than as a trail. This comet is framed broadside
+                        // instead: off to the side of the Sun-comet line, so
+                        // the tails lie across the frame at their full length
+                        // with the nucleus at one end. That is the one view
+                        // that says "comet", and it is worth giving up the
+                        // Sun in shot for.
+                        const cometFramed = currentFocusedId === 'halley';
+                        const sunFramed = !cometFramed && (isProbe || (currentFocusedId !== 'sun'
+                            && (stage === SCALE_SIZES || (wide && stage === SCALE_DISTANCES))));
+                        if (sunFramed || cometFramed) {
                             // Along the body's actual position vector, not its
                             // compass bearing: the scene is equatorial and the
                             // planets sit near the ecliptic, so 23.4° of where
@@ -3338,14 +3387,30 @@ const SolarSystem3D = ({
                             // is why `wide` also requires a 5:4-or-better
                             // aspect: below that the horizontal room runs out
                             // before the vertical does.
-                            const sunTilt = (wide ? 28 : 12) * Math.PI / 180;
-                            const ROLL = (wide ? 61 : 35) * Math.PI / 180; // how far around from straight up, toward the left
-                            const perp = up2.multiplyScalar(Math.cos(ROLL))
-                                .addScaledVector(side, Math.sin(ROLL));
-                            focusEndCamPos.copy(planetPos).addScaledVector(
-                                outward.multiplyScalar(Math.cos(sunTilt))
-                                    .addScaledVector(perp, Math.sin(sunTilt)),
-                                dist);
+                            if (cometFramed) {
+                                // Straight out along `side` is dead broadside:
+                                // the tails then run across the screen's
+                                // horizontal, which is the axis with the most
+                                // room on any landscape frame. `LIFT` tips the
+                                // camera a little out of that plane so the
+                                // dust tail's curve is visible as a curve
+                                // rather than collapsing into the ion tail's
+                                // line.
+                                const LIFT = 15 * Math.PI / 180;
+                                focusEndCamPos.copy(planetPos).addScaledVector(
+                                    side.clone().multiplyScalar(Math.cos(LIFT))
+                                        .addScaledVector(up2, Math.sin(LIFT)),
+                                    dist);
+                            } else {
+                                const sunTilt = (wide ? 28 : 12) * Math.PI / 180;
+                                const ROLL = (wide ? 61 : 35) * Math.PI / 180; // how far around from straight up, toward the left
+                                const perp = up2.multiplyScalar(Math.cos(ROLL))
+                                    .addScaledVector(side, Math.sin(ROLL));
+                                focusEndCamPos.copy(planetPos).addScaledVector(
+                                    outward.multiplyScalar(Math.cos(sunTilt))
+                                        .addScaledVector(perp, Math.sin(sunTilt)),
+                                    dist);
+                            }
                         } else {
                             focusEndCamPos.set(
                                 planetPos.x + dist * Math.cos(TILT) * Math.sin(az),
@@ -3362,7 +3427,7 @@ const SolarSystem3D = ({
                         let trkUpOverride = null;
                         if (currentFocusedId === 'earth' && earthMesh
                                 && getTrackerPhase() === TRK_ARMED) {
-                            trkSolvePose(planetPos, trueRadius);
+                            trkSolvePose(planetPos, framedRadius);
                             focusEndCamPos.copy(trkCamPoint);
                             trkUpOverride = trkUp;
                             trkFlyIn = true;
@@ -3830,7 +3895,7 @@ const SolarSystem3D = ({
                 // it at true sizes — where the unscaled 1.31 would park the
                 // camera three units off a four-thousandths-of-a-unit Earth.
                 const planetRadius = Math.max(1e-4,
-                    scaledRadius(currentFocusedId, sizeT)
+                    framingRadius(currentFocusedId, sizeT)
                         || (bodyDef?.r ?? bodyDef?.radius ?? 3.5));
                 controls.minDistance = planetRadius * 2.5;
                 // Near plane must stay smaller than the closest moon can get to the camera.
@@ -3865,7 +3930,7 @@ const SolarSystem3D = ({
                     // sky-entry approach both already use.
                     exitPhase = 0;
                 } else {
-                    // ~1.6s, cubic ease-in-out. Pulling back from the planet
+                    // EXIT_SECONDS, cubic ease-in-out. Pulling back from the planet
                     // and recentring on the sun happen together, across one
                     // shared progress value, rather than a fixed-speed
                     // pull-back stage (target frozen on the planet) handing
@@ -3888,7 +3953,7 @@ const SolarSystem3D = ({
                     // ease rather than an asymptotic one, so the whole
                     // motion — direction, distance and target together —
                     // reads as one continuous swing.
-                    exitProgress = Math.min(1, exitProgress + deltaSec / 1.6);
+                    exitProgress = Math.min(1, exitProgress + deltaSec / EXIT_SECONDS);
                     const t = exitProgress < 0.5
                         ? 4 * exitProgress * exitProgress * exitProgress
                         : 1 - Math.pow(-2 * exitProgress + 2, 3) / 2;
