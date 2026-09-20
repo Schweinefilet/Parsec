@@ -739,6 +739,34 @@ const SolarSystem3D = ({
             }
         };
 
+        // Painting those surfaces is the other half of the same problem, and it
+        // was the half still running in one straight line. Thirty-odd moons and
+        // small bodies each paint a canvas, and a second one for relief where
+        // the tier allows it, which is a couple of seconds of solid main thread
+        // before the first frame goes out at all.
+        //
+        // That block is what the loading screen has been working around since
+        // 5.10.2. A compositor animation only runs on the compositor once the
+        // main thread has committed it there, and nothing commits during a block
+        // that begins before the first frame: the wordmark's scramble was never
+        // promoted, so on a phone it stood still or came apart, and every theory
+        // about why was tested from a laptop where the block is short enough not
+        // to matter.
+        //
+        // So the painting is queued and drained a body per frame, alongside the
+        // uploads. It is the same total work — the point is that the thread now
+        // reaches a commit between each piece of it. A body waiting its turn is
+        // a sphere in its own flat colour, which is already what it falls back
+        // to when a texture request fails, and all of this is happening
+        // underneath the loading screen in any case.
+        const paintQueue = [];
+        const paintSomeSurfaces = () => {
+            // One, not two: each of these is tens of milliseconds on a phone,
+            // and a frame that paints two of them has nothing left to give.
+            const paint = paintQueue.shift();
+            if (paint) paint();
+        };
+
         // Heavy meshes (ISS, Vesta) are several MB and are only ever seen close
         // up, so they wait for an idle moment instead of competing with the
         // textures that make up the first frame.
@@ -1809,15 +1837,24 @@ const SolarSystem3D = ({
             const keepsSphere = body.id !== 'halley' && !(body.id === 'vesta' && q.heavyModels);
             if (keepsSphere) {
                 const icy = ['haumea', 'makemake', 'eris'].includes(body.id);
-                const surf = proceduralSurface(body.id, body.color, icy ? 'icy' : 'rocky');
-                textures.push(surf.map);
-                mat.map = surf.map;
-                mat.color.set(0xffffff);
-                if (surf.bumpMap) {
-                    textures.push(surf.bumpMap);
-                    mat.bumpMap = surf.bumpMap;
-                    mat.bumpScale = surf.bumpScale;
-                }
+                // Queued rather than painted here — see paintSomeSurfaces. The
+                // needsUpdate is new with the queue: the material has already
+                // been compiled by the time this runs, so a map handed to it
+                // now needs the program rebuilt, exactly as the painted
+                // fallback on the planets has always had to do.
+                paintQueue.push(() => {
+                    if (!mounted) return;
+                    const surf = proceduralSurface(body.id, body.color, icy ? 'icy' : 'rocky');
+                    textures.push(surf.map);
+                    mat.map = surf.map;
+                    mat.color.set(0xffffff);
+                    if (surf.bumpMap) {
+                        textures.push(surf.bumpMap);
+                        mat.bumpMap = surf.bumpMap;
+                        mat.bumpScale = surf.bumpScale;
+                    }
+                    mat.needsUpdate = true;
+                });
             }
 
             // STL model for Vesta — 1.9 MB, and a couple of pixels across from
@@ -2161,21 +2198,29 @@ const SolarSystem3D = ({
             } else if (moon.id !== 'iss') {
                 // Painted surface (ISS is excluded — its sphere becomes the STL model).
                 // Icy moons keep a faint self-glow so they stay readable against space.
+                // Queued rather than painted here — see paintSomeSurfaces. The
+                // moons are the bulk of that queue: thirty of them, and they
+                // were the bulk of the block.
                 const icy = ['europa', 'enceladus', 'triton', 'titan'].includes(moon.id);
-                const surf = proceduralSurface(moon.id ?? moon.name, moon.color, icy ? 'icy' : 'rocky');
-                textures.push(surf.map);
-                moonMat.map = surf.map;
-                moonMat.color.set(0xffffff);
-                if (surf.bumpMap) {
-                    textures.push(surf.bumpMap);
-                    moonMat.bumpMap = surf.bumpMap;
-                    moonMat.bumpScale = surf.bumpScale;
-                }
-                // Icy surfaces are highly reflective in reality but render grey
-                // this far from the Sun, so give them a little self-glow and a
-                // smoother finish to catch the light.
-                moonMat.emissiveIntensity = icy ? 0.10 : 0.03;
-                if (icy) moonMat.roughness = 0.72;
+                paintQueue.push(() => {
+                    if (!mounted) return;
+                    const surf = proceduralSurface(moon.id ?? moon.name, moon.color, icy ? 'icy' : 'rocky');
+                    textures.push(surf.map);
+                    moonMat.map = surf.map;
+                    moonMat.color.set(0xffffff);
+                    if (surf.bumpMap) {
+                        textures.push(surf.bumpMap);
+                        moonMat.bumpMap = surf.bumpMap;
+                        moonMat.bumpScale = surf.bumpScale;
+                    }
+                    // Icy surfaces are highly reflective in reality but render grey
+                    // this far from the Sun, so give them a little self-glow and a
+                    // smoother finish to catch the light. Part of the painted
+                    // surface, so it arrives with it rather than before it.
+                    moonMat.emissiveIntensity = icy ? 0.10 : 0.03;
+                    if (icy) moonMat.roughness = 0.72;
+                    moonMat.needsUpdate = true;
+                });
             }
 
             // Invisible hitbox — added directly to scene so its matrixWorld is
@@ -2876,7 +2921,12 @@ const SolarSystem3D = ({
             // arriving and being on screen are different things here, since the
             // upload to the GPU is spread a couple per frame. Dismissing on
             // arrival shows the black canvas the screen was covering.
-            if (!sceneReadySent && texturesDrained && frameCount > 2) {
+            //
+            // The paint queue counts too. `texturesDrained` is the loading
+            // manager's word on the network, and the painted surfaces never
+            // touch it — so without this the screen would lift off a scene of
+            // flat-coloured moons still waiting their turn.
+            if (!sceneReadySent && texturesDrained && paintQueue.length === 0 && frameCount > 2) {
                 sceneReadySent = true;
                 assetsSceneReady();
             }
@@ -4477,6 +4527,10 @@ const SolarSystem3D = ({
                 spin(kbLODGroups, 'kbAngles', 'kbSize', KB_INNER, KB_OUTER, 30, 50);
             }
 
+            // Paint first, upload second, and never the same surface on the
+            // same frame: a canvas painted here is picked up by the upload
+            // drain a frame or two later, so the two costs stay apart.
+            paintSomeSurfaces();
             uploadSomeTextures();
 
             if (sRingRefs.mat?.userData?.shader) {

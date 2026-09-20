@@ -3,7 +3,7 @@ import { Telescope } from 'lucide-react';
 import {
     subscribeAssets, assetsEverReady, holdLogo, releaseLogo,
 } from '../utils/assetLoading';
-import { useReducedMotion, useIsTouch } from '../hooks/useMediaQuery';
+import { useReducedMotion } from '../hooks/useMediaQuery';
 import EncryptedText from './EncryptedText';
 import { useEncryptedText, cipherFrames } from '../hooks/useEncryptedText';
 import { useI18n } from '../i18n';
@@ -52,29 +52,11 @@ const HERO_SCALE = 1.9;
 // Which also means it can be brisk again. It was stretched to 2600 to try to
 // outlast the build, and nothing has to outlast anything now.
 const DECODE_MS = 1800;
-// On a phone the wordmark is not on screen at all while the scene is building.
-// It fades in when the scene reports ready, stands there as ciphertext for a
-// beat, and only then resolves.
-//
-// Which is a retreat, and a deliberate one. The held scramble is CSS precisely
-// so that it can run while the main thread cannot, and on a desktop it does —
-// which is why this is not the behaviour there. On a phone it has now been
-// reported wrong twice, and whatever an engine is doing with a dozen little
-// animations at the exact moment it is also compiling shaders and uploading
-// textures, the answer is not to keep guessing at it from a laptop. There is
-// nothing to get wrong in an empty middle. What anybody actually came for is
-// the decode, and holding the wordmark back until the thread is free is what
-// guarantees every frame of that is drawn.
-const REVEAL_MS = 420;
-// And a beat at full strength before it starts resolving, so the fade and the
-// decode read as two events rather than one muddled one — the entire decode
-// then happens against a wordmark that is already fully there.
-const REVEAL_HOLD_MS = 140;
 const ICON_FROM = 0.55;
 // The telescope is not absent while the wordmark is still encrypted, only
-// unresolved: it is drawn faintly, at its own size, from the moment the mark
-// fades in. It has to be, because the mark is centred as a whole — icon, gap
-// and lettering — so an icon that is not drawn at all leaves its space empty
+// unresolved: it is drawn faintly, at its own size, from the first paint. It
+// has to be, because the mark is centred as a whole — icon, gap and
+// lettering — so an icon that is not drawn at all leaves its space empty
 // and the lettering sitting half an icon's width to the right of the progress
 // bar and the orrery it is supposed to share a centre line with. The whole
 // decode would play out off centre and then correct itself as the telescope
@@ -170,15 +152,10 @@ const LoadingScreen = () => {
     const [minElapsed, setMinElapsed] = useState(
         () => performance.now() >= MIN_ON_SCREEN_MS);
     const [gone, setGone] = useState(false);
-    // Whether the wordmark has finished fading in. Also the decode's go signal.
-    const [revealed, setRevealed] = useState(false);
     // Where the header's wordmark is. Null until measured, which is also the
     // signal to fall back to a plain centred layout.
     const [home, setHome] = useState(null);
     const reduceMotion = useReducedMotion();
-    // Where the held scramble is not trusted, and the wordmark waits offstage
-    // for the scene instead of standing on it. See REVEAL_MS.
-    const holdOffstage = useIsTouch();
     const flyingRef = useRef(null);
 
     // One decode, shared by both copies of the flying wordmark — see
@@ -187,28 +164,24 @@ const LoadingScreen = () => {
     // ever starts moving.
     const appName = t('app.name');
     // `assets.done` is the scene's own signal that the last texture has landed
-    // and it has drawn a frame with it — which is also the moment the main
-    // thread stops being swallowed whole by the build, and so the first moment
-    // an animation driven from it can be seen at all. Nothing of the wordmark
-    // is on screen before it. The failsafe below covers the case where that
-    // signal never comes.
+    // and that it has drawn a frame with it. The decode is a real-time
+    // animation on the main thread, and this is the moment that thread has
+    // finished with the build and can deliver one. The scramble runs in CSS in
+    // the meantime, from the loading screen's first paint, on a phone as much
+    // as anywhere — the scene build is drained a body per frame now, so the
+    // thread reaches a commit and the reel is actually promoted. The failsafe
+    // below covers the case where the signal never comes.
     const sceneReady = !!assets?.done;
-    // On screen scrambling from the first paint, or offstage until the scene
-    // is ready and the fade-in has run.
-    const markLive = !holdOffstage || sceneReady;
     const { shown: markText, progress: decoded } = useEncryptedText(appName, {
         duration: DECODE_MS,
         enabled: !suppressed,
-        start: holdOffstage ? revealed : sceneReady,
+        start: sceneReady,
     });
     // The glyphs the wordmark cycles through until then. Generated once, and
     // shared by both copies of the flying mark for the same reason the decode
     // itself is: two sets would land different letters on the same frame and
-    // the cross-fade between the copies would show it. Withheld while the mark
-    // is offstage: a reel nobody can see is still a dozen animations running
-    // through the busiest moment of the load.
+    // the cross-fade between the copies would show it.
     const frames = useMemo(() => cipherFrames(appName), [appName]);
-    const liveFrames = markLive ? frames : null;
     // The logo arrives with the tail of the wordmark rather than alongside all
     // of it, so the two read as one thing resolving rather than as a fade — but
     // from ICON_HELD rather than from nothing, so it is standing in its own
@@ -217,17 +190,6 @@ const LoadingScreen = () => {
     const iconReveal = ICON_HELD + (1 - ICON_HELD) * revealT;
 
     useEffect(() => subscribeAssets(setAssets), []);
-
-    // Fade in, stand there, then decode. Timed rather than driven off the
-    // transition's own `transitionend`, which does not fire if the element is
-    // never composited and, under reduced motion, is over in a thousandth of
-    // a millisecond — this way the beat is the same beat either way.
-    useEffect(() => {
-        if (!holdOffstage || !sceneReady || suppressed || revealed) return undefined;
-        const timer = setTimeout(() => setRevealed(true),
-            (reduceMotion ? 0 : REVEAL_MS) + REVEAL_HOLD_MS);
-        return () => clearTimeout(timer);
-    }, [holdOffstage, sceneReady, suppressed, revealed, reduceMotion]);
 
     // Take the header's place for the duration, and measure it. Measured on
     // every resize too: a window that changes width between the first paint and
@@ -474,9 +436,10 @@ const LoadingScreen = () => {
                 Until that box has been measured it falls back to a centred row
                 that puts the mark in the same place.
 
-                Not drawn at all until the scene is ready: it fades in, holds,
-                and decodes, all of it on a main thread that has finished
-                building the scene and can therefore draw every frame of it. */}
+                On screen and scrambling from the first paint, everywhere. The
+                scramble is CSS and runs on the compositor; the decode waits for
+                the scene, because that one is a timer and wants a thread that
+                can deliver a frame. */}
             <div
                 ref={flyingRef}
                 aria-hidden="true"
@@ -489,11 +452,10 @@ const LoadingScreen = () => {
                     transform: home
                         ? (finished ? 'none' : heroTransform)
                         : heroBox.transform,
-                    // Offstage until the scene is ready, where that applies;
-                    // then the fade-in. The `!home` case is the load that never
-                    // measured a box to fly to, which ends by fading out on the
-                    // spot instead.
-                    opacity: (markLive && !(!home && finished)) ? 1 : 0,
+                    // On screen throughout. The one exception is the load that
+                    // never measured a box to fly to: with nowhere to go it
+                    // ends by fading out on the spot instead.
+                    opacity: !(!home && finished) ? 1 : 0,
                     // Transform only. Colour was animated here before and
                     // it is a paint property — it cannot run on the
                     // compositor, so every frame of the flight forced a
@@ -501,14 +463,16 @@ const LoadingScreen = () => {
                     // scene, which is exactly when it could least afford
                     // one. The gold-to-white change is now two stacked
                     // copies cross-fading on opacity, which composites.
+                    // Nothing is transitioned until the flight. The mark is at
+                    // full opacity from the first paint and stays there, and
+                    // the transform must not be eased: the swap from the
+                    // fallback layout to the header's box the moment `home`
+                    // lands changes both `left` and `transform` to the same
+                    // place, and easing either would slide the mark there from
+                    // wherever it happened to be.
                     transition: finished
                         ? `transform ${flightMs}ms ${FLIGHT_EASE}, opacity ${flightMs}ms ease`
-                        // Transform stays off the transition until the flight —
-                        // the swap from the fallback layout to the header's box
-                        // the moment `home` lands is a change of both `left` and
-                        // `transform` to the same place, and easing one of the
-                        // two would slide the mark there from wherever it was.
-                        : `opacity ${reduceMotion ? 0 : REVEAL_MS}ms var(--ease-out)`,
+                        : 'none',
                     willChange: 'transform, opacity',
                 }}
             >
@@ -517,7 +481,7 @@ const LoadingScreen = () => {
                 <Mark
                     name={appName}
                     shown={settledText}
-                    frames={liveFrames}
+                    frames={frames}
                     reveal={settledReveal}
                     iconColor="var(--accent)"
                     textColor="rgba(255,255,255,0.92)"
@@ -527,7 +491,7 @@ const LoadingScreen = () => {
                 <Mark
                     name={appName}
                     shown={settledText}
-                    frames={liveFrames}
+                    frames={frames}
                     reveal={settledReveal}
                     iconColor="#ffd166"
                     textColor="#fff"

@@ -16,6 +16,87 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.8
+
+- **The scene build no longer blocks the opening, so the wordmark scrambles on
+  a phone too.** Three releases have now been spent on the held scramble not
+  working on a touch device — 5.10.4 built it, 5.10.5 rebuilt it as a reel when
+  iOS blinked the letters, and 5.10.6 gave up and hid the wordmark until the
+  scene was ready. All three were working around the same thing, which 5.10.3
+  had already named and left open: roughly two and a half seconds of
+  synchronous work at the top of the `SolarSystem3D` setup effect.
+
+  The part that was missed each time is that a compositor animation only runs
+  on the compositor once the main thread has *committed* it there. The loading
+  screen mounts and the build begins immediately afterwards, so on a slow
+  device the reel's layers never got their promoting commit before the block
+  started — the animation then did not run at all until the block ended, which
+  is exactly when it was no longer wanted. Partial commits across the six slots
+  give some letters moving and some standing still, which is the shape of what
+  was reported from a phone both times.
+
+  So the ~30 `proceduralSurface()` calls for the moons and the small bodies are
+  queued and drained one per frame from the render loop, next to the texture
+  uploads that were already spread that way. This does not make the work
+  shorter and is not meant to: the point is that the thread now reaches a
+  commit between each piece of it. A body waiting its turn is a sphere in its
+  own flat colour, which is already what it falls back to when a texture
+  request fails, and it is all happening underneath the loading screen.
+  `assetsSceneReady()` waits on the queue as well as on the network, so the
+  screen cannot lift off a scene of flat-coloured moons.
+
+  Measured in headless Chrome at 6× CPU throttle, a 390px viewport and a cold
+  cache — the same probe that produced the 5.10.3 numbers. Before: one long
+  task of **5190ms** starting at 865ms, six frames painted in the first six
+  seconds, the reel mounted in one of them and sitting on a single position.
+  After: the worst task is **1626ms** and the block is in pieces, thirteen
+  frames are painted, the reel is mounted in eight of them and moves through
+  seven distinct positions. Total blocked time is barely changed (5788ms →
+  5184ms), which is the expected result and the whole argument: the work is the
+  same, it is the interruptibility that was missing. Three separate loads
+  screenshotted mid-build read `KF8RXZ`, `DU5Q8F` and `7T1OPL` — six slots,
+  no blanks.
+
+  With that fixed the phone has no reason to differ, so `holdOffstage`,
+  `markLive`, the `revealed` state and the 420ms/140ms reveal are all gone.
+  One code path everywhere, and the wordmark is on screen scrambling from the
+  loading screen's first paint again.
+
+- **And the reel no longer depends on the webfont.** Two things about it were
+  measured in ems of a font that arrives over the network: the window was the
+  slot's own line box, and the drum was wound by `translateY(-100%)` of its own
+  height. Montserrat is fetched from Google Fonts with `display: swap`, so on a
+  phone it lands *during* the scramble and changes both of them underneath an
+  animation the engine has already promoted — and a percentage transform is not
+  re-resolved on a composited layer. The glyphs go on being wound by the old
+  height and land half out of the window, which is not a scramble, it is a row
+  of letters with holes in it.
+
+  The row height is now `calc(1em * 1.5)` — derived from the font *size*, which
+  is a fixed 17px, and from nothing else — and the wind is six of those rows
+  rather than a percentage. The cipher glyphs are set in the system stack as
+  well, since there is nothing to gain by waiting on a webfont to draw six
+  characters that are about to be thrown away. The slot's hidden spacer keeps
+  Montserrat and goes on carrying the width, so the mark's measured box is
+  untouched and the flight still lands pixel-identical on the header's own
+  wordmark. The window is centred on the slot's line box rather than filling
+  it, which also stops Arabic's taller line-height dragging the row height
+  around.
+
+  `will-change: transform` comes off the drums. It is a standing request for a
+  layer and there are twelve of them on screen at once, over a live WebGL
+  canvas mid-upload, next to the orrery's own layers; iOS demotes past its cap
+  silently, and a demoted `steps()` reel freezes mid-step — a glyph half out of
+  the window rather than the letter standing still the design allows for. The
+  animation promotes the element on its own for as long as it is running.
+
+  `cipherFrames` and `cipherText` get the unit tests they never had: six glyphs
+  a slot, never the letter the slot will become, no repeat back to back or
+  across the loop's seam, and a decode that settles left to right and never
+  comes loose again.
+
+---
+
 ## 5.10.7
 
 - **The site no longer honours the OS "reduce motion" setting.** A Windows PC

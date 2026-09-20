@@ -521,27 +521,54 @@ body::after {
    standing still, which is the worst it can do. */
 .cipher-reel {
   position: absolute;
-  /* Top and bottom to the slot's own line box, so the reel is exactly one
-     glyph tall and the row inside it shares the settled glyph's baseline
-     whatever line-height the page is set in — Arabic sets taller. */
-  top: 0;
-  bottom: 0;
+  /* The row height, and the one number the whole mechanism turns on. It is
+     derived from the font *size* and nothing else — 1em is 17px here whatever
+     family is active — so the window, the rows and the wind are the same
+     numbers whether the webfont has arrived yet or not.
+
+     It used to be the slot's own line box, top and bottom pinned to it, with
+     the drum wound by translateY(-100%) of its own height. Both of those are
+     metric-derived, and the page's Montserrat is fetched over the network
+     (index.html) with display: swap, so on a phone it lands *during* the
+     scramble and changes them underneath an animation WebKit has already
+     promoted. A percentage transform is not re-resolved on a composited layer,
+     so the glyphs go on being wound by the old height and land half out of the
+     window — which is not a scramble, it is a row of letters with holes in it,
+     and that is what was reported from a phone twice. */
+  --reel-row: calc(1em * 1.5);
+  /* Centred on the slot's line box rather than filling it, so the page's
+     line-height is free to be whatever it likes — Arabic sets taller — without
+     the row height following it there. The cipher glyphs are Latin in every
+     locale, so a Latin line box is the right one for them to stand in. Margin
+     rather than a transform: a transform here would promote the clip container
+     as well, and the point of this pass is fewer layers, not more. */
+  top: 50%;
+  height: var(--reel-row, 25.5px);
+  margin-top: calc(var(--reel-row, 25.5px) / -2);
   /* Wider than the slot at both ends. The slot is only as wide as the letter
      it will become and the cipher glyphs are not all that width, so a window
      clipped to the slot would shave the wide ones. Overhanging symmetrically
      keeps every glyph centred on the letter it stands in for. */
   left: -0.5em;
   right: -0.5em;
+  /* The system stack, not the page's Montserrat. This runs during the one
+     stretch of the session where a webfont may still be in flight, and there is
+     nothing to gain by waiting for one to draw six glyphs that are about to be
+     thrown away. The slot's hidden spacer goes on carrying the width in
+     Montserrat, so nothing the flight measures moves. */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
   text-align: center;
   pointer-events: none;
 }
 
-/* Wound through exactly its own height, in as many steps as it has glyphs, so
-   each one lands squarely in the window and holds there for its share of the
-   cycle. steps(6) is CIPHER_LAYERS in hooks/useEncryptedText — the two are the
-   same number or the reel stops in between glyphs. The negative delay starts
-   it part-way round. */
+/* Wound through exactly six rows, in as many steps as it has glyphs, so each
+   one lands squarely in the window and holds there for its share of the cycle.
+   steps(6) is CIPHER_LAYERS in hooks/useEncryptedText — the two are the same
+   number, and both are the 6 in the wind below, or the reel stops in between
+   glyphs. Six rows rather than the drum's own 100%: see --reel-row above for
+   why a percentage is the wrong thing to wind a composited layer by. The
+   negative delay starts it part-way round. */
 .cipher-drum {
   /* Block, not the inline a <span> would be: a transform does nothing at all
      to a non-replaced inline box, and an inline box wrapping block children
@@ -559,11 +586,24 @@ body::after {
   animation-delay: var(--phase, 0ms);
   animation-timing-function: steps(6, end);
   animation-iteration-count: infinite;
-  will-change: transform;
+  /* No will-change. It is a standing request for a layer, and there are twelve
+     of these on screen at once, over a live WebGL canvas that is mid-upload,
+     next to the orrery's own layers. iOS has a cap on that and demotes past it
+     silently — and a demoted steps() reel freezes mid-step, which is a glyph
+     half out of the window rather than a letter standing still. The animation
+     promotes the element on its own for as long as it is actually running,
+     which is the only stretch that needs it. */
 }
-.cipher-drum > span { display: block; }
+.cipher-drum > span {
+  display: block;
+  /* Rows exactly as tall as the window, so steps(6) lands each glyph squarely
+     in it — and in the same font-size-derived unit, so the two cannot drift
+     apart when the webfont swaps. */
+  height: var(--reel-row, 25.5px);
+  line-height: var(--reel-row, 25.5px);
+}
 @keyframes cipherReel {
-  to { transform: translateY(-100%); }
+  to { transform: translateY(calc(var(--reel-row, 25.5px) * -6)); }
 }
 
 /* ── Focus visibility ───────────────────────────────────────── */

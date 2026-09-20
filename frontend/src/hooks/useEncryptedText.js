@@ -34,9 +34,10 @@ const SCRAMBLED = /[\p{L}\p{N}]/u;
 /**
  * How many glyphs a held slot cycles through before it repeats.
  *
- * Coupled to the `steps(6, end)` in the `.cipher-drum` rule in index.css:
- * the drum is this many glyphs tall and is wound through exactly its own
- * height, so the step count and the glyph count have to be the same number.
+ * Coupled to the `.cipher-drum` rule in index.css in two places at once: the
+ * `steps(6, end)`, and the `* -6` the reel is wound by. The drum is this many
+ * rows tall and is wound through exactly that many rows, so all three are the
+ * same number or the reel stops in between glyphs.
  */
 export const CIPHER_LAYERS = 6;
 
