@@ -16,6 +16,17 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.11
+
+**On mobile, Language moved to the bottom of the burger menu.** It was the
+first row in `HeaderMenu.jsx`'s dropdown, so opening its own language list
+(English / Tiếng Việt / العربية) hung it down over the rows below —
+Copy a link, Track a satellite, Night sky — visually overlapping them. Nothing
+sits under Language now that it's last, so its dropdown has clear room to
+extend downward.
+
+---
+
 ## 5.10.10
 
 **Opening the language dropdown no longer drags the whole header dock around

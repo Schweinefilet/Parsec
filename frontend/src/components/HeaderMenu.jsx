@@ -94,8 +94,6 @@ const HeaderMenu = ({ onShare, copied, onSkyClick, onTrackerClick, onOpen }) => 
                         display: 'flex', flexDirection: 'column', gap: 2,
                     }}
                 >
-                    <LanguagePicker variant="row" />
-
                     <button role="menuitem" onClick={() => { onShare(); close(); }} style={rowStyle}>
                         {copied
                             ? <Check style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
@@ -112,6 +110,10 @@ const HeaderMenu = ({ onShare, copied, onSkyClick, onTrackerClick, onOpen }) => 
                         <Star style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
                         {t('nav.sky')}
                     </Link>
+
+                    {/* Last: its own dropdown extends downward and must not
+                        be covered by rows below it. */}
+                    <LanguagePicker variant="row" />
 
                 </div>
             )}

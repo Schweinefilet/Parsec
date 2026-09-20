@@ -15,6 +15,7 @@ export const WHATS_NEW = [
         version: '5.10',
         changes: [
             'Opening the language menu no longer makes the header’s row of icons swell and shrink, dragging the menu sideways, as you move down the list of languages.',
+            'On a phone, Language now sits at the bottom of the burger menu, so its own dropdown no longer opens over the other rows.',
             'The Compare page has been taken down for now while it gets a visual rework.',
             'The site now always plays its full animations, even if your computer is set to reduce motion. That setting made the opening, starfield and panels look frozen on some PCs.',
             'The opening wordmark scrambles from the moment the page opens and resolves into P4RSEC once the solar system has finished loading — on a phone as well now. Building the solar system used to lock the phone up for the first couple of seconds, which stopped the scramble being drawn at all; that work is now spread across frames instead, so the opening plays properly and the first moments of the page are no longer frozen.',
