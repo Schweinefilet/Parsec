@@ -49,9 +49,9 @@ import { useI18n } from '../i18n';
 // A clock that bounced on every tick would be unreadable.
 const SPRING = { stiffness: 300, damping: 22, mass: 0.35 };
 
-// One sweep, decelerating hard into the final value: fast enough to read as a
-// flourish rather than a progress bar, slow enough to see the digits move.
-const COUNT_UP = { duration: 0.9, ease: [0.16, 1, 0.3, 1] };
+// One long sweep, decelerating hard into the final value — slow enough that the
+// higher columns are legible on the way rather than a blur.
+const COUNT_UP = { duration: 1.6, ease: [0.16, 1, 0.3, 1] };
 
 const SR_ONLY = {
     position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
@@ -83,36 +83,44 @@ const RUN = { direction: 'ltr', unicodeBidi: 'isolate' };
 // blocks (U+0660–0669, U+06F0–06F9) — those are numerals, not letters.
 const RTL_LETTER = /[\u0591-\u05F4\u0620-\u064A\u066E-\u06D3\u06FA-\u06FF\u0750-\u077F\uFB1D-\uFDFC\uFE70-\uFEFC]/;
 
-/** One glyph in a rolling stack, parked `offset` rows from the visible slot. */
-const Glyph = ({ pos, index, glyph }) => {
+/** One item in a rolling stack, parked `offset` rows from the visible slot. */
+const Slot = ({ pos, index, item, count }) => {
     const y = useTransform(pos, (latest) => {
-        const place = ((latest % 10) + 10) % 10;
-        let offset = (10 + index - place) % 10;
+        const place = ((latest % count) + count) % count;
+        let offset = (count + index - place) % count;
         // Take the short way round, so 9 → 0 does not scroll back through the
-        // whole stack. The jump this introduces is always five rows out, well
-        // outside the clip box, so it is never on screen. It is also what lets
-        // a count-up's ever-climbing position wrap cleanly: nothing has to
-        // reset when the ones column passes nine.
-        if (offset > 5) offset -= 10;
+        // whole stack, and December → January rolls forward by one rather than
+        // back through the year. The jump this introduces is always half a
+        // stack out, well outside the clip box, so it is never on screen. It is
+        // also what lets a count-up's ever-climbing position wrap cleanly:
+        // nothing has to reset when the ones column passes nine.
+        if (offset > count / 2) offset -= count;
         // Percentages, not measured pixels: one row is by definition the
         // element's own height, so nothing here needs a ResizeObserver.
         return `${offset * 100}%`;
     });
-    return <Motion.span style={{ ...GLYPH, y }}>{glyph}</Motion.span>;
+    return <Motion.span style={{ ...GLYPH, y }}>{item}</Motion.span>;
 };
 
 /**
- * The rolling column itself. `pos` is a motion value in digits — 3 shows a 3,
- * 3.5 sits halfway between 3 and 4 — so a spring on an integer and a count-up's
- * continuously climbing position drive exactly the same DOM.
+ * The rolling column itself. `pos` is a motion value in items — 3 shows the
+ * fourth, 3.5 sits halfway to the fifth — so a spring on an integer and a
+ * count-up's continuously climbing position drive exactly the same DOM.
+ *
+ * `ghost` is the item left in flow to size the column. For digits any of them
+ * will do, since they are tabular; for month names they are not the same width,
+ * so the caller passes the one currently showing and the column is exactly as
+ * wide as the word in it.
  */
-const Column = ({ pos, glyphs }) => (
+const Column = ({ pos, items, ghost }) => (
     <span style={COLUMN}>
         {/* In flow, and invisible: it is what gives the column its width, its
             height and its baseline. */}
-        <span style={{ visibility: 'hidden' }}>{glyphs[0]}</span>
+        <span style={{ visibility: 'hidden' }}>{ghost ?? items[0]}</span>
         <span style={CLIP}>
-            {glyphs.map((g, i) => <Glyph key={i} pos={pos} index={i} glyph={g} />)}
+            {items.map((it, i) => (
+                <Slot key={i} pos={pos} index={i} item={it} count={items.length} />
+            ))}
         </span>
     </span>
 );
@@ -122,7 +130,22 @@ const SpringDigit = ({ value, glyphs }) => {
     const mv = useMotionValue(value);
     const pos = useSpring(mv, SPRING);
     useEffect(() => { mv.set(value); }, [mv, value]);
-    return <Column pos={pos} glyphs={glyphs} />;
+    return <Column pos={pos} items={glyphs} />;
+};
+
+/**
+ * The month name, rolling the same way a digit does.
+ *
+ * Only for locales whose month names are words. Vietnamese's are "Tháng 9",
+ * "Tháng 10" — the part that changes is already a digit and already rolls, and
+ * treating the whole thing as one word would take that away and swing the
+ * column's width around besides.
+ */
+const SpringWord = ({ index, words }) => {
+    const mv = useMotionValue(index);
+    const pos = useSpring(mv, SPRING);
+    useEffect(() => { mv.set(index); }, [mv, index]);
+    return <Column pos={pos} items={words} ghost={words[index]} />;
 };
 
 /**
@@ -148,7 +171,7 @@ const ROLL = { stiffness: 400, damping: 34, mass: 0.6 };
 const CountUpColumn = ({ run, place, glyphs }) => {
     const stepped = useTransform(run, (v) => Math.floor(v / place));
     const rolled = useSpring(stepped, ROLL);
-    return <Column pos={place === 1 ? run : rolled} glyphs={glyphs} />;
+    return <Column pos={place === 1 ? run : rolled} items={glyphs} />;
 };
 
 /** One maximal run of digits, winding from zero to its true value. */
@@ -174,6 +197,33 @@ const CountUpRun = ({ value, places, glyphs, delay }) => {
     ));
 };
 
+/**
+ * The locale's twelve month names as `date()` formats them, or null when they
+ * are not plain words.
+ *
+ * `month: 'short'` mirrors the default options in I18nProvider's `date()`,
+ * which is what the pill calls — so these are the exact strings that turn up in
+ * the text it is handed, and matching them needs no parsing or guesswork.
+ *
+ * A locale whose months carry digits (Vietnamese: "Tháng 9") is opted out: the
+ * digit is the part that changes and it already rolls on its own.
+ */
+function useMonths() {
+    const { intl } = useI18n();
+    return useMemo(() => {
+        const f = new Intl.DateTimeFormat(intl, { month: 'short', timeZone: 'UTC' });
+        // Mid-month in UTC, so no time zone can slide the date into a
+        // neighbouring month and mislabel the list.
+        const months = Array.from({ length: 12 }, (_, m) =>
+            f.format(new Date(Date.UTC(2021, m, 15))));
+        if (months.some(m => /\p{Nd}/u.test(m))) return null;
+        // Longest first: "Jan" must not win against a longer name it prefixes.
+        const byLength = months.map((name, index) => ({ name, index }))
+            .sort((a, b) => b.name.length - a.name.length);
+        return { months, byLength };
+    }, [intl]);
+}
+
 /** The locale's own ten digits, in order, and where each one sits. */
 function useGlyphs() {
     const { intl } = useI18n();
@@ -191,7 +241,7 @@ function useGlyphs() {
  * non-digits collapse into one node each, so "19 Sept 2026" is six columns and
  * two text nodes rather than twelve separate spans.
  */
-function tokenize(text, places) {
+function tokenize(text, places, months) {
     const out = [];
     let run = [];
     let gap = '';
@@ -200,15 +250,43 @@ function tokenize(text, places) {
         out.push({ digits: run });
         run = [];
     };
+    const flushGap = () => {
+        if (gap) out.push(...splitMonth(gap, months));
+        gap = '';
+    };
     for (const ch of text) {
         const place = places.get(ch);
         if (place === undefined) { flush(); gap += ch; continue; }
-        if (gap) { out.push({ text: gap }); gap = ''; }
+        flushGap();
         run.push(place);
     }
     flush();
-    if (gap) out.push({ text: gap });
+    flushGap();
     return group(out);
+}
+
+/**
+ * Pull a month name out of a run of text, so it can roll like a digit.
+ *
+ * The date arrives already formatted, so the month is just some letters in the
+ * middle of it. Rather than parse the date, this looks for the exact strings
+ * `Intl` would have produced for this locale — which is why useMonths() builds
+ * them with the same options the formatter used.
+ */
+function splitMonth(text, months) {
+    if (!months) return [{ text }];
+    for (const { name, index } of months.byLength) {
+        const at = text.indexOf(name);
+        if (at === -1) continue;
+        const before = text.slice(0, at);
+        const after = text.slice(at + name.length);
+        return [
+            ...(before ? [{ text: before }] : []),
+            { month: index },
+            ...(after ? splitMonth(after, months) : []),
+        ];
+    }
+    return [{ text }];
 }
 
 // Characters that live *inside* a number rather than between two of them: the
@@ -230,7 +308,9 @@ function group(tokens) {
     const out = [];
     let i = 0;
     while (i < tokens.length) {
-        if (tokens[i].text !== undefined) { out.push(tokens[i]); i++; continue; }
+        // Anything that is not a digit run — plain text, a month — passes
+        // straight through; only numbers absorb their own separators.
+        if (tokens[i].digits === undefined) { out.push(tokens[i]); i++; continue; }
         const parts = [tokens[i]];
         i++;
         while (i + 1 < tokens.length
@@ -265,30 +345,33 @@ const Shell = ({ className, style, text, children }) => {
 /** Each digit springs to its new value by the shortest route. */
 const SlidingNumber = ({ value, className, style }) => {
     const { glyphs, places } = useGlyphs();
+    const months = useMonths();
     const reduced = useReducedMotion();
     const text = value == null ? '' : String(value);
-    const tokens = useMemo(() => tokenize(text, places), [text, places]);
+    const tokens = useMemo(() => tokenize(text, places, months), [text, places, months]);
 
     if (!text) return null;
     if (reduced) return <span className={className} style={style}>{text}</span>;
 
     return (
         <Shell className={className} style={style} text={text}>
-            {tokens.map((tok, i) => (
-                tok.text !== undefined
-                    ? <span key={`s${i}`}>{tok.text}</span>
-                    : (
-                        <span key={`n${i}`} style={RUN}>
-                            {tok.parts.map((part, j) => (
-                                part.text !== undefined
-                                    ? <span key={j}>{part.text}</span>
-                                    : part.digits.map((d, k) => (
-                                        <SpringDigit key={`${j}-${k}`} value={d} glyphs={glyphs} />
-                                    ))
-                            ))}
-                        </span>
-                    )
-            ))}
+            {tokens.map((tok, i) => {
+                if (tok.text !== undefined) return <span key={`s${i}`}>{tok.text}</span>;
+                if (tok.month !== undefined) {
+                    return <SpringWord key={`m${i}`} index={tok.month} words={months.months} />;
+                }
+                return (
+                    <span key={`n${i}`} style={RUN}>
+                        {tok.parts.map((part, j) => (
+                            part.text !== undefined
+                                ? <span key={j}>{part.text}</span>
+                                : part.digits.map((d, k) => (
+                                    <SpringDigit key={`${j}-${k}`} value={d} glyphs={glyphs} />
+                                ))
+                        ))}
+                    </span>
+                );
+            })}
         </Shell>
     );
 };

@@ -7,7 +7,19 @@ import { useEffect } from 'react';
 // reads as "behind" at a glance without the card's edges visibly swinging
 // inward as you drag.
 const TUCK_TRAVEL = 120;
-const TUCK_SCALE = 0.94;
+// How much smaller a card gets for each full card covering it, and how many
+// levels deep the stack keeps counting. Depth accumulates: a card with two
+// cards over it sits further back than one with a single card over it, which is
+// what makes the pile read as a pile rather than as two cards at the same size.
+// The cap stops the card at the bottom of a long sheet shrinking to nothing.
+//
+// 0.12 a level, where this was once 0.06 in total — by request, so a covered
+// card reads as having gone behind rather than as having been cropped. Most
+// sheets only ever tuck one card (a three-card sheet with one opted out of
+// pinning has exactly one that can recede), so the first level has to carry the
+// effect on its own; the accumulation is what the longer spacecraft sheets get.
+const TUCK_STEP = 0.12;
+const TUCK_MAX_LEVELS = 2;
 
 /**
  * The recede half of the detail sheet's card stack (`.detail-stack` in
@@ -41,21 +53,28 @@ export function useCardStack(scrollerRef, enabled) {
         const apply = () => {
             frame = 0;
             const cards = [...stack.children];
-            cards.forEach((card, i) => {
+            // Front to back, carrying the depth forward: each card sits as far
+            // back as the one in front of it, plus however much of itself that
+            // card has covered. Reading the rects is safe in either order,
+            // because a top-anchored scale does not move them.
+            let depth = 0;
+            for (let i = cards.length - 1; i >= 0; i--) {
+                const card = cards[i];
                 const next = cards[i + 1];
                 // The last card, and any card that opted out of pinning, never
                 // goes behind anything — it is the one doing the covering.
                 if (!next || card.classList.contains('detail-stack-flow')) {
                     card.style.transform = '';
-                    return;
+                    continue;
                 }
                 const height = card.offsetHeight;
                 const covered = card.getBoundingClientRect().top + height
                     - next.getBoundingClientRect().top;
                 const travel = Math.min(TUCK_TRAVEL, height);
                 const p = Math.min(1, Math.max(0, covered / travel));
-                card.style.transform = p > 0 ? `scale(${1 - (1 - TUCK_SCALE) * p})` : '';
-            });
+                depth = Math.min(TUCK_MAX_LEVELS, depth + p);
+                card.style.transform = depth > 0 ? `scale(${1 - TUCK_STEP * depth})` : '';
+            }
         };
         const schedule = () => { if (!frame) frame = requestAnimationFrame(apply); };
 

@@ -16,6 +16,41 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.16
+
+- **The month rolls too, the figures take longer, and a tucked card goes
+  properly back.** Three follow-ups to 5.9.15, all by request.
+
+  The pill's month name now rolls like the digits beside it. The rolling column
+  was only ever a stack of ten glyphs by accident of what it was built for — it
+  is now a stack of *n* items, which the digits use with ten and the month uses
+  with twelve, taking the short way round so December → January rolls forward by
+  one rather than back through the year. Its width comes from the name currently
+  showing rather than the longest of the twelve, so an Arabic date does not
+  reserve the width of سبتمبر while displaying مايو.
+
+  Finding the month in an already-formatted date needs no parsing: the twelve
+  names are generated with the same `Intl` options `date()` used, so they are the
+  exact strings in the text. A locale whose month names carry digits opts out —
+  Vietnamese's are "Tháng 9", "Tháng 10", where the part that changes is already
+  a digit and already rolls, and swallowing it into a word would take that away
+  and swing the column's width about besides.
+
+  A focused body's figures now wind up over 1.6s instead of 0.9s, which leaves
+  the higher columns legible on the way rather than a blur.
+
+  The phone's card stack recedes much further: 0.12 per level where the whole
+  effect used to be 0.06, since a card covered by the next one was reading as
+  cropped rather than as tucked behind. Depth also accumulates now — a card with
+  two cards over it sits a step further back than one with a single card over it,
+  capped at two levels so nothing shrinks away to nothing. That part only shows
+  on the longer spacecraft sheets: a planet's three-card sheet has one card
+  opted out of pinning, which leaves exactly one that can recede, so the first
+  level has to carry the effect on its own. Still transform-only and still
+  top-anchored, which is what keeps `useCardStack`'s own measurements readable.
+
+---
+
 ## 5.9.15
 
 - **The dock gets its own bar, and numbers roll.** Two things, both of them
