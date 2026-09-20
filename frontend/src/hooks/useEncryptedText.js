@@ -31,6 +31,53 @@ const CIPHER = 'ABCDEFGHKLNOPQRSTUVXYZ0123456789';
 // reads as broken rather than as encrypted.
 const SCRAMBLED = /[\p{L}\p{N}]/u;
 
+/**
+ * How many glyphs a held slot cycles through before it repeats.
+ *
+ * Coupled to the `cipherFlick` keyframes in index.css, which give each layer
+ * its turn for 1/6th of the cycle. Changing this means changing that
+ * percentage with it, or the glyphs will overlap or leave gaps.
+ */
+export const CIPHER_LAYERS = 6;
+
+/**
+ * The glyphs a held wordmark cycles through, one set per character, for the
+ * stretch before the decode is let go.
+ *
+ * That scramble cannot be driven from here: it runs while the scene is being
+ * built, and the main thread is blocked solid for seconds at a time doing it,
+ * so a timer ticking a string produces one painted frame and then nothing.
+ * What it produces instead is a fixed set of candidates per character, which
+ * components/EncryptedText stacks and hands to CSS — an opacity animation runs
+ * on the compositor and keeps going through a blocked main thread, which is
+ * the whole reason the orrery on the same screen never stutters.
+ *
+ * Every slot gets its own cycle length, so the six of them drift out of phase
+ * within the first turn and the wordmark as a whole never visibly loops even
+ * though each letter does. None of them can show the letter it is going to
+ * become: a slot that flashes its own answer mid-scramble reads as a letter
+ * that has landed and then come loose again.
+ */
+export function cipherFrames(text, layers = CIPHER_LAYERS) {
+    const out = [];
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (!SCRAMBLED.test(ch)) { out.push({ glyphs: null, cycle: 0 }); continue; }
+        const pool = CIPHER.replace(ch.toUpperCase(), '');
+        const glyphs = [];
+        for (let k = 0; k < layers; k++) {
+            let g;
+            // Never twice in a row, and never the same at both ends of the
+            // loop — either one reads as the scramble catching for a beat.
+            do { g = pool[(Math.random() * pool.length) | 0]; }
+            while (g === glyphs[k - 1] || (k === layers - 1 && g === glyphs[0]));
+            glyphs.push(g);
+        }
+        out.push({ glyphs, cycle: Math.round(340 + Math.random() * 180) });
+    }
+    return out;
+}
+
 export function cipherText(text, progress) {
     const settled = Math.floor(progress * text.length);
     let out = '';
@@ -44,9 +91,9 @@ export function cipherText(text, progress) {
 }
 
 /**
- * `start` is the go signal, and until it comes the string sits at full length
- * as ciphertext rather than as nothing: the wordmark is standing there the
- * whole time, encrypted, and the decode is the moment it comes good. The
+ * `start` is the go signal. Before it comes, `shown` is null: the wordmark is
+ * on screen at full length and scrambling, but it is CSS doing that (see
+ * `cipherFrames`), not this, and the decode is the moment it comes good. The
  * caller holds it because the decode is a real-time animation and the main
  * thread is not always able to run one — see the loading screen, which waits
  * for the scene to stop building before it lets this go.
@@ -60,8 +107,12 @@ export function useEncryptedText(text, {
     const reduced = useReducedMotion();
     const live = enabled && !reduced;
     // Ciphertext from the very first paint, not an empty box that fills in.
+    // `shown: null` is the held state, and means "not saying anything yet" —
+    // EncryptedText draws the CSS scramble over the slot instead.
     const [state, setState] = useState(() => (
-        live ? { shown: cipherText(text, 0), progress: 0 } : { shown: text, progress: 1 }
+        live
+            ? { shown: start ? cipherText(text, 0) : null, progress: 0 }
+            : { shown: text, progress: 1 }
     ));
 
     // The string is the only dependency that should restart a decode. A locale
@@ -71,8 +122,8 @@ export function useEncryptedText(text, {
 
     useEffect(() => {
         if (!live) { setState({ shown: text, progress: 1 }); return undefined; }
-        // Held: full-length ciphertext, going nowhere until the caller says so.
-        if (!start) { setState({ shown: cipherText(text, 0), progress: 0 }); return undefined; }
+        // Held: the slots are scrambling in CSS and this has nothing to say.
+        if (!start) { setState({ shown: null, progress: 0 }); return undefined; }
         setState({ shown: cipherText(text, 0), progress: 0 });
         // Measured against the clock rather than counted in ticks, so a frame
         // the main thread is too busy to deliver shortens the decode instead of

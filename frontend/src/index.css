@@ -498,6 +498,36 @@ body::after {
 }
 .boot-asset-failed { color: #ff8a80; }
 
+/* ── The wordmark's held ciphertext ─────────────────────────────────────────
+   The scramble the wordmark runs while the scene is still being built, before
+   the decode is let go.
+
+   It is CSS, and it has to be. The stretch this covers is the one stretch of
+   the session where the main thread cannot deliver a frame — building the
+   scene blocks it for seconds at a time on a phone — so a scramble ticked from
+   a timer paints once and then stops dead until the thread comes back, which
+   is precisely when it is no longer wanted. An opacity animation runs on the
+   compositor and keeps going through all of it, the same way the orrery above
+   never stops turning.
+
+   Each character's slot holds every candidate glyph at once, stacked and
+   centred on the letter they stand in for, and each takes the slot for a sixth
+   of the cycle in turn. Six because that is CIPHER_LAYERS in
+   hooks/useEncryptedText — the 16.66% below is 100/6, and the two have to
+   agree or the glyphs will overlap or leave the slot empty. */
+.cipher-flick {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: cipherFlick var(--cycle, 400ms) linear var(--delay, 0ms) infinite;
+}
+@keyframes cipherFlick {
+  0%, 16.66%   { opacity: 1; }
+  16.67%, 100% { opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* The orrery stops turning and simply fades; the gleam goes entirely. The
      global reduced-motion rule below already collapses durations, but these

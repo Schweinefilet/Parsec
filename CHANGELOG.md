@@ -16,6 +16,45 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.4
+
+- **The wordmark scrambles from the first frame now, in CSS.** 5.10.3 held the
+  decode back until the scene was ready, which fixed the decode and left the
+  ciphertext standing perfectly still for the several seconds before it — one
+  frozen scramble, which reads less like an encrypted word than like a page
+  that has stopped. It should be glitching the whole time and resolving at the
+  end, and that is what it does.
+
+  The scramble could not be moved to the same timer the decode uses, for the
+  reason the decode was held in the first place: the stretch it covers is the
+  stretch where the main thread is blocked solid building the scene, and
+  nothing driven from JavaScript paints during it. So it is not driven from
+  JavaScript. `cipherFrames()` picks a fixed set of six candidate glyphs per
+  character up front, `EncryptedText` stacks all six in the character's slot,
+  and a CSS `cipherFlick` animation gives each one the slot for a sixth of the
+  cycle in turn. Opacity animations run on the compositor, so they keep going
+  through a blocked main thread — which is exactly why the orrery on the same
+  screen has never stuttered. Verified frame by frame off a CDP screencast at
+  6× CPU throttle: 610ms, 676ms and 1816ms into the load, deep inside two long
+  tasks of 1.4s and 1.0s, the wordmark reads `ZG1H8R`, `QC69YT` and `XG1OOH`.
+
+  Each slot gets its own cycle length, 340–520ms, so the six drift out of phase
+  within the first turn and the word never visibly loops even though each
+  letter does. No slot may show the letter it is going to become: a slot that
+  flashes its own answer mid-scramble reads as a letter that landed and then
+  came loose. The per-glyph rate works out at 57–87ms against the decode's
+  55ms, close enough that the handover from CSS to the cipher — at the moment
+  the scene reports ready — is not visible as a change of pace.
+
+  The hook's held state is `shown: null` rather than a frozen string, which is
+  what tells `EncryptedText` to draw the stack instead of a single glyph. Six
+  characters times six layers times the two stacked copies of the flying mark
+  is seventy-two spans of one character each; the screencast holds 60fps
+  throughout. Reduced motion never reaches any of it — the hook still returns
+  the settled string from the first frame there.
+
+---
+
 ## 5.10.3
 
 - **The opening decode waits for the scene now.** 5.10.0 moved the ciphertext

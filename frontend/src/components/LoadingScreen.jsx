@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Telescope } from 'lucide-react';
 import {
     subscribeAssets, assetsEverReady, holdLogo, releaseLogo,
 } from '../utils/assetLoading';
 import { useReducedMotion } from '../hooks/useMediaQuery';
 import EncryptedText from './EncryptedText';
-import { useEncryptedText } from '../hooks/useEncryptedText';
+import { useEncryptedText, cipherFrames } from '../hooks/useEncryptedText';
 import { useI18n } from '../i18n';
 
 // However slow the scene is, the screen never outstays this. A loading screen
@@ -102,7 +102,7 @@ const RINGS = [
  * the flying copy so the colour change can be an opacity cross-fade; keeping
  * them one component is what stops the two from drifting apart.
  */
-const Mark = ({ iconColor, textColor, style, name, shown, reveal = 1 }) => (
+const Mark = ({ iconColor, textColor, style, name, shown, frames, reveal = 1 }) => (
     <span
         className="flex items-center gap-2"
         style={{
@@ -128,7 +128,7 @@ const Mark = ({ iconColor, textColor, style, name, shown, reveal = 1 }) => (
         {/* Latin whatever the page language, and its tracking is the whole
             look of it — see the [data-latin] rule in index.css. */}
         <span data-latin style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
-            <EncryptedText text={name} shown={shown ?? name} />
+            <EncryptedText text={name} shown={shown} frames={frames} />
         </span>
     </span>
 );
@@ -174,6 +174,11 @@ const LoadingScreen = () => {
     const { shown: markText, progress: decoded } = useEncryptedText(appName, {
         duration: DECODE_MS, enabled: !suppressed, start: sceneReady,
     });
+    // The glyphs the wordmark cycles through until then. Generated once, and
+    // shared by both copies of the flying mark for the same reason the decode
+    // itself is: two sets would land different letters on the same frame and
+    // the cross-fade between the copies would show it.
+    const frames = useMemo(() => cipherFrames(appName), [appName]);
     // The logo arrives with the tail of the wordmark rather than alongside all
     // of it, so the two read as one thing resolving rather than as a fade — but
     // from ICON_HELD rather than from nothing, so it is standing in its own
@@ -459,6 +464,7 @@ const LoadingScreen = () => {
                 <Mark
                     name={appName}
                     shown={settledText}
+                    frames={frames}
                     reveal={settledReveal}
                     iconColor="var(--accent)"
                     textColor="rgba(255,255,255,0.92)"
@@ -468,6 +474,7 @@ const LoadingScreen = () => {
                 <Mark
                     name={appName}
                     shown={settledText}
+                    frames={frames}
                     reveal={settledReveal}
                     iconColor="#ffd166"
                     textColor="#fff"
