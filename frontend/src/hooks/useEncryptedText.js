@@ -34,9 +34,9 @@ const SCRAMBLED = /[\p{L}\p{N}]/u;
 /**
  * How many glyphs a held slot cycles through before it repeats.
  *
- * Coupled to the `cipherFlick` keyframes in index.css, which give each layer
- * its turn for 1/6th of the cycle. Changing this means changing that
- * percentage with it, or the glyphs will overlap or leave gaps.
+ * Coupled to the `steps(6, end)` in the `.cipher-drum` rule in index.css:
+ * the drum is this many glyphs tall and is wound through exactly its own
+ * height, so the step count and the glyph count have to be the same number.
  */
 export const CIPHER_LAYERS = 6;
 
@@ -48,15 +48,16 @@ export const CIPHER_LAYERS = 6;
  * built, and the main thread is blocked solid for seconds at a time doing it,
  * so a timer ticking a string produces one painted frame and then nothing.
  * What it produces instead is a fixed set of candidates per character, which
- * components/EncryptedText stacks and hands to CSS — an opacity animation runs
- * on the compositor and keeps going through a blocked main thread, which is
- * the whole reason the orrery on the same screen never stutters.
+ * components/EncryptedText stacks into a reel and hands to CSS — a transform
+ * animation runs on the compositor and keeps going through a blocked main
+ * thread, which is the whole reason the orrery on the same screen never
+ * stutters.
  *
- * Every slot gets its own cycle length, so the six of them drift out of phase
- * within the first turn and the wordmark as a whole never visibly loops even
- * though each letter does. None of them can show the letter it is going to
- * become: a slot that flashes its own answer mid-scramble reads as a letter
- * that has landed and then come loose again.
+ * Every slot gets its own cycle length and its own starting phase, so the six
+ * of them are out of step from the first frame and the wordmark as a whole
+ * never visibly loops even though each letter does. None of them can show the
+ * letter it is going to become: a slot that flashes its own answer mid-scramble
+ * reads as a letter that has landed and then come loose again.
  */
 export function cipherFrames(text, layers = CIPHER_LAYERS) {
     const out = [];
@@ -73,7 +74,10 @@ export function cipherFrames(text, layers = CIPHER_LAYERS) {
             while (g === glyphs[k - 1] || (k === layers - 1 && g === glyphs[0]));
             glyphs.push(g);
         }
-        out.push({ glyphs, cycle: Math.round(340 + Math.random() * 180) });
+        const cycle = Math.round(340 + Math.random() * 180);
+        // Negative, so the reel is already part-way round on the first frame
+        // rather than every letter starting on its first glyph together.
+        out.push({ glyphs, cycle, phase: -Math.round(Math.random() * cycle) });
     }
     return out;
 }

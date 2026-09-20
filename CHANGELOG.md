@@ -16,6 +16,53 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.5
+
+- **The held scramble is a reel now, because the stack of glyphs did not work
+  on iOS.** Reported from a phone: the wordmark did not scramble, it flashed.
+  Each letter sat on one glyph and blinked on and off — `EZD6F4` coming and
+  going as `EZ 6 4`, `ZD6F`, `EZD F4` — so the opening read as a word with
+  holes in it rather than as ciphertext.
+
+  The mechanism it had was six glyphs stacked in each character's slot, each
+  taking the slot for a sixth of the cycle by way of its own `animation-delay`.
+  That is six animations per letter that have to agree with each other about
+  whose turn it is, and seventy-two of them across the two stacked copies of
+  the mark. Whatever WebKit did with them — dropped the delays, accelerated
+  some and left the rest to a main thread that was blocked, gave up on the
+  count — the visible result is the same shape of failure, and it is a shape
+  the design allows: if the layers disagree, the slot can show nothing.
+
+  So there is nothing left to disagree. Each slot's candidates are stacked into
+  a column and wound past a window one glyph tall, slot-machine fashion: one
+  transform animation per letter, twelve in total, `steps(6)` through exactly
+  the drum's own height so each glyph lands squarely in the window. Which glyph
+  is showing is now a property of what the window is clipping rather than of
+  several animations agreeing, so a blank is not a state this can be in. The
+  worst an engine that declines to run the animation can produce is a letter
+  standing still, which is what 5.10.3 looked like.
+
+  The window is the slot's own line box, top and bottom, so the row inside it
+  shares the settled glyph's baseline at whatever line-height the page is set
+  in — Arabic sets taller. It overhangs the slot by half an em at each end,
+  because the slot is only as wide as the letter it will become and a window
+  clipped to that would shave the wider cipher glyphs. Measured against the
+  header's own wordmark: slot 14.92 × 25.5, reel 31.92 × 25.5 at the slot's
+  top, drum 153 tall for six rows of 25.5, the glyph's 20px content area
+  sitting inside the 25.5 row with 2.75 to spare at each end.
+
+  One thing caught on the way, in Chrome, before any of this reached a phone:
+  a `<span>` is an inline box, a transform does nothing to one, and an inline
+  box wrapping block children has no height to be wound through either. The
+  drum is `display: block`. And the animation is set as longhands rather than
+  the shorthand — a shorthand carrying a `var()` is parsed at computed-value
+  time and takes the whole declaration with it if any part of the substitution
+  does not fit, where the longhands degrade one at a time: a missing `--cycle`
+  leaves the reel turning at 400ms and a missing `--phase` leaves the letters
+  starting together, and both of those are still a scramble.
+
+---
+
 ## 5.10.4
 
 - **The wordmark scrambles from the first frame now, in CSS.** 5.10.3 held the

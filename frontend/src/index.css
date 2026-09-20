@@ -506,26 +506,64 @@ body::after {
    the session where the main thread cannot deliver a frame — building the
    scene blocks it for seconds at a time on a phone — so a scramble ticked from
    a timer paints once and then stops dead until the thread comes back, which
-   is precisely when it is no longer wanted. An opacity animation runs on the
+   is precisely when it is no longer wanted. A transform animation runs on the
    compositor and keeps going through all of it, the same way the orrery above
    never stops turning.
 
-   Each character's slot holds every candidate glyph at once, stacked and
-   centred on the letter they stand in for, and each takes the slot for a sixth
-   of the cycle in turn. Six because that is CIPHER_LAYERS in
-   hooks/useEncryptedText — the 16.66% below is 100/6, and the two have to
-   agree or the glyphs will overlap or leave the slot empty. */
-.cipher-flick {
+   Each character's candidate glyphs are stacked into a column and wound past a
+   window one glyph tall, slot-machine fashion. Which glyph is showing is
+   decided by what the window is clipping, so it is a property of the layout
+   and not of several animations agreeing with each other — the first version
+   of this stacked the glyphs and had them take turns at opacity, six
+   animation-delays per letter, and on iOS the letters settled on one glyph
+   each and blinked rather than scrambling. There is nothing here left to
+   disagree: an engine that declines to run the animation shows a letter
+   standing still, which is the worst it can do. */
+.cipher-reel {
   position: absolute;
-  left: 50%;
+  /* Top and bottom to the slot's own line box, so the reel is exactly one
+     glyph tall and the row inside it shares the settled glyph's baseline
+     whatever line-height the page is set in — Arabic sets taller. */
   top: 0;
-  transform: translateX(-50%);
-  opacity: 0;
-  animation: cipherFlick var(--cycle, 400ms) linear var(--delay, 0ms) infinite;
+  bottom: 0;
+  /* Wider than the slot at both ends. The slot is only as wide as the letter
+     it will become and the cipher glyphs are not all that width, so a window
+     clipped to the slot would shave the wide ones. Overhanging symmetrically
+     keeps every glyph centred on the letter it stands in for. */
+  left: -0.5em;
+  right: -0.5em;
+  overflow: hidden;
+  text-align: center;
+  pointer-events: none;
 }
-@keyframes cipherFlick {
-  0%, 16.66%   { opacity: 1; }
-  16.67%, 100% { opacity: 0; }
+
+/* Wound through exactly its own height, in as many steps as it has glyphs, so
+   each one lands squarely in the window and holds there for its share of the
+   cycle. steps(6) is CIPHER_LAYERS in hooks/useEncryptedText — the two are the
+   same number or the reel stops in between glyphs. The negative delay starts
+   it part-way round. */
+.cipher-drum {
+  /* Block, not the inline a <span> would be: a transform does nothing at all
+     to a non-replaced inline box, and an inline box wrapping block children
+     has no height for the reel to be wound through either. */
+  display: block;
+  /* Longhands, not the shorthand. A shorthand carrying a var() is parsed at
+     computed-value time and takes the whole declaration down with it if any
+     part of the substitution does not fit — including the parts that were
+     not the variable. These degrade one at a time: a --cycle that does not
+     arrive leaves the reel turning at 400ms, which is a scramble, and a
+     --phase that does not arrive leaves the letters starting together, which
+     is a scramble that drifts apart over the first second. */
+  animation-name: cipherReel;
+  animation-duration: var(--cycle, 400ms);
+  animation-delay: var(--phase, 0ms);
+  animation-timing-function: steps(6, end);
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+.cipher-drum > span { display: block; }
+@keyframes cipherReel {
+  to { transform: translateY(-100%); }
 }
 
 @media (prefers-reduced-motion: reduce) {

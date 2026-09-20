@@ -24,14 +24,23 @@
  *
  * There are three states, and the slot is the same in all three:
  *
- *   held      `shown` is null. The slot cycles through `frames[i].glyphs`,
- *             stacked and taken in turns by a CSS animation — see
- *             `cipherFrames`. Nothing here runs on the main thread, because
- *             this is the state the wordmark is in while the scene is being
- *             built and the main thread is not running anything.
+ *   held      `shown` is null. The slot's candidate glyphs (`cipherFrames`)
+ *             are stacked into a reel one glyph tall, and CSS winds it round.
+ *             Nothing here runs on the main thread, because this is the state
+ *             the wordmark is in while the scene is being built and the main
+ *             thread is not running anything.
  *   decoding  `shown` is a string. One glyph per slot, from the cipher.
  *   settled   `shown` is the text. Plain text in normal flow, nothing wrapped,
  *             nothing positioned, out of the way entirely.
+ *
+ * The held state is a reel rather than a stack of glyphs taking turns at
+ * opacity, which is what it was first built as. Six layers per slot agreeing
+ * on whose turn it is, by way of six animation delays, is six ways for a slot
+ * to end up showing nothing — and on iOS that is exactly what happened: the
+ * letters sat on one glyph each and blinked instead of scrambling. A reel
+ * cannot do that. Which glyph is showing is decided by what the slot is
+ * clipping, not by six animations agreeing, so the worst an engine that
+ * refuses to run the animation at all can produce is a letter standing still.
  */
 
 const BOX = { display: 'inline-block', whiteSpace: 'nowrap' };
@@ -60,25 +69,22 @@ export default function EncryptedText({ text, shown, frames, className, style })
                 {/* The settled glyph carries the width. */}
                 <span style={WIDTH}>{ch}</span>
                 {glyphs
-                    // Held: every candidate is present at once and CSS decides
-                    // which one is showing. --delay is this layer's turn in the
-                    // cycle; the layers between turns are at opacity 0.
-                    ? glyphs.map((g, k) => (
-                        <span
-                            key={k}
-                            className="cipher-flick"
-                            aria-hidden="true"
-                            style={{
-                                '--cycle': `${frames[i].cycle}ms`,
-                                // Not rounded to whole milliseconds: a third
-                                // of one either way leaves a gap between two
-                                // layers' turns, and a frame can land in it.
-                                '--delay': `${(k * frames[i].cycle / glyphs.length).toFixed(2)}ms`,
-                            }}
-                        >
-                            {g}
+                    // Held: the candidates in a column, wound past a window
+                    // one glyph tall. The window is the slot, so whichever
+                    // glyph the reel has brought round is the one showing.
+                    ? (
+                        <span className="cipher-reel" aria-hidden="true">
+                            <span
+                                className="cipher-drum"
+                                style={{
+                                    '--cycle': `${frames[i].cycle}ms`,
+                                    '--phase': `${frames[i].phase}ms`,
+                                }}
+                            >
+                                {glyphs.map((g, k) => <span key={k}>{g}</span>)}
+                            </span>
                         </span>
-                    ))
+                    )
                     // Decoding, or a character the cipher leaves alone.
                     : <span style={OVER} aria-hidden="true">{held ? ch : solid(shown[i] ?? text[i])}</span>}
             </span>
