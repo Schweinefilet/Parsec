@@ -52,24 +52,28 @@
          window for as long as ~200 KB of JavaScript took to arrive and parse —
          on a slow connection, seconds of nothing at all, which reads as a page
          that has failed rather than one that is coming. This draws the same
-         black the loading screen uses and one faint pulsing ring in the exact
-         place its orrery appears, so when React mounts there is no seam: the
-         ring is simply joined by the rest of the figure.
+         black the loading screen uses and one faint pulsing point in the exact
+         place its wordmark appears, so when React mounts there is no seam: the
+         point is simply joined by the rest of the figure. It was a ring, back
+         when the orrery drew its orbits; with those gone the ring became the
+         one thing on this screen that vanished on mount instead of being
+         joined, so it is now the light at the centre the wordmark decodes on
+         top of.
 
          Inline and tiny on purpose — it has to paint from the HTML alone, with
          no stylesheet and no script. The markup lives inside #root, so React
          removes it on mount without anyone having to remember to. -->
     <style>
       @keyframes p4-boot-pulse {
-        0%, 100% { opacity: .25; transform: translate(-50%, -50%) rotateX(69deg) scale(1); }
-        50%      { opacity: .5;  transform: translate(-50%, -50%) rotateX(69deg) scale(1.035); }
+        0%, 100% { opacity: .30; transform: translate(-50%, -50%) scale(1); }
+        50%      { opacity: .62; transform: translate(-50%, -50%) scale(1.5); }
       }
       #p4-boot { position: fixed; inset: 0; background: #000; z-index: 1; }
       #p4-boot i {
         position: absolute; left: 50%; top: calc(50% - 58px);
-        width: clamp(240px, 23vw, 286px); aspect-ratio: 1;
-        border: 1px solid rgba(255,255,255,.5); border-radius: 50%;
-        transform: translate(-50%, -50%) rotateX(69deg);
+        width: 7px; height: 7px;
+        background: #fff; border-radius: 50%;
+        transform: translate(-50%, -50%);
         animation: p4-boot-pulse 2.6s ease-in-out infinite;
       }
       @media (prefers-reduced-motion: reduce) { #p4-boot i { animation: none; opacity: .38; } }
