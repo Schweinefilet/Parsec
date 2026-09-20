@@ -101,12 +101,12 @@ const BodyDisc = ({ object, fraction, maxPx }) => {
                             ? `#05070a center/cover url(${photo})`
                             : `radial-gradient(circle at 32% 30%, rgba(${accent.rgb},0.55), rgba(${accent.rgb},0.16) 55%, #05070a 100%)`,
                         // A terminator and a rim, so a flat crop reads as a body.
-                        // The outer glow is capped low: near-stage-width, a wide
-                        // halo is the first thing the card's overflow:hidden bites
-                        // off, and a hard-clipped glow looks like a clipped planet.
+                        // No outer glow — it read as a soft-focus halo rather
+                        // than a disc, which looked unpolished next to the rest
+                        // of the page's flat, precise styling.
                         boxShadow: px > 8
-                            ? `inset ${-px * 0.16}px ${-px * 0.1}px ${px * 0.4}px rgba(0,0,0,0.75), 0 0 ${Math.min(28, px * 0.22)}px rgba(${accent.rgb},0.38)`
-                            : `0 0 6px rgba(${accent.rgb},0.9)`,
+                            ? `inset ${-px * 0.16}px ${-px * 0.1}px ${px * 0.4}px rgba(0,0,0,0.75)`
+                            : 'none',
                         outline: px < 6 ? `1px solid rgba(${accent.rgb},0.9)` : 'none',
                         outlineOffset: 2,
                     }}

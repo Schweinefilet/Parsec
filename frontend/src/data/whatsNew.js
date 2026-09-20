@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.9',
         changes: [
+            'Removed the soft glow around each body on the Compare page — it looked out of place next to the rest of the page.',
             'The month in the timeline control now rolls to the next one the way the digits beside it do, instead of swapping.',
             'On a phone, a card in a focused object’s detail panel now shrinks noticeably as the next one rides up over it, so it reads as having gone behind rather than as having been cut off. On the longer spacecraft panels the cards stack in depth, each one a step further back than the one in front.',
             'The buttons in the top right now sit in a dock: bare round icons on one dark bar, swelling toward your cursor as you move along them, with the name of whichever one you are pointing at shown beside it. Only the page you are currently on stays lit. On a computer only — nothing changes on a phone.',

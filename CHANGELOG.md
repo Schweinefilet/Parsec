@@ -16,6 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.17
+
+**Dropped the glow on the Compare page's discs.** Each body's disc there kept
+a soft outer glow at its rim — meant to help a flat photo crop read as a
+sphere, but it landed as a soft-focus halo instead, out of step with the
+rest of the page's flat, precise styling. The terminator/rim shading that
+gives a disc its roundness stays; only the outer glow is gone, and the small
+bodies under 8px (which had no shading, just a plain glow) now render with
+no shadow at all instead.
+
+---
+
 ## 5.9.16
 
 - **The month rolls too, the figures take longer, and a tucked card goes
