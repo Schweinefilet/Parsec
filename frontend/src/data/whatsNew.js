@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.10',
         changes: [
+            'The site now always plays its full animations, even if your computer is set to reduce motion. That setting made the opening, starfield and panels look frozen on some PCs.',
             'The opening wordmark scrambles from the moment the page opens and resolves into P4RSEC once the solar system has finished loading. On a phone it stays out of sight while the loading runs and fades in just before it decodes: a phone is too busy building the solar system to draw the scramble, and this way the whole decode happens where it can actually be seen.',
             'The opening no longer briefly shows a second copy of the wordmark hanging off the left edge of the screen, and the lettering no longer drifts sideways as it decodes.',
             'Coming back from a focused object to the whole solar system is now a slower, calmer flight — it used to snap back to the Sun.',

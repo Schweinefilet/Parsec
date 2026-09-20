@@ -16,6 +16,27 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.7
+
+- **The site no longer honours the OS "reduce motion" setting.** A Windows PC
+  with animation effects switched off reports `prefers-reduced-motion: reduce`
+  to Chrome, and the site obeyed it: the opening flight was skipped, the
+  starfield froze, the dock stopped swelling, panels stopped sliding, numbers
+  stopped rolling and the wordmark never scrambled. That made the site look
+  broken on a machine where the setting had been flipped for unrelated
+  reasons, so it is now ignored everywhere.
+
+  `useReducedMotion()` returns `false` unconditionally (the call sites are
+  untouched, so every reduced branch is simply dead), `StarfieldBg` no longer
+  reads the media query, and the three CSS blocks that keyed off it are gone:
+  the boot-orrery still, the global duration collapse in `index.css`, and the
+  boot-dot rule in `index.html`.
+
+  This is a deliberate accessibility trade-off. Anyone who genuinely needs
+  reduced motion no longer gets it from the OS.
+
+---
+
 ## 5.10.6
 
 - **On a phone the wordmark now waits offstage.** The held scramble is CSS so

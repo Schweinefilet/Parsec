@@ -21,7 +21,7 @@ const StarfieldBg = ({ canvasId = 'starfield-bg' }) => {
         document.body.appendChild(canvas);
 
         const ctx = canvas.getContext('2d', { alpha: true });
-        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        const reduceMotion = false; // the OS reduced-motion setting is ignored site-wide
 
         let stars = [];
         let dpr = 1;

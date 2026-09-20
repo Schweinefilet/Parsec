@@ -35,4 +35,7 @@ export const useHasRoomForTimeline = () => useMediaQuery('(min-width: 1280px)');
 // still reports `fine`. Width would catch a half-width browser on a desktop,
 // which is not what anything asking this wants to know.
 export const useIsTouch = () => useMediaQuery('(pointer: coarse)');
-export const useReducedMotion = () => useMediaQuery('(prefers-reduced-motion: reduce)');
+// Deliberately ignores the OS `prefers-reduced-motion` setting: the site always
+// plays its full motion. Kept as a hook so every call site (and the tests that
+// mock it) stays as it was.
+export const useReducedMotion = () => false;

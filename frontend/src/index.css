@@ -566,30 +566,6 @@ body::after {
   to { transform: translateY(-100%); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* The orrery stops turning and simply fades; the gleam goes entirely. The
-     global reduced-motion rule below already collapses durations, but these
-     are decoration with no state in them, so they are removed outright.
-     .boot-body-spin goes with .boot-orbit — it exists only to cancel it, and
-     leaving one of the pair running would tilt every body out of true.
-
-     With the animations gone both would rest at 0°, which parks all four
-     bodies at the same clock position: a spoke, the one arrangement that
-     reads as a diagram rather than as a system. --angle puts each back in
-     its own quadrant as a still, and .boot-body-spin cancels it exactly as
-     it cancels the animation. */
-  .boot-orbit {
-    animation: none;
-    transform: rotate(var(--angle, 0deg));
-  }
-  .boot-body-spin {
-    animation: none;
-    transform: rotate(calc(var(--angle, 0deg) * -1));
-  }
-  .boot-bar-gleam { display: none; }
-  .boot-orrery[data-leaving="true"] { transform: none; }
-}
-
 /* ── Focus visibility ───────────────────────────────────────── */
 /* Keyboard users get a clear ring; pointer users see nothing extra. */
 .focus-ring:focus-visible,
@@ -954,17 +930,6 @@ button:focus-visible {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
 }
 
 #root {
