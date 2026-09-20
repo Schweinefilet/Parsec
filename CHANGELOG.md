@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.12
+
+**Exponents now count up with the rest of a focused body's figures.** The
+wind-up in `CountUpNumber` only touched ASCII/locale digits, and a power of ten
+like the ²⁴ in "5.97 × 10²⁴ kg" is a run of Unicode superscript code points, so
+it sat still while the mantissa rolled. `tokenize` now takes an `exponents`
+flag (set only by `CountUpNumber`; the timeline pill's `SlidingNumber` is
+unchanged): a superscript run that *directly follows a digit* becomes a real
+`<sup>` holding the same odometer columns, winding up on the same clock and
+delay as the mantissa so the line still lands together. Exponent digits are
+always Western, matching `ObjectStatsPanel`'s `<sup>` — Arabic-Indic has no
+superscript forms. A superscript after a unit ("W/m²") is part of the unit, not
+an exponent, and is left as text. Covered by `CountUpNumber.test.jsx`.
+
+---
+
 ## 5.10.11
 
 **On mobile, Language moved to the bottom of the burger menu.** It was the

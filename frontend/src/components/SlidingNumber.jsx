@@ -23,9 +23,11 @@ import { useI18n } from '../i18n';
  * "19 Sept 2026" and "22:31:07", and a focused body's figures read "1,361 W/m²"
  * or "5.97 × 10²⁴ kg". Both take the **already-formatted string** and animate
  * only the digits in it — separators, month names and units are ordinary text
- * that simply swaps. A superscript exponent is left alone for free: "10²⁴"'s
- * ²⁴ is a distinct run of Unicode code points, not digits, so it is never
- * matched and the exponent holds still while the mantissa winds up.
+ * that simply swaps. A power-of-ten exponent ("10²⁴") is a distinct run of
+ * Unicode superscript code points, not digits, so <SlidingNumber> never matches
+ * it. <CountUpNumber> opts in: a superscript run that directly follows a digit
+ * becomes a real <sup> whose figures wind up with the mantissa. One that
+ * follows a unit ("W/m²") is part of the unit and holds still.
  *
  * Keeping the formatting upstream is also what keeps it correct: the caller has
  * already been through `Intl`, so neither of these has to know what a date or a
@@ -52,6 +54,11 @@ const SPRING = { stiffness: 300, damping: 22, mass: 0.35 };
 // One long sweep, decelerating hard into the final value — slow enough that the
 // higher columns are legible on the way rather than a blur.
 const COUNT_UP = { duration: 1.6, ease: [0.16, 1, 0.3, 1] };
+
+const SUPER_DIGITS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+// Arabic-Indic has no superscript forms, so an exponent is Western in every
+// locale — the same call ObjectStatsPanel makes for its <sup>.
+const LATIN_DIGITS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
 const SR_ONLY = {
     position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
@@ -241,10 +248,16 @@ function useGlyphs() {
  * non-digits collapse into one node each, so "19 Sept 2026" is six columns and
  * two text nodes rather than twelve separate spans.
  */
-function tokenize(text, places, months) {
+function tokenize(text, places, months, exponents = false) {
     const out = [];
     let run = [];
     let gap = '';
+    let sup = [];
+    const flushSup = () => {
+        if (!sup.length) return;
+        out.push({ sup });
+        sup = [];
+    };
     const flush = () => {
         if (!run.length) return;
         out.push({ digits: run });
@@ -255,12 +268,22 @@ function tokenize(text, places, months) {
         gap = '';
     };
     for (const ch of text) {
+        const power = exponents ? SUPER_DIGITS.indexOf(ch) : -1;
+        // Only a superscript straight after a digit is an exponent; "m²" is a
+        // unit and stays text.
+        if (power !== -1 && (run.length || sup.length)) {
+            flush();
+            sup.push(power);
+            continue;
+        }
+        flushSup();
         const place = places.get(ch);
         if (place === undefined) { flush(); gap += ch; continue; }
         flushGap();
         run.push(place);
     }
     flush();
+    flushSup();
     flushGap();
     return group(out);
 }
@@ -387,7 +410,7 @@ export const CountUpNumber = ({ value, className, style, delay = 0 }) => {
     const { glyphs, places } = useGlyphs();
     const reduced = useReducedMotion();
     const text = value == null ? '' : String(value);
-    const tokens = useMemo(() => tokenize(text, places), [text, places]);
+    const tokens = useMemo(() => tokenize(text, places, undefined, true), [text, places]);
 
     if (!text) return null;
     if (reduced) return <span className={className} style={style}>{text}</span>;
@@ -396,6 +419,20 @@ export const CountUpNumber = ({ value, className, style, delay = 0 }) => {
         <Shell className={className} style={style} text={text}>
             {tokens.map((tok, i) => {
                 if (tok.text !== undefined) return <span key={`s${i}`}>{tok.text}</span>;
+                if (tok.sup !== undefined) {
+                    const n = tok.sup.length;
+                    const target = tok.sup.reduce((acc, d) => acc * 10 + d, 0);
+                    return (
+                        <sup key={`e${i}-${n}`}>
+                            <CountUpRun
+                                value={target}
+                                places={tok.sup.map((_, k) => 10 ** (n - 1 - k))}
+                                glyphs={LATIN_DIGITS}
+                                delay={delay}
+                            />
+                        </sup>
+                    );
+                }
                 // The whole number shares one isolate; each digit run inside it
                 // still winds up on its own, so "1,361" counts the 1 and the 361
                 // together and lands as one figure.
