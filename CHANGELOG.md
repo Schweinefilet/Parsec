@@ -16,6 +16,19 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.9.13
+
+- **The timeline pill keeps one width.** Its readout column was a `minWidth`, so
+  it grew whenever the date, the clock or the "rate · offset" line got longer —
+  a longer month name, or Arabic-Indic numerals, which run wider than Latin
+  digits — and the whole pill resized as you scrubbed. The column is now a fixed
+  width (150px, 96px on a phone) that cannot shrink, with the date and clock
+  spread across it and the offset line clipped with an ellipsis if a locale runs
+  long. The collapsed pill's date gets the same treatment: a fixed, centred
+  minimum width with tabular numerals.
+
+---
+
 ## 5.9.12
 
 - **Two `/sky` chrome bugs on phones, and a disclaimer for the mode that

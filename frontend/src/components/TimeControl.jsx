@@ -298,7 +298,11 @@ const TimeControl = ({ hidden, focused }) => {
                         style={{ ...btn(!live), width: 'auto', padding: '0 8px', gap: 6, display: 'flex' }}
                     >
                         <Clock style={{ width: 14, height: 14 }} />
-                        <span style={{ fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        <span style={{
+                            fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+                            display: 'inline-block', minWidth: 84, textAlign: 'center',
+                            fontVariantNumeric: 'tabular-nums',
+                        }}>
                             {live ? t('time.live') : fmtDate(date)}
                         </span>
                     </button>
@@ -334,8 +338,16 @@ const TimeControl = ({ hidden, focused }) => {
 
                         <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.14)', margin: '0 2px' }} />
 
-                        <div style={{ minWidth: isMobile ? 96 : 132, lineHeight: 1.15 }}>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                        {/* A fixed width, not a minimum: the date, the clock
+                            and the offset line all change length as you scrub
+                            (month names, digit widths — Arabic-Indic numerals
+                            especially), and any of that reflowing here resizes
+                            the whole pill. The lines below clip instead. */}
+                        <div style={{ width: isMobile ? 96 : 150, flexShrink: 0, lineHeight: 1.15 }}>
+                            <div style={{
+                                display: 'flex', alignItems: 'baseline', gap: 5,
+                                justifyContent: 'space-between', overflow: 'hidden',
+                            }}>
                                 <div style={{ position: 'relative' }}>
                                     <button
                                         type="button"
@@ -390,6 +402,7 @@ const TimeControl = ({ hidden, focused }) => {
                             </div>
                             <div style={{
                                 fontSize: 9.5, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap',
+                                overflow: 'hidden', textOverflow: 'ellipsis',
                             }}>
                                 {live
                                     ? t('time.live')

@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.9',
         changes: [
+            'The timeline control no longer changes width as the date and time change — most noticeable in Arabic, where the wider numerals used to make it swell and shrink as you scrubbed.',
             'Fixed the globe being drawn into the bottom of its card, under a band of empty black, after flying into the Satellite Tracker on a phone. It only happened on the flight in, never on opening the tracker directly, and nothing but reloading the page cleared it.',
             'On a phone, the cards in a focused object’s detail panel now slide behind one another as you scroll instead of being cut in half at the panel’s top edge. Each card stays put and shrinks a little as the next one rides up over it, and lifts back off as you scroll up again.',
             'Opening the Satellite Tracker is now a flight rather than a page change. The camera flies to Earth in one movement and comes to rest with the planet filling the screen, daylit side toward you — and the tracker\u2019s own globe fades up out of that exact frame, same size, same continents, same daylight, before settling into its panel as the page appears around it. There is no black moment anywhere in it.',
