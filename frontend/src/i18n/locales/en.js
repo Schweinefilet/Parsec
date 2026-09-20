@@ -318,6 +318,8 @@ export const en = {
         arAskTitle: 'Point your phone at the sky',
         arAskBody: 'AR mode uses your camera and compass to line up constellations with the real'
             + ' sky above you. Nothing is recorded or sent anywhere.',
+        arExperimental: 'Heads up: AR view is an early feature and can be glitchy — expect'
+            + ' occasional drift or misaligned labels.',
         arCancel: 'Cancel',
         arEnable: 'Enable',
         arAsking: 'Asking…',

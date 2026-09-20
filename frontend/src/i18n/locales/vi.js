@@ -321,6 +321,8 @@ export const vi = {
         arAskTitle: 'Hướng điện thoại của bạn lên bầu trời',
         arAskBody: 'Chế độ AR dùng camera và la bàn của bạn để khớp các chòm sao với bầu trời'
             + ' thực phía trên bạn. Không có gì được ghi lại hay gửi đi đâu cả.',
+        arExperimental: 'Lưu ý: chế độ AR là tính năng còn mới và có thể còn lỗi — có thể bị'
+            + ' trôi hướng hoặc lệch nhãn.',
         arCancel: 'Hủy',
         arEnable: 'Bật',
         arAsking: 'Đang xin quyền…',

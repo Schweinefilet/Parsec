@@ -247,11 +247,18 @@ const NightSkyPage = () => {
                     data-coach="ar-toggle"
                     className="absolute flex items-center justify-center rounded-xl focus-ring"
                     style={{
-                        // To the back button's other side, on the same row —
-                        // the compass HUD already owns the mirrored top-right
-                        // spot (NightSky3D.jsx's .sky-compass), so this can't
-                        // just mirror the back button's own position.
-                        top: 68, insetInlineStart: 68, zIndex: 20,
+                        // Stacked below the back button rather than beside it
+                        // on the same row: "Go back" is short in English, but
+                        // long enough in other locales (and even in English,
+                        // it turns out) to run under a same-row button fixed
+                        // at any single offset — it doesn't just get close, it
+                        // sat right on top of the button. Below it needs no
+                        // per-locale width to dodge, since nothing is competing
+                        // for the same horizontal space. The compass HUD
+                        // already owns the mirrored top-right spot
+                        // (NightSky3D.jsx's .sky-compass), so this can't just
+                        // mirror the back button's own position there either.
+                        top: 108, insetInlineStart: 'var(--scene-inset)', zIndex: 20,
                         width: 38, height: 38,
                         background: arMode ? 'rgba(255,209,102,0.16)' : 'rgba(0,0,0,0.45)',
                         border: '1px solid ' + (arMode ? 'rgba(255,209,102,0.34)' : 'rgba(255,255,255,0.16)'),

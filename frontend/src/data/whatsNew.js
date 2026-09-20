@@ -24,6 +24,10 @@ export const WHATS_NEW = [
             'Moons leave a trail behind them along their orbit while you are focused on their planet, in the moon\u2019s own colour, the same way the planets do around the Sun.',
             'The loading screen no longer has a soft yellow glow behind the wordmark.',
             'On a phone, the description panel for a focused object now opens sooner after you arrive — about 2.5 seconds instead of 4.',
+            'On the night sky page, the "what am I looking at" readout no longer runs into the wordmark and version number at the top of a phone screen.',
+            'The night sky’s AR toggle no longer sits on top of the "Go back" text next to it.',
+            'The night sky’s compass dial keeps its arrow, but drops the little stem it used to grow beneath it.',
+            'The AR permission prompt now warns that AR mode is an early feature and can be glitchy.',
         ],
     },
     {
