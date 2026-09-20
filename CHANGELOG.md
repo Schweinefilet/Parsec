@@ -16,6 +16,27 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.14
+
+**Clicking away from the open language menu no longer leaves its button stuck
+swollen.** `useDockSuspend` (5.10.10) freezes the dock while a popover is open:
+`mouseX` stops updating and per-item hover changes are ignored, so the row
+holds still. But it only ever *paused* the dock — nothing reconciled it on the
+way out. Click away with the cursor somewhere else on the page and the menu
+closed, yet `mouseX` was still frozen at its last value beside the button, the
+dock's pointer-leave had been swallowed, and the item's `hovered` flag was
+still true. The button sat at full swell with its label showing until the
+cursor happened to cross the dock again.
+
+Resuming now asks the browser where the cursor really is (`:hover` on the dock
+and on each item) instead of trusting what the frozen state remembers: the dock
+snaps `mouseX` to the last cursor position if it is still over the row, or back
+to `Infinity` if not, and each `DockItem` re-reads its own hover. Reproduced in
+headless Chrome first — the button stayed 57.5px with the label up after
+clicking away — and it now returns to its resting 36px.
+
+---
+
 ## 5.10.13
 
 **The count-up exponent from 5.10.12 was invisible, and reversed in Arabic.**

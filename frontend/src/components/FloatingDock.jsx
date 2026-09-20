@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { motion as Motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { useReducedMotion } from '../hooks/useMediaQuery';
 
@@ -60,22 +60,46 @@ export const FloatingDock = ({ children, className = '', style }) => {
     const mouseX = useMotionValue(Infinity);
     const reduced = useReducedMotion();
     const suspended = useRef(false);
+    const dockRef = useRef(null);
+    // The last cursor x over the dock, tracked even while suspended, so
+    // resuming has something true to snap back to.
+    const lastX = useRef(Infinity);
+    const resumeListeners = useRef(new Set());
 
     const onPointerMove = (e) => {
-        if (e.pointerType === 'mouse' && !suspended.current) mouseX.set(e.clientX);
+        if (e.pointerType !== 'mouse') return;
+        lastX.current = e.clientX;
+        if (!suspended.current) mouseX.set(e.clientX);
     };
     // Stable identity: a new function (or context object) every render would
     // re-fire every DockItem's and LanguagePicker's effects that depend on it.
-    const setSuspended = useCallback((v) => { suspended.current = v; }, []);
+    const setSuspended = useCallback((v) => {
+        const resuming = suspended.current && !v;
+        suspended.current = v;
+        if (!resuming) return;
+        // Everything the dock ignored while suspended — the cursor leaving, or
+        // moving off — is now stale: clicking away from the language menu
+        // closes it with the cursor nowhere near the row, and without this
+        // the button stayed swollen as if still hovered. Ask the browser where
+        // the cursor really is instead of guessing.
+        const inside = dockRef.current?.matches(':hover');
+        mouseX.set(inside ? lastX.current : Infinity);
+        resumeListeners.current.forEach(fn => fn());
+    }, [mouseX]);
+    const onResume = useCallback((fn) => {
+        resumeListeners.current.add(fn);
+        return () => resumeListeners.current.delete(fn);
+    }, []);
     const isSuspended = useCallback(() => suspended.current, []);
     const context = useMemo(
-        () => (reduced ? null : { mouseX, setSuspended, isSuspended }),
-        [reduced, mouseX, setSuspended, isSuspended],
+        () => (reduced ? null : { mouseX, setSuspended, isSuspended, onResume }),
+        [reduced, mouseX, setSuspended, isSuspended, onResume],
     );
 
     return (
         <DockContext.Provider value={context}>
             <div
+                ref={dockRef}
                 onPointerMove={reduced ? undefined : onPointerMove}
                 onPointerLeave={reduced ? undefined : () => { if (!suspended.current) mouseX.set(Infinity); }}
                 className={`floating-dock ${className}`.trim()}
@@ -98,6 +122,14 @@ export const DockItem = ({ label, children }) => {
     const idle = useMotionValue(Infinity);
     const ref = useRef(null);
     const [hovered, setHovered] = useState(false);
+
+    // Hover changes were ignored while a popover held the dock still; once it
+    // lets go, take the browser's word for whether the cursor is on this item.
+    const onResume = ctx?.onResume;
+    useEffect(
+        () => onResume?.(() => setHovered(ref.current?.matches(':hover') ?? false)),
+        [onResume],
+    );
 
     const distance = useTransform(mouseX ?? idle, (x) => {
         const bounds = ref.current?.getBoundingClientRect();

@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.10',
         changes: [
+            'Clicking away from the open language menu without choosing a language no longer leaves its button stuck in the enlarged, hovered look.',
             'The powers of ten in a focused object’s headline figures (the 10²⁴ in a planet’s mass) now count up along with the rest of the number instead of sitting still.',
             'Opening the language menu no longer makes the header’s row of icons swell and shrink, dragging the menu sideways, as you move down the list of languages.',
             'On a phone, Language now sits at the bottom of the burger menu, so its own dropdown no longer opens over the other rows.',
