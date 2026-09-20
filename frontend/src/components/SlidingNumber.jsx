@@ -86,6 +86,21 @@ const GLYPH = { position: 'absolute', left: 0, right: 0, top: 0, textAlign: 'cen
  */
 const RUN = { direction: 'ltr', unicodeBidi: 'isolate' };
 
+/**
+ * An exponent is a number too, and its columns are the same neutral
+ * inline-blocks, so it needs the same isolate: without one, Arabic laid the
+ * digits of "10²⁷" out right to left and rendered Jupiter's mass as 10⁷².
+ *
+ * The line-height goes with it. Tailwind's preflight zeroes a <sup>'s, so that
+ * a superscript cannot stretch the line it sits on — but a column takes its
+ * height from its own line box, so under that rule every column in here
+ * measured zero high and the clip hid the exponent completely. Giving it back
+ * costs nothing the rule was protecting: at 75% font-size the sup's box is
+ * shorter than the mantissa's columns beside it, and the line is as tall as it
+ * always was (measured: 26.4px either way).
+ */
+const SUP = { ...RUN, lineHeight: 'normal' };
+
 // Strong right-to-left letters, deliberately skipping the Arabic-Indic digit
 // blocks (U+0660–0669, U+06F0–06F9) — those are numerals, not letters.
 const RTL_LETTER = /[\u0591-\u05F4\u0620-\u064A\u066E-\u06D3\u06FA-\u06FF\u0750-\u077F\uFB1D-\uFDFC\uFE70-\uFEFC]/;
@@ -423,7 +438,7 @@ export const CountUpNumber = ({ value, className, style, delay = 0 }) => {
                     const n = tok.sup.length;
                     const target = tok.sup.reduce((acc, d) => acc * 10 + d, 0);
                     return (
-                        <sup key={`e${i}-${n}`}>
+                        <sup key={`e${i}-${n}`} style={SUP}>
                             <CountUpRun
                                 value={target}
                                 places={tok.sup.map((_, k) => 10 ** (n - 1 - k))}

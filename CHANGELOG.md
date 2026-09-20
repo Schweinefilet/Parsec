@@ -16,6 +16,34 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.13
+
+**The count-up exponent from 5.10.12 was invisible, and reversed in Arabic.**
+Two faults in the same `<sup>`, both of them things a rolling column runs into
+and plain text does not.
+
+Tailwind's preflight sets `line-height: 0` on `sub`/`sup`, so a superscript
+cannot stretch the line it sits on. A column, though, is an inline-block that
+takes its height from its own line box — under that rule every column inside
+the sup measured **0px** high, and `overflow-y: clip` hid the exponent
+outright: the mantissa rolled and the power of ten was simply missing from the
+focused view. `SUP` restores `line-height: normal`, which costs nothing the
+preflight rule was protecting — at 75% font-size the sup's box is shorter than
+the mantissa's columns beside it, and the figure's line measures 26.4px either
+way.
+
+The columns are also the same neutral inline-blocks the mantissa's are, so they
+need the same LTR isolate: without it the Arabic layout ordered the exponent's
+two digits right-to-left and rendered Jupiter's mass as 10⁷². `SUP` now spreads
+`RUN`, which is exactly what each mantissa run already uses.
+
+Verified in headless Chrome rather than by eye: the exponent winds 00 → 04 →
+09 → 17 → 24 → 27 and lands with the mantissa, and Arabic reads ١٠²⁷. The two
+regressions are pinned in `CountUpNumber.test.jsx` — jsdom does no layout and
+cannot see the collapse itself, so the tests guard the two style overrides.
+
+---
+
 ## 5.10.12
 
 **Exponents now count up with the rest of a focused body's figures.** The
