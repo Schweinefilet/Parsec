@@ -51,6 +51,7 @@ export const ar = {
         searchClose: 'أغلق البحث',
         searchShortcut: 'بحث (⌘K)',
         whatsNew: 'سجل الإصدارات',
+        github: 'عرض الشيفرة المصدرية على GitHub',
     },
 
     whatsNew: {

@@ -45,6 +45,7 @@ export const en = {
         searchClose: 'Close search',
         searchShortcut: 'Search (⌘K)',
         whatsNew: 'Version history',
+        github: 'View source on GitHub',
     },
 
     whatsNew: {

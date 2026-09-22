@@ -50,6 +50,7 @@ export const vi = {
         searchClose: 'Đóng tìm kiếm',
         searchShortcut: 'Tìm kiếm (⌘K)',
         whatsNew: 'Lịch sử phiên bản',
+        github: 'Xem mã nguồn trên GitHub',
     },
 
     whatsNew: {

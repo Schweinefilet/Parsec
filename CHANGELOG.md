@@ -16,6 +16,14 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.18
+
+**A GitHub icon now sits beside the version number, linking to the repo.**
+Bare glyph, no button chrome — just dimmed to match the version text next to
+it, brightening on hover.
+
+---
+
 ## 5.10.17
 
 **On mobile, "Go back" from a focused object sat too close under the P4RSEC

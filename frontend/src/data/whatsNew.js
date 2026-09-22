@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.10',
         changes: [
+            'A small GitHub icon next to the version number now links to the project’s source code.',
             'On a phone, "Go back" from a focused object now sits a bit further from the P4RSEC logo above it.',
             'On a phone, the language menu is now solid instead of see-through, so bright sky behind it no longer washes it out.',
             'Clicking away from the open language menu without choosing a language no longer leaves its button stuck in the enlarged, hovered look.',

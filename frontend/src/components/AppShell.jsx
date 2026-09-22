@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams, useMatch, useLocation } from 'react
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
     Crosshair, Sparkles, Satellite, Aperture, Radio, Archive,
-    Link2, Check,
+    Link2, Check, Github,
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
@@ -347,6 +347,19 @@ const AppShell = ({ children }) => {
                     >
                         v{pkg.version}
                     </button>
+                    {/* Plain icon, no button chrome — it sits beside a bare
+                        version number, not among the header's other controls. */}
+                    <a
+                        href="https://github.com/Schweinefilet/Parsec"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={t('nav.github')}
+                        title={t('nav.github')}
+                        className="gh-link focus-ring rounded"
+                        style={{ pointerEvents: 'auto' }}
+                    >
+                        <Github style={{ width: 12, height: 12 }} aria-hidden="true" />
+                    </a>
                 </div>
                 )}
 
