@@ -826,12 +826,15 @@ const CategoryBrowser = () => {
                             // fade this out — the class has to come off.
                             className={`page-back absolute focus-ring${skyDiving ? '' : ' animate-fade-in'}`}
                             style={{
-                                // On the spine, directly under the wordmark.
-                                // .page-back's own -8px start margin is what
-                                // makes the chevron optically flush with it,
-                                // rather than the glyph's side bearing
-                                // sitting a few pixels proud.
-                                top: 68, insetInlineStart: 'var(--scene-inset)', zIndex: 20,
+                                // On the spine, under the wordmark. .page-back's
+                                // own -8px start margin is what makes the
+                                // chevron optically flush with it, rather than
+                                // the glyph's side bearing sitting a few pixels
+                                // proud. Dropped a little further on mobile,
+                                // where the wordmark sits at the same size
+                                // against a much narrower gutter and the two
+                                // read as crowded at the 68px desktop spacing.
+                                top: isMobile ? 84 : 68, insetInlineStart: 'var(--scene-inset)', zIndex: 20,
                                 opacity: skyDiving ? 0 : 1,
                                 transition: 'opacity var(--t-slower) var(--ease-out)',
                                 pointerEvents: skyDiving ? 'none' : 'auto',

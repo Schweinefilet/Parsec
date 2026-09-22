@@ -16,6 +16,13 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.17
+
+**On mobile, "Go back" from a focused object sat too close under the P4RSEC
+wordmark.** It's dropped a little further down; desktop is unchanged.
+
+---
+
 ## 5.10.16
 
 **The mobile language dropdown is solid now, not sun-bleached.** It hangs
