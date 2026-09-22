@@ -52,6 +52,10 @@ const HERO_SCALE = 1.9;
 // Which also means it can be brisk again. It was stretched to 2600 to try to
 // outlast the build, and nothing has to outlast anything now.
 const DECODE_MS = 1800;
+// How long the finished wordmark sits still before the handoff fires — long
+// enough to actually be read, rather than flying off the instant the last
+// glyph settles.
+const LINGER_MS = 1000;
 const ICON_FROM = 0.55;
 // The telescope is not absent while the wordmark is still encrypted, only
 // unresolved: it is drawn faintly, at its own size, from the first paint. It
@@ -239,7 +243,15 @@ const LoadingScreen = () => {
     // rather than the unlucky one. The failsafe is deliberately not gated: it
     // exists for the case where nothing else will fire.
     const decodeSettled = decoded >= 1;
-    const finished = expired || (sceneReady && minElapsed && decodeSettled);
+    // The linger starts counting the moment the decode settles, not the moment
+    // every other condition is also met — so a slow scene doesn't eat into it.
+    const [lingered, setLingered] = useState(false);
+    useEffect(() => {
+        if (suppressed || !decodeSettled || lingered) return undefined;
+        const timer = setTimeout(() => setLingered(true), LINGER_MS);
+        return () => clearTimeout(timer);
+    }, [suppressed, decodeSettled, lingered]);
+    const finished = expired || (sceneReady && minElapsed && decodeSettled && lingered);
     const flightMs = reduceMotion ? 0 : FLIGHT_MS;
 
     // The failsafe can call the handoff over a half-decoded wordmark. The
