@@ -17,6 +17,19 @@ import { useI18n } from '../i18n';
  * through the plural tables for the same reason — Arabic needs a different
  * word for two days, for five, and for thirty.
  */
+/**
+ * "Every second = 33 minutes" — what the moon-orbit speed-up (a stylised
+ * multiplier, unrelated to the clock's own rate) amounts to in human terms.
+ * Null when there's nothing to disclose.
+ */
+function moonRateLabel(daysPerSecond, t) {
+    if (!Number.isFinite(daysPerSecond) || daysPerSecond <= 0) return null;
+    const hours = daysPerSecond * 24;
+    if (hours < 1) return t('time.minutes', { count: Math.round(hours * 60) });
+    if (daysPerSecond < 1) return t('time.hours', { count: Number(hours.toFixed(1)) });
+    return t('time.days', { count: Number(daysPerSecond.toFixed(1)) });
+}
+
 function offsetLabel(days, t) {
     const a = Math.abs(days);
     if (a < 1) return t('time.now');
@@ -65,7 +78,7 @@ const btn = (active) => ({
  * The readout is driven by its own interval rather than by the render loop —
  * the scene reads the clock imperatively and never needs React to keep up.
  */
-const TimeControl = ({ hidden, focused }) => {
+const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
     const { t, date: fmtDate, time: fmtTime } = useI18n();
     const isMobile = useIsMobile();
     const roomy = useHasRoomForTimeline();
@@ -240,6 +253,11 @@ const TimeControl = ({ hidden, focused }) => {
     // the scene, and sometimes you want to look at the scene.
     const compact = !open;
 
+    // Only meaningful while focused (see moonSpeedDaysPerSec's own comment in
+    // CategoryBrowser.jsx) — null the rest of the time, when the compact pill
+    // shows the ordinary live/date readout instead.
+    const moonAmount = focused ? moonRateLabel(moonSpeedDaysPerSec, t) : null;
+
     // Same ±10-year reach as the scrubber (RANGE_DAYS), so the picker never
     // offers a date the slider itself couldn't represent.
     const pickerMin = toISODateLocal(new Date(Date.now() - RANGE_DAYS * 86400000));
@@ -293,20 +311,40 @@ const TimeControl = ({ hidden, focused }) => {
                 }}
             >
                 {compact ? (
-                    <button
-                        onClick={() => setOpen(true)}
-                        aria-label={t('time.open')}
-                        style={{ ...btn(!live), width: 'auto', padding: '0 8px', gap: 6, display: 'flex' }}
-                    >
-                        <Clock style={{ width: 14, height: 14 }} />
-                        <span style={{
-                            fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
-                            display: 'inline-block', minWidth: 84, textAlign: 'center',
-                            fontVariantNumeric: 'tabular-nums',
-                        }}>
-                            {live ? t('time.live') : <SlidingNumber value={fmtDate(date)} />}
-                        </span>
-                    </button>
+                    moonAmount ? (
+                        // Read-only — no click handler. While focused there is no
+                        // control to open; this replaces the old "Live" pill, which
+                        // would otherwise sit right next to visibly fast-moving
+                        // moons and contradict itself.
+                        <div
+                            title={t('time.moonRateAria', { amount: moonAmount })}
+                            aria-label={t('time.moonRateAria', { amount: moonAmount })}
+                            style={{ ...btn(false), width: 'auto', padding: '0 8px', gap: 6, display: 'flex', cursor: 'default' }}
+                        >
+                            <Clock style={{ width: 14, height: 14 }} />
+                            <span style={{
+                                fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+                                fontVariantNumeric: 'tabular-nums',
+                            }}>
+                                {t('time.moonRate', { amount: moonAmount })}
+                            </span>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setOpen(true)}
+                            aria-label={t('time.open')}
+                            style={{ ...btn(!live), width: 'auto', padding: '0 8px', gap: 6, display: 'flex' }}
+                        >
+                            <Clock style={{ width: 14, height: 14 }} />
+                            <span style={{
+                                fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+                                display: 'inline-block', minWidth: 84, textAlign: 'center',
+                                fontVariantNumeric: 'tabular-nums',
+                            }}>
+                                {live ? t('time.live') : <SlidingNumber value={fmtDate(date)} />}
+                            </span>
+                        </button>
+                    )
                 ) : (
                     <>
                         {/* The transport follows the page direction: in a

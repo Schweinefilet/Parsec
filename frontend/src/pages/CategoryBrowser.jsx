@@ -18,7 +18,8 @@ import DriftPanel from '../components/DriftPanel';
 import ScenePanel from '../components/ScenePanel';
 import CoachMark from '../components/CoachMark';
 import { CATEGORY_TABS, getObjectsByCategory, getObjectById, resolveTab } from '../data/objectCatalog';
-import { hasSceneBody } from '../data/solarSystemBodies';
+import { hasSceneBody, PLANETS, MOON_DATA } from '../data/solarSystemBodies';
+import { targetOrbitSpeed } from '../utils/orbitalMotion';
 import { useHorizons } from '../hooks/useHorizons';
 import { useIsMobile, useIsShortViewport, useReducedMotion } from '../hooks/useMediaQuery';
 import { useCardStack } from '../hooks/useCardStack';
@@ -389,13 +390,14 @@ const CategoryBrowser = () => {
 
     // Focusing an object resets the clock to real time, so the flight in and
     // whatever you're watching read at their natural pace instead of
-    // whatever speed the overview happened to be left at — you can still
-    // speed up or slow down from there while focused. Leaving returns the
-    // clock to the pace it had before you focused anything. Keyed on `id`
-    // being present at all (not `inScene`) so a spacecraft card gets the same
-    // treatment; keyed off a captured ref rather than re-firing on every `id`
-    // change so clicking from one focused body straight to another (a moon,
-    // say) doesn't re-reset the rate you already chose mid-focus.
+    // whatever speed the overview happened to be left at. The time control is
+    // hidden while focused (below), so there's no way to change it again
+    // until you leave — leaving returns the clock to the pace it had before
+    // you focused anything. Keyed on `id` being present at all (not
+    // `inScene`) so a spacecraft card gets the same treatment; keyed off a
+    // captured ref rather than re-firing on every `id` change so clicking
+    // from one focused body straight to another (a moon, say) doesn't
+    // re-reset the rate you already chose before focusing.
     const preFocusRateRef = useRef(null);
     useEffect(() => {
         if (id) {
@@ -408,6 +410,25 @@ const CategoryBrowser = () => {
             preFocusRateRef.current = null;
         }
     }, [id]);
+
+    // Moons don't orbit at their real (near-motionless) rate while live — see
+    // orbitalMotion.js — so the clock reading "real time" next to visibly
+    // fast-moving moons would be a lie. In simulated days per real second,
+    // this is the multiplier actually driving that motion for whatever's
+    // focused, surfaced so the UI can disclose it instead of showing a
+    // contradictory "Live" label. Null when there's nothing to disclose: no
+    // focus, or a focused planet with no moons (Mercury, Venus, Pluto).
+    const moonSpeedDaysPerSec = useMemo(() => {
+        if (!inScene || !id) return null;
+        const focusedPlanet = PLANETS.find(p => p.id === id) ?? null;
+        const focusedMoon = focusedPlanet ? null : (MOON_DATA.find(m => m.id === id) ?? null);
+        if (!focusedPlanet && !focusedMoon) return null;
+        if (focusedPlanet) {
+            const hasMoons = MOON_DATA.some(m => m.parent === focusedPlanet.name && !m.noSpeedScaling);
+            if (!hasMoons) return null;
+        }
+        return targetOrbitSpeed({ focusedMoon, focusedPlanet, moons: MOON_DATA }) / 86400;
+    }, [id, inScene]);
 
     const currentCategory = localizeCategory(
         CATEGORY_TABS.find(tab => tab.id === activeTab));
@@ -553,13 +574,17 @@ const CategoryBrowser = () => {
                         </div>
                     )}
 
-                    {/* Time scrubber. Kept while a planet is focused on desktop —
-                        watching a moon system wind forward is the best of it, and
-                        the bottom-left corner is clear of the centred sheet. Hidden
-                        on a focused mobile view, where the sheet takes that space. */}
+                    {/* Time scrubber. Fully hidden — not just collapsed — the moment
+                        anything is focused: the clock itself stays live, but moons
+                        orbit at a stylised sped-up rate (see moonSpeedDaysPerSec
+                        above), and a "Live" label next to visibly fast-moving moons
+                        is a contradiction, not a control worth keeping around. On a
+                        desktop focus with moons to disclose, it's replaced by a
+                        small read-only note instead of vanishing outright. */}
                     <TimeControl
-                        hidden={(compactFocus && !!id) || (!!id && !inScene)}
+                        hidden={!!id && !(inScene && !compactFocus && moonSpeedDaysPerSec != null)}
                         focused={inScene && !!id}
+                        moonSpeedDaysPerSec={moonSpeedDaysPerSec}
                     />
 
 

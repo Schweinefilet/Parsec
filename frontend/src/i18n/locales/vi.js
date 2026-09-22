@@ -177,6 +177,8 @@ export const vi = {
         days: { other: '{count} ngày' },
         months: { other: '{count} tháng' },
         years: { other: '{count} năm' },
+        minutes: { other: '{count} phút' },
+        hours: { other: '{count} giờ' },
         open: 'Mở bảng điều khiển thời gian',
         collapse: 'Thu gọn bảng điều khiển thời gian',
         collapseTitle: 'Thu gọn',
@@ -187,6 +189,8 @@ export const vi = {
         backToNow: 'Về hiện tại',
         scrub: 'Tua qua thời gian',
         pickDate: 'Chọn ngày',
+        moonRate: 'Mỗi giây = {amount}',
+        moonRateAria: 'Chuyển động của mặt trăng được tăng tốc để dễ quan sát — mỗi giây thực tương đương {amount} thời gian mô phỏng',
     },
 
     loading: {

@@ -172,6 +172,8 @@ export const en = {
         days: { one: '{count} day', other: '{count} days' },
         months: { one: '{count} month', other: '{count} months' },
         years: { one: '{count} year', other: '{count} years' },
+        minutes: { one: '{count} minute', other: '{count} minutes' },
+        hours: { one: '{count} hour', other: '{count} hours' },
         open: 'Open time controls',
         collapse: 'Collapse time controls',
         collapseTitle: 'Collapse',
@@ -182,6 +184,8 @@ export const en = {
         backToNow: 'Back to now',
         scrub: 'Scrub through time',
         pickDate: 'Pick a date',
+        moonRate: 'Every second = {amount}',
+        moonRateAria: 'Moon motion is sped up for visibility — every real second equals {amount} of simulated time',
     },
 
     loading: {

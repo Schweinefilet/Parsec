@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.10',
         changes: [
+            'When you focus a planet or moon with orbiting moons, the timeline pill is replaced by a small note showing how sped up their motion is — it used to sit there saying "Live" right next to moons visibly whipping around their planet.',
             'A small GitHub icon next to the version number now links to the project’s source code.',
             'On a phone, "Go back" from a focused object now sits a bit further from the P4RSEC logo above it.',
             'On a phone, the language menu is now solid instead of see-through, so bright sky behind it no longer washes it out.',

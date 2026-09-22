@@ -207,6 +207,22 @@ export const ar = {
             many: '{count} سنة',
             other: '{count} سنة',
         },
+        minutes: {
+            zero: '{count} دقيقة',
+            one: 'دقيقة واحدة',
+            two: 'دقيقتين',
+            few: '{count} دقائق',
+            many: '{count} دقيقةً',
+            other: '{count} دقيقة',
+        },
+        hours: {
+            zero: '{count} ساعة',
+            one: 'ساعة واحدة',
+            two: 'ساعتين',
+            few: '{count} ساعات',
+            many: '{count} ساعةً',
+            other: '{count} ساعة',
+        },
         open: 'افتح أدوات الزمن',
         collapse: 'اطوِ أدوات الزمن',
         collapseTitle: 'اطوِ',
@@ -217,6 +233,8 @@ export const ar = {
         backToNow: 'العودة إلى الآن',
         scrub: 'تنقّل عبر الزمن',
         pickDate: 'اختر تاريخًا',
+        moonRate: 'كل ثانية = {amount}',
+        moonRateAria: 'حركة الأقمار مُسرَّعة لتسهيل الرؤية — كل ثانية حقيقية تعادل {amount} من الزمن المحاكى',
     },
 
     loading: {

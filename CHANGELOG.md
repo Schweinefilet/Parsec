@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.19
+
+**The timeline pill lied while you were focused on a planet.** Moons orbit at
+a stylised, sped-up rate while live — a real-rate moon is motionless to the
+eye — but the clock itself stays literally live, so the pill's compact
+"Live" label sat right next to visibly fast-moving moons, claiming real time
+while showing anything but. It's gone now whenever something is focused —
+no more collapsed pill to tap into a rate change mid-focus, either. Where
+there are moons to speed up, a small read-only note takes its place instead
+of vanishing outright: "Every second = 33 minutes," computed from whatever
+multiplier is actually driving that planet's moons. Moonless planets
+(Mercury, Venus, Pluto) and spacecraft cards just go quiet, same as mobile
+always has.
+
+---
+
 ## 5.10.18
 
 **A GitHub icon now sits beside the version number, linking to the repo.**
