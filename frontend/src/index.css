@@ -999,6 +999,17 @@ button:focus-visible {
   }
 }
 
+/* On mobile the language listbox hangs below the burger menu rather than
+   inside it, floating directly over the scene — where the sun can sit right
+   behind it and wash out the standard .glass translucency. Solid enough here
+   to read against it; the icon-variant popover on desktop keeps the shared
+   .glass look since it never has that problem. */
+@media (max-width: 767px) {
+  .lang-listbox {
+    background: rgba(8, 8, 12, 0.94) !important;
+  }
+}
+
 .glass-pill {
   background:          var(--recess-bg);
   backdrop-filter:     var(--blur-chrome);

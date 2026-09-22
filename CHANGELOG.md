@@ -16,6 +16,15 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.16
+
+**The mobile language dropdown is solid now, not sun-bleached.** It hangs
+below the burger menu, directly over the 3D scene rather than over other
+chrome, and the usual translucent glass let a bright sky wash it out. It's a
+near-opaque panel there now; the desktop popover is unchanged.
+
+---
+
 ## 5.10.14
 
 **Clicking away from the open language menu no longer leaves its button stuck

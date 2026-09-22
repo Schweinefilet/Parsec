@@ -92,7 +92,7 @@ const LanguagePicker = ({ variant = 'icon' }) => {
                 <div
                     role="listbox"
                     aria-label={t('language.label')}
-                    className="glass animate-fade-in"
+                    className="glass lang-listbox animate-fade-in"
                     style={{
                         position: 'absolute', top: 'calc(100% + 8px)',
                         // Logical, so the panel hangs off the same edge of the
