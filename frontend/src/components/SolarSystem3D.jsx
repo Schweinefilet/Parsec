@@ -2477,13 +2477,20 @@ const SolarSystem3D = ({
             }
         };
 
-        renderer.domElement.addEventListener('click',      handleClick);
-        renderer.domElement.addEventListener('mousemove',  handleMouseMove);
-        // The mouse can leave the canvas mid-hover without a final miss ever
-        // landing on it — past the viewport edge, onto browser chrome, or a
-        // fast flick off-window. Without this, nothing else ever runs
-        // clearHover() and the cursor/orbit/moon-slow state sticks forever.
-        renderer.domElement.addEventListener('mouseleave', clearHover);
+        renderer.domElement.addEventListener('click',     handleClick);
+        renderer.domElement.addEventListener('mousemove', handleMouseMove);
+        // The mouse can leave mid-hover without a final raycast miss ever
+        // landing — past the viewport edge, onto browser chrome, or a fast
+        // flick off-window. Without this nothing runs clearHover() and the
+        // cursor/orbit/moon-slow state sticks.
+        //
+        // It listens on the container, not the canvas, and that is the whole
+        // point: the floating labels are children of the container stacked
+        // over the canvas, so crossing from a body onto its own name is a
+        // canvas mouseleave but not a container one. On the canvas this fired
+        // *after* React's onMouseEnter for the label — the label lit its orbit
+        // and marked its moon, and the leave that followed wiped both.
+        mount.addEventListener('mouseleave', clearHover);
 
         // ── Label hover bridge ─────────────────────────────────────────────────
         // A floating label is a DOM button 12px off to the side of its body, so
@@ -4681,9 +4688,9 @@ const SolarSystem3D = ({
             unsubTrails();
             ro.disconnect();
             orientationMQ?.removeEventListener('change', syncSky);
-            renderer.domElement.removeEventListener('click',      handleClick);
-            renderer.domElement.removeEventListener('mousemove',  handleMouseMove);
-            renderer.domElement.removeEventListener('mouseleave', clearHover);
+            renderer.domElement.removeEventListener('click',     handleClick);
+            renderer.domElement.removeEventListener('mousemove', handleMouseMove);
+            mount.removeEventListener('mouseleave', clearHover);
             sceneHoverRef.current = null;
             renderer.domElement.removeEventListener('webglcontextlost',     onContextLost);
             renderer.domElement.removeEventListener('webglcontextrestored', onContextRestored);

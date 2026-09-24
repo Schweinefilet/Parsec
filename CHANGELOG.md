@@ -16,6 +16,27 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.21
+
+**5.10.20 stopped hover sticking by killing the half of it that worked.** The
+listener it added fired on the canvas, and the floating name labels are DOM
+nodes stacked over the canvas — so crossing from a body onto its own name
+counted as leaving. Worse, it landed *after* React's `onMouseEnter` for the
+label: the label lit its orbit ring and marked its moon, and the leave that
+followed wiped both. Hovering a name did nothing at all. In a focused view
+that took the moon slow-down with it, because a moon's own hitbox at that
+range is about two pixels on a body crossing the frame at 200px/s — the name
+is the only part of it you can realistically catch.
+
+The listener now sits on the scene container instead. The labels are its
+children, so moving between a body and its name stays inside and nothing is
+cleared, while leaving for the header, the detail panel or the window edge
+still clears everything the way it did. Measured in a real browser: hovering
+a name slows Jupiter's moons 32× and lights the orbit ring again, and leaving
+the scene restores full speed.
+
+---
+
 ## 5.10.20
 
 **Hovering a moon in focus mode could get stuck "on."** The cursor, the
