@@ -2436,6 +2436,22 @@ const SolarSystem3D = ({
             }
         };
 
+        // Shared by every way a hover can end: a canvas raycast miss, the
+        // mouse leaving the canvas outright, or the label bridge's leave().
+        // Keeping this in one place is what keeps cursor/orbit/moon-slow in
+        // sync — they used to be cleared independently per call site, and a
+        // path that skipped one (e.g. the label bridge never touching
+        // cursor) left that piece stuck after the others already cleared.
+        const clearHover = () => {
+            if (activeOrbit) {
+                orbitAtRest(activeOrbit);
+                activeOrbit = null;
+            }
+            renderer.domElement.style.cursor = '';
+            hoveredMoonId = null;
+            hoverSlow = false;
+        };
+
         const handleMouseMove = (e) => {
             toNDC(e);
             raycaster.setFromCamera(mouse, camera);
@@ -2457,18 +2473,17 @@ const SolarSystem3D = ({
                 // Ease the drift down only in home view (focused mode has none)
                 if (!focusedIdRef.current) hoverSlow = true;
             } else {
-                if (activeOrbit) {
-                    orbitAtRest(activeOrbit);
-                    activeOrbit = null;
-                }
-                renderer.domElement.style.cursor = '';
-                hoveredMoonId = null;
-                hoverSlow = false;
+                clearHover();
             }
         };
 
-        renderer.domElement.addEventListener('click',     handleClick);
-        renderer.domElement.addEventListener('mousemove', handleMouseMove);
+        renderer.domElement.addEventListener('click',      handleClick);
+        renderer.domElement.addEventListener('mousemove',  handleMouseMove);
+        // The mouse can leave the canvas mid-hover without a final miss ever
+        // landing on it — past the viewport edge, onto browser chrome, or a
+        // fast flick off-window. Without this, nothing else ever runs
+        // clearHover() and the cursor/orbit/moon-slow state sticks forever.
+        renderer.domElement.addEventListener('mouseleave', clearHover);
 
         // ── Label hover bridge ─────────────────────────────────────────────────
         // A floating label is a DOM button 12px off to the side of its body, so
@@ -2490,14 +2505,7 @@ const SolarSystem3D = ({
                     ? bid : null;
                 if (!focusedIdRef.current) hoverSlow = true;
             },
-            leave() {
-                if (activeOrbit) {
-                    orbitAtRest(activeOrbit);
-                    activeOrbit = null;
-                }
-                hoveredMoonId = null;
-                hoverSlow = false;
-            },
+            leave: clearHover,
         };
 
         // ── ResizeObserver ─────────────────────────────────────────────────────
@@ -4673,8 +4681,9 @@ const SolarSystem3D = ({
             unsubTrails();
             ro.disconnect();
             orientationMQ?.removeEventListener('change', syncSky);
-            renderer.domElement.removeEventListener('click',     handleClick);
-            renderer.domElement.removeEventListener('mousemove', handleMouseMove);
+            renderer.domElement.removeEventListener('click',      handleClick);
+            renderer.domElement.removeEventListener('mousemove',  handleMouseMove);
+            renderer.domElement.removeEventListener('mouseleave', clearHover);
             sceneHoverRef.current = null;
             renderer.domElement.removeEventListener('webglcontextlost',     onContextLost);
             renderer.domElement.removeEventListener('webglcontextrestored', onContextRestored);

@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.20
+
+**Hovering a moon in focus mode could get stuck "on."** The cursor, the
+highlighted orbit ring, and the slowed orbital speed only ever cleared when
+another qualifying event told them to — a fresh raycast miss on the canvas,
+or a label's `mouseleave` — and nothing was listening for the mouse leaving
+the canvas by any other route. Moons are small, clustered near the frame's
+edge in focus mode, and a hover hitbox that intentionally inflates while
+hovered made it easy to overshoot the canvas entirely before that follow-up
+event ever arrived, leaving hover state stuck until an unrelated mousemove
+happened to land back on empty canvas. The canvas now clears hover state the
+moment the mouse leaves it, and the label bridge resets the cursor the same
+way the canvas path always did.
+
+---
+
 ## 5.10.19
 
 **The timeline pill lied while you were focused on a planet.** Moons orbit at

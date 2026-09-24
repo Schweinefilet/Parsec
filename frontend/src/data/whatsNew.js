@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.10',
         changes: [
+            'Hovering a moon while a planet is focused, then moving the mouse away quickly, could leave its orbit ring lit, its motion slowed, and the pointer cursor stuck — even after you’d moved on. That now clears immediately.',
             'When you focus a planet or moon with orbiting moons, the timeline pill is replaced by a small note showing how sped up their motion is — it used to sit there saying "Live" right next to moons visibly whipping around their planet.',
             'A small GitHub icon next to the version number now links to the project’s source code.',
             'On a phone, "Go back" from a focused object now sits a bit further from the P4RSEC logo above it.',
