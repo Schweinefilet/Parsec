@@ -16,6 +16,29 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.22
+
+**A moon in a focused view was a two-pixel target.** `sizeHitboxes()` holds
+every hitbox at a constant angular size — 15px however far out the camera
+sits — but it returned early the moment anything was focused, which is
+right for the planets and small bodies (a target sized from the body is
+what lets you click past the planet you are already looking at) and wrong
+for that planet's moons, because the moons are the only thing there is to
+click. They kept a hitbox sized from the body: measured on Amalthea it came
+to two pixels, on something crossing the frame at 200px/s. The name label
+beside it was the only catchable part of the moon, which is why hovering a
+moon to slow its siblings only ever worked by its name.
+
+Focused moons now get the same constant angular target, floored at the moon
+as drawn so the box never sits inside what you can see, and grown 1.5× while
+hovered so a few pixels of drift don't drop it. Measured in a browser:
+Amalthea's target goes from 2px to 36px across, chasing the dot itself now
+holds the hover 218 times out of 301 samples instead of 1, and clicking it
+still picks that moon. The old hover-growth block is gone — it wrote the same
+scale from a second place, without the angular term, and this replaces it.
+
+---
+
 ## 5.10.21
 
 **5.10.20 stopped hover sticking by killing the half of it that worked.** The

@@ -2397,9 +2397,8 @@ const SolarSystem3D = ({
         // ── Raycaster helpers ──────────────────────────────────────────────────
         const raycaster    = new THREE.Raycaster();
         const mouse        = new THREE.Vector2();
-        let activeOrbit       = null;
-        let hoveredMoonId     = null;
-        let prevHoveredMoonId = null;
+        let activeOrbit   = null;
+        let hoveredMoonId = null;
 
         const toNDC = (e) => {
             const rect = renderer.domElement.getBoundingClientRect();
@@ -2607,12 +2606,41 @@ const SolarSystem3D = ({
         // target whatever layout you are in and however far you have zoomed.
         const HIT_TARGET_PX = 15;
         const HIT_MAX_GROWTH = 25;
+        // Once the pointer has a moon, hold a wider target than the one it had
+        // to land on. Losing it to a few pixels of drift drops the slow-down
+        // that made the moon watchable in the first place, which then throws
+        // it back across the frame at full speed.
+        const MOON_HIT_HOVER_GROWTH = 1.5;
         const _hitPos = new THREE.Vector3();
         const sizeHitboxes = () => {
-            // Focus mode deliberately shrinks them to the visible body, so that
-            // clicking a planet you are already looking at picks its moons.
-            if (focusedIdRef.current) return;
             const perUnit = (2 * Math.tan((camera.fov * Math.PI) / 360)) / Math.max(1, viewH);
+            // Focus mode deliberately shrinks the planets and small bodies to
+            // the visible body, so that clicking a planet you are already
+            // looking at picks its moons. Those moons are the exception: they
+            // are the thing there is to click, and a hitbox sized from the
+            // body is about two pixels at this range — on something crossing
+            // the frame at 200px/s, which is not a target at all. They get the
+            // same constant angular size as everything else, floored at the
+            // moon as drawn so the box never sits inside what you can see.
+            if (focusedIdRef.current) {
+                const focusedPlanetDef = PLANETS.find(p => p.id === focusedIdRef.current);
+                const focusedMoonDef   = MOON_DATA.find(m => m.id === focusedIdRef.current);
+                const parent = focusedPlanetDef?.name ?? focusedMoonDef?.parent ?? null;
+                if (!parent) return;
+                const t = sizeProgress();
+                for (const moon of MOON_DATA) {
+                    if (moon.parent !== parent) continue;
+                    const hm = moonHitRefs.get(moon.name);
+                    const hr = moonHitRadii.get(moon.name) ?? 1;
+                    if (!hm) continue;
+                    const drawn  = (moon.hitRadius ?? moon.radius) * bodyScaleFactor(moon.id, t);
+                    const px     = HIT_TARGET_PX
+                        * (moon.id === hoveredMoonId ? MOON_HIT_HOVER_GROWTH : 1);
+                    const wanted = Math.max(drawn, px * perUnit * camera.position.distanceTo(hm.position));
+                    hm.scale.setScalar(Math.min(HIT_MAX_GROWTH, wanted / hr));
+                }
+                return;
+            }
             const fit = (mesh, group, baseR) => {
                 if (!mesh || !baseR) return;
                 group.getWorldPosition(_hitPos);
@@ -3196,7 +3224,10 @@ const SolarSystem3D = ({
                     // Shrink all hitboxes to 1× visual radius when anything is
                     // focused — the visual radius as currently drawn, so at
                     // true sizes they close in with the bodies instead of
-                    // leaving a planet-sized target around a speck.
+                    // leaving a planet-sized target around a speck. The
+                    // focused body's own moons are left out: sizeHitboxes()
+                    // holds those at a constant angular size every few frames,
+                    // hover growth included, and is the only writer of them.
                     {
                         const hitT = sizeProgress();
                         PLANETS.forEach(p => {
@@ -3209,13 +3240,8 @@ const SolarSystem3D = ({
                             const hr = smallBodyHitRadii.get(b.id) ?? 1;
                             if (hb) hb.scale.setScalar(b.r * bodyScaleFactor(b.id, hitT) / hr);
                         });
-                        MOON_DATA.forEach(moon => {
-                            const hm = moonHitRefs.get(moon.name);
-                            const hr = moonHitRadii.get(moon.name) ?? 1;
-                            const mr = (moon.hitRadius ?? moon.radius) * bodyScaleFactor(moon.id, hitT);
-                            if (hm) hm.scale.setScalar(mr * 2 / hr);
-                        });
                         sunHitMesh.scale.setScalar(bodyScaleFactor('sun', hitT));
+                        sizeHitboxes();
                     }
                     // Compute smooth focus animation — starts from current camera,
                     // ends at 30° elevation above the planet at the correct zoom distance
@@ -3716,30 +3742,6 @@ const SolarSystem3D = ({
                     }
                 }
             });
-
-            // Scale hovered moon hitbox to 1.5× visual radius; restore previous on change
-            if (hoveredMoonId !== prevHoveredMoonId) {
-                const focusedPlanet = PLANETS.find(p => p.id === currentFocusedId);
-                if (focusedPlanet) {
-                    if (prevHoveredMoonId) {
-                        const prev = MOON_DATA.find(m => m.id === prevHoveredMoonId);
-                        if (prev && prev.parent === focusedPlanet.name) {
-                            const hm = moonHitRefs.get(prev.name);
-                            const hr = moonHitRadii.get(prev.name) ?? 1;
-                            if (hm) hm.scale.setScalar((prev.hitRadius ?? prev.radius) * 2 / hr);
-                        }
-                    }
-                    if (hoveredMoonId) {
-                        const hov = MOON_DATA.find(m => m.id === hoveredMoonId);
-                        if (hov && hov.parent === focusedPlanet.name) {
-                            const hm = moonHitRefs.get(hov.name);
-                            const hr = moonHitRadii.get(hov.name) ?? 1;
-                            if (hm) hm.scale.setScalar((hov.hitRadius ?? hov.radius) * 3 / hr);
-                        }
-                    }
-                }
-                prevHoveredMoonId = hoveredMoonId;
-            }
 
             // ── ISS orbit ring + billboard selection ring ─────────────────────
             const earthFocused = currentFocusedId === 'earth'

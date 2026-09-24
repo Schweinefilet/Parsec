@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.10',
         changes: [
+            'Moons are far easier to point at while you’re focused on their planet. Their clickable area used to be a couple of pixels wide on a body crossing the screen at speed, so only the name beside it was really catchable; now the moon itself is a proper target, and it widens a little once you’re on it.',
             'Hovering an object’s name now lights up its orbit path, and hovering a moon’s name slows that planet’s moons so you can look at them — the names had stopped doing either. Hover also lets go properly now: moving away no longer leaves an orbit lit, the moons crawling, or the cursor stuck.',
             'When you focus a planet or moon with orbiting moons, the timeline pill is replaced by a small note showing how sped up their motion is — it used to sit there saying "Live" right next to moons visibly whipping around their planet.',
             'A small GitHub icon next to the version number now links to the project’s source code.',
