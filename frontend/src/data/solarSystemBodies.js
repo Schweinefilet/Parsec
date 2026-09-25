@@ -74,6 +74,13 @@ export const MOON_TEXTURES = {
     luna: 'moon.jpg',
 };
 
+// Small bodies with a real photographic/albedo map; every other dwarf planet,
+// asteroid and comet nucleus is painted at runtime the same way an untextured
+// moon is.
+export const SMALL_BODY_TEXTURES = {
+    ceres: 'ceres.jpg',
+};
+
 // 23 natural satellites + ISS — id matches objectCatalog (null = no detail page)
 // noSpeedScaling: true → excluded from the minP orbit-speed calculation so fast
 // short-period bodies don't slow down all other moons; capped at speed 2000.
@@ -152,7 +159,8 @@ export function isSurfacePainted(id) {
     if (['vesta', 'halley', 'sun', 'iss'].includes(id)) return false;
     if (PLANETS.some(p => p.id === id)) return !PLANET_TEXTURES.has(id);
     if (MOON_DATA.some(m => m.id === id)) return !MOON_TEXTURES[id];
-    return SMALL_BODIES.some(b => b.id === id);
+    if (SMALL_BODIES.some(b => b.id === id)) return !SMALL_BODY_TEXTURES[id];
+    return false;
 }
 
 // ── Interstellar probes ────────────────────────────────────────────────────

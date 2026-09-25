@@ -16,6 +16,20 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.10.23
+
+**Ceres now wears its own photograph instead of a painted surface.** Every
+other dwarf planet, asteroid and comet nucleus in the scene is a procedural
+paint — a plausible stand-in generated from what the body is known to look
+like, since no global photographic map exists for most of them. Ceres does
+have one (NASA/Dawn albedo imagery), so it now loads the real thing the same
+way Luna's photographic map already works, at 2048×1024 for desktop and
+1024×512 for the phone tier — matching every other texture's size budget.
+`isSurfacePainted('ceres')` now returns `false`, so the object page's
+"surface is generated" note no longer shows for it.
+
+---
+
 ## 5.10.22
 
 **A moon in a focused view was a two-pixel target.** `sizeHitboxes()` holds

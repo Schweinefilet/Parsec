@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import {
     PLANETS, PLANET_PBR, AXIAL_TILT_DEG, PLANET_TEXTURES, MOON_TEXTURES,
-    MOON_DATA, SMALL_BODIES, PROBES,
+    MOON_DATA, SMALL_BODIES, SMALL_BODY_TEXTURES, PROBES,
 } from '../data/solarSystemBodies';
 import {
     DEG2RAD, ORBIT_EPOCH_MS, ORBIT_BASE_OPACITY, ORBIT_HOVER_OPACITY, ORBIT_HOVER_TINT,
@@ -1835,7 +1835,17 @@ const SolarSystem3D = ({
             // phone tier it stays a sphere, and a sphere with no map is a flat
             // disc of colour.
             const keepsSphere = body.id !== 'halley' && !(body.id === 'vesta' && q.heavyModels);
-            if (keepsSphere) {
+            if (keepsSphere && body.id && SMALL_BODY_TEXTURES[body.id]) {
+                loader.load(texturePath(SMALL_BODY_TEXTURES[body.id]), (tex) => {
+                    if (!mounted) { tex.dispose(); return; }
+                    tex.colorSpace = THREE.SRGBColorSpace;
+                    textures.push(tex);
+                    mat.map = tex;
+                    mat.color.set(0xffffff);
+                    mat.emissiveIntensity = 0;
+                    mat.needsUpdate = true;
+                });
+            } else if (keepsSphere) {
                 const icy = ['haumea', 'makemake', 'eris'].includes(body.id);
                 // Queued rather than painted here — see paintSomeSurfaces. The
                 // needsUpdate is new with the queue: the material has already
