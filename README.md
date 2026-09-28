@@ -388,13 +388,22 @@ The Sun is three pieces, all procedural, with no image assets beyond `sun.jpg`
   redder limb.
 - **The corona** is one camera-facing quad, billboarded in the vertex shader.
   It's centred on the Sun, so the depth test hides it behind the disc and
-  behind anything in front. Streamers are fbm over direction and
-  height-minus-time. It replaced five additive sphere shells. Its falloffs
+  behind anything in front. The streamers are noise over each point's
+  *world-space* direction from the centre, with a crossfaded radial flow for
+  the outward drift. Keyed off the quad's own coordinates, the pattern was
+  pinned to the screen and read as a sticker while orbiting (5.11.1). It replaced five additive sphere shells. Its falloffs
   are steep on purpose, because on the Sun's own view the quad covers most of
   the screen and a slow tail turns into brown fog. Noise octaves are the tier
   setting `coronaOctaves`.
 - **The lens flare** is three's `Lensflare` with canvas-drawn elements, sized
   to the Sun's apparent size.
+- **The wide glare** (`createSunGlare`) is a screen-space quad on the flare's
+  anchor. It's only lit while the Sun is *not* focused, eased in and out by
+  `sunGlare` in the render loop, which also lifts the flare, the corona and
+  the bloom (the `SUN_GLARE` table). It isn't a Lensflare element on
+  purpose. Lensflare's stock additive blend multiplies alpha by alpha, so on
+  a transparent canvas (phones) a wide faint glow composites away to nothing.
+  The glare and the corona both carry their own alpha.
 
 **Bloom, desktop tier only** (`quality.js` `bloom`), is added *after* the frame
 is drawn:

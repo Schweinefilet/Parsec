@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     createSunSurfaceMaterial, setSunSurfaceMap,
     createCoronaMaterial, createCoronaMesh, CORONA_EXTENT,
+    createSunGlare, setSunGlare,
 } from './sunShaders.js';
 
 describe('createSunSurfaceMaterial', () => {
@@ -46,5 +47,25 @@ describe('createCoronaMaterial', () => {
     it('is never frustum-culled on its unexpanded bounds', () => {
         const mesh = createCoronaMesh(createCoronaMaterial({ radius: 12 }));
         expect(mesh.frustumCulled).toBe(false);
+    });
+});
+
+describe('the wide glare', () => {
+    it('starts hidden and is only drawn while it has any brightness', () => {
+        const glare = createSunGlare();
+        expect(glare.material.uniforms.uGain.value).toBe(0);
+        setSunGlare(glare, { sizePx: 900, viewportW: 1440, viewportH: 900, gain: 1.8 });
+        expect(glare.visible).toBe(true);
+        expect(glare.material.uniforms.uSizePx.value).toBe(900);
+        expect(glare.material.uniforms.uViewport.value.x).toBe(1440);
+        setSunGlare(glare, { sizePx: 900, viewportW: 1440, viewportH: 900, gain: 0 });
+        expect(glare.visible).toBe(false);
+    });
+
+    it('carries its own alpha, not the stock additive blend', () => {
+        const { material, frustumCulled } = createSunGlare();
+        expect(material.blending).not.toBe(2); // THREE.AdditiveBlending
+        expect(material.depthWrite).toBe(false);
+        expect(frustumCulled).toBe(false);
     });
 });

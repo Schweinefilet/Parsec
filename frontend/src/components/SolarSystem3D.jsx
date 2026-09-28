@@ -14,8 +14,8 @@ import {
 } from '../utils/orbits';
 import { probeScenePos, buildProbeTrack, trackDrawCount } from '../utils/probeTracks';
 import { proceduralSurface } from '../utils/proceduralTextures';
-import { createSunLensflare, sunFlareScale, setSunFlareScale, setSunFlareHaloGain } from '../utils/lensFlareTextures';
-import { createSunSurfaceMaterial, setSunSurfaceMap, createCoronaMaterial, createCoronaMesh } from '../utils/sunShaders';
+import { createSunLensflare, sunFlareScale, setSunFlareScale, setSunFlareGains } from '../utils/lensFlareTextures';
+import { createSunSurfaceMaterial, setSunSurfaceMap, createCoronaMaterial, createCoronaMesh, createSunGlare, setSunGlare } from '../utils/sunShaders';
 import { createSceneRenderer, BLOOM_LAYER, OCCLUDER_LAYER } from '../utils/sceneComposer';
 import { simNow, isLive } from '../utils/simTime';
 import { setCameraSnapshot } from '../utils/shareView';
@@ -897,6 +897,24 @@ const SolarSystem3D = ({
         // time: the surface should keep boiling at the same pace whether the
         // clock is paused or running at a year a second.
         let sunClock = 0;
+        // How much the Sun is announcing itself: 0 while it is the focused
+        // body, where the disc and corona fill the view and carry it alone,
+        // easing to 1 whenever it is not — the home view, another body
+        // focused — where it is a few pixels across and the glare is what
+        // tells you it is there. Drives the flare's wide glare, a lift on
+        // its halo and rays, the corona, and the bloom's gain.
+        let sunGlare = 1;
+        const SUN_GLARE = {
+            glare: 1.8,          // wide glare, at full announce
+            glareSize: 900,      // its diameter in drawing-buffer px at 1x
+            halo: 1.0,           // extra halo, as a fraction of its base
+            rays: 0.9,           // extra streak and starburst
+            corona: 0.35,        // extra corona brightness
+            bloom: 1.2,          // extra bloom gain
+            // Where bloom is on it already throws a soft glare round the Sun,
+            // so the flare's own halo is halved to not double it.
+            haloBloom: 0.5,
+        };
 
         // The Sun's own click target. At true sizes it is 0.45 units across
         // against an orbit of 96, so without this there is nothing left to
@@ -920,18 +938,17 @@ const SolarSystem3D = ({
         // (moved in the render loop) — still on the camera-to-centre line,
         // so it projects to the same pixel, just no longer behind the Sun's
         // own skin.
-        //
-        // Where bloom is on it already throws the soft glare round the Sun,
-        // so the flare's own halo is turned down to not double it.
-        const FLARE_HALO_GAIN = { direct: 1, bloom: 0.5 };
-        const sunFlare = q.lensFlare
-            ? createSunLensflare({ haloGain: q.bloom ? FLARE_HALO_GAIN.bloom : FLARE_HALO_GAIN.direct })
-            : null;
+        const sunFlare = q.lensFlare ? createSunLensflare() : null;
         const flareAnchor = new THREE.Object3D();
-        if (sunFlare) {
-            flareAnchor.add(sunFlare);
-            scene.add(flareAnchor);
-        }
+        if (sunFlare) flareAnchor.add(sunFlare);
+        // The wide glare rides the same anchor, for the same reason: the
+        // Sun's own disc must not occlude it (utils/sunShaders.js). Every tier.
+        const sunGlareMesh = createSunGlare();
+        flareAnchor.add(sunGlareMesh);
+        scene.add(flareAnchor);
+        geos.push(sunGlareMesh.geometry);
+        mats.push(sunGlareMesh.material);
+        const glareBuffer = new THREE.Vector2();
 
         // Every frame goes through this, not renderer.render() directly: on
         // the bloom tier it adds the Sun's glare after the frame is drawn.
@@ -2893,7 +2910,6 @@ const SolarSystem3D = ({
         const dropBloom = () => {
             sceneRender.dispose();
             sceneRender = createSceneRenderer(renderer, scene, camera, null);
-            if (sunFlare) setSunFlareHaloGain(sunFlare, FLARE_HALO_GAIN.direct);
             console.info('[P4RSEC] frame time over budget — bloom off for this visit');
         };
         const _shareSpherical = new THREE.Spherical();
@@ -3885,6 +3901,8 @@ const SolarSystem3D = ({
             sunClock += deltaSec;
             sunMat.uniforms.uTime.value    = sunClock;
             coronaMat.uniforms.uTime.value = sunClock;
+            sunGlare += ((currentFocusedId === 'sun' ? 0 : 1) - sunGlare) * ease(0.04);
+            coronaMat.uniforms.uIntensity.value = 1 + SUN_GLARE.corona * sunGlare;
             if (skySphere) skySphere.rotation.y += 0.00002 * frameScale;
             // Keep the lens-flare's anchor just clear of the Sun's surface on
             // the camera's side — see where it's created for why — and size
@@ -3892,16 +3910,35 @@ const SolarSystem3D = ({
             // zooming out shrinks the glare with the disc instead of leaving
             // it pasted over the scene at a fixed size (utils/lensFlareTextures.js
             // has the reasoning and the clamps).
-            if (sunFlare) {
+            {
                 const sunWorldRadius = SUN_RADIUS * sunScale.scale.x;
                 flareAnchor.position.copy(camera.position)
                     .sub(sunMesh.position)
                     .setLength(sunWorldRadius * 1.04)
                     .add(sunMesh.position);
-                setSunFlareScale(sunFlare, sunFlareScale(
+                const flareScale = sunFlareScale(
                     sunWorldRadius,
                     camera.position.distanceTo(sunMesh.position),
-                ));
+                );
+                if (sunFlare) {
+                    setSunFlareScale(sunFlare, flareScale);
+                    const haloBase = sceneRender.active ? SUN_GLARE.haloBloom : 1;
+                    setSunFlareGains(sunFlare, {
+                        halo: haloBase * (1 + SUN_GLARE.halo * sunGlare),
+                        rays: 1 + SUN_GLARE.rays * sunGlare,
+                    });
+                }
+                // The glare's size is held to a much tighter range than the
+                // flare's: it is what marks the Sun from far off, so it must
+                // not shrink away with the disc, and up close it must not
+                // grow past covering the frame.
+                renderer.getDrawingBufferSize(glareBuffer);
+                setSunGlare(sunGlareMesh, {
+                    sizePx: SUN_GLARE.glareSize * Math.min(1.3, Math.max(0.7, flareScale)),
+                    viewportW: glareBuffer.x,
+                    viewportH: glareBuffer.y,
+                    gain: SUN_GLARE.glare * sunGlare,
+                });
             }
             planetMeshes.forEach(m => {
                 // Halley holds still while focused. Its nucleus is an irregular
@@ -4720,7 +4757,7 @@ const SolarSystem3D = ({
                     SUN_RADIUS * sunScale.scale.x,
                     camera.position.distanceTo(sunMesh.position),
                 );
-                sceneRender.setGain(Math.min(4, Math.max(1, 3.5 / apparent)));
+                sceneRender.setGain(Math.min(4, Math.max(1, 3.5 / apparent)) * (1 + SUN_GLARE.bloom * sunGlare));
             }
             sceneRender.render();
 

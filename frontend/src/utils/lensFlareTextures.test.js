@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sunFlareScale, setSunFlareScale, setSunFlareHaloGain } from './lensFlareTextures.js';
+import { sunFlareScale, setSunFlareScale, setSunFlareGains } from './lensFlareTextures.js';
 import * as THREE from 'three';
 
 // The scene's own numbers, so these read as the views they describe rather
@@ -81,17 +81,25 @@ describe('setSunFlareScale', () => {
     });
 });
 
-describe('setSunFlareHaloGain', () => {
-    it('rescales the halo alone, leaving the rays and ghosts as authored', () => {
-        const part = (halo) => ({ element: { color: new THREE.Color(1, 1, 1) }, halo });
-        const halo = part(true), burst = part(false);
-        const flare = { userData: { flareParts: [halo, burst] } };
-        setSunFlareHaloGain(flare, 0.5);
+describe('setSunFlareGains', () => {
+    const part = (role) => ({ element: { color: new THREE.Color(1, 1, 1) }, role });
+
+    it('drives the halo and rays on their own and leaves the ghosts as authored', () => {
+        const halo = part('halo'), ray = part('rays'), ghost = part('ghost');
+        setSunFlareGains({ userData: { flareParts: [halo, ray, ghost] } }, { halo: 0.5, rays: 1.5 });
         expect(halo.element.color.r).toBeCloseTo(0.5);
-        expect(burst.element.color.r).toBe(1);
+        expect(ray.element.color.r).toBeCloseTo(1.5);
+        expect(ghost.element.color.r).toBe(1);
+    });
+
+    it('defaults to everything as authored', () => {
+        const halo = part('halo');
+        halo.element.color.setScalar(0.2);
+        setSunFlareGains({ userData: { flareParts: [halo] } });
+        expect(halo.element.color.r).toBe(1);
     });
 
     it('ignores a missing flare', () => {
-        expect(() => setSunFlareHaloGain(null, 1)).not.toThrow();
+        expect(() => setSunFlareGains(null)).not.toThrow();
     });
 });

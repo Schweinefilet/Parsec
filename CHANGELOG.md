@@ -16,6 +16,48 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.11.1
+
+**The corona turns with the view, and the Sun announces itself when you're
+not looking at it.**
+
+- **The corona no longer looks pasted on while you orbit.** Its streamers
+  were keyed off the billboard quad's own 2D coordinates, so the pattern was
+  pinned to the screen. Orbiting turned the disc underneath a corona that
+  never changed, which read as a sticker as soon as the camera moved. The
+  vertex shader now hands the fragment shader each point's *world-space*
+  direction from the Sun's centre (the view-plane offset times the transpose
+  of the view rotation). The noise is sampled on that sphere of directions,
+  so the corona behaves like a 3D thing seen edge-on at the limb, and turning
+  the camera brings different streamers round the edge. The outward drift
+  used to be a scroll along a third noise axis. It's now a flow: noise
+  sampled on a sphere whose radius shrinks over time, so features rise off
+  the limb. Two such layers crossfade half a cycle apart to keep the radius
+  off zero.
+- **A wide glare marks the Sun whenever it isn't the focused body.** One
+  eased value (`sunGlare` in the render loop, tuned in `SUN_GLARE`) is 0
+  on the Sun's own view and 1 everywhere else. It drives:
+  - a new wide glare quad, `createSunGlare()`
+  - +100% on the flare's halo and +90% on its streak and starburst
+  - +35% on the corona
+  - +120% bloom gain on desktop
+
+  The glare is a screen-space quad of its own, held at 900 drawing-buffer
+  px × a 0.7–1.3 clamp on the Sun's apparent size, so it doesn't shrink away
+  when the disc is a few pixels across. It sits on the lens flare's anchor
+  (just off the Sun's surface on the camera's side), so bodies in front cut
+  it per pixel. It started as one more Lensflare element and was moved out,
+  because Lensflare draws with three's stock additive blend (alpha × alpha).
+  On the phone tier's transparent canvas that composited a wide soft glow
+  away to almost nothing. The quad sums its own alpha, saturating at ~8%
+  brightness, so its long faint tail survives the page's rgb × alpha
+  composite.
+
+Measured on an M5 with uncapped headless Chrome: the Sun's own view goes
+from 3.8 ms to 3.8–4.2 ms, and the home view from 2.3 to 2.5 ms.
+
+---
+
 ## 5.11.0
 
 **The Sun is re-rendered: a living disc, a real corona, and bloom on

@@ -243,13 +243,16 @@ export function sunFlareScale(worldRadius, distance) {
 }
 
 /**
- * Re-sets the halo's brightness after the fact — for when bloom is switched
- * off mid-visit and the halo has to carry the glare on its own again.
+ * Sets each kind of flare element's brightness: the soft halo and the rays (the horizontal streak and the starburst). Ghosts stay
+ * as authored. The element's colour multiplies its texture and the flare is
+ * drawn additively, so each is a straight brightness scale. Called every
+ * frame; see the lens-flare block in SolarSystem3D's render loop.
  */
-export function setSunFlareHaloGain(flare, gain) {
+export function setSunFlareGains(flare, { halo = 1, rays = 1 } = {}) {
     const parts = flare?.userData?.flareParts;
     if (!parts) return;
-    for (const part of parts) if (part.halo) part.element.color.setScalar(gain);
+    const gains = { halo, rays, ghost: 1 };
+    for (const part of parts) part.element.color.setScalar(gains[part.role] ?? 1);
 }
 
 /** Applies a multiplier from sunFlareScale() to a flare built below. */
@@ -263,38 +266,33 @@ export function setSunFlareScale(flare, scale) {
  * Builds the Sun's lens-flare. `.add()` it onto a light (or any Object3D)
  * positioned at the Sun — three.js tracks that object's screen position and
  * occlusion every frame on its own via onBeforeRender. The one thing it does
- * want from the render loop is setSunFlareScale(), above.
- *
- * `haloGain` scales the soft halo alone; see where it is added.
+ * want from the render loop is setSunFlareScale() and setSunFlareGains(),
+ * above.
  */
-export function createSunLensflare({ haloGain = 1 } = {}) {
+export function createSunLensflare() {
     const flare = new Lensflare();
-    // Every element's authored size and brightness is remembered here so the
-    // scaling above is always applied to the original rather than
-    // compounding frame on frame.
+    // Every element's authored size is remembered here so the scaling above
+    // is always applied to the original rather than compounding frame on
+    // frame. `role` is which gain in setSunFlareGains() drives it.
     const parts = [];
-    const add = (texture, size, distance, gain = 1, halo = false) => {
-        const element = new LensflareElement(texture, size, distance, new THREE.Color().setScalar(gain));
-        parts.push({ element, baseSize: size, halo });
+    const add = (texture, size, distance, role) => {
+        const element = new LensflareElement(texture, size, distance, new THREE.Color(1, 1, 1));
+        parts.push({ element, baseSize: size, role });
         flare.addElement(element);
     };
 
-    // haloGain: where bloom is on, it already throws a soft glare round the
-    // Sun, and the halo on top of it doubles the same effect into a flat
-    // white blot. The element's colour multiplies its texture, and the flare
-    // is drawn additively, so this is a straight brightness scale. The rays and ghosts are lens artefacts bloom does not
-    // make, so they keep their brightness either way.
-    add(haloTexture(256), 220, 0, haloGain, true);
-    add(streakTexture(512), 1100, 0);
+    add(haloTexture(256), 220, 0, 'halo');
+    add(streakTexture(512), 1100, 0, 'rays');
     // Wider than the halo and narrower than the streak, so the rays reach
     // well past the Sun's own glow without competing with the horizontal
     // glint the streak already owns. 512 rather than 256: at 256 the thinnest
     // rays (squash 0.008) come out under a pixel tall and alias into dashes.
-    add(burstTexture(512), 760, 0);
+    add(burstTexture(512), 760, 0, 'rays');
     GHOSTS.forEach(({ size, distance, sides, colors }) => {
-        add(ghostTexture(128, sides, colors), size, distance);
+        add(ghostTexture(128, sides, colors), size, distance, 'ghost');
     });
 
     flare.userData.flareParts = parts;
+    setSunFlareGains(flare);
     return flare;
 }
