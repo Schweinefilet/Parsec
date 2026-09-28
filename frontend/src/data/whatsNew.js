@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.11',
         changes: [
+            'The Sun’s corona is alive now: flames flicker off its edge and its streamers drift outward and swell. The Sun itself also turns much more slowly when you’re looking at it.',
             'The Sun now stands out from anywhere in the solar system: when you’re looking at something else, it throws a wide, warm glare so you always know where it is.',
             'The Sun’s corona now turns with the view as you move around it, instead of looking stuck to the screen.',
             'The Sun has been redrawn. Its surface slowly churns, it darkens and reddens toward its edge the way a real star does, and a corona of streamers now rises off it in place of the flat rings of glow around it. On a computer it also throws a soft glare that a passing planet blocks.',

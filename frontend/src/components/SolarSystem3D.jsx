@@ -3006,6 +3006,7 @@ const SolarSystem3D = ({
         let gravRetraceMs = 0;
         let gravRetraceStats = null;
         let meshRotSpeed = 0.002;
+        let sunRotSpeed  = 0.0028;
         let liveOrbitSpeed = 2000;
         let liveISSSpeed   = 2000; // tracked independently so hover response is immediate
         // Target axial-tilt z-rotation per planet — lerped smoothly each frame
@@ -3897,7 +3898,13 @@ const SolarSystem3D = ({
             // ── Self-rotation ──────────────────────────────────────────────────
             const targetRotSpeed = moonFocused ? 0.00008 : 0.002;
             meshRotSpeed += (targetRotSpeed - meshRotSpeed) * ease(0.03);
-            sunMesh.rotation.y      += 0.0008 * frameScale;
+            // The Sun spins on its own rate, not the planets' shared one
+            // (it is skipped in that loop below — it used to get both, one
+            // turn every ~37s, far too fast for a disc filling the screen).
+            // Its own view slows it right down; everywhere else it is a few
+            // pixels across and keeps the old pace.
+            sunRotSpeed += ((currentFocusedId === 'sun' ? 0.00025 : 0.0028) - sunRotSpeed) * ease(0.03);
+            sunMesh.rotation.y += sunRotSpeed * frameScale;
             sunClock += deltaSec;
             sunMat.uniforms.uTime.value    = sunClock;
             coronaMat.uniforms.uTime.value = sunClock;
@@ -3960,7 +3967,7 @@ const SolarSystem3D = ({
                 const earthPinned = m.userData.id === 'earth'
                     && (skyApproachAnimating || trkFlyIn || trkReframing || trkHolding);
                 if (!(m.userData.id === 'halley' && currentFocusedId === 'halley')
-                        && !earthPinned) {
+                        && !earthPinned && m !== sunMesh) {
                     m.rotation.y += meshRotSpeed * frameScale;
                 }
                 // Smoothly lerp axial tilt instead of snapping (avoids surface-texture jump)

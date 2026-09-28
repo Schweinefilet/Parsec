@@ -16,6 +16,36 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.11.2
+
+**A livelier corona, and a Sun that no longer spins fast on its own view.**
+
+- **The Sun was spinning at about one turn every 37 seconds.** It sits in
+  `planetMeshes`, and the planets' shared self-rotation loop walks that list,
+  so the Sun got the planets' 0.002 rad/frame on top of its own 0.0008. At
+  focus size that read as a fast spin. It's now skipped in that loop and
+  runs on its own eased rate: 0.00025 rad/frame on its own view (one turn in
+  about 7 minutes) and the old combined 0.0028 everywhere else, where it's a
+  few pixels across.
+- **The corona moves.** The outward flow is about three times faster (≈⅛ of a
+  solar radius a second), and the broad streamer bundles reshape over tens of
+  seconds instead of minutes. Two new layers:
+  - **Flames**: a ragged fringe of radially stretched tongues licking off the
+    limb, about ten times longer than wide. They also flicker the white-hot
+    rim's thickness. This is a second instance of the crossfaded flow, and
+    it's only computed within half a radius of the limb.
+  - **Surges**: broad regions that swell over several seconds and subside,
+    pushing their streamers further and brighter.
+
+  The disc's granulation and domain warp boil about 2.5× faster, so the
+  surface keeps moving with the slower spin. `flow()` now takes its
+  frequency, stretch and rate as parameters.
+
+Measured on an M5 with uncapped headless Chrome: the Sun's own view is
+4.1 ms on desktop and 2.2 ms on the phone tier, both unchanged within noise.
+
+---
+
 ## 5.11.1
 
 **The corona turns with the view, and the Sun announces itself when you're

@@ -119,14 +119,14 @@ void main() {
     // drifts and folds instead of being painted on. Tiny amplitude — enough
     // to see it move, not enough to smear the texture into mush.
     vec2 warp = vec2(
-        fbm(p * 3.0 + vec3(0.0, t * 0.020, 0.0)),
-        fbm(p * 3.0 + vec3(17.3, 4.1, t * 0.020))
+        fbm(p * 3.0 + vec3(0.0, t * 0.045, 0.0)),
+        fbm(p * 3.0 + vec3(17.3, 4.1, t * 0.045))
     ) * 0.012;
     vec3 surface = hasMap > 0.5 ? texture2D(map, vUv + warp).rgb : baseColor;
 
     // Granulation: fine convection cells, bright centres and dark lanes,
     // boiling at a slightly faster rate than the large-scale drift.
-    float gran = fbm(p * 26.0 + vec3(t * 0.05, -t * 0.04, t * 0.03));
+    float gran = fbm(p * 26.0 + vec3(t * 0.12, -t * 0.1, t * 0.08));
     surface *= 0.9 + 0.22 * gran;
 
     // Limb darkening, the Eddington linear law I = 1 - u(1 - mu) with the
@@ -224,21 +224,25 @@ ${SIMPLEX_3D}
 
 // One layer of outward flow: noise sampled on a sphere whose radius falls
 // with tau, so a feature at a fixed spot on that sphere sits at a greater
-// height x as tau grows — it rises off the limb. tau only runs over [0, 2),
-// keeping the radius well clear of zero, which is why flow() below
-// crossfades two of these half a cycle apart instead of letting one run.
-float flowLayer(vec3 d, float x, float tau, float seed) {
-    return snoise(d * (7.0 + 1.6 * x - tau) + seed);
+// height x as tau grows — it rises off the limb. "freq" is the angular
+// detail at the limb and "stretch" how fast it coarsens with height. tau
+// only runs over [0, 2), keeping the radius well clear of zero, which is
+// why flow() below crossfades two of these half a cycle apart instead of
+// letting one run.
+float flowLayer(vec3 d, float x, float tau, float freq, float stretch, float seed) {
+    return snoise(d * (freq + stretch * x - tau) + seed);
 }
 
-float flow(vec3 d, float x, float t) {
-    float c  = t * 0.035;
+// Features rise at 2 * rate / stretch solar radii a second.
+float flow(vec3 d, float x, float t, float freq, float stretch, float rate, float seed) {
+    float c  = t * rate;
     float f0 = fract(c);
     float f1 = fract(c + 0.5);
     // Triangle weights: each layer is invisible at the moment it wraps.
     float w0 = 1.0 - abs(2.0 * f0 - 1.0);
     float w1 = 1.0 - w0;
-    float n = flowLayer(d, x, f0 * 2.0, 0.0) * w0 + flowLayer(d, x, f1 * 2.0, 23.7) * w1;
+    float n = flowLayer(d, x, f0 * 2.0, freq, stretch, seed) * w0
+            + flowLayer(d, x, f1 * 2.0, freq, stretch, seed + 23.7) * w1;
     // Two blended noises are flatter than one; restore the contrast.
     return n * inversesqrt(w0 * w0 + w1 * w1);
 }
@@ -250,24 +254,43 @@ void main() {
     vec3  dir = q > 0.0 ? normalize(vDir) : vec3(1.0, 0.0, 0.0);
     float t = uTime;
 
-    // Streamers. Broad bundles fixed to directions in space, evolving
-    // slowly, with finer rays flowing outward through them.
-    float s1 = fbm(dir * 2.4 + vec3(0.0, t * 0.012, 0.0));
-    float s2 = flow(dir, x, t);
+    // Streamers. Broad bundles fixed to directions in space and reshaping
+    // over tens of seconds, with finer rays flowing outward through them at
+    // about an eighth of a solar radius a second.
+    float s1 = fbm(dir * 2.4 + vec3(0.0, t * 0.04, -t * 0.025));
+    float s2 = flow(dir, x, t, 7.0, 1.6, 0.1, 0.0);
+
+    // Surges: broad regions that swell over several seconds and subside,
+    // pushing their streamers further out and brighter while active — the
+    // corona breathing unevenly round the disc rather than all at once.
+    float surge = snoise(dir * 3.0 + vec3(t * 0.07, 11.0, -t * 0.05));
+    surge = surge > 0.0 ? surge * surge : 0.0;
+
     // Squared, so gaps between streamers fall to dark rather than to a
     // uniform wash: the rays read as rays.
     float streak = clamp(0.5 + 0.8 * s1 + 0.35 * s2, 0.0, 1.6);
-    streak *= streak;
+    streak *= streak * (1.0 + 1.6 * surge);
 
-    // Three falloffs: a thin white-hot rim hugging the limb, the inner
-    // corona, and the streamers reaching furthest. Kept steep on purpose —
-    // a slow tail across a screen-filling quad reads as brown fog over
-    // everything rather than as light.
-    float rim   = exp(-x * 18.0);
+    // Flames: a ragged, flickering fringe licking off the limb, the
+    // chromosphere's spicules at this scale. Fine round the limb and ten
+    // times longer than wide (a low "stretch"), so they read as tongues of
+    // light rather than tufts, climbing about an eighth of a radius a
+    // second. Only computed where they can show, since it is two noise lookups a
+    // pixel over a quad that fills the screen on the Sun's own view.
+    float flame = 0.0;
+    if (x < 0.5) flame = flow(dir, x, t, 30.0, 3.0, 0.2, 51.0);
+
+    // Three falloffs: a thin white-hot rim hugging the limb (its thickness
+    // flickering with the flames), the inner corona, and the streamers
+    // reaching furthest. Kept steep on purpose — a slow tail across a
+    // screen-filling quad reads as brown fog over everything rather than as
+    // light — except where a surge stretches it.
+    float rim   = exp(-x * 18.0 / (1.0 + 0.9 * max(flame, 0.0)));
     float inner = exp(-x * 5.0);
-    float haze  = exp(-x * 2.2);
+    float haze  = exp(-x * mix(2.2, 1.4, surge));
+    float fringe = exp(-x * 7.0) * pow(max(flame, 0.0), 1.5);
 
-    float glow = rim * 0.8 + inner * (0.3 + 0.3 * streak) + haze * 0.09 * streak;
+    float glow = rim * 0.8 + fringe * 0.3 + inner * (0.3 + 0.3 * streak) + haze * 0.09 * streak;
 
     // Fade the last stretch to nothing so the quad has no edge to notice.
     glow *= 1.0 - smoothstep(0.6, 1.0, q);

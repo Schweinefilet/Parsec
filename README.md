@@ -390,7 +390,8 @@ The Sun is three pieces, all procedural, with no image assets beyond `sun.jpg`
   It's centred on the Sun, so the depth test hides it behind the disc and
   behind anything in front. The streamers are noise over each point's
   *world-space* direction from the centre, with a crossfaded radial flow for
-  the outward drift. Keyed off the quad's own coordinates, the pattern was
+  the outward drift, a flickering flame fringe at the limb, and slow
+  "surges" that swell regions of the corona. Keyed off the quad's own coordinates, the pattern was
   pinned to the screen and read as a sticker while orbiting (5.11.1). It replaced five additive sphere shells. Its falloffs
   are steep on purpose, because on the Sun's own view the quad covers most of
   the screen and a slow tail turns into brown fog. Noise octaves are the tier
