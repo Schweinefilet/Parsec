@@ -12,6 +12,12 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.11',
+        changes: [
+            'The Sun has been redrawn. Its surface slowly churns, it darkens and reddens toward its edge the way a real star does, and a corona of streamers now rises off it in place of the flat rings of glow around it. On a computer it also throws a soft glare that a passing planet blocks.',
+        ],
+    },
+    {
         version: '5.10',
         changes: [
             'Ceres now shows its real surface — a photograph from NASA’s Dawn mission — instead of a generated stand-in.',

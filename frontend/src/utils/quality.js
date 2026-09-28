@@ -79,6 +79,15 @@ const TIERS = {
         // or a coarse pointer on a bigger screen) without issue, so there
         // was never real evidence this tier specifically couldn't afford it.
         lensFlare: true,
+        // Noise detail in the Sun's corona and surface shaders
+        // (utils/sunShaders.js). Each octave is another simplex lookup per
+        // fragment, and the corona covers the whole screen on the Sun's own
+        // focus view.
+        coronaOctaves: 2,
+        // The Sun's bloom (utils/sceneComposer.js): a half-resolution
+        // re-draw of the Sun and whatever eclipses it, a blur chain and a
+        // full-screen composite, every frame. Desktop only.
+        bloom: null,
     },
     medium: {
         texturePath: '/textures/',
@@ -102,6 +111,8 @@ const TIERS = {
         nightSkyLines: true,
         nightSkyTwinkle: true,
         lensFlare: true,
+        coronaOctaves: 3,
+        bloom: null,
     },
     high: {
         texturePath: '/textures/',
@@ -128,6 +139,11 @@ const TIERS = {
         nightSkyLines: true,
         nightSkyTwinkle: true,
         lensFlare: true,
+        coronaOctaves: 4,
+        // Only the Sun is in the glare source, so the threshold is not what
+        // keeps planets out of it: it trims the corona's dim outer haze so
+        // just the limb and the disc throw glare.
+        bloom: { strength: 0.45, radius: 0.45, threshold: 0.85 },
     },
 };
 

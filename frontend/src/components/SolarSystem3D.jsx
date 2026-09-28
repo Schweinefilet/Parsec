@@ -14,7 +14,9 @@ import {
 } from '../utils/orbits';
 import { probeScenePos, buildProbeTrack, trackDrawCount } from '../utils/probeTracks';
 import { proceduralSurface } from '../utils/proceduralTextures';
-import { createSunLensflare, sunFlareScale, setSunFlareScale } from '../utils/lensFlareTextures';
+import { createSunLensflare, sunFlareScale, setSunFlareScale, setSunFlareHaloGain } from '../utils/lensFlareTextures';
+import { createSunSurfaceMaterial, setSunSurfaceMap, createCoronaMaterial, createCoronaMesh } from '../utils/sunShaders';
+import { createSceneRenderer, BLOOM_LAYER, OCCLUDER_LAYER } from '../utils/sceneComposer';
 import { simNow, isLive } from '../utils/simTime';
 import { setCameraSnapshot } from '../utils/shareView';
 import {
@@ -420,7 +422,7 @@ const SolarSystem3D = ({
             trkHoldQuat.copy(camera.quaternion);
             let url = null;
             try {
-                renderer.render(scene, camera);
+                sceneRender.render();
                 url = renderer.domElement.toDataURL('image/jpeg', 0.92);
             } catch {
                 // A tainted or oversized canvas: the cut falls back to a
@@ -784,10 +786,13 @@ const SolarSystem3D = ({
         // ── Sun ────────────────────────────────────────────────────────────────
         const SUN_RADIUS = 12;
         const sunGeo = new THREE.SphereGeometry(SUN_RADIUS, 64, 64);
-        // MeshBasicMaterial — self-luminous, not affected by scene lights
-        const sunMat = new THREE.MeshBasicMaterial({ color: '#FFF4A0' });
+        // Self-luminous, not affected by scene lights: the photograph with a
+        // churning surface and limb darkening on top (utils/sunShaders.js).
+        const sunMat = createSunSurfaceMaterial({ octaves: q.coronaOctaves });
         const sunMesh = new THREE.Mesh(sunGeo, sunMat);
         sunMesh.userData = { id: 'sun', name: 'Sun' };
+        // Also drawn into the bloom tier's glare source (utils/sceneComposer.js)
+        sunMesh.layers.enable(BLOOM_LAYER);
         // Everything that makes up the Sun's disc hangs off one group so true
         // sizes can shrink the lot together — the sphere here, the glow shells
         // below. Its hitbox deliberately stays outside, for the same reason
@@ -802,9 +807,7 @@ const SolarSystem3D = ({
             // sky sphere below for why this needs tagging explicitly.
             tex.colorSpace = THREE.SRGBColorSpace;
             textures.push(tex);
-            sunMat.map   = tex;
-            sunMat.color.set(0xffffff);
-            sunMat.needsUpdate = true;
+            setSunSurfaceMap(sunMat, tex);
         });
 
         // ── Resource tracking (for cleanup) ────────────────────────────────────
@@ -879,27 +882,21 @@ const SolarSystem3D = ({
         orientationMQ?.addEventListener('change', syncSky);
         syncSky();
 
-        // Additive glow layers — colors add on top of the scene, building a bright halo
-        const GLOW_LAYERS = [
-            { r: 13.2, op: 0.11, color: '#FFFF90' },
-            { r: 15.5, op: 0.11, color: '#FFEE60' },
-            { r: 20,   op: 0.05, color: '#FFE030' },
-            { r: 30,   op: 0.018,color: '#FFD020' },
-            { r: 48,   op: 0.006,color: '#FFB800' },
-        ];
-        GLOW_LAYERS.forEach(({ r, op, color }) => {
-            const geo = new THREE.SphereGeometry(r, 32, 32);
-            const mat = new THREE.MeshBasicMaterial({
-                color,
-                transparent: true,
-                opacity: op,
-                depthWrite: false,
-                blending: THREE.AdditiveBlending,
-            });
-            sunScale.add(new THREE.Mesh(geo, mat));
-            geos.push(geo);
-            mats.push(mat);
-        });
+        // The corona: one camera-facing quad, drawn additively round the disc,
+        // where there were five fixed-opacity sphere shells. Streamers drift
+        // off the limb and it rises from behind the disc rather than sitting
+        // over it (utils/sunShaders.js has the how). A child of sunScale, so
+        // true sizes shrink it with the disc. Not a raycast target.
+        const coronaMat = createCoronaMaterial({ radius: SUN_RADIUS, octaves: q.coronaOctaves });
+        const coronaMesh = createCoronaMesh(coronaMat);
+        coronaMesh.layers.enable(BLOOM_LAYER);
+        sunScale.add(coronaMesh);
+        geos.push(coronaMesh.geometry);
+        mats.push(coronaMat);
+        // Wall-clock seconds for the Sun's own animation. Not simulated
+        // time: the surface should keep boiling at the same pace whether the
+        // clock is paused or running at a year a second.
+        let sunClock = 0;
 
         // The Sun's own click target. At true sizes it is 0.45 units across
         // against an orbit of 96, so without this there is nothing left to
@@ -923,12 +920,22 @@ const SolarSystem3D = ({
         // (moved in the render loop) — still on the camera-to-centre line,
         // so it projects to the same pixel, just no longer behind the Sun's
         // own skin.
-        const sunFlare = q.lensFlare ? createSunLensflare() : null;
+        //
+        // Where bloom is on it already throws the soft glare round the Sun,
+        // so the flare's own halo is turned down to not double it.
+        const FLARE_HALO_GAIN = { direct: 1, bloom: 0.5 };
+        const sunFlare = q.lensFlare
+            ? createSunLensflare({ haloGain: q.bloom ? FLARE_HALO_GAIN.bloom : FLARE_HALO_GAIN.direct })
+            : null;
         const flareAnchor = new THREE.Object3D();
         if (sunFlare) {
             flareAnchor.add(sunFlare);
             scene.add(flareAnchor);
         }
+
+        // Every frame goes through this, not renderer.render() directly: on
+        // the bloom tier it adds the Sun's glare after the frame is drawn.
+        let sceneRender = createSceneRenderer(renderer, scene, camera, q.bloom);
 
         const planetMeshes    = [sunMesh, sunHitMesh];  // raycaster targets
         const planetGroups    = [];         // for position refresh
@@ -2545,8 +2552,10 @@ const SolarSystem3D = ({
             if (!resized) return;
             // Re-budget on resize too: rotating a tablet changes the surface
             // area enough to matter.
-            renderer.setPixelRatio(pixelRatioFor(width, height));
+            const dpr = pixelRatioFor(width, height);
+            renderer.setPixelRatio(dpr);
             renderer.setSize(width, height);
+            sceneRender.setSize(width, height, dpr);
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
         });
@@ -2852,6 +2861,41 @@ const SolarSystem3D = ({
         // with a delta of minutes, and every eased value would jump.
         let lastFrameMs = performance.now();
         let sceneReadySent = false;
+
+        // The bloom tier draws the Sun's glare source with every body that
+        // could stand in front of it as black depth (utils/sceneComposer.js),
+        // so a planet crossing the disc blocks the glare exactly where it
+        // covers it. Those bodies are the planets, moons and small bodies —
+        // never the Sun, and never the invisible, oversized hitboxes that
+        // share planetMeshes with them, which would black out a halo round
+        // every planet. Re-tagged whenever the lists grow.
+        let occluderCount = -1;
+        const tagSunOccluders = () => {
+            const count = planetMeshes.length + moonMeshRefs.size;
+            if (count === occluderCount) return;
+            occluderCount = count;
+            for (const m of [...planetMeshes, ...moonMeshRefs.values()]) {
+                if (m === sunMesh || m === sunHitMesh) continue;
+                if (m.material?.transparent && m.material.opacity === 0) continue;
+                m.layers.enable(OCCLUDER_LAYER);
+            }
+        };
+
+        // Bloom is budgeted for a desktop GPU, and a "desktop" by quality.js's
+        // reckoning can still be an integrated chip driving a 5K panel. So it
+        // is on probation: once the scene has settled, the median frame over
+        // a few seconds decides whether it stays. Too slow and it is switched
+        // off for the rest of the visit, never back on — a flapping effect is
+        // worse than either state.
+        const BLOOM_PROBE = { settleMs: 2000, frames: 180, maxMedianMs: 22 };
+        let bloomProbeFrom = null;
+        const bloomProbe = [];
+        const dropBloom = () => {
+            sceneRender.dispose();
+            sceneRender = createSceneRenderer(renderer, scene, camera, null);
+            if (sunFlare) setSunFlareHaloGain(sunFlare, FLARE_HALO_GAIN.direct);
+            console.info('[P4RSEC] frame time over budget — bloom off for this visit');
+        };
         const _shareSpherical = new THREE.Spherical();
         // Reference for lifting the probe-focus camera off the Sun line.
         const PROBE_LIFT_AXIS = new THREE.Vector3(0, 1, 0);
@@ -3838,6 +3882,9 @@ const SolarSystem3D = ({
             const targetRotSpeed = moonFocused ? 0.00008 : 0.002;
             meshRotSpeed += (targetRotSpeed - meshRotSpeed) * ease(0.03);
             sunMesh.rotation.y      += 0.0008 * frameScale;
+            sunClock += deltaSec;
+            sunMat.uniforms.uTime.value    = sunClock;
+            coronaMat.uniforms.uTime.value = sunClock;
             if (skySphere) skySphere.rotation.y += 0.00002 * frameScale;
             // Keep the lens-flare's anchor just clear of the Sun's surface on
             // the camera's side — see where it's created for why — and size
@@ -4661,7 +4708,34 @@ const SolarSystem3D = ({
                 }
             }
 
-            renderer.render(scene, camera);
+            if (sceneRender.active) {
+                tagSunOccluders();
+                // Bloom blurs in screen space, so a Sun a few pixels across
+                // throws a few pixels of glare and the effect vanishes from
+                // the home view, where it matters most. The glare is turned
+                // up as the disc shrinks — the same apparent-size measure
+                // the lens flare scales by, inverted — and left at 1x once
+                // the disc is big enough to carry it (the Sun's own view).
+                const apparent = sunFlareScale(
+                    SUN_RADIUS * sunScale.scale.x,
+                    camera.position.distanceTo(sunMesh.position),
+                );
+                sceneRender.setGain(Math.min(4, Math.max(1, 3.5 / apparent)));
+            }
+            sceneRender.render();
+
+            if (sceneRender.active) {
+                if (bloomProbeFrom === null && sceneReadySent) bloomProbeFrom = nowMs + BLOOM_PROBE.settleMs;
+                if (bloomProbeFrom !== null && nowMs >= bloomProbeFrom) {
+                    bloomProbe.push(deltaSec * 1000);
+                    if (bloomProbe.length >= BLOOM_PROBE.frames) {
+                        const sorted = [...bloomProbe].sort((a, b) => a - b);
+                        const median = sorted[sorted.length >> 1];
+                        if (median > BLOOM_PROBE.maxMedianMs) dropBloom();
+                        bloomProbeFrom = Infinity;   // decided, one way or the other
+                    }
+                }
+            }
         };
         animate();
 
@@ -4709,6 +4783,7 @@ const SolarSystem3D = ({
             if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
             controls.dispose();
             sunFlare?.dispose();
+            sceneRender.dispose();
             geos.forEach(g => g.dispose());
             mats.forEach(m => m.dispose());
             textures.forEach(t => t.dispose());

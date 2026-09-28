@@ -16,6 +16,49 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.11.0
+
+**The Sun is re-rendered: a living disc, a real corona, and bloom on
+desktop.** It used to be a photograph on a flat `MeshBasicMaterial` inside
+five additive sphere shells of fixed opacity. That drew visible concentric
+rings round the disc on the Sun's own view, and it kept the disc lit evenly
+right out to the edge. The shells were also almost invisible on phones: on
+a transparent canvas, the stock additive blend left them at alpha ≈ opacity²,
+and the page composited them away.
+
+- **Disc** (`utils/sunShaders.js`): the same photograph, slowly
+  domain-warped, with granulation boiling over it. Limb darkening follows
+  the Sun's own Eddington coefficient, and the limb reddens. A
+  centre-weighted warm lift keeps the yellow-white heat the shells used to
+  add.
+- **Corona**: one camera-facing quad, billboarded in the vertex shader.
+  Streamers rise off the limb and drift outward. The depth test hides it
+  behind the disc and behind anything in front. It carries its own alpha,
+  so it shows on phones too. Its noise detail is a new tier setting,
+  `coronaOctaves` (2/3/4).
+- **Bloom, desktop tier only** (`utils/sceneComposer.js`): after the normal
+  frame, the Sun and anything that could eclipse it are re-drawn at half
+  resolution into a half-float target, blurred by UnrealBloomPass's mip
+  chain, and added onto the canvas. Every other pixel of the frame is
+  untouched, and a planet crossing the disc blocks the glare exactly. The
+  gain rises as the Sun shrinks on screen. The lens flare's halo is halved
+  on this tier so the two don't stack into a white blot. Bloom stands down
+  for the visit if the median frame after load is over 22 ms.
+
+The textbook route was tried first: the whole scene through an
+EffectComposer with a luminance threshold. It changed the rest of the
+picture, because orbit lines and other translucent things blend in linear
+light in a float target and came out several times brighter. It also broke
+`Lensflare`'s pixel read-back from a multisampled target. The README's new
+"The Sun" section records why.
+
+No new textures and no new dependencies (the bloom pieces ship with three).
+Measured on an M5 with uncapped headless Chrome, the Sun's own view goes
+from 2.5 ms to 3.8 ms median per frame on the desktop tier. The home view is
+unchanged within noise (2.2 → 2.3 ms), and the phone tier costs 2.1 → 2.3 ms.
+
+---
+
 ## 5.10.23
 
 **Ceres now wears its own photograph instead of a painted surface.** Every

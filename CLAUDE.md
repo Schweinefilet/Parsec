@@ -79,6 +79,10 @@ API, read imperatively:
 | `utils/driftControl.js` | idle camera drift rates (yaw/pitch/roll), persisted |
 | `utils/assetLoading.js` | what's loading, for the loading screen |
 
+Every frame goes through `sceneRender.render()` (`utils/sceneComposer.js`), not
+`renderer.render()`. On the desktop tier it also draws the Sun's bloom, and a
+direct render call would silently drop it.
+
 UI components mirror these into local state via their `subscribeX` function.
 Anything that has to move every frame — camera, labels, the clock — belongs
 **outside** React the same way. Object labels are plain DOM nodes moved with a
@@ -128,13 +132,13 @@ WebGL); `--headless=new` with no `--use-gl` flags uses the real GPU.
 
 Two traps in that setup, both of which produce confident, wrong screenshots:
 
-- **Headless Chrome reports `prefers-reduced-motion: reduce` by default**, and
-  this app honours it — `index.css` collapses every duration to 0.001ms and
-  `LoadingScreen` skips the logo flight outright. Screenshots of any animation
-  will show it already finished and tell you nothing. Send
-  `Emulation.setEmulatedMedia` with
-  `features: [{name:'prefers-reduced-motion', value:'no-preference'}]` first,
-  and flip it to `reduce` when that path is what you're checking.
+- **Headless Chrome caps `requestAnimationFrame` at 30 fps.** The desktop
+  tier's Sun bloom switches itself off on a frame-time probe
+  (`utils/sceneComposer.js`, README "The Sun"), so a capped browser never
+  shows it. Launch with `--disable-frame-rate-limit --disable-gpu-vsync` when
+  bloom is what you're checking. (The site has ignored
+  `prefers-reduced-motion` since 5.10.7, so that setting no longer matters
+  here.)
 - **Time your captures off the page's own `performance.now()`**, not your
   script's clock. `Page.navigate` returning, and `Page.captureScreenshot` on a
   live 3D scene, each cost enough to drift the two by the better part of a

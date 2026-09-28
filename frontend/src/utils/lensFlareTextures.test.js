@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { sunFlareScale, setSunFlareScale } from './lensFlareTextures.js';
+import { sunFlareScale, setSunFlareScale, setSunFlareHaloGain } from './lensFlareTextures.js';
+import * as THREE from 'three';
 
 // The scene's own numbers, so these read as the views they describe rather
 // than as bare ratios: a 12-unit Sun, the opening camera 578 units out, and
@@ -77,5 +78,20 @@ describe('setSunFlareScale', () => {
     it('is a no-op on a flare that was never built (the low quality tier has none)', () => {
         expect(() => setSunFlareScale(null, 1)).not.toThrow();
         expect(() => setSunFlareScale({}, 1)).not.toThrow();
+    });
+});
+
+describe('setSunFlareHaloGain', () => {
+    it('rescales the halo alone, leaving the rays and ghosts as authored', () => {
+        const part = (halo) => ({ element: { color: new THREE.Color(1, 1, 1) }, halo });
+        const halo = part(true), burst = part(false);
+        const flare = { userData: { flareParts: [halo, burst] } };
+        setSunFlareHaloGain(flare, 0.5);
+        expect(halo.element.color.r).toBeCloseTo(0.5);
+        expect(burst.element.color.r).toBe(1);
+    });
+
+    it('ignores a missing flare', () => {
+        expect(() => setSunFlareHaloGain(null, 1)).not.toThrow();
     });
 });

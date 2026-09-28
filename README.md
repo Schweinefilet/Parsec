@@ -377,6 +377,54 @@ scale Earth is four thousandths of a unit across and the view would be empty —
 a fact better said in words than demonstrated, which is what the corner caption
 now does instead of apologising.
 
+### The Sun
+
+The Sun is three pieces, all procedural, with no image assets beyond `sun.jpg`
+(`utils/sunShaders.js`, `utils/lensFlareTextures.js`, `utils/sceneComposer.js`):
+
+- **The disc** is a `ShaderMaterial` over the photograph. It adds a slow domain
+  warp and granulation from simplex fbm on object-space position (no UV
+  seam), limb darkening on the Eddington law (`1 − 0.6(1 − μ)`), and a
+  redder limb.
+- **The corona** is one camera-facing quad, billboarded in the vertex shader.
+  It's centred on the Sun, so the depth test hides it behind the disc and
+  behind anything in front. Streamers are fbm over direction and
+  height-minus-time. It replaced five additive sphere shells. Its falloffs
+  are steep on purpose, because on the Sun's own view the quad covers most of
+  the screen and a slow tail turns into brown fog. Noise octaves are the tier
+  setting `coronaOctaves`.
+- **The lens flare** is three's `Lensflare` with canvas-drawn elements, sized
+  to the Sun's apparent size.
+
+**Bloom, desktop tier only** (`quality.js` `bloom`), is added *after* the frame
+is drawn:
+
+1. The planets and moons are drawn as black depth (`OCCLUDER_LAYER`) into a
+   half-resolution half-float target.
+2. The disc and corona (`BLOOM_LAYER`) are drawn into the same target.
+3. UnrealBloomPass's mip chain blurs it.
+4. The result is added onto the canvas with the renderer's exposure and an
+   sRGB encode.
+
+A planet crossing the disc blocks the glare pixel for pixel. The glare's gain
+rises as the Sun shrinks on screen, because screen-space blur loses a small
+source. The flare's halo is halved on this tier so it doesn't double the
+glare.
+
+Don't move the whole scene into an EffectComposer to "do bloom properly". It
+was tried. Translucent things blend in linear light in a float target, but in
+sRGB-encoded values on the canvas, so every orbit line came out several times
+brighter. It also meant a full-resolution multisampled float target, and it
+broke `Lensflare`, whose `copyTexSubImage2D` read-back is illegal from a
+multisampled framebuffer.
+
+Bloom is on probation for each visit. Two seconds after the scene is ready,
+the median of the next 180 frames decides it. Over 22 ms and it switches off
+for the rest of the visit and never comes back. A browser capped at 30 fps
+(battery saver, Safari Low Power Mode, headless Chrome) always lands here.
+Run headless Chrome with `--disable-frame-rate-limit --disable-gpu-vsync` to
+see bloom.
+
 ### Seeing the gravity
 
 The overlay in `ScenePanel` has two layers, cycled off → warped grid → field

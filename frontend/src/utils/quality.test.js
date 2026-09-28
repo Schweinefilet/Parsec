@@ -17,6 +17,7 @@ describe('tier settings', () => {
                 'heavyModels', 'heroTextureSize', 'minorTextureSize',
                 'antialias', 'starCount',
                 'nightSkyStars', 'nightSkyLines', 'nightSkyTwinkle',
+                'coronaOctaves', 'bloom',
             ]) {
                 expect(q, `${tier} is missing ${key}`).toHaveProperty(key);
             }
@@ -50,6 +51,17 @@ describe('tier settings', () => {
         expect(med.nightSkyStars).toBeLessThan(high.nightSkyStars);
         expect(low.nightSkyLines).toBe(true);
         expect(low.nightSkyTwinkle).toBe(false);
+    });
+
+    it('blooms the Sun on desktop only', () => {
+        const read = (tier) => { __setTier(tier); return quality(); };
+        expect(read('low').bloom).toBeNull();
+        expect(read('medium').bloom).toBeNull();
+        const { bloom } = read('high');
+        expect(bloom.strength).toBeGreaterThan(0);
+        expect(bloom.threshold).toBeGreaterThan(0);
+        // Corona noise detail gets cheaper down the tiers
+        expect(read('low').coronaOctaves).toBeLessThan(read('high').coronaOctaves);
     });
 
     it('drops the Milky Way sphere on phones and gives desktop the 8K map', () => {
