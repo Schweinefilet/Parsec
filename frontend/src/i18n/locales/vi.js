@@ -111,6 +111,11 @@ export const vi = {
         hintSpeed: 'Tua nhanh hoặc tua lại thời gian',
         hintTools: 'Cài đặt hấp dẫn, trôi và tỷ lệ',
         hintDismiss: 'Bỏ qua gợi ý',
+        tagline: 'Bản đồ 3D trực tiếp của hệ Mặt Trời — mọi hành tinh ở đúng vị trí thật của nó, ngay lúc này',
+        startLabel: 'Bắt đầu từ đây',
+        startFlyTo: 'Bay đến',
+        startTracker: 'Theo dõi ISS trực tiếp',
+        startSky: 'Bầu trời đêm nay',
     },
 
     catalog: {

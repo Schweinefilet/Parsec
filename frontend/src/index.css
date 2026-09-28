@@ -1265,6 +1265,68 @@ button:focus-visible {
   color: #6ee7a0;
 }
 
+/* ── Start-here shortcuts ───────────────────────────────────────────────────
+   The home view's first-stop links under the greeting (StartHere.jsx). Same
+   chrome as the header buttons, with a label, so the two read as one set. */
+.start-here {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  pointer-events: none;   /* the band spans the scene; only the chips take input */
+}
+.start-here[data-compact] { gap: 8px; margin-top: 18px; }
+.start-here-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+.start-here-lead {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  margin-inline-end: 2px;
+}
+.start-chip {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  backdrop-filter: var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
+  box-shadow: var(--sh-1);
+  cursor: pointer;
+  transition: background var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              color var(--t-base) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+.start-here[data-compact] .start-chip { min-height: 40px; padding: 0 13px; font-size: 13px; }
+.start-chip:hover {
+  background: var(--chrome-bg-active);
+  border-color: var(--chrome-border-hi);
+  color: #fff;
+}
+.start-chip:active { transform: scale(0.96); }
+.start-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.start-chip-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.85; }
+
 /* ── Chip ───────────────────────────────────────────────────────────────────
    The uppercase capsule the scene toggles and status markers use. */
 .chip {

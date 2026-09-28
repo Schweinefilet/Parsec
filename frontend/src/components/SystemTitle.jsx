@@ -26,8 +26,14 @@ import { useI18n } from '../i18n';
  * below a heading whose size is a clamp() and therefore not known here. The
  * two fade together, on one opacity: both are a greeting, and a greeting that
  * lingers after you have started is in the way of what you started doing.
+ *
+ * `tagline` is the one line that says what the page is, between the name and
+ * the instruction. `children` go under all of it and are NOT part of that
+ * fade — they manage their own (the start-here shortcuts outlive a first
+ * drag; see StartHere). The greeting fading leaves its space behind, so
+ * whatever is below it stays put rather than jumping up.
  */
-const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }) => {
+const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null, tagline = null, children = null }) => {
     const { t } = useI18n();
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
@@ -82,14 +88,17 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }
                 top: compact ? 74 : 88,
                 zIndex: 6,
                 padding: '0 16px',
-                opacity: hidden ? 0 : 1,
                 // None on the band, auto on the control. This row spans the
                 // full width and sits over the canvas, so anything else here
                 // swallows drags across the whole top of the scene.
                 pointerEvents: 'none',
             }}
-            inert={hidden || undefined}
         >
+            <div
+                className="flex flex-col items-center transition-opacity duration-700"
+                style={{ opacity: hidden ? 0 : 1 }}
+                inert={hidden || undefined}
+            >
             {hasChoice ? (
                 <button
                     onClick={() => setOpen(v => !v)}
@@ -118,15 +127,33 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }
                 <h2 style={nameStyle}>{t(current.nameKey)}</h2>
             )}
 
+            {tagline && (
+                <p
+                    style={{
+                        margin: compact ? '10px 0 0' : '12px 0 0',
+                        maxWidth: compact ? 340 : 700,
+                        color: 'rgba(255,255,255,0.82)',
+                        fontSize: compact ? 14 : 16,
+                        fontWeight: 400,
+                        lineHeight: 1.4,
+                        textShadow: '0 1px 8px rgba(0,0,0,0.95)',
+                        textAlign: 'center',
+                        pointerEvents: 'none',
+                    }}
+                >
+                    {tagline}
+                </p>
+            )}
+            {/* Was 11px at 58% white, which read as a caption nobody was meant
+                to read. It is the one instruction the page gives. */}
             {hint && (
                 <p
-                    className="transition-opacity duration-700"
                     style={{
-                        margin: compact ? '8px 0 0' : '11px 0 0',
-                        color: 'rgba(255,255,255,0.58)',
-                        fontSize: compact ? 10 : 11,
+                        margin: compact ? '8px 0 0' : '10px 0 0',
+                        color: 'rgba(255,255,255,0.66)',
+                        fontSize: compact ? 11.5 : 12.5,
                         fontWeight: 600,
-                        letterSpacing: '0.07em',
+                        letterSpacing: '0.05em',
                         textShadow: '0 1px 6px rgba(0,0,0,0.9)',
                         textAlign: 'center',
                         pointerEvents: 'none',
@@ -135,6 +162,7 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }
                     {hint}
                 </p>
             )}
+            </div>
 
             {hasChoice && open && (
                 <div
@@ -175,6 +203,8 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null }
                     ))}
                 </div>
             )}
+
+            {children}
         </div>
     );
 };

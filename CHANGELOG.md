@@ -16,6 +16,53 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.12.0
+
+**The home view now tells a first-time visitor what the page is and where to
+start.** Landing cold used to give you:
+
+- a title
+- one line of 11px, 58%-white instruction, gone on the first drag
+- a row of unlabelled header icons
+- by default, a scene at true scale, where every body is below a pixel
+
+Nothing said what the site was. Nothing showed that the labels in the scene
+could be flown to. And the two headline modes, the live satellite tracker and
+the night sky, were a satellite glyph and a star glyph on desktop and entries
+inside the burger menu on a phone.
+
+- **A tagline under the title** says what this is: a live 3D map, every
+  planet where it really is, right now. The instruction line is now readable
+  (12.5px, 66% white). `SystemTitle` takes `tagline` and `children`, and
+  children sit outside the greeting's own fade.
+- **Start-here shortcuts** (`components/StartHere.jsx`) sit under the
+  greeting. "Fly to" the Sun, Earth or Saturn: one tap and you're somewhere,
+  which teaches that the scene's bodies are there to be flown to. There are
+  also two chips for **Track the ISS live** and **Tonight's sky**, carrying
+  the header's own icons so the header reads afterwards. The chips outlive a
+  first drag, because dragging the camera round isn't the same as knowing
+  where to go. They leave once any body has been focused, and
+  `p4rsec.started` keeps them away on later visits (with no storage they
+  show). On a phone they fill the empty band above the scene. The styling is
+  `.start-chip` on the header's chrome tokens.
+- **The tracker and sky entries are one hook,** `hooks/useModeEntry.js`. The
+  header dock and the new chips both use it, so both play the same
+  cinematic way in (via Earth). It's lifted out of `AppShell` unchanged.
+- **Fix: the speed and settings coach marks were lost to anyone whose first
+  move was to click something.** The marks arm on the scene's first
+  pointer-down, and clicking a planet or chip *is* one. The focused view then
+  ended the run and stored it as seen, so those visitors never saw a mark.
+  Focusing a body now only pauses the run, and it picks up again back home.
+  Scrolling to the catalog still ends it for good.
+
+Strings are in en/vi/ar (`scene.tagline`, `startLabel`, `startFlyTo`,
+`startTracker`, `startSky`). Checked in headless Chrome: desktop, phone and
+Arabic RTL landings, the chips surviving a drag, and chip → Earth → Escape
+home with the shortcuts gone and the speed mark shown. The tracker chip
+goes through `/object/earth` and lands on `/satellites`.
+
+---
+
 ## 5.11.2
 
 **A livelier corona, and a Sun that no longer spins fast on its own view.**

@@ -5,6 +5,7 @@ import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause, SlidersHor
 // import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
 import SystemTitle from '../components/SystemTitle';
+import StartHere from '../components/StartHere';
 import LoadingScreen from '../components/LoadingScreen';
 import { DEFAULT_SYSTEM } from '../data/systems';
 import SpaceDataStrip from '../components/SpaceDataStrip';
@@ -247,6 +248,23 @@ const CategoryBrowser = () => {
         return () => { unsubSky(); unsubTrk(); };
     }, []);
 
+    // ── Start-here shortcuts ───────────────────────────────────────────────
+    // Offered under the greeting until the visitor has been somewhere — any
+    // focused body, however they got there — and then not again on later
+    // visits. Someone who has flown to a planet has learned the one thing the
+    // shortcuts are there to teach; after that they would only be clutter over
+    // the scene. No storage → show them (unlike the coach marks, which are
+    // extra hints: these are the way in).
+    const [startDone, setStartDone] = useState(() => {
+        try { return window.localStorage.getItem('p4rsec.started') === '1'; }
+        catch { return false; }
+    });
+    useEffect(() => {
+        if (!id || startDone) return;
+        setStartDone(true);
+        try { window.localStorage.setItem('p4rsec.started', '1'); } catch { /* private window */ }
+    }, [id, startDone]);
+
     // ── First-visit coach marks ────────────────────────────────────────────
     // Two hints the first time someone explores the scene, one after the other
     // (`coachStep` 0 → speed, 1 → settings): each an arrow and a line of text
@@ -303,11 +321,17 @@ const CategoryBrowser = () => {
         return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', measure); };
     }, [showCoach, coachStep, isMobile]);
 
-    // Leaving the hero ends the run for good; otherwise each step advances on
-    // its own after a while, and the last one fades without marking itself seen.
+    // Scrolling away to the catalog ends the run for good; otherwise each step
+    // advances on its own after a while, and the last one fades without marking
+    // itself seen. Focusing a body only pauses it: the marks are hidden while
+    // something is focused (showCoach) and pick up again back home. It used to
+    // end the run and mark it seen — and since clicking a planet is itself the
+    // pointer-down that arms the marks, anyone whose first move was to click
+    // something lost them for good without ever seeing one.
     useEffect(() => {
         if (coachSeen || !coachArmed) return undefined;
-        if (id || pageScrolled) { endCoach(true); return undefined; }
+        if (pageScrolled) { endCoach(true); return undefined; }
+        if (id) return undefined;
         const t = setTimeout(() => nextCoach(false), 8000);
         return () => clearTimeout(t);
     }, [coachSeen, coachArmed, coachStep, id, pageScrolled, nextCoach, endCoach]);
@@ -553,8 +577,14 @@ const CategoryBrowser = () => {
                         currentId={DEFAULT_SYSTEM}
                         compact={isMobile}
                         hidden={!!id || pageScrolled || hasInteracted3D}
+                        tagline={t('scene.tagline')}
                         hint={t(isMobile ? 'scene.hintMobile' : 'scene.hintDesktop')}
-                    />
+                    >
+                        <StartHere
+                            compact={isMobile}
+                            hidden={!!id || pageScrolled || startDone}
+                        />
+                    </SystemTitle>
 
                     {/* Imagery stands in for objects the scene cannot place */}
                     {object && !inScene && (

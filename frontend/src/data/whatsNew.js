@@ -12,6 +12,13 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.12',
+        changes: [
+            'The front page now says what the site is, and offers a few places to start: fly straight to the Sun, Earth or Saturn, track the ISS live, or see tonight’s sky. They step aside once you’ve been somewhere.',
+            'The tips about speeding up time and the settings drawer no longer get skipped if the first thing you do is click a planet.',
+        ],
+    },
+    {
         version: '5.11',
         changes: [
             'The Sun’s corona is alive now: flames flicker off its edge and its streamers drift outward and swell. The Sun itself also turns much more slowly when you’re looking at it.',

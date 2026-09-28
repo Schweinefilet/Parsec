@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useNavigate, useSearchParams, useMatch, useLocation } from 'react-router-dom';
+import { Link, useSearchParams, useMatch, useLocation } from 'react-router-dom';
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
     Crosshair, Sparkles, Satellite, Aperture, Radio, Archive,
@@ -19,9 +19,7 @@ import { simDate } from '../utils/simTime';
 import { getScaleStage } from '../utils/scaleMode';
 import { subscribeLogo } from '../utils/assetLoading';
 import { syncDocumentHead } from '../utils/documentHead';
-import { armSkyEntry } from '../utils/skyEntry';
-import { armTrackerEntry } from '../utils/trackerEntry';
-import { useObserverLocation } from '../hooks/useObserverLocation';
+import { useModeEntry } from '../hooks/useModeEntry';
 import { useI18n } from '../i18n';
 
 // Icon per category id. Kept beside the tab list rather than duplicating the
@@ -52,36 +50,9 @@ const AppShell = ({ children }) => {
     // the compare view and the sky page it was context for a list that isn't
     // there — and tapping a tab silently threw you back to the solar system.
     const { pathname } = useLocation();
-    const navigate = useNavigate();
-    const { location: skyLocation } = useObserverLocation();
     const onOwnPage = ['/satellites', '/sky'].includes(pathname);
-    // The dive-to-Earth transition (utils/skyEntry.js) needs a real spot to
-    // dive to and a mounted solar-system scene to dive through. Without a
-    // remembered location there is nothing to zoom in on, so the icon just
-    // navigates — /sky's own ask-card handles the prompt from there, same as
-    // it always has. A modified click (new tab, middle-click) is left alone:
-    // the cinematic only makes sense replacing the tab you're already in.
-    // Arms the cinematic and goes to Earth instead, which is on the catch-all
-    // route — so the scene is not torn down, and the ordinary focus fly-in
-    // becomes the transition itself rather than the first half of it: it is
-    // told to land on the pose the tracker's globe opens at. Same
-    // modified-click bail-out as the sky icon below: a middle-click or a
-    // cmd-click is someone asking for a tab, not for a two-second shot.
-    const handleTrackerClick = (e) => {
-        if (pathname === '/satellites') return;
-        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        e.preventDefault();
-        armTrackerEntry();
-        navigate('/object/earth');
-    };
-
-    const handleSkyClick = (e) => {
-        if (pathname === '/sky' || !skyLocation) return;
-        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        e.preventDefault();
-        armSkyEntry(skyLocation);
-        navigate('/object/earth');
-    };
+    // The tracker and sky icons play their cinematic way in (hooks/useModeEntry.js).
+    const { onTrackerClick: handleTrackerClick, onSkyClick: handleSkyClick } = useModeEntry();
     const activeTab = resolveTab(searchParams.get('tab'));
     const setTab = (id) => {
         setSearchParams({ tab: id }, { replace: true });

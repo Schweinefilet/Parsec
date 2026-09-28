@@ -106,6 +106,11 @@ export const en = {
         hintSpeed: 'Speed up or rewind time',
         hintTools: 'Gravity, drift and scale settings',
         hintDismiss: 'Dismiss hint',
+        tagline: 'A live 3D map of our solar system — every planet where it really is, right now',
+        startLabel: 'Places to start',
+        startFlyTo: 'Fly to',
+        startTracker: 'Track the ISS live',
+        startSky: 'Tonight’s sky',
     },
 
     catalog: {

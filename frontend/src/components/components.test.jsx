@@ -6,6 +6,7 @@ import ObjectStatsPanel from './ObjectStatsPanel';
 import ObjectSearch from './ObjectSearch';
 import ErrorBoundary from './ErrorBoundary';
 import DistanceChart from './DistanceChart';
+import StartHere from './StartHere';
 import { OBJECTS, getObjectById } from '../data/objectCatalog';
 
 afterEach(cleanup);
@@ -185,5 +186,27 @@ describe('DistanceChart', () => {
         const flat = Array.from({ length: 10 }, (_, i) => ({ time: 1700000000 + i * 86400, value: 5 }));
         const { container } = render(<DistanceChart data={flat} />);
         expect(container.querySelector('path')?.getAttribute('d') ?? '').not.toContain('NaN');
+    });
+});
+
+describe('StartHere', () => {
+    it('offers a few bodies to fly to and both other modes', () => {
+        withRouter(<StartHere />);
+        const hrefs = screen.getAllByRole('link').map(a => a.getAttribute('href'));
+        expect(hrefs).toEqual(['/object/sun', '/object/earth', '/object/saturn', '/satellites', '/sky']);
+        expect(screen.getByRole('link', { name: 'Fly to Saturn' })).toBeInTheDocument();
+        expect(screen.getByText('Track the ISS live')).toBeInTheDocument();
+    });
+
+    it('is a labelled navigation region', () => {
+        withRouter(<StartHere />);
+        expect(screen.getByRole('navigation', { name: 'Places to start' })).toBeInTheDocument();
+    });
+
+    it('takes itself out of reach when hidden, not just out of sight', () => {
+        const { container } = withRouter(<StartHere hidden />);
+        const nav = container.querySelector('nav');
+        expect(nav.style.opacity).toBe('0');
+        expect(nav.hasAttribute('inert')).toBe(true);
     });
 });
