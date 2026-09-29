@@ -7,6 +7,7 @@ import ObjectSearch from './ObjectSearch';
 import ErrorBoundary from './ErrorBoundary';
 import DistanceChart from './DistanceChart';
 import StartHere from './StartHere';
+import CoachMark from './CoachMark';
 import { OBJECTS, getObjectById } from '../data/objectCatalog';
 
 afterEach(cleanup);
@@ -208,5 +209,39 @@ describe('StartHere', () => {
         const nav = container.querySelector('nav');
         expect(nav.style.opacity).toBe('0');
         expect(nav.hasAttribute('inert')).toBe(true);
+    });
+});
+
+describe('CoachMark', () => {
+    // The burger, where it sits on a 390px phone.
+    const target = { left: 290, right: 326, top: 10, bottom: 46 };
+
+    it('is named by its own words and what pressing it does', () => {
+        // It used to carry aria-label="Dismiss hint", which replaced the words
+        // for a screen reader: it announced the button and never the tip.
+        render(<CoachMark text="Language, sharing and more" target={target} onDismiss={() => {}} />);
+        expect(screen.getByRole('button', { name: /^Language, sharing and more\W+Dismiss hint$/ })).toBeInTheDocument();
+    });
+
+    it('dismisses when pressed', () => {
+        const onDismiss = vi.fn();
+        render(<CoachMark text="Speed up or rewind time" target={target} onDismiss={onDismiss} />);
+        fireEvent.click(screen.getByRole('button'));
+        expect(onDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('is drawn and placed once measured, not left hidden at the origin', () => {
+        render(<CoachMark text="Gravity, drift and scale settings" target={target} side="below" onDismiss={() => {}} />);
+        const tip = screen.getByRole('button');
+        expect(tip.style.visibility).toBe('visible');
+        // Placed relative to its target: under the burger, not at 0,0.
+        expect(parseFloat(tip.style.top)).toBeGreaterThan(target.bottom);
+    });
+
+    it('has a fixed width ceiling so a fixed box cannot shrink to the room beside it', () => {
+        render(<CoachMark text="Language, sharing and more" target={target} maxWidth={230} onDismiss={() => {}} />);
+        const tip = screen.getByRole('button');
+        expect(tip.style.width).toBe('max-content');
+        expect(parseFloat(tip.style.maxWidth)).toBeLessThanOrEqual(230);
     });
 });

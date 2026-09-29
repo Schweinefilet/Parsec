@@ -20,6 +20,7 @@ import { getScaleStage } from '../utils/scaleMode';
 import { subscribeLogo } from '../utils/assetLoading';
 import { syncDocumentHead } from '../utils/documentHead';
 import { useModeEntry } from '../hooks/useModeEntry';
+import { useTipsHeld } from '../hooks/useCoachTips';
 import { useI18n } from '../i18n';
 
 // Icon per category id. Kept beside the tab list rather than duplicating the
@@ -138,19 +139,32 @@ const AppShell = ({ children }) => {
     // ScenePanel/NightSkyPanel's own onOpen-ends-the-hint convention.
     const onMenuOpened = useCallback(() => endMenuCoach(true), [endMenuCoach]);
 
+    // It takes its turn (utils/coachTips.js). Armed from a timer at mount, this
+    // one ran out under the loading screen, then landed on the greeting's title
+    // and on top of the scene's own tips. Now it waits until the loading screen
+    // has gone, the greeting has gone and the scene's tips are done, then arms
+    // a beat later. Only on the home view: the catalog and the scene are what
+    // the tip is about.
+    const tipsHeld = useTipsHeld();
+    const onHome = pathname === '/';
     useEffect(() => {
-        if (menuCoachSeen || !isMobile) return undefined;
+        if (menuCoachSeen || !isMobile || !onHome || tipsHeld) {
+            setMenuCoachArmed(false);
+            return undefined;
+        }
         const timer = setTimeout(() => setMenuCoachArmed(true), 1300);
         return () => clearTimeout(timer);
-    }, [menuCoachSeen, isMobile]);
+    }, [menuCoachSeen, isMobile, onHome, tipsHeld]);
 
-    const showMenuCoach = menuCoachArmed && !menuCoachSeen && isMobile && !searchOpen;
+    const showMenuCoach = menuCoachArmed && !menuCoachSeen && isMobile && onHome && !tipsHeld && !searchOpen;
 
     useEffect(() => {
         if (!showMenuCoach) { setMenuCoachRect(null); return undefined; }
         const measure = () => {
             const el = document.querySelector('[data-coach="menu"]');
-            if (el) setMenuCoachRect(el.getBoundingClientRect());
+            if (!el) return;
+            const r = el.getBoundingClientRect();
+            setMenuCoachRect({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
         };
         measure();
         const raf = requestAnimationFrame(measure);
@@ -426,14 +440,10 @@ const AppShell = ({ children }) => {
             {showMenuCoach && menuCoachRect && (
                 <CoachMark
                     text={t('nav.hintMenu')}
-                    arrow="up"
+                    target={menuCoachRect}
+                    side="below"
+                    maxWidth={230}
                     onDismiss={() => endMenuCoach(true)}
-                    style={{
-                        left: menuCoachRect.left + menuCoachRect.width / 2,
-                        top: menuCoachRect.bottom + 8,
-                        transform: 'translateX(-50%)',
-                        maxWidth: 190,
-                    }}
                 />
             )}
 

@@ -16,6 +16,67 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.12.1
+
+**The first-visit tips and the phone's time control no longer land on top of
+the screen around them.** On a 390px phone, the first minute of the site had
+four things wrong with it:
+
+- **The burger tip was drawn across the page title.** It was placed with
+  `left: 308px`, and a fixed box sizes itself to the room to its right, which
+  there is 82px. "Language, sharing and more" wrapped into a three-line
+  sliver over the title and the tagline.
+- **The speed tip was printed over "Explore the catalog".** It was centred on
+  the fast-forward button, and on a phone that pill sits directly above it.
+  Text on text, both unreadable.
+- **Three things claimed the same free pixels at once.** The burger tip armed
+  on a timer at mount, so it ran out its eight seconds under the loading
+  screen, then reappeared on top of the greeting, and could sit beside the
+  scene's own tips.
+- **The time pill was 408px wide inside 364.** Flex squeezed the divider to
+  nothing, the clock read "06:4" (the "AM" alone is 19px the row didn't
+  have), and the collapse button sat outside the pill where nothing could
+  reach it.
+
+What changed:
+
+- **`CoachMark` is a callout now.** One line in a small opaque surface with a
+  pointer, instead of bare text and an arrow floating over the scene. The
+  surface is opaque on purpose: the pointer is a turned square overlapping the
+  callout's edge, and two translucent layers there show a seam. Callers give
+  it a `target` rect and a `side`; `utils/coachPlacement.js` places it from the
+  callout's own measured size, clamped inside 12px gutters, with the pointer
+  kept on the target when the box has to slide to stay on screen. `avoid`
+  lists rects to steer round, which is how the phone's speed and settings tips
+  clear the Explore pill. It flips above/below when there is no room. The four
+  call sites lost their pixel arithmetic.
+- **Tips take turns.** `utils/coachTips.js` is a set of named holds with a
+  subscribe. The loading screen, the greeting and the scene's tips (from the
+  first touch until the run ends) each hold the header's burger tip back, and
+  it arms a beat after the last one lets go. On a phone the order is now
+  speed, then settings, then menu, one at a time. It is home-view only, since
+  the catalog and the scene are what it is about.
+- **The phone's time pill fits.** No divider (it was the first thing
+  squeezed), 4px gaps, a 100px reading column, and the scrubber takes whatever
+  is left in place of a fixed 100px (it has a 32px floor). The clock moved to
+  the second line, at the far end from the status, because the date and the
+  clock side by side need about 125px in Vietnamese and Arabic, whose dates run
+  longer. The status ("Live", or "1w/s, 4 days ahead") is the more important
+  of the two, so when they don't both fit it is the clock that drops off, whole.
+  The clock is 24-hour on a phone. Desktop is untouched.
+- **The tip is named by its words.** It carried `aria-label="Dismiss hint"`,
+  which replaced the tip's text for a screen reader. The name is now the tip
+  followed by "Dismiss hint".
+
+No new strings. Tests cover the placement maths (gutters, flips, avoiding a
+neighbour, RTL mirroring, a 360px phone), the holds and their hooks, and the
+callout's name and placement. Checked in headless Chrome at 390px in English,
+Vietnamese and Arabic, at 360px in English and Vietnamese (live and running
+fast, with a check that nothing sits outside the pill), and on a 1280px
+desktop, stepping through every tip.
+
+---
+
 ## 5.12.0
 
 **The home view now tells a first-time visitor what the page is and where to
