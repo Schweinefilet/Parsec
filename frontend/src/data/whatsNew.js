@@ -14,10 +14,11 @@ export const WHATS_NEW = [
     {
         version: '5.12',
         changes: [
-            'The front page now says what the site is, and offers a few places to start: fly straight to the Sun, Earth or Saturn, track the ISS live, or see tonight’s sky. They step aside once you’ve been somewhere.',
+            'The front page now says what the site is in one line, under the title.',
             'The tips about speeding up time and the settings drawer no longer get skipped if the first thing you do is click a planet.',
             'On a phone, the first-visit tips are tidier: each one now sits in its own small bubble instead of on top of other text, and they appear one at a time instead of piling up.',
             'On a phone, the time bar now fits: the clock is no longer cut off and the button that collapses it is back where you can reach it.',
+            'The first-visit tips now run in the same order on a phone and on a computer, and the last one points at the header’s controls, where the ISS tracker and tonight’s sky are.',
         ],
     },
     {

@@ -28,12 +28,12 @@ import { useI18n } from '../i18n';
  * lingers after you have started is in the way of what you started doing.
  *
  * `tagline` is the one line that says what the page is, between the name and
- * the instruction. `children` go under all of it and are NOT part of that
- * fade — they manage their own (the start-here shortcuts outlive a first
- * drag; see StartHere). The greeting fading leaves its space behind, so
- * whatever is below it stays put rather than jumping up.
+ * the instruction.
+ *
+ * The same component on a phone and on a desktop (`compact` only changes the
+ * sizes), so the first thing anyone sees reads the same on both.
  */
-const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null, tagline = null, children = null }) => {
+const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null, tagline = null }) => {
     const { t } = useI18n();
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
@@ -204,7 +204,6 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null, 
                 </div>
             )}
 
-            {children}
         </div>
     );
 };

@@ -6,8 +6,8 @@ import { useObserverLocation } from './useObserverLocation';
 /**
  * Click handlers for the two other modes — the satellite tracker and the
  * night sky — that play their cinematic way in rather than cutting to the
- * page. Shared by every link into them (the header dock, the phone menu, the
- * home view's start-here shortcuts), so they all arrive the same way.
+ * page. Shared by every link into them (the header dock and the phone menu),
+ * so they all arrive the same way.
  *
  * Each is meant for the onClick of a <Link> to the mode's own route: when it
  * steps aside (already there, a modified click, nowhere to dive to), the

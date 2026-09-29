@@ -37,7 +37,7 @@ export const vi = {
         back: 'Quay lại',
         menu: 'Menu',
         menuClose: 'Đóng menu',
-        hintMenu: 'Ngôn ngữ, chia sẻ và hơn thế nữa',
+        hintMenu: 'Theo dõi ISS, bầu trời đêm nay, ngôn ngữ và hơn thế nữa',
         copyLink: 'Sao chép link đến khung nhìn này',
         copied: 'Đã sao chép link',
         tracker: 'Theo dõi vệ tinh',
@@ -112,10 +112,6 @@ export const vi = {
         hintTools: 'Cài đặt hấp dẫn, trôi và tỷ lệ',
         hintDismiss: 'Bỏ qua gợi ý',
         tagline: 'Bản đồ 3D trực tiếp của hệ Mặt Trời — mọi hành tinh ở đúng vị trí thật của nó, ngay lúc này',
-        startLabel: 'Bắt đầu từ đây',
-        startFlyTo: 'Bay đến',
-        startTracker: 'Theo dõi ISS trực tiếp',
-        startSky: 'Bầu trời đêm nay',
     },
 
     catalog: {
