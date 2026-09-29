@@ -43,7 +43,7 @@ const TAB_ICONS = {
 };
 
 const AppShell = ({ children }) => {
-    const { t, category, object: localizeObject } = useI18n();
+    const { t, rtl, category, object: localizeObject } = useI18n();
     const [searchParams, setSearchParams] = useSearchParams();
     const match = useMatch('/object/:id');
     const focusedId = match?.params?.id;
@@ -117,14 +117,15 @@ const AppShell = ({ children }) => {
     const [whatsNewOpen, setWhatsNewOpen] = useState(false);
     const releaseLine = pkg.version.split('.').slice(0, 2).join('.');
 
-    // First-visit hint pointing at the burger menu — mobile only, since
-    // that's the only place five icons turned into one that now has to be
-    // discovered rather than just seen. Same shape as NightSkyPage.jsx's
-    // own single-target coach mark (its own flag, `p4rsec.coachMenu` —
-    // having seen a *different* page's hint doesn't mean this one has been
-    // seen), including the "no timer, no nag" honesty: a stored flag means
-    // seen, a plain time-out doesn't set one, so a visitor who glanced away
-    // gets another chance next visit.
+    // First-visit hint pointing at the header's controls: the burger menu on a
+    // phone, the dock on a desktop. It is the one place the tracker and the
+    // night sky are introduced, so it names them. Both are icons — five turned
+    // into one on a phone — that have to be discovered rather than just seen.
+    // Same shape as NightSkyPage.jsx's own single-target coach mark (its own
+    // flag, `p4rsec.coachMenu` — having seen a *different* page's hint doesn't
+    // mean this one has been seen), including the "no timer, no nag" honesty:
+    // a stored flag means seen, a plain time-out doesn't set one, so a visitor
+    // who glanced away gets another chance next visit.
     const [menuCoachSeen, setMenuCoachSeen] = useState(() => {
         try { return window.localStorage.getItem('p4rsec.coachMenu') === '1'; }
         catch { return true; }
@@ -136,32 +137,33 @@ const AppShell = ({ children }) => {
         if (persist) { try { window.localStorage.setItem('p4rsec.coachMenu', '1'); } catch { /* private window */ } }
     }, []);
     // Opening the menu themselves ends the run — they found it, same as
-    // ScenePanel/NightSkyPanel's own onOpen-ends-the-hint convention.
+    // ScenePanel/NightSkyPanel's own onOpen-ends-the-hint convention. On a
+    // desktop that is a press on anything in the dock (see below).
     const onMenuOpened = useCallback(() => endMenuCoach(true), [endMenuCoach]);
 
     // It takes its turn (utils/coachTips.js). Armed from a timer at mount, this
     // one ran out under the loading screen, then landed on the greeting's title
     // and on top of the scene's own tips. Now it waits until the loading screen
     // has gone, the greeting has gone and the scene's tips are done, then arms
-    // a beat later. Only on the home view: the catalog and the scene are what
-    // the tip is about.
+    // a beat later — the same order on a phone and a desktop. Only on the home
+    // view: the catalog and the scene are what the tip is about.
     const tipsHeld = useTipsHeld();
     const onHome = pathname === '/';
     useEffect(() => {
-        if (menuCoachSeen || !isMobile || !onHome || tipsHeld) {
+        if (menuCoachSeen || !onHome || tipsHeld) {
             setMenuCoachArmed(false);
             return undefined;
         }
         const timer = setTimeout(() => setMenuCoachArmed(true), 1300);
         return () => clearTimeout(timer);
-    }, [menuCoachSeen, isMobile, onHome, tipsHeld]);
+    }, [menuCoachSeen, onHome, tipsHeld]);
 
-    const showMenuCoach = menuCoachArmed && !menuCoachSeen && isMobile && onHome && !tipsHeld && !searchOpen;
+    const showMenuCoach = menuCoachArmed && !menuCoachSeen && onHome && !tipsHeld && !searchOpen;
 
     useEffect(() => {
         if (!showMenuCoach) { setMenuCoachRect(null); return undefined; }
         const measure = () => {
-            const el = document.querySelector('[data-coach="menu"]');
+            const el = document.querySelector(isMobile ? '[data-coach="menu"]' : '.floating-dock');
             if (!el) return;
             const r = el.getBoundingClientRect();
             setMenuCoachRect({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
@@ -170,7 +172,16 @@ const AppShell = ({ children }) => {
         const raf = requestAnimationFrame(measure);
         window.addEventListener('resize', measure);
         return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', measure); };
-    }, [showMenuCoach]);
+    }, [showMenuCoach, isMobile]);
+
+    // A desktop has no menu to open: pressing any button in the dock is finding it.
+    useEffect(() => {
+        if (!showMenuCoach || isMobile) return undefined;
+        const dock = document.querySelector('.floating-dock');
+        const found = () => endMenuCoach(true);
+        dock?.addEventListener('pointerdown', found);
+        return () => dock?.removeEventListener('pointerdown', found);
+    }, [showMenuCoach, isMobile, endMenuCoach]);
 
     // A miss doesn't mark it seen — the next visit gets another chance,
     // same convention as every other coach mark in this codebase.
@@ -434,15 +445,21 @@ const AppShell = ({ children }) => {
               </div>
             </header>
 
-            {/* First-visit hint at the burger menu — position:fixed, viewport-
-                absolute from the measured rect, so it lands right regardless
-                of scroll position or page direction. */}
+            {/* First-visit hint at the header's controls (the burger on a phone,
+                the dock on a desktop) — position:fixed, viewport-absolute from
+                the measured rect, so it lands right regardless of scroll
+                position or page direction. */}
             {showMenuCoach && menuCoachRect && (
                 <CoachMark
                     text={t('nav.hintMenu')}
                     target={menuCoachRect}
-                    side="below"
-                    maxWidth={230}
+                    // A phone's burger is a small button at the screen's edge, so
+                    // the tip hangs below it. A desktop's dock is the header's
+                    // whole trailing end, with the scale caption right under it,
+                    // so the tip sits beside it in the header band instead, on the
+                    // side that faces the page (the dock is at the other end in Arabic).
+                    side={isMobile ? 'below' : (rtl ? 'right' : 'left')}
+                    maxWidth={isMobile ? 230 : 380}
                     onDismiss={() => endMenuCoach(true)}
                 />
             )}

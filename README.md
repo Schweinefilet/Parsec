@@ -76,8 +76,9 @@ frontend/src/
                          the desktop panel and the mobile sheet
     DistanceChart.jsx    inline-SVG distance-over-time chart
     CoachMark.jsx        first-visit tips: one line in a small callout with a
-                         pointer, placed by utils/coachPlacement.js
-    StartHere.jsx        home-view start-here shortcuts under the greeting
+                         pointer, placed by utils/coachPlacement.js. The same
+                         three on a phone and a desktop, in this order: speed,
+                         scene settings, then the header's controls
     WhatsNew.jsx         the "Version history" panel behind the header version
     LanguagePicker.jsx   the language menu; SystemTitle is the scene's heading
     LiveFeed.jsx / SpaceDataStrip.jsx   the telemetry ticker and its data

@@ -16,6 +16,37 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.12.2
+
+**The start-here chips are gone, and a desktop now gets the same first-visit
+tips as a phone.** The "Fly to Sun / Earth / Saturn" row and the "Track the ISS
+live" and "Tonight's sky" chips that 5.12.0 put in the middle of the first view
+read as clutter more than as help, so they are removed. What is left of the
+greeting is the title, the tagline and the instruction line: one component
+(`SystemTitle`), at two sizes, the same on both.
+
+- **Removed:** `StartHere`, its `.start-here` and `.start-chip` styles, the
+  `scene.start*` strings in en, vi and ar, the `p4rsec.started` flag, and
+  `SystemTitle`'s `children` (nothing else used it). `useModeEntry` stays: the
+  header dock and the phone menu still use it.
+- **The header tip names what the chips used to.** They were the only place the
+  tracker and the night sky were introduced outside the header's own icons, so
+  `nav.hintMenu` now reads "ISS tracker, tonight's sky, language and more"
+  (it was "Language, sharing and more").
+- **That tip is on a desktop too.** It was phone-only, so a desktop ran two tips
+  and a phone three. Both now run speed, then settings, then the header's
+  controls, one at a time, behind the same holds (`utils/coachTips.js`). On a
+  phone it hangs below the burger. On a desktop it sits beside the dock, in the
+  header band, on the side facing the page (left of the dock, right of it in
+  Arabic), and not below it, where the scale caption is parked. Pressing
+  anything in the dock ends it, as opening the menu does on a phone. One
+  `p4rsec.coachMenu` flag covers both.
+
+Checked in headless Chrome: the phone at 390px and the desktop at 1280px,
+stepping through all three tips, and Arabic on a desktop for the mirrored side.
+
+---
+
 ## 5.12.1
 
 **The first-visit tips and the phone's time control no longer land on top of

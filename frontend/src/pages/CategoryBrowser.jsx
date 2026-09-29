@@ -5,7 +5,6 @@ import { ChevronDown, ChevronLeft, ArrowUpRight, Ruler, Orbit, Pause, SlidersHor
 // import StarfieldBg from '../components/StarfieldBg';
 import SolarSystem3D from '../components/SolarSystem3D';
 import SystemTitle from '../components/SystemTitle';
-import StartHere from '../components/StartHere';
 import LoadingScreen from '../components/LoadingScreen';
 import { DEFAULT_SYSTEM } from '../data/systems';
 import SpaceDataStrip from '../components/SpaceDataStrip';
@@ -249,27 +248,11 @@ const CategoryBrowser = () => {
         return () => { unsubSky(); unsubTrk(); };
     }, []);
 
-    // ── Start-here shortcuts ───────────────────────────────────────────────
-    // Offered under the greeting until the visitor has been somewhere — any
-    // focused body, however they got there — and then not again on later
-    // visits. Someone who has flown to a planet has learned the one thing the
-    // shortcuts are there to teach; after that they would only be clutter over
-    // the scene. No storage → show them (unlike the coach marks, which are
-    // extra hints: these are the way in).
-    const [startDone, setStartDone] = useState(() => {
-        try { return window.localStorage.getItem('p4rsec.started') === '1'; }
-        catch { return false; }
-    });
-    useEffect(() => {
-        if (!id || startDone) return;
-        setStartDone(true);
-        try { window.localStorage.setItem('p4rsec.started', '1'); } catch { /* private window */ }
-    }, [id, startDone]);
-
     // ── First-visit coach marks ────────────────────────────────────────────
     // Two hints the first time someone explores the scene, one after the other
-    // (`coachStep` 0 → speed, 1 → settings): each an arrow and a line of text
-    // pinned to its control (see the measure effect). A stored flag means
+    // (`coachStep` 0 → speed, 1 → settings): each a callout pointing at its
+    // control (see the measure effect). A third, at the header's controls, is
+    // AppShell's and follows these (utils/coachTips.js). A stored flag means
     // "seen"; a plain time-out doesn't set it, so a visitor who glanced away
     // gets one more chance next time.
     const [coachSeen, setCoachSeen] = useState(() => {
@@ -607,12 +590,7 @@ const CategoryBrowser = () => {
                         hidden={!!id || pageScrolled || hasInteracted3D}
                         tagline={t('scene.tagline')}
                         hint={t(isMobile ? 'scene.hintMobile' : 'scene.hintDesktop')}
-                    >
-                        <StartHere
-                            compact={isMobile}
-                            hidden={!!id || pageScrolled || startDone}
-                        />
-                    </SystemTitle>
+                    />
 
                     {/* Imagery stands in for objects the scene cannot place */}
                     {object && !inScene && (

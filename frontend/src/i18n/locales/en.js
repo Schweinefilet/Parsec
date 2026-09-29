@@ -32,7 +32,7 @@ export const en = {
         back: 'Go back',
         menu: 'Menu',
         menuClose: 'Close menu',
-        hintMenu: 'Language, sharing and more',
+        hintMenu: 'ISS tracker, tonight’s sky, language and more',
         copyLink: 'Copy a link to this view',
         copied: 'Link copied',
         tracker: 'Track a satellite',
@@ -107,10 +107,6 @@ export const en = {
         hintTools: 'Gravity, drift and scale settings',
         hintDismiss: 'Dismiss hint',
         tagline: 'A live 3D map of our solar system — every planet where it really is, right now',
-        startLabel: 'Places to start',
-        startFlyTo: 'Fly to',
-        startTracker: 'Track the ISS live',
-        startSky: 'Tonight’s sky',
     },
 
     catalog: {
