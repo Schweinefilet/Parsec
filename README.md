@@ -75,7 +75,8 @@ frontend/src/
     ObjectDetailBody.jsx description + stats + distance chart, shared by
                          the desktop panel and the mobile sheet
     DistanceChart.jsx    inline-SVG distance-over-time chart
-    CoachMark.jsx        first-visit hint callouts (arrow + one line, no box)
+    CoachMark.jsx        first-visit tips: one line in a small callout with a
+                         pointer, placed by utils/coachPlacement.js
     StartHere.jsx        home-view start-here shortcuts under the greeting
     WhatsNew.jsx         the "Version history" panel behind the header version
     LanguagePicker.jsx   the language menu; SystemTitle is the scene's heading
@@ -92,6 +93,7 @@ frontend/src/
   hooks/
     useSatelliteTracking.js  every tracked spacecraft, propagated from TLEs
     useNearViewport.js    gate expensive loads on approaching the viewport
+    useCoachTips.js       hold the first-visit tips back / wait for them (below)
     useObserverLocation.js / useNearestCountry.js / useMediaQuery.js  …
   utils/
     simTime.js            the clock the scene runs on (see "Time")
@@ -99,6 +101,10 @@ frontend/src/
     vizMode.js            the gravity overlay mode: off / grid / field lines
     driftControl.js       idle camera drift rates (yaw/pitch/roll), persisted
     assetLoading.js       what the scene is loading, for the loading screen
+    coachTips.js          who is in the first-visit tips' way (loading screen,
+                          greeting, the scene's own tips), so they take turns
+    coachPlacement.js     where a tip goes: clamped to the screen, pointer kept
+                          on its target, steered round neighbours
     orbits.js             real heliocentric + Keplerian position maths
     orbitalMotion.js      moon speed/angle arithmetic (see "Watch out for")
     gravityModel.js       real mass → drawable field weight, for both overlays

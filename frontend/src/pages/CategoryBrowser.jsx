@@ -24,6 +24,7 @@ import { targetOrbitSpeed } from '../utils/orbitalMotion';
 import { useHorizons } from '../hooks/useHorizons';
 import { useIsMobile, useIsShortViewport, useReducedMotion } from '../hooks/useMediaQuery';
 import { useCardStack } from '../hooks/useCardStack';
+import { useHoldTips } from '../hooks/useCoachTips';
 import {
     getScaleStage, cycleScaleStage, subscribeScale, setScaleStage as setSceneStage,
     SCALE_COMPRESSED, SCALE_DISTANCES, SCALE_SIZES,
@@ -277,7 +278,9 @@ const CategoryBrowser = () => {
     });
     const [coachArmed, setCoachArmed] = useState(false);
     const [coachStep, setCoachStep] = useState(0);
-    const [coachRects, setCoachRects] = useState(null);
+    // { target, avoid }: the control the current step points at, and the rects
+    // its tip must keep clear of.
+    const [coachGeo, setCoachGeo] = useState(null);
     const endCoach = useCallback((persist) => {
         setCoachSeen(true);
         if (persist) { try { window.localStorage.setItem('p4rsec.coach', '1'); } catch { /* private window */ } }
@@ -304,17 +307,42 @@ const CategoryBrowser = () => {
 
     const showCoach = coachArmed && !coachSeen && !id && !pageScrolled;
 
-    // Measure the current step's control so its hint can centre on it and sit a
+    // Keep the header's burger tip (AppShell) off the screen until this run is
+    // over, and until the greeting has gone: on a phone it sits right over the
+    // greeting's title, and beside the speed tip it is one more thing to read.
+    // Held from the first touch, because that is what arms this run.
+    useHoldTips('greeting', !(id || pageScrolled || hasInteracted3D));
+    useHoldTips('scene-tips', !coachSeen && hasInteracted3D);
+
+    // Measure the current step's control so its hint can point at it and sit a
     // clear gap away. Re-measured on resize and one frame later (layout settles
     // after the toggles fade in).
     useEffect(() => {
-        if (!showCoach) { setCoachRects(null); return undefined; }
-        // Step 0 aims at the fast-forward button when the transport is open,
-        // otherwise the whole (collapsed) time pill.
-        const pick = () => (coachStep === 0
-            ? (document.querySelector('[data-coach="ff"]') ?? document.querySelector('[data-coach="time"]'))
-            : document.querySelector('[data-coach="tab"]'));
-        const measure = () => setCoachRects(pick()?.getBoundingClientRect() ?? null);
+        if (!showCoach) { setCoachGeo(null); return undefined; }
+        const rectOf = (el) => {
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+        };
+        const measure = () => {
+            // On a phone the "Explore the catalog" pill sits between the settings
+            // tab and the time pill, in the way of a tip beside the one or above
+            // the other. Elsewhere it is across the screen and not in play.
+            const explore = isMobile ? rectOf(document.querySelector('[data-coach="explore"]')) : null;
+            const avoid = explore ? [explore] : [];
+            if (coachStep !== 0) {
+                const target = rectOf(document.querySelector('[data-coach="tab"]'));
+                setCoachGeo(target && { target, avoid });
+                return;
+            }
+            // Speed. On a phone the tip points at the whole time pill (the scrubber
+            // is a time control too), because a tip centred on the fast-forward
+            // button would sit right on that Explore pill. On a desktop it points
+            // at the fast-forward button itself.
+            const pill = document.querySelector('[data-coach="time"]');
+            const target = rectOf(isMobile ? pill : (document.querySelector('[data-coach="ff"]') ?? pill));
+            setCoachGeo(target && { target, avoid });
+        };
         measure();
         const raf = requestAnimationFrame(measure);
         window.addEventListener('resize', measure);
@@ -725,6 +753,7 @@ const CategoryBrowser = () => {
                             <button
                                 onClick={scrollToCatalog}
                                 aria-label={t('scene.scrollToCatalog')}
+                                data-coach="explore"
                                 inert={(!!id || pageScrolled) || undefined}
                                 className="chip explore-chip transition-opacity duration-700 focus-ring"
                                 style={{
@@ -828,36 +857,26 @@ const CategoryBrowser = () => {
                         one control at a time (coachStep). All geometry is
                         viewport-absolute, from the anchor's measured rect, so it
                         lands right in a mirrored right-to-left layout too. */}
-                    {showCoach && coachStep === 0 && coachRects && (
+                    {showCoach && coachStep === 0 && coachGeo && (
                         <CoachMark
                             text={t('scene.hintSpeed')}
-                            arrow="down"
+                            target={coachGeo.target}
+                            avoid={coachGeo.avoid}
+                            side="above"
+                            maxWidth={260}
                             onDismiss={() => nextCoach(true)}
-                            style={{
-                                left: coachRects.left + coachRects.width / 2,
-                                bottom: window.innerHeight - coachRects.top + 8,
-                                transform: 'translateX(-50%)',
-                                maxWidth: 260,
-                            }}
                         />
                     )}
-                    {showCoach && coachStep === 1 && coachRects && (
+                    {showCoach && coachStep === 1 && coachGeo && (
                         <CoachMark
                             text={t('scene.hintTools')}
-                            arrow={rtl ? 'right' : 'left'}
+                            target={coachGeo.target}
+                            avoid={coachGeo.avoid}
+                            // On the side that faces the scene: the tab hugs the
+                            // leading edge, so right of it in English, left in Arabic.
+                            side={rtl ? 'left' : 'right'}
+                            maxWidth={isMobile ? 250 : 320}
                             onDismiss={() => nextCoach(true)}
-                            style={{
-                                // sits just outside the tab, on the side that
-                                // faces the scene — the tab hugs the leading
-                                // edge, so left of it in Arabic, right in English
-                                left: rtl
-                                    ? coachRects.left - (isMobile ? 8 : 12)
-                                    : coachRects.right + (isMobile ? 8 : 12),
-                                top: coachRects.top + coachRects.height / 2,
-                                transform: rtl ? 'translate(-100%, -50%)' : 'translateY(-50%)',
-                                whiteSpace: isMobile ? 'normal' : 'nowrap',
-                                maxWidth: isMobile ? 190 : 320,
-                            }}
                         />
                     )}
 

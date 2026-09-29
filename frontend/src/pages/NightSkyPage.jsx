@@ -319,14 +319,11 @@ const NightSkyPage = () => {
             {showCoach && coachRect && !showArCard && (
                 <CoachMark
                     text={t('nightSky.hintSettings')}
-                    arrow={rtl ? 'right' : 'left'}
+                    target={coachRect}
+                    // The tab hugs the leading edge, so the tip opens toward the sky.
+                    side={rtl ? 'left' : 'right'}
+                    maxWidth={200}
                     onDismiss={() => endCoach(true)}
-                    style={{
-                        left: rtl ? coachRect.left - 12 : coachRect.right + 12,
-                        top: coachRect.top + coachRect.height / 2,
-                        transform: rtl ? 'translate(-100%, -50%)' : 'translateY(-50%)',
-                        maxWidth: 190,
-                    }}
                 />
             )}
             <p

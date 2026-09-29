@@ -4,6 +4,7 @@ import {
     subscribeAssets, assetsEverReady, holdLogo, releaseLogo,
 } from '../utils/assetLoading';
 import { useReducedMotion } from '../hooks/useMediaQuery';
+import { useHoldTips } from '../hooks/useCoachTips';
 import EncryptedText from './EncryptedText';
 import { useEncryptedText, cipherFrames } from '../hooks/useEncryptedText';
 import { useI18n } from '../i18n';
@@ -161,6 +162,9 @@ const LoadingScreen = () => {
     const [home, setHome] = useState(null);
     const reduceMotion = useReducedMotion();
     const flyingRef = useRef(null);
+    // A first-visit tip that shows up under this screen runs out its timer
+    // where nobody can see it, so they wait until it has gone.
+    useHoldTips('loading', !suppressed && !gone);
 
     // One decode, shared by both copies of the flying wordmark — see
     // EncryptedText.jsx for why it cannot be two. Settles well inside

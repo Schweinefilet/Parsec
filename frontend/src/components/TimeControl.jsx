@@ -71,6 +71,18 @@ const btn = (active) => ({
     color: active ? '#fff' : 'rgba(255,255,255,0.72)',
 });
 
+// The phone's row has to fit a 390px screen with the transport, the reading,
+// the scrubber and two more buttons in it, and it did not: it measured 408px
+// inside 364, so the divider squashed to nothing, the time was clipped
+// ("06:4"), and the collapse button sat outside the pill. What it now spends:
+// no divider, 4px gaps, and a reading column of this width, with the clock
+// moved to the second line beside the status (the date and the clock together
+// need ~125px in Vietnamese and Arabic, whose dates run longer). The scrubber
+// takes whatever is left in place of a fixed 100px. The clock is 24-hour on a
+// phone: an "AM" is 19px the line can't spare, and it is the astronomer's clock.
+const COLUMN_MOBILE = 100;
+const CLOCK_MOBILE = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
+
 /**
  * Scrub the solar system through time.
  *
@@ -289,7 +301,7 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
             <div
                 ref={pillRef}
                 style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
+                    display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6,
                     padding: '7px 10px',
                     borderRadius: 'var(--r-full)',
                     // The shared chrome recipe — the same scrim, hairline and
@@ -352,7 +364,7 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
                             the right, where the past is) and the two arrow icons
                             mirror with it via `flip-rtl`. Play/pause is symmetric
                             and stays put. */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 4 : 6 }}>
                             <button onClick={() => stepRate(-1)} style={btn(false)} aria-label={t('time.slower')}>
                                 <Rewind className="flip-rtl" style={{ width: 15, height: 15 }} />
                             </button>
@@ -375,14 +387,19 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
                             </button>
                         </div>
 
-                        <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.14)', margin: '0 2px' }} />
+                        {/* Not on a phone: the row is already wider than the screen
+                            there, and this is the first thing flex squeezes (it
+                            measured 0px wide at 390). */}
+                        {!isMobile && (
+                            <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.14)', margin: '0 2px' }} />
+                        )}
 
                         {/* A fixed width, not a minimum: the date, the clock
                             and the offset line all change length as you scrub
                             (month names, digit widths — Arabic-Indic numerals
                             especially), and any of that reflowing here resizes
                             the whole pill. The lines below clip instead. */}
-                        <div style={{ width: isMobile ? 96 : 150, flexShrink: 0, lineHeight: 1.15 }}>
+                        <div style={{ width: isMobile ? COLUMN_MOBILE : 150, flexShrink: 0, lineHeight: 1.15 }}>
                             <div style={{
                                 display: 'flex', alignItems: 'baseline', gap: 5,
                                 justifyContent: 'space-between', overflow: 'hidden',
@@ -432,22 +449,50 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
                                     time" gesture, so unlike the date this isn't
                                     a button, just the clock face the date above
                                     is at. */}
-                                <span className="num-run" style={{
-                                    fontSize: 10.5, fontWeight: 600, color: 'rgba(255,255,255,0.5)',
-                                    fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
-                                }}>
-                                    <SlidingNumber value={fmtTime(date)} />
-                                </span>
+                                {!isMobile && (
+                                    <span className="num-run" style={{
+                                        fontSize: 10.5, fontWeight: 600, color: 'rgba(255,255,255,0.5)',
+                                        fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                                    }}>
+                                        <SlidingNumber value={fmtTime(date)} />
+                                    </span>
+                                )}
                             </div>
-                            <div style={{
+                            {/* Live, or the rate and offset. On a phone the clock
+                                shares this line, at its far end. The status is
+                                the more important of the two ("1w/s, 4 days
+                                ahead" is what tells you what the clock is
+                                doing), so it is the clock that gives way: the
+                                row wraps and clips to one line, which drops the
+                                clock off whole when the two do not fit, rather
+                                than cutting it mid-digit. */}
+                            <div style={isMobile ? {
+                                display: 'flex', flexWrap: 'wrap', alignItems: 'baseline',
+                                justifyContent: 'space-between', columnGap: 4,
+                                // One line's height exactly, and both items set to it
+                                // below: any taller and the top of the wrapped clock
+                                // shows through under the status.
+                                height: 11, overflow: 'hidden',
+                                fontSize: 9.5, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap',
+                            } : {
                                 fontSize: 9.5, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap',
                                 overflow: 'hidden', textOverflow: 'ellipsis',
                             }}>
-                                {live
-                                    ? t('time.live')
-                                    : t('time.rateAndOffset', {
-                                        rate: rateLabel, offset: offsetLabel(off, t),
-                                    })}
+                                <span style={isMobile ? { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '11px' } : undefined}>
+                                    {live
+                                        ? t('time.live')
+                                        : t('time.rateAndOffset', {
+                                            rate: rateLabel, offset: offsetLabel(off, t),
+                                        })}
+                                </span>
+                                {isMobile && (
+                                    <span className="num-run" style={{
+                                        flex: 'none', fontSize: 10, fontWeight: 600, lineHeight: '11px',
+                                        color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums',
+                                    }}>
+                                        <SlidingNumber value={fmtTime(date, CLOCK_MOBILE)} />
+                                    </span>
+                                )}
                             </div>
                         </div>
 
@@ -464,7 +509,9 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
                             onPointerCancel={() => { dragRef.current = false; }}
                             aria-label={t('time.scrub')}
                             aria-valuetext={fmtDate(date)}
-                            style={{ width: isMobile ? 100 : 168, accentColor: '#9fc4ff' }}
+                            style={isMobile
+                                ? { flex: '1 1 0', minWidth: 32, accentColor: '#9fc4ff' }
+                                : { width: 168, accentColor: '#9fc4ff' }}
                         />
 
                         <button
