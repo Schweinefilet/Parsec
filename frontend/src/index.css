@@ -876,14 +876,17 @@ button:focus-visible {
   position: sticky;
   top: 56px;
   z-index: 2;
+  /* Flush with the card's top edge and both sides, its corners following
+     the card's, so it reads as the card's own header row rather than a band
+     laid across it — the card takes no top padding of its own. */
   margin-inline: calc(var(--s-6) * -1);
-  padding: 0 var(--s-6) var(--s-3);
+  padding: var(--s-5) var(--s-6) var(--s-3);
+  border-start-start-radius: var(--radius-card);
+  border-start-end-radius: var(--radius-card);
   border-bottom: 1px solid var(--hairline-hi);
-  /* The tone a .glass card composites to over the page's black, so the
-     band reads as the card itself rather than a stripe across it. */
-  background: rgba(17, 19, 25, 0.94);
-  backdrop-filter: var(--blur-panel);
-  -webkit-backdrop-filter: var(--blur-panel);
+  /* Exactly what .glass composites to over the page's black (the same trick
+     .detail-stack uses over the sheet), opaque so rows scroll under it. */
+  background: linear-gradient(var(--panel-bg), var(--panel-bg)), #000;
 }
 
 /* ── Standalone page header ─────────────────────────────────── */

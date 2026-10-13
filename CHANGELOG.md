@@ -16,6 +16,19 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.14.3
+
+**Compare's table header is the card's own top row.** The sticky header naming
+the two columns sat a padding's depth below the card's top edge in a darker,
+bluer tint than the card, so it read as a stripe laid across it — 5.14.2 put back
+its old tint, which was still not the card's. It now starts flush with the card's
+top edge, takes the card's corners, and is painted exactly as `.glass`
+composites over the page (`--panel-bg` over black, the same trick the detail
+sheet's card stack uses), opaque so the rows still scroll under it. Found in a
+final 1920px / phone screenshot sweep of every page and state after 5.14.2.
+
+---
+
 ## 5.14.2
 
 **The interface goes to the edges of the window.** On a wide monitor the header

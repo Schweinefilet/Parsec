@@ -301,7 +301,7 @@ const ComparePage = () => {
                     gives each value a column of its own to sit in, and the two
                     now line up under the names in the header row. */}
                 {sections.length > 0 && (
-                    <div className="glass" style={{ marginTop: 'var(--s-4)', padding: 'var(--s-5) var(--s-6) var(--s-6)' }}>
+                    <div className="glass" style={{ marginTop: 'var(--s-4)', padding: '0 var(--s-6) var(--s-6)' }}>
                         {/* Which column is which. Sticky, because the table is
                             longer than the viewport and a bare pair of numbers
                             halfway down it says nothing about whose they are. */}
