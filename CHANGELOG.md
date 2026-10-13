@@ -16,6 +16,19 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.14.7
+
+**First-visit tips wear the site's chrome.** The three tips (speed, scene
+settings, the header's controls — and the night sky's, which shares the
+component) had their own look: a warm amber outline and bold text on a
+slightly bluish pane, which read as something dropped over the page rather
+than part of it. They now use the same pane as the menus and drawers — the
+`--float-bg` colour (opaque, so the pointer still joins without a seam), a
+white hairline border, medium-weight text — and their nudge toward the target
+is gentler (2px instead of 3px).
+
+---
+
 ## 5.14.6
 
 **The header tip gets out of the way when you reach for the dock.** On a

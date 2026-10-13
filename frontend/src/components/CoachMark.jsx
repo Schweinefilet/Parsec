@@ -11,10 +11,16 @@ import { coachMaxWidth, placeCoach } from '../utils/coachPlacement';
  * the buttons that is unreadable: the words land on other words. A surface
  * makes it legible on anything.
  *
- * The surface is opaque, not the header's frosted glass, on purpose. The
- * pointer is a turned square that overlaps the callout's edge, and two
- * translucent layers stacked there show a seam. Opaque has none, and needs no
- * backdrop blur, which is a cost this page is already careful with.
+ * It wears the same pane as the menus and drawers (--float-bg, a white
+ * hairline, medium-weight text), so a tip reads as one more piece of the
+ * site's chrome. It used to have its own amber outline, which made it look
+ * like an ad dropped over the page rather than part of it.
+ *
+ * The surface is opaque — --float-bg's colour at full strength — rather than
+ * the menus' 95%, on purpose. The pointer is a turned square that overlaps
+ * the callout's edge, and two translucent layers stacked there show a seam.
+ * Opaque has none, and needs no backdrop blur, which is a cost this page is
+ * already careful with.
  *
  * The parent says *what* it points at (`target`, a rect from
  * getBoundingClientRect) and which `side` of it the callout sits on; where
@@ -25,8 +31,8 @@ import { coachMaxWidth, placeCoach } from '../utils/coachPlacement';
  */
 const NUB = 9;          // the pointer's square, before it is turned 45°
 const BORDER = 1;
-const SURFACE = 'rgb(17 19 26 / 0.96)';
-const EDGE = 'rgba(var(--accent-warm-rgb), 0.46)';
+const SURFACE = 'rgb(8 10 15)';                // --float-bg, opaque
+const EDGE = 'rgba(255, 255, 255, 0.16)';      // between --chrome-border and -hi
 const HALF = -(NUB / 2) - BORDER;   // puts the square's centre on the callout's outer edge
 
 const edge = `${BORDER}px solid ${EDGE}`;
@@ -35,10 +41,10 @@ const edge = `${BORDER}px solid ${EDGE}`;
 // square are drawn (the two facing away from the callout), and the direction
 // the callout nudges — toward the target, to say "here".
 const BY_SIDE = {
-    above: { at: (n) => ({ bottom: HALF, left: n - NUB / 2 - BORDER }), borders: { borderRight: edge, borderBottom: edge }, bob: { '--cy': '3px' } },
-    below: { at: (n) => ({ top: HALF, left: n - NUB / 2 - BORDER }),    borders: { borderTop: edge, borderLeft: edge },     bob: { '--cy': '-3px' } },
-    right: { at: (n) => ({ left: HALF, top: n - NUB / 2 - BORDER }),    borders: { borderLeft: edge, borderBottom: edge },  bob: { '--cx': '-3px' } },
-    left:  { at: (n) => ({ right: HALF, top: n - NUB / 2 - BORDER }),   borders: { borderRight: edge, borderTop: edge },    bob: { '--cx': '3px' } },
+    above: { at: (n) => ({ bottom: HALF, left: n - NUB / 2 - BORDER }), borders: { borderRight: edge, borderBottom: edge }, bob: { '--cy': '2px' } },
+    below: { at: (n) => ({ top: HALF, left: n - NUB / 2 - BORDER }),    borders: { borderTop: edge, borderLeft: edge },     bob: { '--cy': '-2px' } },
+    right: { at: (n) => ({ left: HALF, top: n - NUB / 2 - BORDER }),    borders: { borderLeft: edge, borderBottom: edge },  bob: { '--cx': '-2px' } },
+    left:  { at: (n) => ({ right: HALF, top: n - NUB / 2 - BORDER }),   borders: { borderRight: edge, borderTop: edge },    bob: { '--cx': '2px' } },
 };
 
 // The layout viewport, which is what a fixed box is placed against. On a phone
@@ -85,12 +91,12 @@ const CoachMark = ({ text, target, side = 'below', avoid = [], maxWidth = 232, o
                 // Layout is physical (left/top above); the text itself follows the
                 // page so Arabic wraps and punctuates right-to-left.
                 direction: dir,
-                padding: '9px 13px', margin: 0,
+                padding: '8px 12px', margin: 0,
                 borderRadius: 'var(--r-md)',
                 background: SURFACE, border: edge,
                 boxShadow: 'var(--sh-3)',
-                color: 'rgba(255, 255, 255, 0.96)',
-                fontSize: 'var(--fs-sm)', fontWeight: 600, lineHeight: 1.35,
+                color: 'rgba(255, 255, 255, 0.9)',
+                fontSize: 'var(--fs-sm)', fontWeight: 500, lineHeight: 1.4,
                 textAlign: 'center', textWrap: 'balance',
                 cursor: 'pointer',
                 // Fade in (opacity only, so it never fights the nudge's transform),
