@@ -3,7 +3,7 @@ import { Link, useSearchParams, useMatch, useLocation } from 'react-router-dom';
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
     Crosshair, Sparkles, Satellite, Aperture, Radio, Archive,
-    Link2, Check, Github,
+    Link2, Check, Github, Orbit,
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
@@ -51,7 +51,7 @@ const AppShell = ({ children }) => {
     // the compare view and the sky page it was context for a list that isn't
     // there — and tapping a tab silently threw you back to the solar system.
     const { pathname } = useLocation();
-    const onOwnPage = ['/satellites', '/sky'].includes(pathname);
+    const onOwnPage = ['/satellites', '/sky', '/gargantua'].includes(pathname);
     // The tracker and sky icons play their cinematic way in (hooks/useModeEntry.js).
     const { onTrackerClick: handleTrackerClick, onSkyClick: handleSkyClick } = useModeEntry();
     const activeTab = resolveTab(searchParams.get('tab'));
@@ -86,6 +86,7 @@ const AppShell = ({ children }) => {
         } else if (onOwnPage) {
             const key = {
                 '/satellites': 'tracker.title', '/sky': 'nightSky.title',
+                '/gargantua': 'gargantua.title',
             }[pathname];
             name = key ? t(key) : null;
             canonicalPath = pathname;
@@ -432,6 +433,19 @@ const AppShell = ({ children }) => {
                                         className="chrome-btn focus-ring"
                                     >
                                         <Star className="h-4 w-4" aria-hidden="true" />
+                                    </Link>
+                                </DockItem>
+                            )}
+                            {!searchOpen && (
+                                <DockItem label={t('nav.gargantua')}>
+                                    <Link
+                                        to="/gargantua"
+                                        title={t('nav.gargantuaTitle')}
+                                        aria-label={t('nav.gargantua')}
+                                        data-on={pathname === '/gargantua' || undefined}
+                                        className="chrome-btn focus-ring"
+                                    >
+                                        <Orbit className="h-4 w-4" aria-hidden="true" />
                                     </Link>
                                 </DockItem>
                             )}

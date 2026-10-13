@@ -16,6 +16,71 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.13.0
+
+**Gargantua, the black hole from *Interstellar*, has its own page at
+`/gargantua`.** It is rendered the way Double Negative rendered it for the film:
+for every pixel, a ray of light is followed backward from the camera through
+the curved spacetime around a spinning (Kerr) black hole, and whatever it lands
+on is what that pixel shows. The arch of disk over the top of the shadow, the
+thin ring under it and the smeared stars around it are all those rays bending.
+Nothing is painted on.
+
+The page is deliberately expensive, and it is the only one on the site that is.
+A desktop GPU is the audience. Each pixel integrates its ray with fourth-order
+Runge–Kutta for hundreds of steps by default and up to 2800 at the top setting,
+with no adaptive resolution and no frame cap. It loads nothing until someone
+navigates to it: the page is its own lazy chunk (about 13 KB gzipped), like
+`/sky`.
+
+- **Researched against the source.** James, von Tunzelmann, Franklin & Thorne,
+  "Gravitational lensing by spinning black holes in astrophysics, and in the
+  movie *Interstellar*" (2015), is the paper on DNGR, the film's renderer. The
+  defaults follow it: spin a/M = 0.6 (what the film used, not the near-1 the
+  story needs), a thin disk in the equatorial plane, a 4500 K blackbody, and
+  no Doppler shift, beaming or gravitational redshift, which the film dropped
+  because the physical disk is so lopsided that it hides the shadow.
+- **Four shots.** *As in the film*, as above. *As physics has it* puts the
+  physics back at a spin of 0.998 (Thorne's limit): the side of the disk
+  coming towards you turns brighter and bluer, the other side all but
+  vanishes, and the shadow flattens on one side. *From above* shows the disk
+  face-on with its far side still bent into a ring round the shadow. *Fall in*
+  dives to just outside the ergosphere and fades to black.
+- **Animation.** The disk's gas orbits at each radius's own Kepler speed, inner
+  faster than outer. Two copies of the turbulence, half a cycle apart and
+  cross-faded, keep it from shearing into ever-finer stripes. The disk's clock
+  runs at the camera's view of it, so the deeper the camera sits in the well,
+  the faster the disk is seen to turn. An idle camera drifts round the hole.
+  Miller's planet, the ocean world, can be switched on and orbits too, drawn
+  far larger than life so that it is visible at all.
+- **Readouts.** Distance in gravitational radii and in AU (for a hole of 100
+  million suns one is about the other), how long an hour at the camera lasts
+  far away, the spin and where the disk starts, and the frame rate and pixel
+  count being traced.
+- **Settings.** Spin, disk temperature, the Doppler toggle, the planet, the
+  drifting camera, and four quality levels: Balanced, High (the default),
+  Ultra and Absurd, which traces at twice the screen's resolution.
+  `?shot=`, `?quality=` and `?planet=1` open the page on a given view.
+- **Fails politely.** A phone or tablet is told first that the page is built
+  for a computer, and may carry on anyway. Without WebGL 2 it says so. If the
+  GPU drops the context, the page offers to come back one quality level lower.
+
+New code: `utils/kerr.js` (the Kerr–Schild geodesic maths on the CPU),
+`utils/gargantuaShaders.js` (the same maths on the GPU, line for line, plus the
+disk, sky and composite), `utils/blackbody.js` (Planck × CIE 1931 → linear
+sRGB), `utils/gargantuaCamera.js` (shots, quality, the dive), and
+`Gargantua3D.jsx` / `GargantuaPage.jsx`. `kerr.test.js` checks the integrator
+against closed-form answers: the 3√3 M shadow without spin, the prograde and
+retrograde capture edges with it, the 4M/b weak-field bend, and the analytic
+force term against finite differences. The header dock and the phone menu
+gain a link to the page, and en, vi and ar all have its strings.
+
+Checked in headless Chromium on software GL at Balanced and High: the film,
+physical, from-above and mid-dive views, the phone gate, and the page's title
+and canonical link.
+
+---
+
 ## 5.12.2
 
 **The start-here chips are gone, and a desktop now gets the same first-visit

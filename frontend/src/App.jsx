@@ -9,7 +9,7 @@ import SatelliteView from './pages/SatelliteView';
 // ComparePage is stashed — its route and nav links are pulled out below
 // while the page gets a visual rework, but the file and its tests stay.
 
-// The one lazily-loaded route in the app. /sky carries its own three.js scene
+// /sky is lazily loaded: it carries its own three.js scene
 // plus a real data catalog (the star field + constellation lines, ~175 KB
 // gzipped) — a cost every other route already avoids paying, and one that
 // should only be spent by a visitor who actually navigates here. Every other
@@ -17,6 +17,9 @@ import SatelliteView from './pages/SatelliteView';
 // splitting it would just trade a bit of bundle size for a loading flicker on
 // first click.
 const NightSkyPage = lazy(() => import('./pages/NightSkyPage'));
+// Gargantua is split out for the same reason, more so: a ray tracer nobody
+// pays for unless they come to see the black hole.
+const GargantuaPage = lazy(() => import('./pages/GargantuaPage'));
 
 function App() {
     return (
@@ -35,6 +38,16 @@ function App() {
                             <AppShell>
                                 <Suspense fallback={<NightSkyFallback />}>
                                     <NightSkyPage />
+                                </Suspense>
+                            </AppShell>
+                        )}
+                    />
+                    <Route
+                        path="/gargantua"
+                        element={(
+                            <AppShell>
+                                <Suspense fallback={<NightSkyFallback />}>
+                                    <GargantuaPage />
                                 </Suspense>
                             </AppShell>
                         )}

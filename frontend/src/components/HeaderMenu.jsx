@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Satellite, Star, Link2, Check } from 'lucide-react';
+import { Menu, Satellite, Star, Link2, Check, Orbit } from 'lucide-react';
 import LanguagePicker from './LanguagePicker';
 import { useI18n } from '../i18n';
 
@@ -109,6 +109,11 @@ const HeaderMenu = ({ onShare, copied, onSkyClick, onTrackerClick, onOpen }) => 
                     <Link role="menuitem" to="/sky" onClick={(e) => { onSkyClick(e); close(); }} style={rowStyle}>
                         <Star style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
                         {t('nav.sky')}
+                    </Link>
+
+                    <Link role="menuitem" to="/gargantua" onClick={close} style={rowStyle}>
+                        <Orbit style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
+                        {t('nav.gargantua')}
                     </Link>
 
                     {/* Last: its own dropdown extends downward and must not
