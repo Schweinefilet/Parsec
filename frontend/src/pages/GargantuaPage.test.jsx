@@ -19,8 +19,10 @@ describe('GargantuaPage', () => {
         expect(await screen.findByText('WebGL 2 needed')).toBeInTheDocument();
     });
 
-    it('opens its settings on a desktop, with every shot and quality level', () => {
+    it('starts with its settings collapsed, and opens them with every shot and quality level', () => {
         at('/gargantua?shot=physical&quality=ultra');
+        expect(screen.queryByRole('button', { name: 'Fall in' })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Black hole settings' }));
         for (const name of ['As in the film', 'As physics has it', 'From above', 'Fall in']) {
             expect(screen.getByRole('button', { name })).toBeInTheDocument();
         }

@@ -16,6 +16,14 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.13.2
+
+**Gargantua's settings panel starts collapsed.** It used to open on a desktop and
+stay shut on a phone; now it is shut everywhere, so the first thing on the page is
+the black hole. The settings button at the top right opens it as before.
+
+---
+
 ## 5.13.1
 
 **Gargantua opens with Doppler shift and beaming on, and Miller's planet is

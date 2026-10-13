@@ -104,7 +104,7 @@ const GargantuaPage = () => {
         cinematic: true,
     }));
     const [shot, setShot] = useState({ id: initial.id, nonce: 0 });
-    const [panelOpen, setPanelOpen] = useState(!isMobile);
+    const [panelOpen, setPanelOpen] = useState(false);
     const [hud, setHud] = useState(null);
     const [failure, setFailure] = useState(null);
     // Bumped to remount the renderer after its context was lost.
