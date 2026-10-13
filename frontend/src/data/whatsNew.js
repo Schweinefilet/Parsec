@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.14',
         changes: [
+            'When you share a link to the site, the preview now shows the Earth at night with the ISS passing over it.',
             'On a computer, the Sun no longer flickers in the corner of the view when you look at Earth or another planet.',
             'On a wide screen, the header and the controls over the scene now sit at the edges of the window instead of floating in a box in the middle.',
             'The first-visit tips have a quieter look that matches the rest of the site, without the gold outline.',

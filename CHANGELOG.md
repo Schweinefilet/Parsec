@@ -16,6 +16,25 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.14.9
+
+**A new share card.** The image that shows up when someone posts a p4rsec.com
+link (Slack, iMessage, X, Discord and so on) used to have a flat, gradient-shaded
+blue planet with a loose orbit ring on the right. It is now a real rendered
+Earth rising out of the bottom-right corner: a thin sunlit edge along the top
+limb, a blue atmosphere glow, city lights across the night side, and the ISS
+on an amber orbit track with a fading trail and an `ISS ● LIVE` label. It is
+drawn from the same day, night and cloud textures the scene uses, so the card
+looks like the site. The left half (wordmark, line of copy, footer) is
+unchanged.
+
+Link unfurlers cache images by URL, often for days, so `og:image` and
+`twitter:image` now point at `og-image.png?v=5.14.9`. Without that, places
+that had already fetched the old card would keep showing it. Bump the query
+the next time the file changes.
+
+---
+
 ## 5.14.8
 
 **The Sun stops strobing when another body is focused.** On the desktop tier,
