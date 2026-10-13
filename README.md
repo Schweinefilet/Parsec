@@ -48,7 +48,7 @@ in the telemetry ticker. Without one it falls back to `DEMO_KEY`.
 There is one `<Route path="*">` (`src/App.jsx`) so `AppShell`,
 `CategoryBrowser` and `SolarSystem3D` are never remounted while navigating —
 that is what preserves the Three.js camera state and lets the exit animation
-play. `/satellites`, `/compare` and `/sky` are the other three routes.
+play. `/satellites`, `/compare`, `/sky` and `/gargantua` are the other four routes.
 
 ```text
 frontend/src/
@@ -58,10 +58,14 @@ frontend/src/
     SatelliteView.jsx    the satellite tracker (/satellites)
     ComparePage.jsx      two bodies side by side at true relative size (/compare)
     NightSkyPage.jsx     the night sky from your location (/sky) — lazily
-                         loaded, the only route that is (see "The night sky")
+                         loaded (see "The night sky")
+    GargantuaPage.jsx    the black hole from Interstellar (/gargantua) — lazily
+                         loaded, and built to be expensive (see "Gargantua")
   components/
     SolarSystem3D.jsx    the main scene: planets, moons, belts, orbits, camera,
                          the focus camera, the gravity overlays (~3k lines)
+    Gargantua3D.jsx      a per-pixel Kerr ray tracer: one full-screen shader,
+                         bloom, a film curve — no scene graph at all
     NightSky3D.jsx       real stars + constellation figures, drag to look
                          around — a different scene from SolarSystem3D, not a
                          mode of it (camera never moves; the sky rotates)
@@ -485,8 +489,8 @@ the site answers: not where a planet is in the solar system, but what is above
 azimuth, and `skyPositions.js` is arranged around that one call.
 
 It is a real star field with the traditional constellation figures, explored by
-looking around inside it. It's lazily loaded (`React.lazy` in `App.jsx`, the
-only route that is): a dedicated three.js scene plus a real data catalog is a
+looking around inside it. It's lazily loaded (`React.lazy` in `App.jsx`, as
+`/gargantua` is): a dedicated three.js scene plus a real data catalog is a
 cost only a visitor who actually clicks through should pay.
 
 The location is kept in `localStorage` (`hooks/useObserverLocation.js`),
@@ -693,6 +697,65 @@ people would notice was wrong. `objectSize.test.js` pins the parse for the
 whole catalog, including an ordering check that would fail if a unit were
 misread. Light-years are excluded on purpose: Andromeda beside Earth is not a
 comparison.
+
+### Gargantua
+
+`/gargantua` is the spinning black hole from *Interstellar*, rendered the way
+the film's was: by following a ray of light backward from the camera through
+the curved spacetime around a Kerr hole, for every pixel, and seeing what it
+lands on. It is its own lazy chunk (about 13 KB gzipped) and the one page on
+the site that is meant to be expensive. A desktop GPU is the audience. A phone
+or tablet is told so before anything starts, and may carry on anyway.
+
+The source is James, von Tunzelmann, Franklin & Thorne, "Gravitational lensing
+by spinning black holes in astrophysics, and in the movie *Interstellar*"
+(Class. Quantum Grav. 32, 2015), which describes DNGR, the renderer Double
+Negative built for the film. Two of its facts set the defaults: the film's
+Gargantua spins at a/M = 0.6, not the 0.999 the story implies, and its disk is
+a thin 4500 K blackbody with the Doppler shift, beaming and gravitational
+redshift deliberately left out, because the physical disk is so lopsided that
+it hides the shadow. The "As physics has it" shot puts them back.
+
+- **The maths** (`utils/kerr.js`). Cartesian Kerr–Schild coordinates, spin
+  along +z, so there is no horizon singularity for a ray to stall at and no
+  pole for it to streak along. Rays follow Hamilton's equations for
+  H = ½ g^μν p_μ p_ν, with both gradients written out analytically, and are
+  integrated with fourth-order Runge–Kutta at a step that grows with radius.
+  `kerr.test.js` pins the integrator against the closed-form answers: a 3√3 M
+  shadow without spin, the prograde and retrograde capture edges with it, the
+  4M/b weak-field bend, and an analytic-versus-finite-difference check of the
+  force term.
+- **The shader** (`utils/gargantuaShaders.js`). `rayDeriv` there is
+  `rayDerivative` in `kerr.js`, line for line: change one, change the other.
+  Along a ray it adds the disk at each crossing of the equatorial plane
+  (weighted by what earlier crossings already blocked), the glow off the
+  disk's faces (a Gaussian layer integrated exactly across each step, since a
+  point sample bands), Miller's planet if it is on, and the procedural sky if
+  the ray escapes. Nothing is a painted effect: the arch over the top, the
+  thin ring below the shadow and the smeared stars are all the rays bending.
+- **Colour** (`utils/blackbody.js`). Planck's law integrated against the CIE
+  1931 matching functions into a 1-row float lookup. With Doppler on, the disk
+  is the blackbody at gT and its brightness goes as g⁴, g = E_seen/E_emitted
+  for gas on a circular Kepler orbit.
+- **Which way it spins.** The integrator runs light forward from the camera in
+  ingoing coordinates, which is what lets a ray fall through the horizon
+  cleanly. That is the time-reverse of the light reaching the eye, and
+  time-reversing Kerr flips its spin, so the picture is that of a hole turning
+  towards −φ, and the disk and the planet orbit that way to match.
+- **Animation.** The disk's turbulence is wound back by each radius's own
+  orbital speed, in two copies half a cycle apart that cross-fade, so inner
+  gas laps outer gas without the texture shearing into ever-finer stripes.
+  The disk's clock runs at the camera's view of it: deeper in the well the
+  camera's own time is slower, so the disk is seen sped up. The camera drifts
+  when idle; "Fall in" is a scripted dive to just outside the ergosphere, where
+  the picture would stop being honest, and then a fade to black.
+- **Cost.** `utils/gargantuaCamera.js`'s `QUALITY` sets the step, the step cap
+  and the trace resolution against the screen's own pixels. High is the
+  default; Absurd traces at twice the screen's resolution with up to 2800
+  steps per pixel. There is no adaptive resolution and no frame cap. If the
+  GPU drops the context, the page offers to come back one level lower.
+- `?shot=physical|above|dive|film`, `?quality=…` and `?planet=1` open the page
+  on that view.
 
 ### Internationalisation
 

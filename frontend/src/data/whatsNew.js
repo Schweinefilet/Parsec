@@ -12,6 +12,12 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.13',
+        changes: [
+            'A new page: Gargantua, the black hole from Interstellar. Every pixel follows a ray of light through the curved space around a spinning black hole, the way the film’s own images were made. Fly around it, watch its disk turn, switch on the physics the film left out, or fall in. It is built for a computer with a good graphics card, and its top quality setting is meant to make one work hard.',
+        ],
+    },
+    {
         version: '5.12',
         changes: [
             'The front page now says what the site is in one line, under the title.',
