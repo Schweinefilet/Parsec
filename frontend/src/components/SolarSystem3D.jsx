@@ -2905,6 +2905,9 @@ const SolarSystem3D = ({
         // off for the rest of the visit, never back on — a flapping effect is
         // worse than either state.
         const BLOOM_PROBE = { settleMs: 2000, frames: 180, maxMedianMs: 22 };
+        // How far the disc's brightness is lifted per unit of the bloom's
+        // small-Sun gain (below): 0.4 takes a tiny Sun to 2.2x.
+        const SUN_SMALL_LIFT = 0.4;
         let bloomProbeFrom = null;
         const bloomProbe = [];
         const dropBloom = () => {
@@ -4764,7 +4767,14 @@ const SolarSystem3D = ({
                     SUN_RADIUS * sunScale.scale.x,
                     camera.position.distanceTo(sunMesh.position),
                 );
-                sceneRender.setGain(Math.min(4, Math.max(1, 3.5 / apparent)) * (1 + SUN_GLARE.bloom * sunGlare));
+                const small = Math.min(4, Math.max(1, 3.5 / apparent));
+                sceneRender.setGain(small * (1 + SUN_GLARE.bloom * sunGlare));
+                // The same measure lifts the disc itself into HDR, so a Sun
+                // a few pixels across still clears the bloom threshold. The
+                // corona used to do that by accident, z-fighting through
+                // the disc (utils/sunShaders.js) at random per pixel. On
+                // the canvas a disc that small is clipped white either way.
+                sunMat.uniforms.uIntensity.value = 1 + SUN_SMALL_LIFT * (small - 1);
             }
             sceneRender.render();
 

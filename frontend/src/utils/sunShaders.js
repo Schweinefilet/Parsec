@@ -250,7 +250,16 @@ float flow(vec3 d, float x, float t, float freq, float stretch, float rate, floa
 void main() {
     float q = length(vQuad);           // 0 at the centre, 1 at the quad's inscribed edge
     float d = q * uExtent;             // distance from centre in solar radii
-    float x = max(d - 1.0, 0.0);       // height above the limb
+    // Inside the limb the disc always covers the corona, from any view —
+    // perspective only ever widens the disc's silhouette past one radius.
+    // Leaving that to the depth test failed whenever the camera's near plane
+    // was tiny (a true-size planet focused): the Sun then spans less than
+    // one step of the depth buffer, and the corona's centre lost to the
+    // disc's front at random per pixel. On the canvas the disc clips to
+    // white either way, but the bloom source keeps the difference, and its
+    // threshold and gain made the whole glare strobe.
+    if (d < 1.0) discard;
+    float x = d - 1.0;                 // height above the limb
     vec3  dir = q > 0.0 ? normalize(vDir) : vec3(1.0, 0.0, 0.0);
     float t = uTime;
 
@@ -314,9 +323,9 @@ void main() {
 
 /**
  * The corona: one camera-facing quad centred on the Sun, drawn additively.
- * Its centre sits at the Sun's own centre, so the depth test hides it behind
- * the disc and the glow appears to rise off the limb — and hides it behind
- * any planet in front, too.
+ * The shader drops everything inside one solar radius, which the disc always
+ * covers, so the glow rises off the limb; the depth test hides it behind any
+ * planet in front.
  *
  * `radius` is the Sun's own radius in the mesh's local units.
  */

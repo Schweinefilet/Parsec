@@ -16,6 +16,33 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.14.8
+
+**The Sun stops strobing when another body is focused.** On the desktop tier,
+with a planet focused at true sizes (Earth most of all), the Sun's glare
+flickered hard from frame to frame. The bloom's source image was the cause.
+The corona is a flat quad at the Sun's centre, and it relied on the depth test
+to stay hidden behind its own disc. A true-size planet's focus view pulls the
+camera's near plane down to a few ten-thousandths of a unit, and at that
+setting the 24-bit depth buffer resolves only about 1.3 units at the Sun's
+distance: less than the Sun's whole 0.45-unit radius. So, pixel by pixel and
+at random, the corona landed in front of the disc or behind it. On the canvas
+both cases clip to white and nothing showed. In the bloom source they read as
+roughly 2.5 against 0.9, either side of the 0.85 threshold, and the up-to-8.8x
+small-Sun gain turned the difference into the whole glare blinking on and off.
+Phones and tablets have no bloom, which is why only a desktop showed it.
+
+The corona now discards everything inside one solar radius (the disc always
+covers that part, from any view), so it no longer depends on the depth test
+there. Most of the glare on those views had come from that accident, so the
+disc itself is now lifted into HDR by the same apparent-size measure that
+drives the bloom's gain (`SUN_SMALL_LIFT`, 0.4, so 2.2x for a tiny Sun),
+tuned to roughly the old glare level. Measured on the bloom output with Earth
+focused, frame-to-frame variation fell from 14–59% (with frames at zero) to
+about 7%. On the Sun's own view the lift is 1x and nothing changes.
+
+---
+
 ## 5.14.7
 
 **First-visit tips wear the site's chrome.** The three tips (speed, scene

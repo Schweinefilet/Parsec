@@ -402,8 +402,11 @@ The Sun is three pieces, all procedural, with no image assets beyond `sun.jpg`
   seam), limb darkening on the Eddington law (`1 − 0.6(1 − μ)`), and a
   redder limb.
 - **The corona** is one camera-facing quad, billboarded in the vertex shader.
-  It's centred on the Sun, so the depth test hides it behind the disc and
-  behind anything in front. The streamers are noise over each point's
+  It discards everything inside one solar radius rather than leaving the
+  disc to hide it by depth: with a true-size planet focused, the near plane
+  is so small that the whole Sun fits within one depth step, and the corona
+  z-fought through the disc, which the bloom turned into a strobing glare
+  (5.14.8). The depth test still hides it behind anything in front. The streamers are noise over each point's
   *world-space* direction from the centre, with a crossfaded radial flow for
   the outward drift, a flickering flame fringe at the limb, and slow
   "surges" that swell regions of the corona. Keyed off the quad's own coordinates, the pattern was
