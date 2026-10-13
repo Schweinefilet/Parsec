@@ -20,6 +20,8 @@ const NightSkyPage = lazy(() => import('./pages/NightSkyPage'));
 // Gargantua is split out for the same reason, more so: a ray tracer nobody
 // pays for unless they come to see the black hole.
 const GargantuaPage = lazy(() => import('./pages/GargantuaPage'));
+// The exotic objects that grew out of it share one chunk of their own.
+const ExoticPage = lazy(() => import('./pages/ExoticPage'));
 
 function App() {
     return (
@@ -52,6 +54,19 @@ function App() {
                             </AppShell>
                         )}
                     />
+                    {['/exotic', '/exotic/:id'].map((path) => (
+                        <Route
+                            key={path}
+                            path={path}
+                            element={(
+                                <AppShell>
+                                    <Suspense fallback={<NightSkyFallback />}>
+                                        <ExoticPage />
+                                    </Suspense>
+                                </AppShell>
+                            )}
+                        />
+                    ))}
                     {/* Single route so AppShell + CategoryBrowser + SolarSystem3D are never
                         remounted during navigation — preserves Three.js camera state and
                         allows smooth exit animations when returning to the solar system. */}

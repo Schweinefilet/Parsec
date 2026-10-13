@@ -16,6 +16,56 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.15.0
+
+**Four exotic objects, ray traced like Gargantua.** A new page, `/exotic`,
+with a picker for a wormhole, a neutron star, a pair of merging black holes
+and a star overflowing its Roche lobe onto a black hole. They are the first
+four items on `FUTUREPLAN.md`'s list bar the quasar, built the way
+Gargantua is: one full-screen fragment shader per object tracing a ray per
+pixel, Gargantua's noise, blackbody lookup, sky, bloom and film curve shared
+rather than copied, and a CPU twin of each shader's maths that the tests
+hold to closed-form answers. It is one lazy chunk of about 15 KB gzipped,
+reached from a new atom icon in the header dock and the menu.
+
+The wormhole is the Ellis metric, the massless limit of the one built for
+*Interstellar*. Rays are integrated in their own plane through the throat;
+the ones that end on the far side sample a second universe, a nebula-filled
+sky with a spiral galaxy behind the throat. "Go through" flies the camera
+through and turns it round to look back at our own sky inside the sphere.
+The tests pin the sweep round the throat to its elliptic-integral closed
+forms on both sides of h = b.
+
+The neutron star is Schwarzschild outside a solid surface, which is Kerr at
+a = 0, so it runs on `kerr.js` and the Kerr GLSL unchanged, stopping rays at
+r = R. More than half the star is in view at once; the readout gives the
+exact fraction from the bending integral, and the tests check the traced
+grazing ray against it and against Beloborodov's approximation. Hotspots and
+beams sweep round at PSR B1919+21's period, and a latitude grid colours the
+far hemisphere amber so seeing round the back is visible.
+
+The binary black hole is an approximation, and its credit line says so. Each
+hole bends a ray with the one central force under which the path is exactly
+a Schwarzschild null geodesic, and the two pulls are added. The orbit shrinks
+by Peters' formula and merges into a 0.95 M remnant, with the wave frequency
+and time to merger scaled to a GW150914-sized pair. A circumbinary disk is
+lensed into an arch over the pair, and the galaxy's bright core sits behind
+it, where its Einstein ring shows.
+
+The Roche system is flat-space ray marching, since at a real X-ray binary's
+size the hole's lensing is far below a pixel. The star's surface is the
+equipotential through L1 (gravity-darkened, limb-darkened and heated on the
+side facing the disk); its volume radius matches Eggleton to 1%. The stream
+is integrated from L1 under the potential and the Coriolis force and lands
+where Lubow & Shu say it should, on a disk truncated at 0.6 of the
+accretor's lobe, with a hot spot where it hits. The mass ratio and the star's
+temperature are sliders.
+
+`gargantuaShaders.js` now exports its noise, colour, sky and Kerr chunks for
+reuse. The compiled Gargantua shader is unchanged apart from blank lines.
+
+---
+
 ## 5.14.9
 
 **A new share card.** The image that shows up when someone posts a p4rsec.com

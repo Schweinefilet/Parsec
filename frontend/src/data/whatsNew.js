@@ -12,6 +12,12 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.15',
+        changes: [
+            'A new page of exotic objects, behind the atom icon in the header: a wormhole you can fly through into another universe, a neutron star so dense you can see round the back of it, two black holes spiralling together until they merge, and a star stretched into a teardrop and pouring itself onto a black hole. Like Gargantua, every pixel follows its own ray of light, and like Gargantua it is built for a computer with a good graphics card.',
+        ],
+    },
+    {
         version: '5.14',
         changes: [
             'When you share a link to the site, the preview now shows the Earth at night with the ISS passing over it.',

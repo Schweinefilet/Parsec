@@ -3,7 +3,7 @@ import { Link, useSearchParams, useMatch, useLocation } from 'react-router-dom';
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
     Crosshair, Sparkles, Satellite, Aperture, Radio, Archive,
-    Link2, Check, Github, Orbit,
+    Link2, Check, Github, Orbit, Atom,
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
@@ -42,6 +42,13 @@ const TAB_ICONS = {
     historical: Archive,
 };
 
+// /exotic/<id> → that object's title key; /exotic alone is the wormhole.
+const EXOTIC_TITLES = {
+    wormhole: 'exotic.wormhole.title', 'neutron-star': 'exotic.neutronStar.title',
+    binary: 'exotic.binary.title', roche: 'exotic.roche.title',
+};
+const exoticTitleKey = (pathname) => EXOTIC_TITLES[pathname.split('/')[2]] ?? EXOTIC_TITLES.wormhole;
+
 const AppShell = ({ children }) => {
     const { t, rtl, category, object: localizeObject } = useI18n();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -51,7 +58,8 @@ const AppShell = ({ children }) => {
     // the compare view and the sky page it was context for a list that isn't
     // there — and tapping a tab silently threw you back to the solar system.
     const { pathname } = useLocation();
-    const onOwnPage = ['/satellites', '/sky', '/gargantua'].includes(pathname);
+    const onExotic = pathname === '/exotic' || pathname.startsWith('/exotic/');
+    const onOwnPage = ['/satellites', '/sky', '/gargantua'].includes(pathname) || onExotic;
     // The tracker and sky icons play their cinematic way in (hooks/useModeEntry.js).
     const { onTrackerClick: handleTrackerClick, onSkyClick: handleSkyClick } = useModeEntry();
     const activeTab = resolveTab(searchParams.get('tab'));
@@ -84,7 +92,7 @@ const AppShell = ({ children }) => {
             name = obj ? localizeObject(obj).name : null;
             canonicalPath = `/object/${focusedId}`;
         } else if (onOwnPage) {
-            const key = {
+            const key = onExotic ? exoticTitleKey(pathname) : {
                 '/satellites': 'tracker.title', '/sky': 'nightSky.title',
                 '/gargantua': 'gargantua.title',
             }[pathname];
@@ -97,7 +105,7 @@ const AppShell = ({ children }) => {
             canonicalPath = isDefault ? '/' : `/?tab=${activeTab}`;
         }
         syncDocumentHead({ title: full(name), canonicalPath });
-    }, [focusedId, onOwnPage, pathname, activeTab, t, category, localizeObject]);
+    }, [focusedId, onOwnPage, onExotic, pathname, activeTab, t, category, localizeObject]);
 
     // Hidden while the loading screen's copy is flying to this spot. Not a
     // fade: the flying one lands exactly here at exactly this size, so the two
@@ -454,6 +462,19 @@ const AppShell = ({ children }) => {
                                         className="chrome-btn focus-ring"
                                     >
                                         <Orbit className="h-4 w-4" aria-hidden="true" />
+                                    </Link>
+                                </DockItem>
+                            )}
+                            {!searchOpen && (
+                                <DockItem label={t('nav.exotic')}>
+                                    <Link
+                                        to="/exotic"
+                                        title={t('nav.exoticTitle')}
+                                        aria-label={t('nav.exotic')}
+                                        data-on={onExotic || undefined}
+                                        className="chrome-btn focus-ring"
+                                    >
+                                        <Atom className="h-4 w-4" aria-hidden="true" />
                                     </Link>
                                 </DockItem>
                             )}

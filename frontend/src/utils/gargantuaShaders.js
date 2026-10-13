@@ -31,7 +31,7 @@
 // hole spinning towards −φ, and the disk is made to orbit that way too.
 
 // Ashima Arts / Stefan Gustavson 3D simplex noise (MIT licence).
-const SIMPLEX = /* glsl */ `
+export const SIMPLEX = /* glsl */ `
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
 vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
 vec4 permute(vec4 x) { return mod289(((x * 34.0) + 10.0) * x); }
@@ -90,6 +90,129 @@ float fbm(vec3 p, int oct) {
 }
 `;
 
+// The Kerr spacetime, shared with /exotic's neutron star (which runs it at
+// a = 0). Expects `uniform float uSpin`.
+export const KERR_GLSL = /* glsl */ `
+float blRadius(vec3 x) {
+    float a = uSpin;
+    float w = dot(x, x) - a * a;
+    return sqrt(0.5 * (w + sqrt(w * w + 4.0 * a * a * x.z * x.z)));
+}
+
+// utils/kerr.js rayDerivative(), on the GPU.
+void rayDeriv(vec3 x, vec3 p, out vec3 dx, out vec3 dp) {
+    float a = uSpin;
+    float a2 = a * a;
+    float w = dot(x, x) - a2;
+    float r2 = 0.5 * (w + sqrt(w * w + 4.0 * a2 * x.z * x.z));
+    float r = sqrt(r2);
+    float r3 = r2 * r;
+    float S = r2 + a2;
+    float Q = r2 * r2 + a2 * x.z * x.z;
+    float f = 2.0 * r3 / Q;
+    vec3 l = vec3((r * x.x + a * x.y) / S, (r * x.y - a * x.x) / S, x.z / r);
+    float L = 1.0 + dot(l, p);
+
+    vec3 R = vec3(r3 * x.x / Q, r3 * x.y / Q, r * x.z * (r2 + a2) / Q);
+    float c = 2.0 / (Q * Q);
+    vec3 df = c * (3.0 * r2 * Q * R - 4.0 * r3 * r3 * R);
+    df.z -= c * r3 * 2.0 * a2 * x.z;
+
+    float B = x.x * p.x + x.y * p.y;
+    float A = r * B + a * (x.y * p.x - x.x * p.y);
+    vec3 dA = vec3(R.x * B + r * p.x - a * p.y, R.y * B + r * p.y + a * p.x, R.z * B);
+    vec3 dL = (dA * S - A * 2.0 * r * R) / (S * S) - p.z * x.z * R / r2;
+    dL.z += p.z * r / r2;
+
+    dx = p - f * L * l;
+    dp = 0.5 * L * L * df + f * L * dL;
+}
+
+vec3 launch(vec3 x, vec3 n) {
+    float a = uSpin;
+    float r = blRadius(x);
+    float S = r * r + a * a;
+    float f = 2.0 * r * r * r / (r * r * r * r + a * a * x.z * x.z);
+    vec3 l = vec3((r * x.x + a * x.y) / S, (r * x.y - a * x.x) / S, x.z / r);
+    float ln = dot(l, n);
+    float A = 1.0 - f * ln * ln;
+    float B = -2.0 * f * ln;
+    float C = -(1.0 + f);
+    float k = (-B + sqrt(B * B - 4.0 * A * C)) / (2.0 * A);
+    return k * n;
+}
+`;
+
+// Blackbody lookup and an integer hash, shared with /exotic. Expects
+// `uBlackbody` and `uBlackbodyRange`.
+export const COLOUR_GLSL = /* glsl */ `
+vec3 blackbody(float T) {
+    float u = clamp((log(T) - uBlackbodyRange.x) / (uBlackbodyRange.y - uBlackbodyRange.x), 0.0, 1.0);
+    return texture(uBlackbody, vec2(u, 0.5)).rgb;
+}
+
+// Integer hash (PCG3D, Jarzynski & Olano 2020).
+uvec3 pcg3d(uvec3 v) {
+    v = v * 1664525u + 1013904223u;
+    v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
+    v ^= v >> 16u;
+    v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
+    return v;
+}
+vec3 hash3(vec3 cell) {
+    return vec3(pcg3d(uvec3(ivec3(cell) + ivec3(1 << 20)))) * (1.0 / 4294967295.0);
+}
+`;
+
+// The procedural sky, shared with /exotic. Expects `uSkyRot`, `uPixelAngle`,
+// `uStarGain` and `uMilkyWay`, and SIMPLEX and COLOUR_GLSL above it.
+export const SKY_GLSL = /* glsl */ `
+vec3 stars(vec3 d) {
+    // Three layers of cells on the sphere, each holding at most one star:
+    // a few bright ones, more faint ones. About 60 000 in all.
+    vec3 col = vec3(0.0);
+    for (int k = 0; k < 3; k++) {
+        float fk = float(k);
+        float sc = 36.0 * pow(2.4, fk);
+        vec3 q = d * sc;
+        vec3 cell = floor(q);
+        vec3 h = hash3(cell + fk * 1013.0);
+        if (h.x > 0.55 / (1.0 + 2.5 * fk)) continue;
+        vec3 sp = cell + 0.2 + 0.6 * h.yzx;
+        float ang = length(q - sp) / sc;
+        float size = uPixelAngle * 0.8;
+        float bright = (pow(fract(h.y * 37.31 + h.z), 14.0) * 4.0 + 0.05) / (1.0 + fk * 1.5);
+        float T = mix(2800.0, 16000.0, pow(fract(h.z * 91.7), 1.6));
+        col += blackbody(T) * bright * exp(-ang * ang / (size * size));
+    }
+    return col * uStarGain;
+}
+
+vec3 sky(vec3 dir) {
+    vec3 d = uSkyRot * dir;
+    vec3 col = stars(d);
+
+    // A Milky Way band: a soft glow in a plane, mottled, cut by dust lanes.
+    const vec3 pole = vec3(0.0, 0.0, 1.0);
+    const vec3 core = vec3(1.0, 0.0, 0.0);
+    float b = dot(d, pole);
+    float band = exp(-b * b / 0.02);
+    float bulge = exp(-pow(acos(clamp(dot(d, core), -1.0, 1.0)), 2.0) / 0.35);
+    float mott = fbm(d * 4.0, 5) * 0.5 + 0.5;
+    float dust = smoothstep(0.05, 0.45, fbm(d * 9.0 + 5.0, 5));
+    vec3 glow = mix(vec3(0.42, 0.48, 0.62), vec3(1.0, 0.82, 0.6), bulge);
+    float lane = 1.0 - 0.85 * dust * exp(-b * b / 0.004);
+    col += glow * (band * (0.35 + 0.9 * bulge) * mott * lane) * uMilkyWay;
+    // Unresolved stars in the band: high-frequency grit.
+    col += vec3(0.8, 0.85, 1.0) * pow(max(snoise(d * 220.0), 0.0), 6.0) * band * 0.8 * uMilkyWay;
+    // Faint nebulosity anywhere.
+    float neb = pow(max(fbm(d * 1.7 + 11.0, 5), 0.0), 2.5);
+    col += vec3(0.32, 0.12, 0.22) * neb * 0.35 * uMilkyWay;
+    col += vec3(0.08, 0.16, 0.3) * pow(max(fbm(d * 2.3 - 4.0, 4), 0.0), 2.0) * 0.3 * uMilkyWay;
+    return col;
+}
+`;
+
 export const FULLSCREEN_VERT = /* glsl */ `
 out vec2 vUv;
 void main() {
@@ -145,55 +268,7 @@ ${SIMPLEX}
 
 // ── spacetime ───────────────────────────────────────────────────────────────
 
-float blRadius(vec3 x) {
-    float a = uSpin;
-    float w = dot(x, x) - a * a;
-    return sqrt(0.5 * (w + sqrt(w * w + 4.0 * a * a * x.z * x.z)));
-}
-
-// utils/kerr.js rayDerivative(), on the GPU.
-void rayDeriv(vec3 x, vec3 p, out vec3 dx, out vec3 dp) {
-    float a = uSpin;
-    float a2 = a * a;
-    float w = dot(x, x) - a2;
-    float r2 = 0.5 * (w + sqrt(w * w + 4.0 * a2 * x.z * x.z));
-    float r = sqrt(r2);
-    float r3 = r2 * r;
-    float S = r2 + a2;
-    float Q = r2 * r2 + a2 * x.z * x.z;
-    float f = 2.0 * r3 / Q;
-    vec3 l = vec3((r * x.x + a * x.y) / S, (r * x.y - a * x.x) / S, x.z / r);
-    float L = 1.0 + dot(l, p);
-
-    vec3 R = vec3(r3 * x.x / Q, r3 * x.y / Q, r * x.z * (r2 + a2) / Q);
-    float c = 2.0 / (Q * Q);
-    vec3 df = c * (3.0 * r2 * Q * R - 4.0 * r3 * r3 * R);
-    df.z -= c * r3 * 2.0 * a2 * x.z;
-
-    float B = x.x * p.x + x.y * p.y;
-    float A = r * B + a * (x.y * p.x - x.x * p.y);
-    vec3 dA = vec3(R.x * B + r * p.x - a * p.y, R.y * B + r * p.y + a * p.x, R.z * B);
-    vec3 dL = (dA * S - A * 2.0 * r * R) / (S * S) - p.z * x.z * R / r2;
-    dL.z += p.z * r / r2;
-
-    dx = p - f * L * l;
-    dp = 0.5 * L * L * df + f * L * dL;
-}
-
-vec3 launch(vec3 x, vec3 n) {
-    float a = uSpin;
-    float r = blRadius(x);
-    float S = r * r + a * a;
-    float f = 2.0 * r * r * r / (r * r * r * r + a * a * x.z * x.z);
-    vec3 l = vec3((r * x.x + a * x.y) / S, (r * x.y - a * x.x) / S, x.z / r);
-    float ln = dot(l, n);
-    float A = 1.0 - f * ln * ln;
-    float B = -2.0 * f * ln;
-    float C = -(1.0 + f);
-    float k = (-B + sqrt(B * B - 4.0 * A * C)) / (2.0 * A);
-    return k * n;
-}
-
+${KERR_GLSL}
 float stepSize(float r) {
     float h = uStepScale * max(r - 0.9 * uRh, 0.06) * clamp(r / 3.0, 1.0, 6.0);
     return min(h, 0.1 * r + 1.0);
@@ -201,22 +276,7 @@ float stepSize(float r) {
 
 // ── colour ──────────────────────────────────────────────────────────────────
 
-vec3 blackbody(float T) {
-    float u = clamp((log(T) - uBlackbodyRange.x) / (uBlackbodyRange.y - uBlackbodyRange.x), 0.0, 1.0);
-    return texture(uBlackbody, vec2(u, 0.5)).rgb;
-}
-
-// Integer hash (PCG3D, Jarzynski & Olano 2020).
-uvec3 pcg3d(uvec3 v) {
-    v = v * 1664525u + 1013904223u;
-    v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
-    v ^= v >> 16u;
-    v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
-    return v;
-}
-vec3 hash3(vec3 cell) {
-    return vec3(pcg3d(uvec3(ivec3(cell) + ivec3(1 << 20)))) * (1.0 / 4294967295.0);
-}
+${COLOUR_GLSL}
 
 // ── the disk ────────────────────────────────────────────────────────────────
 
@@ -327,50 +387,7 @@ vec3 diskHaze(vec3 x0, vec3 x1, vec3 p) {
 
 // ── the sky ─────────────────────────────────────────────────────────────────
 
-vec3 stars(vec3 d) {
-    // Three layers of cells on the sphere, each holding at most one star:
-    // a few bright ones, more faint ones. About 60 000 in all.
-    vec3 col = vec3(0.0);
-    for (int k = 0; k < 3; k++) {
-        float fk = float(k);
-        float sc = 36.0 * pow(2.4, fk);
-        vec3 q = d * sc;
-        vec3 cell = floor(q);
-        vec3 h = hash3(cell + fk * 1013.0);
-        if (h.x > 0.55 / (1.0 + 2.5 * fk)) continue;
-        vec3 sp = cell + 0.2 + 0.6 * h.yzx;
-        float ang = length(q - sp) / sc;
-        float size = uPixelAngle * 0.8;
-        float bright = (pow(fract(h.y * 37.31 + h.z), 14.0) * 4.0 + 0.05) / (1.0 + fk * 1.5);
-        float T = mix(2800.0, 16000.0, pow(fract(h.z * 91.7), 1.6));
-        col += blackbody(T) * bright * exp(-ang * ang / (size * size));
-    }
-    return col * uStarGain;
-}
-
-vec3 sky(vec3 dir) {
-    vec3 d = uSkyRot * dir;
-    vec3 col = stars(d);
-
-    // A Milky Way band: a soft glow in a plane, mottled, cut by dust lanes.
-    const vec3 pole = vec3(0.0, 0.0, 1.0);
-    const vec3 core = vec3(1.0, 0.0, 0.0);
-    float b = dot(d, pole);
-    float band = exp(-b * b / 0.02);
-    float bulge = exp(-pow(acos(clamp(dot(d, core), -1.0, 1.0)), 2.0) / 0.35);
-    float mott = fbm(d * 4.0, 5) * 0.5 + 0.5;
-    float dust = smoothstep(0.05, 0.45, fbm(d * 9.0 + 5.0, 5));
-    vec3 glow = mix(vec3(0.42, 0.48, 0.62), vec3(1.0, 0.82, 0.6), bulge);
-    float lane = 1.0 - 0.85 * dust * exp(-b * b / 0.004);
-    col += glow * (band * (0.35 + 0.9 * bulge) * mott * lane) * uMilkyWay;
-    // Unresolved stars in the band: high-frequency grit.
-    col += vec3(0.8, 0.85, 1.0) * pow(max(snoise(d * 220.0), 0.0), 6.0) * band * 0.8 * uMilkyWay;
-    // Faint nebulosity anywhere.
-    float neb = pow(max(fbm(d * 1.7 + 11.0, 5), 0.0), 2.5);
-    col += vec3(0.32, 0.12, 0.22) * neb * 0.35 * uMilkyWay;
-    col += vec3(0.08, 0.16, 0.3) * pow(max(fbm(d * 2.3 - 4.0, 4), 0.0), 2.0) * 0.3 * uMilkyWay;
-    return col;
-}
+${SKY_GLSL}
 
 // ── main ────────────────────────────────────────────────────────────────────
 

@@ -28,12 +28,16 @@ npm run build    # static bundle in frontend/dist
 
 - `src/components/SolarSystem3D.jsx` — the main scene (~3k lines): planets,
   moons, belts, orbit rings, the focus camera, the gravity overlays.
-- `src/pages/` — five routes: `CategoryBrowser` (catalog + scene + object
+- `src/pages/` — six routes: `CategoryBrowser` (catalog + scene + object
   detail, mounted on `path="*"`), `SatelliteView` (`/satellites`),
   `ComparePage` (`/compare`), `NightSkyPage` (`/sky`, lazily loaded),
   `GargantuaPage` (`/gargantua`, lazily loaded — a per-pixel Kerr ray tracer
   that is deliberately GPU-heavy; its maths is `utils/kerr.js`, mirrored line
-  for line in `utils/gargantuaShaders.js`).
+  for line in `utils/gargantuaShaders.js`), `ExoticPage` (`/exotic/:id`,
+  lazily loaded — a wormhole, a neutron star, a binary black hole and a
+  Roche-lobe binary, each a shader in `utils/exoticShaders.js` mirroring its
+  own physics module: `wormhole.js`, `neutronStar.js`, `binaryHole.js`,
+  `roche.js`).
 - `src/data/` — `solarSystemBodies.js` is what the **scene** draws;
   `objectCatalog.js` is the **catalog's** 70 objects and their stats. Two
   different lists for two different jobs.

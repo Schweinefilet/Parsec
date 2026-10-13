@@ -48,7 +48,8 @@ in the telemetry ticker. Without one it falls back to `DEMO_KEY`.
 There is one `<Route path="*">` (`src/App.jsx`) so `AppShell`,
 `CategoryBrowser` and `SolarSystem3D` are never remounted while navigating —
 that is what preserves the Three.js camera state and lets the exit animation
-play. `/satellites`, `/compare`, `/sky` and `/gargantua` are the other four routes.
+play. `/satellites`, `/compare`, `/sky`, `/gargantua` and `/exotic/:id` are the
+other five routes.
 
 ```text
 frontend/src/
@@ -61,11 +62,16 @@ frontend/src/
                          loaded (see "The night sky")
     GargantuaPage.jsx    the black hole from Interstellar (/gargantua) — lazily
                          loaded, and built to be expensive (see "Gargantua")
+    ExoticPage.jsx       a wormhole, a neutron star, merging black holes and a
+                         Roche-lobe binary (/exotic/:id) — one lazy chunk for
+                         all four (see "Exotic objects")
   components/
     SolarSystem3D.jsx    the main scene: planets, moons, belts, orbits, camera,
                          the focus camera, the gravity overlays (~3k lines)
     Gargantua3D.jsx      a per-pixel Kerr ray tracer: one full-screen shader,
                          bloom, a film curve — no scene graph at all
+    Exotic3D.jsx         the same plumbing for the /exotic objects; each one's
+                         uniforms and clocks are in exoticSceneSetup.js
     NightSky3D.jsx       real stars + constellation figures, drag to look
                          around — a different scene from SolarSystem3D, not a
                          mode of it (camera never moves; the sky rotates)
@@ -762,6 +768,53 @@ it hides the shadow. The "As physics has it" shot puts them back.
   GPU drops the context, the page offers to come back one level lower.
 - `?shot=physical|above|dive|film`, `?quality=…` and `?planet=1` open the page
   on that view.
+
+### Exotic objects
+
+`/exotic/:id` grew out of Gargantua: four more objects, each traced per pixel
+by its own full-screen shader (`utils/exoticShaders.js`) and each backed by a
+physics module that its tests hold to closed-form answers, the way `kerr.js`
+is. They share Gargantua's noise, blackbody lookup, procedural sky, bloom,
+film curve, quality levels, phone warning and drop-a-level-on-context-loss
+behaviour. One page with a picker rather than four routes, so they are one
+lazy chunk (about 15 KB gzipped); switching object remounts the renderer, not
+the page. `/exotic` alone opens the wormhole.
+
+- **Wormhole** (`utils/wormhole.js`). The Ellis metric, the massless limit of
+  the wormhole James et al. built for *Interstellar* (Am. J. Phys. 83, 2015).
+  Every ray stays in one plane through the throat, so it is integrated in 2D,
+  (ℓ, φ, p_ℓ) with the angular momentum conserved, and turned back into a 3D
+  direction at the end. Rays that end at ℓ < 0 sample a second universe: a
+  rose-and-teal nebula sky with a spiral galaxy behind the throat. The tests
+  pin the sweep round the throat to its closed forms, 2K(b/h) for rays that
+  turn back and 2(h/b)K(h/b) for rays that go through. "Go through" flies
+  the camera through the throat and turns it round to look back at our sky.
+  The camera's `dist` is the signed ℓ here, and `turn` yaws it round.
+- **Neutron star** (`utils/neutronStar.js`). Schwarzschild outside a solid
+  surface, which is Kerr at a = 0, so it runs on `kerr.js` and the shared
+  `KERR_GLSL` chunk; rays stop at r = R instead of a horizon. The readout's
+  visible fraction is the exact bending integral, and the tests check the
+  traced grazing ray against it and against Beloborodov's (2002)
+  approximation. The hotspots and beams turn with PSR B1919+21's period; the
+  beams are drawn so the sweep shows (real ones are radio). The grid colours
+  the far hemisphere amber, which is how you see round the back.
+- **Binary black hole** (`utils/binaryHole.js`). An approximation, and it says
+  so: no exact two-hole spacetime exists. Each hole pulls a ray with
+  −3m h² x / r⁵, the force under which a ray's path is exactly a
+  Schwarzschild null geodesic (u'' + u = 3mu²), and the two pulls are added.
+  The tests check a lone hole against the 3√3 m shadow, the photon sphere
+  and the 4m/b + 15πm²/4b² bend, and the pair against symmetry. The orbit
+  shrinks by Peters (1964) and merges at 2.6 M into a 0.95 M remnant; the
+  readouts are scaled to a 65-sun pair, like GW150914.
+- **Roche lobe overflow** (`utils/roche.js`). Flat-space ray marching: at the
+  real size of an X-ray binary the hole's lensing is far below a pixel. The
+  star's surface is the equipotential through L1, found by bisection along
+  each ray; its volume radius matches Eggleton (1983) to 1% in the tests. The
+  stream is a parcel integrated from L1 under the Roche potential and the
+  Coriolis force (Jacobi constant conserved), and comes as close to the
+  accretor as Lubow & Shu (1975) say. It reaches the shader as a 48-point
+  polyline, drawn as a soft tube; the disk is truncated at 0.6 of the
+  accretor's lobe, with a hot spot where the stream lands.
 
 ### One interface
 
