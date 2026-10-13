@@ -175,13 +175,21 @@ const AppShell = ({ children }) => {
         return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', measure); };
     }, [showMenuCoach, isMobile]);
 
-    // A desktop has no menu to open: pressing any button in the dock is finding it.
+    // A desktop has no menu to open: reaching the dock is finding it. That
+    // includes merely hovering it — the hovered icons swell and the row grows
+    // toward the tip, with each icon's label hanging off the dock's leading
+    // edge, right where the tip sits, so the tip ended up half buried under
+    // the header. The labels name the controls from then on anyway.
     useEffect(() => {
         if (!showMenuCoach || isMobile) return undefined;
         const dock = document.querySelector('.floating-dock');
         const found = () => endMenuCoach(true);
+        dock?.addEventListener('pointerenter', found);
         dock?.addEventListener('pointerdown', found);
-        return () => dock?.removeEventListener('pointerdown', found);
+        return () => {
+            dock?.removeEventListener('pointerenter', found);
+            dock?.removeEventListener('pointerdown', found);
+        };
     }, [showMenuCoach, isMobile, endMenuCoach]);
 
     // A miss doesn't mark it seen — the next visit gets another chance,

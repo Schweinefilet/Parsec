@@ -16,6 +16,19 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.14.6
+
+**The header tip gets out of the way when you reach for the dock.** On a
+desktop, the first-visit tip that introduces the header's controls sits beside
+the dock, in the header band. Hovering the dock swells its icons, which grows
+the row toward the tip, and the hovered icon's label hangs off the dock's
+leading edge — exactly where the tip is. The tip ended up half buried under
+the header. It now ends the moment the pointer enters the dock (as a press on
+the dock already did), and is marked seen: having found the dock, its labels
+name each control from then on.
+
+---
+
 ## 5.14.5
 
 **The time bar's lit buttons use the shared chrome tokens.** Pause, and the

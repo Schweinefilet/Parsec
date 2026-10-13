@@ -15,6 +15,7 @@ export const WHATS_NEW = [
         version: '5.14',
         changes: [
             'On a wide screen, the header and the controls over the scene now sit at the edges of the window instead of floating in a box in the middle.',
+            'The first-visit tip beside the header’s buttons now gets out of the way as soon as you move the pointer onto them, instead of being covered as they grow.',
             'Every page now speaks the same visual language: the settings on the night sky and on Gargantua match the solar system’s, menus and pop-ups share one look, and “Go back” sits in the same place everywhere.',
         ],
     },
