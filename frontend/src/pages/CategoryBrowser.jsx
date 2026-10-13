@@ -126,21 +126,21 @@ const LiveDistanceRow = ({ spacecraftId }) => {
     const lightHours = km / 1079252848.8;   // km per light-hour
     return (
         <div className="glass p-5">
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
+            <p className="label" style={{ margin: 0 }}>
                 {t('spacecraft.distanceFromSun')}
             </p>
-            <p className="text-lg font-bold mt-1 text-white num-run" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <p className="figure num-run" style={{ margin: 'var(--s-1) 0 0', fontSize: 'var(--fs-lg)' }}>
                 {t.digits(distanceAU.toFixed(2))}{' '}
-                <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 500, color: 'var(--text-tertiary)' }}>
                     {t('spacecraft.au')}
                 </span>
             </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+            <p style={{ margin: 'var(--s-1) 0 0', fontSize: 'var(--fs-xs)', color: 'var(--text-tertiary)' }}>
                 {t('spacecraft.lightDelay', {
                     km: (km / 1e9).toFixed(2), hours: lightHours.toFixed(1),
                 })}
             </p>
-            <p className="text-[10px] mt-2" style={{ color: 'rgba(255,255,255,0.28)' }}>
+            <p style={{ margin: 'var(--s-2) 0 0', fontSize: 'var(--fs-label)', color: 'var(--text-quaternary)' }}>
                 {t('spacecraft.horizonsNote')}
             </p>
         </div>
@@ -748,7 +748,7 @@ const CategoryBrowser = () => {
                         if (!isMobile) {
                             return (
                                 <>
-                                    {/* Against the trailing edge of the spine,
+                                    {/* Against the window's trailing edge,
                                         opposite the transport — so the bottom of
                                         the scene reads as one bar with an anchor
                                         at each end, the way the header does, and
@@ -1099,27 +1099,27 @@ const CategoryBrowser = () => {
                                             <div className="glass p-5">
                                                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                                                     <div>
-                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{t('spacecraft.launchYear')}</p>
-                                                        <p className="font-bold text-white">{object.launchYear}</p>
+                                                        <p className="label" style={{ margin: '0 0 2px' }}>{t('spacecraft.launchYear')}</p>
+                                                        <p className="figure num-run" style={{ margin: 0 }}>{object.launchYear}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{t('spacecraft.status')}</p>
-                                                        <span className="text-xs font-bold px-2 py-0.5 rounded-lg" style={{
-                                                            background: object.currentStatus === 'active' ? 'rgba(80,200,120,0.15)' : 'rgba(140,140,140,0.15)',
-                                                            color: object.currentStatus === 'active' ? '#50e090' : 'rgba(200,200,200,0.7)',
-                                                        }}>
+                                                        <p className="label" style={{ margin: '0 0 2px' }}>{t('spacecraft.status')}</p>
+                                                        <span
+                                                            className="status-pill"
+                                                            data-tone={object.currentStatus === 'active' ? 'positive' : 'neutral'}
+                                                        >
                                                             {t(object.currentStatus === 'active'
                                                                 ? 'spacecraft.statusActive'
                                                                 : 'spacecraft.statusInactive')}
                                                         </span>
                                                     </div>
                                                     <div className="col-span-2">
-                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{t('spacecraft.operator')}</p>
-                                                        <p className="font-bold text-white text-sm">{object.operator}</p>
+                                                        <p className="label" style={{ margin: '0 0 2px' }}>{t('spacecraft.operator')}</p>
+                                                        <p className="figure" style={{ margin: 0, fontSize: 'var(--fs-sm)' }}>{object.operator}</p>
                                                     </div>
                                                     <div className="col-span-2">
-                                                        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{t('spacecraft.locationAltitude')}</p>
-                                                        <p className="font-bold text-white text-sm">{object.altitude}</p>
+                                                        <p className="label" style={{ margin: '0 0 2px' }}>{t('spacecraft.locationAltitude')}</p>
+                                                        <p className="figure num-run" style={{ margin: 0, fontSize: 'var(--fs-sm)' }}>{object.altitude}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1147,23 +1147,26 @@ const CategoryBrowser = () => {
                                             // would park at the top of the sheet
                                             // permanently and slice the taller
                                             // card behind it in half.
-                                            className="w-full rounded-2xl font-bold py-3.5 text-sm flex items-center justify-center gap-1.5 focus-ring detail-stack-flow"
+                                            //
+                                            // .action-btn — the thing this card
+                                            // is asking you to do — not green:
+                                            // green is status ("Active"), never
+                                            // a control.
+                                            className="action-btn focus-ring detail-stack-flow"
                                             style={{
+                                                width: '100%', padding: '14px var(--s-4)',
                                                 // Opaque in the stack: a pinned
                                                 // card behind this one would
                                                 // otherwise show through the
-                                                // green. Same tint, composited
+                                                // tint. Same tint, composited
                                                 // over the sheet's own base.
                                                 background: compactFocus
-                                                    ? 'linear-gradient(rgba(80,200,120,0.18), rgba(80,200,120,0.18)), var(--sheet-base)'
-                                                    : 'rgba(80,200,120,0.18)',
-                                                color: '#50e090',
-                                                border: '1px solid rgba(80,200,120,0.30)',
-                                                cursor: 'pointer',
+                                                    ? 'linear-gradient(rgba(var(--accent-warm-rgb), 0.14), rgba(var(--accent-warm-rgb), 0.14)), var(--sheet-base)'
+                                                    : undefined,
                                             }}
                                         >
                                             {t('spacecraft.trackIss')}
-                                            <ArrowUpRight className="flip-rtl" style={{ width: 16, height: 16 }} />
+                                            <ArrowUpRight className="flip-rtl" aria-hidden="true" />
                                         </button>
                                     )}
 

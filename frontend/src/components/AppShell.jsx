@@ -272,14 +272,14 @@ const AppShell = ({ children }) => {
             {/* Once the page scrolls, the ticker and cards pass beneath this
                 overlay header; a soft scrim keeps the logo readable instead of
                 letting the two sets of text collide. */}
-            {/* The bar itself is full-bleed so its scrim can reach both window
-                edges; the row inside it rides the .spine, which puts the
-                wordmark directly above the catalog heading and the leading edge
-                of the first card, and the actions directly above the last card's
-                trailing edge. Before this the header sat on the window's own
-                gutter and the content on a centred 1280px column — two left
-                edges 160px apart on a wide screen, which is most of why the
-                page read as unsettled. */}
+            {/* The bar is full-bleed so its scrim reaches both window edges,
+                and so is its row (.edge-row): the wordmark and the actions frame
+                the window, on the same gutter as the chrome floating over the
+                scene beneath them. It used to ride the centred .spine to sit
+                above the catalog's first card — but the scene is the first and
+                usually the only thing on screen, and on a wide monitor the
+                spine left the whole interface boxed a few hundred pixels in
+                from either edge of a view that runs edge to edge. */}
             <header
                 className="fixed top-0 left-0 right-0 z-50"
                 style={{
@@ -293,7 +293,7 @@ const AppShell = ({ children }) => {
                     transition: 'background var(--t-slow) var(--ease-out), backdrop-filter var(--t-slow) var(--ease-out)',
                 }}
             >
-              <div className="spine flex items-center justify-between" style={{ height: '100%' }}>
+              <div className="edge-row flex items-center justify-between" style={{ height: '100%' }}>
                 {/* On a phone the open search field wants the whole bar, so the
                     wordmark steps aside for it. */}
                 {!(searchOpen && isMobile) && (

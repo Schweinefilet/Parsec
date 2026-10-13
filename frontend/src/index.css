@@ -12,20 +12,15 @@
   --s-6: 24px;  --s-7: 32px;  --s-8: 40px; --s-9: 48px; --s-10: 64px;
 
   /* ── The spine ──────────────────────────────────────────────────────────
-     Every page's content, the header above it and the chrome floating over
-     the 3D scene all land on one column. --spine-max matches Tailwind's
-     max-w-7xl, which <main> in AppShell already uses; --spine-inset is the
-     distance from the viewport edge in to that column, for the absolutely
-     positioned scene chrome that sits outside <main> and would otherwise
-     hug the window edge on its own. It collapses to a plain gutter once the
-     window is narrower than the spine. */
+     The centred column reading content lands on — the catalog, the tracker's
+     panels. --spine-max matches Tailwind's max-w-7xl, which <main> in
+     AppShell already uses. Chrome does not ride it: see .edge-row. */
   --spine-max:   1280px;
   --spine-pad:   32px;
-  --spine-inset: max(var(--spine-pad), calc((100vw - var(--spine-max)) / 2 + var(--spine-pad)));
-  /* What the chrome floating over the 3D scene actually uses. It is the spine
-     on a desktop window, and on a phone the spine's own 20px gutter — so the
-     back link, a page title and the compass line up with the wordmark above
-     them, as the tracker's in-flow content already does. (The transport and
+  /* What the chrome floating over the 3D scene actually uses: the window's
+     own edge at the header's gutter (32px on a desktop, 20px on a phone — see
+     .edge-row), so the back link, a page title and the compass line up with
+     the wordmark above them at every window width. (The transport and
      the chip column above it keep their own tighter 12px edge: they are a
      toolbar along the bottom, not text in the column.) */
   --scene-inset: var(--s-5);
@@ -884,9 +879,11 @@ button:focus-visible {
   margin-inline: calc(var(--s-6) * -1);
   padding: 0 var(--s-6) var(--s-3);
   border-bottom: 1px solid var(--hairline-hi);
-  background: var(--float-bg);
-  backdrop-filter: var(--blur-chrome);
-  -webkit-backdrop-filter: var(--blur-chrome);
+  /* The tone a .glass card composites to over the page's black, so the
+     band reads as the card itself rather than a stripe across it. */
+  background: rgba(17, 19, 25, 0.94);
+  backdrop-filter: var(--blur-panel);
+  -webkit-backdrop-filter: var(--blur-panel);
 }
 
 /* ── Standalone page header ─────────────────────────────────── */
@@ -1056,10 +1053,23 @@ button:focus-visible {
   margin-inline: auto;
   padding-inline: var(--s-5);
 }
+/* ── The edge row ───────────────────────────────────────────────────────────
+   The other alignment: the window's own edges, at the same gutter the spine
+   pads itself by. Chrome — the header's wordmark and actions, and everything
+   floating over a full-bleed scene via --scene-inset — sits here. It used to
+   ride the spine too, which on a wide monitor left the whole interface
+   floating in a 1280px box a few hundred pixels in from either side of a
+   scene that runs edge to edge. Reading content (catalog cards, the tracker's
+   panels) keeps the centred spine; the chrome frames the window. */
+.edge-row {
+  width: 100%;
+  padding-inline: var(--s-5);
+}
 @media (min-width: 768px) {
-  .spine { padding-inline: var(--spine-pad); }
+  .spine,
+  .edge-row { padding-inline: var(--spine-pad); }
   :root {
-    --scene-inset: var(--spine-inset);
+    --scene-inset: var(--spine-pad);
     --scene-baseline: 24px;
   }
 }
@@ -1336,6 +1346,11 @@ button:focus-visible {
   background: rgba(var(--negative-rgb), 0.14);
   border-color: rgba(var(--negative-rgb), 0.30);
   color: var(--negative);
+}
+.status-pill[data-tone="neutral"] {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--hairline-hi);
+  color: var(--text-tertiary);
 }
 .status-pill::before {
   content: '';
@@ -1623,7 +1638,7 @@ button:focus-visible {
 }
 
 /* ── The way out of a full-bleed page ───────────────────────────────────────
-   .page-back, pinned on the spine under the wordmark — the focused-body view,
+   .page-back, pinned under the wordmark — the focused-body view,
    the night sky and Gargantua all put it in exactly this place. */
 .scene-back {
   position: absolute;

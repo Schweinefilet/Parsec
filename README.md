@@ -783,6 +783,8 @@ built from them rather than from inline copies:
 | a name floating in a 3D scene | `.scene-label[data-size]` | planet/moon labels, the night sky's stars and constellations |
 | text input / select | `.glass-input` | search, Compare's pickers |
 
+Two alignments, never mixed: **chrome frames the window** — the header row (`.edge-row`) and everything floating over a scene (`--scene-inset`) sit on a fixed 32px gutter from the window's own edges (20px on a phone) — while **reading content** (catalog cards, the tracker's panels) sits on the centred 1280px `.spine`. Chrome rode the spine until 5.14.2, which on a wide monitor boxed the whole interface in a few hundred pixels from the edges of an edge-to-edge scene.
+
 `--float-bg` is the one near-opaque pane for anything that opens *over* the
 scene (drawers, menus, the category bar): `.glass` washes out with the Sun
 behind it. Sliders share one thumb and track (`.plain-slider`, `.drift-slider`,

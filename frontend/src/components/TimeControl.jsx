@@ -281,11 +281,9 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
             data-coach="time"
             style={{
                 position: 'absolute',
-                // On desktop this lands on the page's content spine — the same
-                // column the wordmark above and the catalog below sit on — so
-                // the transport reads as part of the layout rather than as
-                // something stuck to the window. The phone keeps its own tight
-                // gutter: there is no column to agree with on a 390px screen.
+                // On desktop this lands on --scene-inset, the window-edge gutter
+                // the header's wordmark sits on, so the chrome frames the scene
+                // from its corners. The phone keeps its own tighter 12px edge.
                 insetInlineStart: isMobile ? 12 : 'var(--scene-inset)',
                 bottom: isMobile ? 12 : 'var(--scene-baseline)',
                 // Above the detail sheet (z-index 12): that sheet's container

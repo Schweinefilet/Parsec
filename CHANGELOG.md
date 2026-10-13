@@ -16,6 +16,37 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.14.2
+
+**The interface goes to the edges of the window.** On a wide monitor the header
+and every piece of chrome over the scene sat on the centred 1280px content
+column, so on a 1920px screen the wordmark, the header actions, the back link,
+the transport, the explore pill, the focused body's annotations and all of
+Gargantua's and the night sky's chrome floated about 300px in from either side
+of a scene that runs edge to edge. Reported from a wide display, and invisible
+at the 1440px the site was mostly checked at, where the column's margin is only
+80px.
+
+Chrome now frames the window: the header row is a new `.edge-row` and
+`--scene-inset` on a desktop is the fixed 32px gutter rather than the column's
+computed inset (`--spine-inset`, now removed). Reading content — the catalog's
+cards and heading, the tracker's and Compare's panels — keeps the centred
+`.spine`, since a 1,850px-wide globe card or table reads worse, not better.
+
+Also from the last crawl of every page state (catalog, a focused spacecraft,
+search, version history, loading, the error screen, the AR card, Compare and
+the phone sheet, each screenshotted):
+
+- The ISS sheet's "Track the ISS live" was a green button; green is status, so
+  it is an `.action-btn` now. The spacecraft card's Active/Inactive badge is a
+  `.status-pill` (with a new `neutral` tone), and its captions and values, the
+  probe distance card's and the stats panel's row captions are `.label` /
+  `.figure` instead of three Tailwind spellings of the same micro-label.
+- Compare's sticky table header goes back to its card's own tone: moved onto
+  `--float-bg` in 5.14.1, it read as a darker stripe across the card.
+
+---
+
 ## 5.14.1
 
 **Finishing the unification pass: the corners 5.14.0 skipped.** 5.14.0 worked

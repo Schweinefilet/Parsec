@@ -73,8 +73,8 @@ const ObjectStatsPanel = ({ object: source, className = '' }) => {
                 {current.rows.map(({ label, value, labelText, valueText }) => (
                     <div key={label} className="p-3">
                         <div
-                            className="text-[10px] font-semibold uppercase tracking-wider mb-1"
-                            style={{ color: 'var(--text-tertiary)' }}
+                            className="label"
+                            style={{ marginBottom: 'var(--s-1)' }}
                         >
                             {labelText ?? label}
                         </div>
