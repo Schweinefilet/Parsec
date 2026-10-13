@@ -132,7 +132,7 @@ const Mark = ({ iconColor, textColor, style, name, shown, frames, reveal = 1 }) 
         />
         {/* Latin whatever the page language, and its tracking is the whole
             look of it — see the [data-latin] rule in index.css. */}
-        <span data-latin style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
+        <span data-latin style={{ fontSize: 'var(--fs-md)', fontWeight: 800, letterSpacing: '0.14em' }}>
             <EncryptedText text={name} shown={shown} frames={frames} />
         </span>
     </span>
@@ -510,7 +510,7 @@ const LoadingScreen = () => {
                     frames={frames}
                     reveal={settledReveal}
                     iconColor="var(--accent-warm)"
-                    textColor="#fff"
+                    textColor="var(--text-primary)"
                     style={{
                         position: 'absolute', inset: 0,
                         opacity: finished ? 0 : 1,

@@ -356,15 +356,11 @@ function constellationAnchor(mainStrips, out) {
     return out.set(x / n, y / n, z / n).normalize();
 }
 
+// Type comes from .scene-label (index.css), shared with the solar-system
+// scene's labels; this is only the positioning the render loop drives.
 const LABEL_STYLE = {
-    position: 'absolute', top: 0, left: 0,
-    color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: 700,
-    letterSpacing: '0.07em', lineHeight: 1.3, whiteSpace: 'nowrap',
-    textShadow: '0 1px 4px rgba(0,0,0,0.9)', willChange: 'transform',
+    position: 'absolute', top: 0, left: 0, willChange: 'transform',
     visibility: 'hidden', pointerEvents: 'none',
-};
-const BODY_LABEL_STYLE = {
-    ...LABEL_STYLE, color: 'rgba(255,255,255,0.92)', fontSize: 11,
 };
 
 const NightSky3D = ({
@@ -663,7 +659,9 @@ const NightSky3D = ({
         // decluttering isn't worth it, unlike the constellation figures below.
         const bodyLabelEls = SKY_TRACKED.map((b) => {
             const el = document.createElement('div');
-            Object.assign(el.style, BODY_LABEL_STYLE);
+            el.className = 'scene-label';
+            el.dataset.size = 'sky';
+            Object.assign(el.style, LABEL_STYLE);
             el.textContent = b.name;
             labelLayer.appendChild(el);
             return el;
@@ -886,6 +884,9 @@ const NightSky3D = ({
             constellationLabels = constellations.map(([iau, , native, main]) => {
                 const anchor = constellationAnchor(main, new THREE.Vector3());
                 const el = document.createElement('div');
+                el.className = 'scene-label';
+                el.dataset.size = 'sky';
+                el.dataset.faint = '';
                 Object.assign(el.style, LABEL_STYLE);
                 el.textContent = name0(iau, native);
                 labelLayer.appendChild(el);
@@ -1158,7 +1159,7 @@ const NightSky3D = ({
             // matches NightSkyPage.jsx's own back button and AR toggle, the
             // page's next chrome row down.
             'position:absolute', 'top:68px', 'left:50%', 'transform:translateX(-50%)',
-            'font-size:11px', 'font-weight:700', 'letter-spacing:0.1em', 'text-transform:uppercase',
+            'font-size:var(--fs-tiny)', 'font-weight:700', 'letter-spacing:var(--tr-label)', 'text-transform:uppercase',
             'color:rgba(255,255,255,0.55)', 'text-shadow:0 1px 4px rgba(0,0,0,0.9)',
             'pointer-events:none', 'z-index:4',
         ].join(';');

@@ -105,7 +105,7 @@ const SortDropdown = ({ value, onChange }) => {
                                 fontSize: 'var(--fs-sm)', cursor: 'pointer',
                                 transition: 'background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out)',
                                 ...(opt.value === value
-                                    ? { color: '#fff', background: 'rgba(255,255,255,0.10)', fontWeight: 600 }
+                                    ? { color: 'var(--text-primary)', background: 'rgba(255,255,255,0.10)', fontWeight: 600 }
                                     : { color: 'var(--text-secondary)' }),
                             }}
                         >
@@ -567,7 +567,7 @@ const CategoryBrowser = () => {
                         // the image competing with it.
                         opacity: isSpacecraftCard ? 0.05 : 1,
                         filter: isSpacecraftCard ? 'saturate(0.3)' : 'none',
-                        transition: 'opacity 600ms ease, filter 600ms ease',
+                        transition: 'opacity var(--t-slower) var(--ease-out), filter var(--t-slower) var(--ease-out)',
                         pointerEvents: isSpacecraftCard ? 'none' : 'auto',
                     }}>
                         <SolarSystem3D
@@ -1022,19 +1022,19 @@ const CategoryBrowser = () => {
                                     display: 'flex', flexDirection: 'column', alignItems: 'center',
                                     width: '100%', background: 'none', border: 'none',
                                     cursor: 'pointer', padding: '14px 0 6px',
-                                    animation: sheetOpen ? 'none' : 'scrollPromptBob 1.8s ease-in-out infinite',
+                                    animation: sheetOpen ? 'none' : 'scrollPromptBob 1.8s var(--ease-inout) infinite',
                                 }}
                             >
                                 {compactFocus ? (
                                     <span style={{
-                                        width: 40, height: 4, borderRadius: 2,
+                                        width: 40, height: 4, borderRadius: 'var(--r-full)',
                                         background: 'rgba(255,255,255,0.55)',
                                         boxShadow: '0 1px 6px rgba(0,0,0,0.8)',
                                     }} />
                                 ) : (
                                     <>
-                                        <ChevronDown style={{ width: 44, height: 44, color: 'rgba(255,255,255,0.80)', marginBottom: -24, transform: sheetOpen ? 'scaleX(1.5)' : 'scaleX(1.5) rotate(180deg)', transition: 'transform 0.35s ease' }} />
-                                        <ChevronDown style={{ width: 44, height: 44, color: 'rgba(255,255,255,0.40)', transform: sheetOpen ? 'scaleX(1.5)' : 'scaleX(1.5) rotate(180deg)', transition: 'transform 0.35s ease' }} />
+                                        <ChevronDown style={{ width: 44, height: 44, color: 'rgba(255,255,255,0.80)', marginBottom: -24, transform: sheetOpen ? 'scaleX(1.5)' : 'scaleX(1.5) rotate(180deg)', transition: 'transform var(--t-slow) var(--ease-out)' }} />
+                                        <ChevronDown style={{ width: 44, height: 44, color: 'var(--text-tertiary)', transform: sheetOpen ? 'scaleX(1.5)' : 'scaleX(1.5) rotate(180deg)', transition: 'transform var(--t-slow) var(--ease-out)' }} />
                                     </>
                                 )}
                             </button>
@@ -1235,7 +1235,7 @@ const CategoryBrowser = () => {
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--s-3)' }}>
                                 <h2 style={{
                                     fontSize: 'var(--fs-xl)', fontWeight: 700,
-                                    letterSpacing: 'var(--tr-tight)', color: '#fff', margin: 0,
+                                    letterSpacing: 'var(--tr-tight)', color: 'var(--text-primary)', margin: 0,
                                 }}>
                                     {currentCategory.label}
                                 </h2>

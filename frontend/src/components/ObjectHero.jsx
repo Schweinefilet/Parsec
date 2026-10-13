@@ -29,7 +29,7 @@ const ObjectHero = ({ object: source, compact = false }) => {
                 maxHeight: compact ? '26vh' : '52vh',
                 borderRadius: 'var(--radius-card)',
                 overflow: 'hidden',
-                border: '1px solid rgba(255,255,255,0.14)',
+                border: '1px solid var(--hairline-hi)',
                 boxShadow: '0 24px 70px rgba(0,0,0,0.65)',
                 background: '#05070a',
             }}
@@ -45,14 +45,14 @@ const ObjectHero = ({ object: source, compact = false }) => {
                             width: '100%', height: '100%',
                             objectFit: 'cover', objectPosition: 'center',
                             opacity: loaded ? 1 : 0,
-                            transition: 'opacity 0.6s ease',
+                            transition: 'opacity var(--t-slower) var(--ease-out)',
                             display: 'block',
                         }}
                     />
                     <span
                         style={{
                             position: 'absolute', insetInlineEnd: 10, bottom: 8,
-                            fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
+                            fontSize: 'var(--fs-micro)', letterSpacing: 'var(--tr-wide)', textTransform: 'uppercase',
                             color: 'rgba(255,255,255,0.45)',
                             textShadow: '0 1px 4px rgba(0,0,0,0.9)',
                             pointerEvents: 'none',

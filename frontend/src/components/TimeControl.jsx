@@ -65,10 +65,10 @@ const SIGNED_RATES = [...RATES].reverse().map(r => -r.value).concat(RATES.map(r 
 
 const btn = (active) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    width: 30, height: 30, borderRadius: 9, flexShrink: 0, cursor: 'pointer',
+    width: 30, height: 30, borderRadius: 'var(--r-sm)', flexShrink: 0, cursor: 'pointer',
     background: active ? 'rgba(255,255,255,0.18)' : 'transparent',
     border: '1px solid ' + (active ? 'rgba(255,255,255,0.28)' : 'transparent'),
-    color: active ? '#fff' : 'rgba(255,255,255,0.72)',
+    color: active ? 'var(--text-primary)' : 'rgba(255,255,255,0.72)',
 });
 
 // The phone's row has to fit a 390px screen with the transport, the reading,
@@ -335,7 +335,7 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
                         >
                             <Clock style={{ width: 14, height: 14 }} />
                             <span style={{
-                                fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+                                fontSize: 'var(--fs-tiny)', fontWeight: 700, whiteSpace: 'nowrap',
                                 fontVariantNumeric: 'tabular-nums',
                             }}>
                                 {t('time.moonRate', { amount: moonAmount })}
@@ -349,7 +349,7 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
                         >
                             <Clock style={{ width: 14, height: 14 }} />
                             <span style={{
-                                fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+                                fontSize: 'var(--fs-tiny)', fontWeight: 700, whiteSpace: 'nowrap',
                                 display: 'inline-block', minWidth: 84, textAlign: 'center',
                                 fontVariantNumeric: 'tabular-nums',
                             }}>
@@ -391,7 +391,7 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
                             there, and this is the first thing flex squeezes (it
                             measured 0px wide at 390). */}
                         {!isMobile && (
-                            <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.14)', margin: '0 2px' }} />
+                            <div style={{ width: 1, height: 22, background: 'var(--hairline-hi)', margin: '0 2px' }} />
                         )}
 
                         {/* A fixed width, not a minimum: the date, the clock
@@ -414,7 +414,7 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
                                         style={{
                                             display: 'block',
                                             background: 'none', border: 0, padding: 0, margin: 0,
-                                            fontSize: 12, fontWeight: 700, color: '#fff',
+                                            fontSize: 'var(--fs-xs)', fontWeight: 700, color: 'var(--text-primary)',
                                             fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
                                             cursor: 'pointer',
                                         }}
@@ -451,7 +451,7 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
                                     is at. */}
                                 {!isMobile && (
                                     <span className="num-run" style={{
-                                        fontSize: 10.5, fontWeight: 600, color: 'rgba(255,255,255,0.5)',
+                                        fontSize: 'var(--fs-label)', fontWeight: 600, color: 'rgba(255,255,255,0.5)',
                                         fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
                                     }}>
                                         <SlidingNumber value={fmtTime(date)} />
@@ -473,9 +473,9 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
                                 // below: any taller and the top of the wrapped clock
                                 // shows through under the status.
                                 height: 11, overflow: 'hidden',
-                                fontSize: 9.5, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap',
+                                fontSize: 'var(--fs-micro)', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap',
                             } : {
-                                fontSize: 9.5, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap',
+                                fontSize: 'var(--fs-micro)', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap',
                                 overflow: 'hidden', textOverflow: 'ellipsis',
                             }}>
                                 <span style={isMobile ? { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '11px' } : undefined}>
@@ -487,7 +487,7 @@ const TimeControl = ({ hidden, focused, moonSpeedDaysPerSec }) => {
                                 </span>
                                 {isMobile && (
                                     <span className="num-run" style={{
-                                        flex: 'none', fontSize: 10, fontWeight: 600, lineHeight: '11px',
+                                        flex: 'none', fontSize: 'var(--fs-label)', fontWeight: 600, lineHeight: '11px',
                                         color: 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums',
                                     }}>
                                         <SlidingNumber value={fmtTime(date, CLOCK_MOBILE)} />

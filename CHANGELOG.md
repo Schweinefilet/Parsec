@@ -16,6 +16,36 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.14.1
+
+**Finishing the unification pass: the corners 5.14.0 skipped.** 5.14.0 worked
+page by page; this sweeps the remaining raw values out of every component, so
+that `#fff`, a bare font size, a bare radius, a raw blur or a hand-written
+duration in a style object now means a deliberate exception (a THREE colour, a
+circle, a drawn star) rather than drift.
+
+- **Scene labels.** The solar system's body labels and the night sky's star and
+  constellation names were the same recipe written twice; they share
+  `.scene-label` now. Doing so surfaced a latent bug: the night sky assigned
+  `fontSize: 10` straight to `el.style`, where a unitless number is silently
+  dropped, so its labels had always been inheriting 16px. That size is kept, on
+  purpose this time, as `data-size="sky"` (15px).
+- **The transport.** `TimeControl` is on the type and radius tokens, mapped only
+  to the same or a smaller step, so the phone row that was measured to the pixel
+  cannot overflow. Its behaviour and animation are untouched.
+- **Compare** (still unrouted) gets the same pass: its pickers are `.glass-input`,
+  its captions `.label`, its sticky header the shared `--float-bg` pane, and its
+  "About …" buttons quiet `.action-btn`s — which retires `.ghost-btn`.
+- **Drift sliders** take the drawer's caption, field and note classes.
+- **New tokens:** `--fs-micro` (9px — counts, the version tag, the transport's
+  status line, which had all been written as a bare 9 or 9.5) and `--blur-scrim`
+  (the scrolled header and the modal backdrop, previously 8px and 4px).
+- Everything else — the category tabs, the coach mark's entrance, card and hero
+  fades, the sheet handle, the search badge, the chart readout, the remaining
+  `#fff` text — reads its colour, size, radius and timing from tokens.
+
+---
+
 ## 5.14.0
 
 **One interface across every page.** A pass through the whole site — the solar

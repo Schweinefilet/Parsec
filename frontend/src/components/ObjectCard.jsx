@@ -116,7 +116,7 @@ const ObjectCard = ({ object: source }) => {
                             width: '100%', height: '100%',
                             objectFit: 'cover', objectPosition: 'center',
                             opacity: loaded ? 1 : 0,
-                            transition: 'opacity 0.5s ease, transform 0.6s cubic-bezier(0.22,0.61,0.36,1)',
+                            transition: 'opacity var(--t-slower) var(--ease-out), transform var(--t-slower) var(--ease-out)',
                         }}
                     />}
                     {/* Legibility scrim — darkest where the text sits. Thins on
@@ -142,7 +142,7 @@ const ObjectCard = ({ object: source }) => {
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 'var(--s-2)', padding: 'var(--s-5) var(--s-5) 0' }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                     <h3 style={{
-                        color: '#fff', fontSize: 'var(--fs-base)', fontWeight: 700,
+                        color: 'var(--text-primary)', fontSize: 'var(--fs-base)', fontWeight: 700,
                         letterSpacing: 'var(--tr-tight)', margin: 0, lineHeight: 1.2,
                     }}>
                         {object.name}
@@ -177,7 +177,7 @@ const ObjectCard = ({ object: source }) => {
                         }}>
                             {object.secondaryStatValue}
                         </span>
-                        <span className="label label-dim" style={{ fontSize: '9px' }}>
+                        <span className="label label-dim" style={{ fontSize: 'var(--fs-micro)' }}>
                             {object.secondaryStatLabel}
                         </span>
                     </div>

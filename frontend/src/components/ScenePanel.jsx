@@ -68,7 +68,7 @@ const ScenePanel = ({ autoRotate, onToggleDrift, onWakeDrift, onOpen, scaleStage
                 transform: 'translateY(-50%)',
                 pointerEvents: 'none',
                 opacity: disabled ? 0 : 1,
-                transition: 'opacity 500ms ease',
+                transition: 'opacity var(--t-slower) var(--ease-out)',
             }}
             inert={disabled || undefined}
         >

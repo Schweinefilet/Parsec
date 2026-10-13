@@ -36,12 +36,9 @@ const DriftSliders = ({ driftOn, onWake }) => {
         <div style={{ direction: 'ltr' }}>
             <div style={{
                 display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-                marginBottom: 8,
+                marginBottom: 'var(--s-2)',
             }}>
-                <span style={{
-                    fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
-                    textTransform: 'uppercase', color: 'rgba(255,255,255,0.62)',
-                }}>
+                <span className="label drawer-subtitle" style={{ margin: 0 }}>
                     {t('scene.cameraDrift')}
                 </span>
                 <button
@@ -49,7 +46,7 @@ const DriftSliders = ({ driftOn, onWake }) => {
                     disabled={atDefaults}
                     className="flex items-center gap-1 focus-ring"
                     style={{
-                        fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+                        fontSize: 'var(--fs-label)', fontWeight: 700, letterSpacing: '0.04em',
                         color: atDefaults ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.66)',
                         background: 'none', border: 'none', padding: '2px 3px',
                         cursor: atDefaults ? 'default' : 'pointer',
@@ -62,10 +59,7 @@ const DriftSliders = ({ driftOn, onWake }) => {
 
             {AXES.map(axis => (
                 <label key={axis} style={{ display: 'block', margin: '9px 0' }}>
-                    <span style={{
-                        display: 'block', fontSize: 11, fontWeight: 600,
-                        color: 'rgba(255,255,255,0.82)', marginBottom: 3,
-                    }}>
+                    <span className="drawer-field" style={{ marginBottom: 3 }}>
                         {t(LABEL_KEY[axis])}
                     </span>
                     <input
@@ -87,9 +81,7 @@ const DriftSliders = ({ driftOn, onWake }) => {
             ))}
 
             {!driftOn && (
-                <p style={{
-                    fontSize: 9.5, color: 'rgba(255,255,255,0.4)', marginTop: 6, lineHeight: 1.4,
-                }}>
+                <p className="drawer-note">
                     {t('scene.driftPaused')}
                 </p>
             )}

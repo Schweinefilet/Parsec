@@ -119,7 +119,7 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null, 
                             width: compact ? 18 : 24, height: compact ? 18 : 24,
                             flexShrink: 0, color: 'rgba(255,255,255,0.55)',
                             transform: open ? 'rotate(180deg)' : 'none',
-                            transition: 'transform 260ms ease',
+                            transition: 'transform var(--t-base) var(--ease-out)',
                         }}
                     />
                 </button>

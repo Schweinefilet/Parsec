@@ -35,7 +35,7 @@ class ErrorBoundary extends Component {
                     gap: 'var(--s-4)',
                     padding: 'var(--s-7)',
                     textAlign: 'center',
-                    color: '#fff',
+                    color: 'var(--text-primary)',
                     background: '#05070a',
                 }}
             >

@@ -95,7 +95,7 @@ const CoachMark = ({ text, target, side = 'below', avoid = [], maxWidth = 232, o
                 cursor: 'pointer',
                 // Fade in (opacity only, so it never fights the nudge's transform),
                 // then lean toward the target, gently, for as long as it is up.
-                animation: 'coachIn 320ms ease both, coachArrow 1.6s ease-in-out 320ms infinite',
+                animation: 'coachIn var(--t-slow) var(--ease-out) both, coachArrow 1.6s var(--ease-inout) var(--t-slow) infinite',
                 ...shape.bob,
             }}
         >

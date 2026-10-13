@@ -219,8 +219,8 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                                 <CornerDownLeft className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'rgba(255,255,255,0.5)' }} />
                             ) : (
                                 <span
-                                    className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0"
-                                    style={{ border: '1px solid rgba(255,255,255,0.18)', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}
+                                    className="label px-1.5 py-0.5 flex-shrink-0"
+                                    style={{ border: '1px solid var(--hairline-hi)', borderRadius: 'var(--r-xs)', whiteSpace: 'nowrap' }}
                                 >
                                     {obj.kind === 'constellation' ? t('search.constellation') : categoryBadge(obj.category)}
                                 </span>

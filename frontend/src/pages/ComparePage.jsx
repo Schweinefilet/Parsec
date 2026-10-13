@@ -44,29 +44,21 @@ const makeFmtRatio = (num) => (n) => {
 
 const ObjectPicker = ({ value, onChange, label, groups, fmtKm, localize, t }) => (
     <label style={{ display: 'block', minWidth: 0, flex: '1 1 200px' }}>
-        <span style={{
-            display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
-            textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 5,
-        }}>
+        <span className="label" style={{ display: 'block', marginBottom: 5 }}>
             {label}
         </span>
         <select
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="focus-ring"
-            style={{
-                width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-card)',
-                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
-                color: '#fff', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer',
-                appearance: 'none',
-            }}
+            className="glass-input focus-ring"
+            style={{ fontSize: 'var(--fs-base)', fontWeight: 700, cursor: 'pointer', appearance: 'none', colorScheme: 'dark' }}
         >
             {groups.map(g => (
-                <optgroup key={g.id} label={g.label} style={{ background: '#0b0d12' }}>
+                <optgroup key={g.id} label={g.label} style={{ background: 'var(--sheet-base)' }}>
                     {g.items.map(src => {
                         const o = localize(src);
                         return (
-                            <option key={o.id} value={o.id} style={{ background: '#0b0d12' }}>
+                            <option key={o.id} value={o.id} style={{ background: 'var(--sheet-base)' }}>
                                 {t('compare.option', { name: o.name, size: fmtKm(radiusKm(src) * 2) })}
                             </option>
                         );
@@ -91,7 +83,7 @@ const BodyDisc = ({ object, fraction, maxPx }) => {
     const photo = objectImage(object.id);
     const accent = accentOf(object.category);
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--s-3)', minWidth: 0 }}>
             <div style={{ height: maxPx, display: 'flex', alignItems: 'center' }}>
                 <div
                     aria-hidden="true"
@@ -119,8 +111,8 @@ const BodyDisc = ({ object, fraction, maxPx }) => {
                 142,984 km across") and the sentence below, and a second copy
                 under a two-pixel Earth disc just wrapped onto three lines. */}
             <p style={{
-                margin: 0, textAlign: 'center', fontSize: '0.95rem', fontWeight: 700,
-                color: '#fff', whiteSpace: 'nowrap',
+                margin: 0, textAlign: 'center', fontSize: 'var(--fs-base)', fontWeight: 700,
+                color: 'var(--text-primary)', whiteSpace: 'nowrap',
             }}>
                 {named.name}
             </p>
@@ -252,7 +244,7 @@ const ComparePage = () => {
                 </div>
 
                 {/* ── To scale ── */}
-                <div className="glass" style={{ marginTop: 16, padding: '28px 20px 22px', overflow: 'hidden' }}>
+                <div className="glass" style={{ marginTop: 'var(--s-4)', padding: 'var(--s-7) var(--s-5) var(--s-6)', overflow: 'hidden' }}>
                     <div
                         ref={stageRef}
                         className="flex items-center justify-center"
@@ -265,8 +257,9 @@ const ComparePage = () => {
                     </div>
 
                     <p style={{
-                        margin: '22px 0 0', textAlign: 'center',
-                        fontSize: 'clamp(1rem, 2.4vw, 1.3rem)', fontWeight: 700, color: '#fff',
+                        margin: 'var(--s-6) 0 0', textAlign: 'center',
+                        fontSize: 'clamp(var(--fs-md), 2.4vw, var(--fs-lg))', fontWeight: 700,
+                        letterSpacing: 'var(--tr-tight)', color: 'var(--text-primary)',
                     }}>
                         {/* One sentence, one key: splitting it into fragments
                             around the highlighted number would fix the English
@@ -282,7 +275,7 @@ const ComparePage = () => {
                             })}
                     </p>
                     {ratio >= 1.005 && volume != null && (
-                        <p style={{ margin: '6px 0 0', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        <p style={{ margin: 'var(--s-2) 0 0', textAlign: 'center', fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>
                             {/* "1.26 Mercurys would fit inside Ganymede" is both
                                 bad grammar and a strange way to picture it when
                                 the answer is barely more than one. */}
@@ -293,7 +286,7 @@ const ComparePage = () => {
                             })}
                         </p>
                     )}
-                    <p style={{ margin: '10px 0 0', textAlign: 'center', fontSize: 11, color: 'var(--text-tertiary)' }}>
+                    <p style={{ margin: 'var(--s-3) 0 0', textAlign: 'center', fontSize: 'var(--fs-tiny)', color: 'var(--text-tertiary)' }}>
                         {t('compare.note')}
                     </p>
                 </div>
@@ -313,11 +306,11 @@ const ComparePage = () => {
                             longer than the viewport and a bare pair of numbers
                             halfway down it says nothing about whose they are. */}
                         <div className="cmp-row cmp-head">
-                            <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 700, color: '#fff' }}>
+                            <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 {localize(a).name}
                             </span>
                             <span />
-                            <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 700, color: '#fff' }}>
+                            <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 {localize(b).name}
                             </span>
                         </div>
@@ -337,7 +330,7 @@ const ComparePage = () => {
                                         }}
                                     >
                                         <span className="num-run" style={{
-                                            fontSize: 'var(--fs-base)', fontWeight: 600, color: '#fff',
+                                            fontSize: 'var(--fs-base)', fontWeight: 600, color: 'var(--text-primary)',
                                         }}>
                                             {row.a}
                                         </span>
@@ -348,7 +341,7 @@ const ComparePage = () => {
                                             {statLabel(row.label)}
                                         </span>
                                         <span className="num-run" style={{
-                                            fontSize: 'var(--fs-base)', fontWeight: 600, color: '#fff',
+                                            fontSize: 'var(--fs-base)', fontWeight: 600, color: 'var(--text-primary)',
                                         }}>
                                             {row.b}
                                         </span>
@@ -364,7 +357,8 @@ const ComparePage = () => {
                         <button
                             key={`${o.id}-${i}`}
                             onClick={() => navigate(`/object/${o.id}`)}
-                            className="ghost-btn focus-ring"
+                            className="action-btn focus-ring"
+                            data-variant="quiet"
                         >
                             {t('compare.about', { name: localize(o).name })}
                             <ArrowUpRight className="flip-rtl" style={{ width: 14, height: 14 }} />

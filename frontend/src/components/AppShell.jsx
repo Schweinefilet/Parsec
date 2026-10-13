@@ -264,7 +264,7 @@ const AppShell = ({ children }) => {
     return (
         <div
             className="min-h-screen text-white flex flex-col"
-            style={{ paddingBottom: navHidden ? 0 : 68, transition: 'padding-bottom 500ms ease' }}
+            style={{ paddingBottom: navHidden ? 0 : 68, transition: 'padding-bottom 500ms var(--ease-glide)' }}
         >
             <a href="#catalog" className="skip-link">{t('app.skipToCatalog')}</a>
 
@@ -288,8 +288,8 @@ const AppShell = ({ children }) => {
                     background: scrolled
                         ? 'linear-gradient(to bottom, rgba(3,5,9,0.92) 0%, rgba(3,5,9,0.72) 55%, rgba(3,5,9,0) 100%)'
                         : 'none',
-                    backdropFilter: scrolled ? 'blur(8px)' : 'none',
-                    WebkitBackdropFilter: scrolled ? 'blur(8px)' : 'none',
+                    backdropFilter: scrolled ? 'var(--blur-scrim)' : 'none',
+                    WebkitBackdropFilter: scrolled ? 'var(--blur-scrim)' : 'none',
                     transition: 'background var(--t-slow) var(--ease-out), backdrop-filter var(--t-slow) var(--ease-out)',
                 }}
             >
@@ -318,7 +318,7 @@ const AppShell = ({ children }) => {
                             run of letters as a substituted A rather than as a typo,
                             and it matches the uppercase labels the rest of the
                             interface already uses. */}
-                        <span data-latin style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.14em' }}>
+                        <span data-latin style={{ fontSize: 'var(--fs-md)', fontWeight: 800, letterSpacing: '0.14em' }}>
                             {t('app.name')}
                         </span>
                     </Link>
@@ -334,7 +334,7 @@ const AppShell = ({ children }) => {
                         className="focus-ring rounded"
                         style={{
                             background: 'none', border: 'none', padding: '2px 3px', margin: '-2px -3px',
-                            fontSize: 9, fontWeight: 600, letterSpacing: '0.08em',
+                            fontSize: 'var(--fs-micro)', fontWeight: 600, letterSpacing: 'var(--tr-wide)',
                             lineHeight: 1,
                             color: 'rgba(255,255,255,0.36)',
                             textShadow: '0 1px 6px rgba(0,0,0,0.9)',
@@ -538,7 +538,7 @@ const AppShell = ({ children }) => {
                                 minWidth: 76,
                                 padding: 'var(--s-2) var(--s-3)',
                                 borderRadius: 'var(--r-md)',
-                                color: isActive ? '#fff' : 'rgba(255,255,255,0.42)',
+                                color: isActive ? 'var(--text-primary)' : 'rgba(255,255,255,0.42)',
                                 cursor: 'pointer',
                             }}
                         >
@@ -564,7 +564,7 @@ const AppShell = ({ children }) => {
                                     running on as a second number, so "Moons 23"
                                     can't be misread as one label. */}
                                 <span style={{
-                                    fontSize: 9, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                                    fontSize: 'var(--fs-micro)', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
                                     padding: '1px 4px', borderRadius: 'var(--r-xs)', lineHeight: 1.3,
                                     background: isActive ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.06)',
                                     color: isActive ? 'rgba(255,255,255,0.80)' : 'rgba(255,255,255,0.34)',

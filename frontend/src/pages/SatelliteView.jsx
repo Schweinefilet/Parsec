@@ -55,7 +55,7 @@ const fmtAge = (date, t) => {
 const Stat = ({ label, value, sub, accent }) => (
     <div>
         <p className="label" style={{ margin: 0 }}>{label}</p>
-        <p className="figure" style={{ margin: '5px 0 0', color: accent ?? '#fff' }}>
+        <p className="figure" style={{ margin: '5px 0 0', color: accent ?? 'var(--text-primary)' }}>
             {value}
         </p>
         {/* Reserved whether or not this reading has a footnote, so the eight
@@ -92,7 +92,7 @@ const SatelliteChip = ({ def, fix, selected, onSelect }) => {
             }}
         >
             <span style={{
-                width: 8, height: 8, borderRadius: 999, flexShrink: 0,
+                width: 8, height: 8, borderRadius: 'var(--r-full)', flexShrink: 0,
                 background: def.color,
                 boxShadow: selected ? `0 0 8px ${def.color}` : 'none',
             }} />

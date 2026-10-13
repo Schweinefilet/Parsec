@@ -89,13 +89,13 @@ const LiveFeed = ({ satellite }) => {
                         <span
                             className="flex items-center justify-center"
                             style={{
-                                width: 56, height: 56, borderRadius: 999,
+                                width: 56, height: 56, borderRadius: 'var(--r-full)',
                                 background: 'rgba(255,255,255,0.10)',
                                 border: '1px solid rgba(255,255,255,0.30)',
                                 backdropFilter: 'var(--blur-chrome)', WebkitBackdropFilter: 'var(--blur-chrome)',
                             }}
                         >
-                            <Play style={{ width: 22, height: 22, color: '#fff', marginLeft: 3 }} aria-hidden="true" />
+                            <Play style={{ width: 22, height: 22, color: 'var(--text-primary)', marginLeft: 3 }} aria-hidden="true" />
                         </span>
                         <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>
                             {t('feed.play')}

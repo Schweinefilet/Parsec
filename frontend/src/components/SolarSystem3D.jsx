@@ -4906,22 +4906,15 @@ const SolarSystem3D = ({
                             pointerEvents: 'none',
                             willChange: 'transform',
                             opacity: isMoon ? (moonLabelsReady ? 1 : 0) : isSmallBody ? 0.72 : 1,
-                            transition: isMoon ? 'opacity 0.5s ease' : 'none',
+                            transition: isMoon ? 'opacity var(--t-slower) var(--ease-out)' : 'none',
                             background: 'none', border: 'none', padding: 0, margin: 0,
                         }}
                     >
-                        <span style={{
-                            display: 'block',
-                            pointerEvents: 'auto',
-                            cursor: 'pointer',
-                            color: 'rgba(255,255,255,0.92)',
-                            fontSize: isMoon || isSmallBody ? 8 : 11,
-                            fontWeight: 700,
-                            letterSpacing: '0.07em',
-                            lineHeight: 1.3,
-                            textShadow: '0 1px 4px rgba(0,0,0,0.9)',
-                            whiteSpace: 'nowrap',
-                        }}>
+                        <span
+                            className="scene-label"
+                            data-size={isMoon || isSmallBody ? 'minor' : undefined}
+                            style={{ display: 'block', pointerEvents: 'auto', cursor: 'pointer' }}
+                        >
                             {bodyName(name)}
                         </span>
                     </button>

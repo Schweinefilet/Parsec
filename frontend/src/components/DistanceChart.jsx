@@ -75,7 +75,7 @@ const DistanceChart = ({ data, color = '#ffffff', unit = 'AU', ariaLabel }) => {
     if (!model) {
         return (
             <div className="flex items-center justify-center"
-                style={{ height: 200, color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+                style={{ height: 200, color: 'var(--text-tertiary)', fontSize: 'var(--fs-sm)' }}>
                 {t('stats.notEnoughData')}
             </div>
         );
@@ -176,13 +176,13 @@ const DistanceChart = ({ data, color = '#ffffff', unit = 'AU', ariaLabel }) => {
                     whiteSpace: 'nowrap',
                 }}
             >
-                <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                <span style={{ color: 'var(--text-primary)', fontSize: 'var(--fs-xs)', fontWeight: 700 }}>
                     {hover ? num(hover.value, { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : '—'}
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, marginInlineStart: 4 }}>
+                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 'var(--fs-label)', marginInlineStart: 4 }}>
                     {unit}
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, marginInlineStart: 8 }}>
+                <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--fs-label)', marginInlineStart: 8 }}>
                     {hover ? fmtFullDate(new Date(hover.time * 1000)) : ''}
                 </span>
             </div>

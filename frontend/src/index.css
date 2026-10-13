@@ -49,6 +49,7 @@
      (stat captions, pill text, section rules); it always pairs with
      --tr-label. Sizes climb ~1.22×, which is close enough to hold a rhythm
      without the jumps reading as arbitrary. */
+  --fs-micro:  9px;   /* counts, the version tag, captions squeezed into a toolbar */
   --fs-label: 10px;
   --fs-tiny:  11px;
   --fs-xs:    12px;
@@ -118,6 +119,9 @@
   --hairline-hi:       rgba(255, 255, 255, 0.14);
 
   --blur-chrome: blur(20px) saturate(180%);
+  /* A light frost for a scrim — the header once the page scrolls, the dimmed
+     page behind a modal — where the point is to soften, not to make a pane. */
+  --blur-scrim:  blur(6px);
   --blur-panel:  blur(22px) saturate(170%);
 
   /* ── Elevation ──────────────────────────────────────────────────────── */
@@ -718,6 +722,29 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Scene labels ───────────────────────────────────────────────────────────
+   The names that float beside bodies, stars and constellations in both 3D
+   scenes — moved every frame by a transform from the render loop, so only the
+   type lives here. `data-size="minor"` for moons and small bodies (8px: there
+   are dozens of them in a small patch of sky). `"sky"` is the night sky's
+   larger set — its labels sit over a near-empty dome rather than a crowded
+   orrery, and have always read at about this size (an inline `fontSize: 10`
+   assigned straight to el.style, without a unit, was silently dropped, so
+   they inherited 16px). `data-faint` dims a constellation name below a
+   planet's. */
+.scene-label {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: var(--fs-tiny);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  line-height: 1.3;
+  white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+.scene-label[data-size="minor"] { font-size: 8px; }
+.scene-label[data-size="sky"]   { font-size: var(--fs-base); }
+.scene-label[data-faint]        { color: rgba(255, 255, 255, 0.8); }
+
 /* ── "Not to scale" caption ─────────────────────────────────────────────────
    What the view is and is not honest about. Desktop only for now — see the
    media query below for why this stays bottom-right on a phone. */
@@ -793,35 +820,9 @@ button:focus-visible {
   .explore-chip:hover .explore-chev { transform: translateY(2px); }
 }
 
-/* ── Buttons on a page surface ──────────────────────────────────────────────
-   The counterpart to .chrome-btn: these sit on the page's own black rather
-   than over the scene, so they take the panel tint instead of a dark scrim. */
-.ghost-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px var(--s-4);
-  border-radius: var(--r-md);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--hairline-hi);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--t-base) var(--ease-out),
-              border-color var(--t-base) var(--ease-out),
-              color var(--t-base) var(--ease-out),
-              transform var(--t-fast) var(--ease-out);
-}
-@media (hover: hover) {
-  .ghost-btn:hover {
-    background: rgba(255, 255, 255, 0.11);
-    border-color: var(--panel-border-hi);
-    color: #fff;
-  }
-}
-.ghost-btn:active { transform: scale(0.98); }
-
+/* ── Compare's swap button ──────────────────────────────────────────────────
+   An icon-only partner to .action-btn[data-variant="quiet"], same fill and
+   edge, that turns to say what it does. */
 .swap-btn {
   display: inline-flex;
   align-items: center;
@@ -883,9 +884,9 @@ button:focus-visible {
   margin-inline: calc(var(--s-6) * -1);
   padding: 0 var(--s-6) var(--s-3);
   border-bottom: 1px solid var(--hairline-hi);
-  background: rgba(17, 19, 25, 0.94);
-  backdrop-filter: var(--blur-panel);
-  -webkit-backdrop-filter: var(--blur-panel);
+  background: var(--float-bg);
+  backdrop-filter: var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
 }
 
 /* ── Standalone page header ─────────────────────────────────── */

@@ -30,7 +30,7 @@ const EdgeTab = ({ open, reduced, style, ...rest }) => {
                 style={{
                     display: 'block', pointerEvents: 'none',
                     '--bob-x': rtl ? '-4px' : '4px',
-                    animation: (open || reduced) ? 'none' : 'edgeTabBob 1.8s ease-in-out infinite',
+                    animation: (open || reduced) ? 'none' : 'edgeTabBob 1.8s var(--ease-inout) infinite',
                 }}
             >
                 {/* Each icon overflows a tight wrapper so the row's width is

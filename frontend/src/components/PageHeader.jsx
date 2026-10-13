@@ -33,7 +33,7 @@ const PageHeader = ({ onBack, backLabel, title, subtitle, trailing }) => {
                     <h1 style={{
                         margin: 0,
                         fontSize: 'clamp(1.5rem, 3.2vw, 2.15rem)', fontWeight: 700,
-                        letterSpacing: 'var(--tr-tighter)', color: '#fff', lineHeight: 1.1,
+                        letterSpacing: 'var(--tr-tighter)', color: 'var(--text-primary)', lineHeight: 1.1,
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
                         {title}

@@ -780,6 +780,8 @@ built from them rather than from inline copies:
 | ask / notice | `SceneDialog` | location, AR permission, Gargantua's phone and GPU notices |
 | way out | `SceneBack` / `PageHeader` | every non-home page, on the same line |
 | caption + number | `.label` + `.figure` | stats, annotations, HUDs |
+| a name floating in a 3D scene | `.scene-label[data-size]` | planet/moon labels, the night sky's stars and constellations |
+| text input / select | `.glass-input` | search, Compare's pickers |
 
 `--float-bg` is the one near-opaque pane for anything that opens *over* the
 scene (drawers, menus, the category bar): `.glass` washes out with the Sun

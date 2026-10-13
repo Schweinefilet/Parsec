@@ -31,7 +31,7 @@ const ObjectStatsPanel = ({ object: source, className = '' }) => {
 
     if (sections.length === 0) {
         return (
-            <div className={`glass p-6 ${className}`} style={{ color: 'var(--text-tertiary)', fontSize: '0.875rem' }}>
+            <div className={`glass p-6 ${className}`} style={{ color: 'var(--text-tertiary)', fontSize: 'var(--fs-sm)' }}>
                 {t('stats.none')}
             </div>
         );
@@ -54,7 +54,7 @@ const ObjectStatsPanel = ({ object: source, className = '' }) => {
                             onClick={() => setActiveSection(s.section)}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all mb-0.5 focus-ring"
                             style={selected
-                                ? { background: 'rgba(255,255,255,0.15)', color: '#fff' }
+                                ? { background: 'rgba(255,255,255,0.15)', color: 'var(--text-primary)' }
                                 : { color: 'rgba(255,255,255,0.45)' }}
                         >
                             {s.sectionLabel ?? s.section}

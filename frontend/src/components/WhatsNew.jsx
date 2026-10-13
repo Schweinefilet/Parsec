@@ -37,7 +37,7 @@ const WhatsNew = ({ open, onClose, currentVersion }) => {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: '4vh 16px',
                 background: 'rgba(2,4,8,0.74)',
-                backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+                backdropFilter: 'var(--blur-scrim)', WebkitBackdropFilter: 'var(--blur-scrim)',
             }}
         >
             <div
@@ -84,7 +84,7 @@ const WhatsNew = ({ open, onClose, currentVersion }) => {
                                     data-latin
                                     style={{
                                         fontSize: 'var(--fs-xs)', fontWeight: 700, letterSpacing: '0.06em',
-                                        padding: '2px 8px', borderRadius: 999,
+                                        padding: '2px 8px', borderRadius: 'var(--r-full)',
                                         fontVariantNumeric: 'tabular-nums',
                                         background: rel.version === currentVersion
                                             ? 'rgba(var(--accent-warm-rgb), 0.16)' : 'rgba(255,255,255,0.07)',

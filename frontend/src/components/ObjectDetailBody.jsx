@@ -155,7 +155,7 @@ const ObjectDetailBody = ({ object: source, showDescription = true, flush = fals
                                         fontWeight: 700,
                                         cursor: 'pointer',
                                         background: range === r.key ? 'rgba(255,255,255,0.16)' : 'transparent',
-                                        color: range === r.key ? '#fff' : 'var(--text-tertiary)',
+                                        color: range === r.key ? 'var(--text-primary)' : 'var(--text-tertiary)',
                                     }}
                                 >
                                     {r.label}
