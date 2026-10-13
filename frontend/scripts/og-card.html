@@ -1,0 +1,218 @@
+<!doctype html>
+<!--
+  The share card behind og:image / twitter:image (public/og-image.png, 1200x630).
+  Rendered to PNG by scripts/build-og-image.mjs; open it in a browser through a
+  static server rooted at frontend/ to iterate on it.
+
+  The Earth is ray-cast per pixel on a 2D canvas from the scene's own day, night
+  and cloud textures, so it needs no WebGL and renders in plain headless Chrome.
+  After regenerating, bump the ?v= on og:image and twitter:image in index.html:
+  unfurlers cache the image by URL.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; background: #000; }
+  #card { position: relative; width: 1200px; height: 630px; overflow: hidden; background: #07090e; }
+  canvas { position: absolute; inset: 0; }
+  .copy { position: absolute; left: 90px; top: 0; height: 100%; color: #fff; font-family: Inter, sans-serif; }
+  .brand { position: absolute; top: 196px; display: flex; align-items: center; gap: 26px; }
+  .brand svg { width: 58px; height: 58px; transform: rotate(-38deg); }
+  .brand h1 { margin: 0; font: 700 64px/1 Poppins, sans-serif; letter-spacing: 0.12em; }
+  .lede { position: absolute; top: 308px; width: 590px; margin: 0; font-size: 27px; line-height: 1.5; color: rgba(255,255,255,0.72); }
+  .foot { position: absolute; top: 541px; white-space: nowrap; font: 600 17px/1 Inter, sans-serif; letter-spacing: 0.2em; color: rgba(255,255,255,0.38); }
+  .foot b { font-weight: 600; margin: 0 14px; }
+  .tag { position: absolute; font: 600 13px/1 Inter, sans-serif; letter-spacing: 0.18em; color: #ffd166; white-space: nowrap; }
+  .tag small { display: block; margin-top: 7px; font-weight: 400; font-size: 12px; letter-spacing: 0.08em; color: rgba(255,255,255,0.55); }
+</style>
+</head>
+<body>
+<div id="card">
+  <canvas id="bg" width="1200" height="630"></canvas>
+  <canvas id="art" width="1200" height="630"></canvas>
+  <div class="copy">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#ffd166" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m10.065 12.493-6.18 1.318a.934.934 0 0 1-1.108-.702l-.537-2.15a1.07 1.07 0 0 1 .691-1.265l13.504-4.44"/>
+        <path d="m13.56 11.747 4.332-.924"/><path d="m16 21-3.105-6.21"/>
+        <path d="M16.485 5.94a2 2 0 0 1 1.455-2.425l1.09-.272a1 1 0 0 1 1.212.727l1.515 6.06a1 1 0 0 1-.727 1.213l-1.09.272a2 2 0 0 1-2.425-1.455z"/>
+        <path d="m6.158 8.633 1.114 4.456"/><path d="m8 21 3.105-6.21"/><circle cx="12" cy="13" r="2"/>
+      </svg>
+      <h1>P4RSEC</h1>
+    </div>
+    <p class="lede">An interactive 3D atlas of the solar system. Fly to any planet, moon or comet on real orbits, and track the ISS live.</p>
+    <div class="foot">70 OBJECTS<b>·</b>REAL ORBITAL DATA<b>·</b>LIVE ISS</div>
+  </div>
+  <div id="tags"></div>
+</div>
+<script>
+const W = 1200, H = 630;
+
+// ---------- small vector helpers ----------
+const norm = v => { const l = Math.hypot(...v); return v.map(c => c / l); };
+const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const clamp = (x, a=0, b=1) => Math.min(b, Math.max(a, x));
+const smooth = (a, b, x) => { const t = clamp((x-a)/(b-a)); return t*t*(3-2*t); };
+
+function rng(seed) { return () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }; }
+
+async function tex(src) {
+  const img = new Image(); img.crossOrigin = 'anonymous'; img.src = src; await img.decode();
+  const c = new OffscreenCanvas(img.width, img.height); const g = c.getContext('2d');
+  g.drawImage(img, 0, 0);
+  return { w: img.width, h: img.height, d: g.getImageData(0, 0, img.width, img.height).data };
+}
+function sample(t, u, v) {
+  u = ((u % 1) + 1) % 1; v = clamp(v, 0, 0.9999);
+  const i = ((v * t.h | 0) * t.w + (u * t.w | 0)) * 4;
+  return [t.d[i]/255, t.d[i+1]/255, t.d[i+2]/255, t.d[i+3]/255];
+}
+
+// ---------- background: stars + faint warm glow, same for every variant ----------
+function background() {
+  const g = document.getElementById('bg').getContext('2d');
+  const grd = g.createRadialGradient(120, 640, 0, 120, 640, 520);
+  grd.addColorStop(0, 'rgba(255,190,110,0.07)'); grd.addColorStop(1, 'rgba(255,190,110,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  const r = rng(7);
+  for (let i = 0; i < 230; i++) {
+    const x = r()*W, y = r()*H, s = r();
+    g.fillStyle = `rgba(255,255,255,${0.15 + s*s*0.75})`;
+    g.beginPath(); g.arc(x, y, 0.4 + s*s*1.1, 0, 7); g.fill();
+  }
+}
+
+// ---------- sphere ray-caster (orthographic, screen x right / y up / z to viewer) ----------
+// opts: tex, pole, lonOff, light, night, clouds, atmo{color,width}, ambient
+function sphere(g, cx, cy, R, o) {
+  const p = norm(o.pole), e1 = norm(cross(p, [0,0,1])), e2 = cross(e1, p);
+  const L = norm(o.light), amb = o.ambient ?? 0.03;
+  const ext = Math.ceil(R * (o.atmo ? 1 + o.atmo.width*6 : 1)) + 2;
+  const x0 = Math.max(0, Math.floor(cx - ext)), x1 = Math.min(W, Math.ceil(cx + ext));
+  const y0 = Math.max(0, Math.floor(cy - ext)), y1 = Math.min(H, Math.ceil(cy + ext));
+  const w = x1 - x0, h = y1 - y0; if (w <= 0 || h <= 0) return;
+  const img = g.getImageData(x0, y0, w, h), d = img.data;
+  const SS = R < 40 ? 3 : 2; // supersample for clean edges
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    let ar = 0, ag = 0, ab = 0, aa = 0;
+    for (let sy = 0; sy < SS; sy++) for (let sx = 0; sx < SS; sx++) {
+      const x = (x0 + i + (sx + 0.5)/SS - cx) / R, y = -(y0 + j + (sy + 0.5)/SS - cy) / R;
+      const r2 = x*x + y*y;
+      let col = null, a = 0;
+      if (r2 <= 1) {
+        const z = Math.sqrt(1 - r2);
+        const n = [x, y, z];
+        const lat = Math.asin(clamp(dot(n, p), -1, 1));
+        const lon = Math.atan2(dot(n, e1), dot(n, e2)) + (o.lonOff || 0);
+        const u = lon / (2*Math.PI) + 0.5, v = 0.5 - lat / Math.PI;
+        let c = sample(o.tex, u, v);
+        const ndl = dot(n, L);
+        const lit = smooth(-0.04, 0.25, ndl) * Math.max(ndl, 0) ** 0.8;
+        col = [c[0]*(lit+amb), c[1]*(lit+amb), c[2]*(lit+amb)];
+        if (o.clouds) {
+          const cl = sample(o.clouds, u, v)[0];
+          const k = cl * 0.9;
+          col = col.map(ch => ch*(1-k) + k*(lit*1.05 + amb*0.6));
+        }
+        if (o.night) {
+          const nl = sample(o.night, u, v);
+          const dark = smooth(0.05, -0.15, ndl);
+          const cl = o.clouds ? sample(o.clouds, u, v)[0] : 0;
+          col[0] += nl[0]*1.25*dark*(1-cl*0.7); col[1] += nl[1]*1.05*dark*(1-cl*0.7); col[2] += nl[2]*0.7*dark*(1-cl*0.7);
+        }
+        if (o.atmo) { // limb haze on the lit side
+          const rim = (1 - z) ** 2.2, s = smooth(-0.25, 0.4, ndl);
+          col = col.map((ch, k) => ch + o.atmo.color[k]*rim*s*0.9);
+        }
+        a = 1;
+      } else if (o.atmo) {
+        const dd = Math.sqrt(r2) - 1;
+        const nn = norm([x, y, 0]);
+        const s = smooth(-0.35, 0.5, dot(nn, L));
+        const k = Math.exp(-dd / o.atmo.width) * s;
+        if (k > 0.002) { col = o.atmo.color.map(c => c); a = clamp(k); }
+      }
+      if (col) {
+        ar += col[0]*a; ag += col[1]*a; ab += col[2]*a; aa += a;
+      }
+    }
+    const n = SS*SS; if (!aa) continue;
+    const A = aa / n, idx = (j*w + i)*4;
+    // premultiplied "over"
+    d[idx]   = clamp(ar/n + d[idx]/255*(1-A)) * 255;
+    d[idx+1] = clamp(ag/n + d[idx+1]/255*(1-A)) * 255;
+    d[idx+2] = clamp(ab/n + d[idx+2]/255*(1-A)) * 255;
+    d[idx+3] = clamp(A + d[idx+3]/255*(1-A)) * 255;
+  }
+  g.putImageData(img, x0, y0);
+}
+
+function tag(x, y, html) {
+  const el = document.createElement('div'); el.className = 'tag'; el.innerHTML = html;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  document.getElementById('tags').appendChild(el);
+}
+
+// Fade the art out towards the copy so nothing fights the text.
+function textMask(g, from, to) {
+  g.save(); g.globalCompositeOperation = 'destination-out';
+  const grd = g.createLinearGradient(from, 0, to, 0);
+  grd.addColorStop(0, 'rgba(0,0,0,1)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, to, H); g.restore();
+}
+
+// ---------- Earth's night limb from orbit, ISS track crossing it ----------
+async function earth(g) {
+  const [day, night, clouds] = await Promise.all(['earth', 'earth_night', 'earth_clouds'].map(n => tex(`../public/textures/${n}.jpg`)));
+  const cx = 1150, cy = 850, R = 590;
+  const pole = [-0.32, 0.86, 0.4], light = [0.55, 0.62, -0.56];
+  sphere(g, cx, cy, R, {
+    tex: day, night, clouds, pole, lonOff: 2.15, light, ambient: 0.008,
+    atmo: { color: [0.35, 0.6, 1.0], width: 0.012 },
+  });
+  // ISS orbit: 51.6° to the equator, ~420 km up (exaggerated a touch to read)
+  const a1 = norm([-0.5, 0.74, 0.45]);
+  const v = [0.85, 0.35, -0.4], vd = dot(v, a1);
+  const a2 = norm(v.map((c, k) => c - vd*a1[k]));
+  const rO = 1.07, pts = [];
+  for (let k = 0; k <= 720; k++) {
+    const th = k/720*2*Math.PI;
+    const P = a1.map((c, m) => rO*(Math.cos(th)*c + Math.sin(th)*a2[m]));
+    const hidden = P[2] < 0 && Math.hypot(P[0], P[1]) < 1;
+    pts.push({ x: cx + P[0]*R, y: cy - P[1]*R, hidden, th });
+  }
+  // pick the ISS: the visible point closest to a nice spot in frame
+  let iss = null, best = 1e9;
+  for (const q of pts) if (!q.hidden) { const dd = Math.hypot(q.x - 860, q.y - 360); if (dd < best) best = dd, iss = q; }
+  const ii = pts.indexOf(iss);
+  g.lineCap = 'round';
+  for (let k = 1; k < pts.length; k++) {
+    const q0 = pts[k-1], q1 = pts[k]; if (q0.hidden || q1.hidden) continue;
+    // trail behind the ISS bright, ahead of it faint and dashed
+    let behind = (k - ii + 720) % 720;
+    if (behind < 260) { g.strokeStyle = `rgba(255,209,102,${0.85*(1 - behind/260)**1.4 + 0.08})`; g.setLineDash([]); g.lineWidth = 2; }
+    else { g.strokeStyle = 'rgba(255,255,255,0.22)'; g.setLineDash([3, 7]); g.lineWidth = 1.2; }
+    g.beginPath(); g.moveTo(q0.x, q0.y); g.lineTo(q1.x, q1.y); g.stroke();
+  }
+  g.setLineDash([]);
+  const gl = g.createRadialGradient(iss.x, iss.y, 0, iss.x, iss.y, 22);
+  gl.addColorStop(0, 'rgba(255,209,102,0.55)'); gl.addColorStop(1, 'rgba(255,209,102,0)');
+  g.fillStyle = gl; g.beginPath(); g.arc(iss.x, iss.y, 22, 0, 7); g.fill();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(iss.x, iss.y, 4.5, 0, 7); g.fill();
+  g.strokeStyle = '#ffd166'; g.lineWidth = 1.5; g.beginPath(); g.arc(iss.x, iss.y, 10, 0, 7); g.stroke();
+  textMask(g, 560, 660);
+  tag(iss.x + 20, iss.y - 30, 'ISS &nbsp;●&nbsp; LIVE<small>408 km · 7.66 km/s</small>');
+}
+
+(async () => {
+  await document.fonts.ready;
+  background();
+  const g = document.getElementById('art').getContext('2d', { willReadFrequently: true });
+  await earth(g);
+})();
+</script>
+</body>
+</html>
