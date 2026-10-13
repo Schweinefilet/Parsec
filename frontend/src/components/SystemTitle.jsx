@@ -168,10 +168,9 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null, 
                 <div
                     role="listbox"
                     aria-label={t('system.listLabel')}
-                    className="glass"
+                    className="menu"
                     style={{
-                        marginTop: 12, padding: 6, minWidth: 260,
-                        borderRadius: 18, textAlign: 'start',
+                        marginTop: 'var(--s-3)', minWidth: 260,
                         pointerEvents: 'auto',
                     }}
                 >
@@ -181,21 +180,14 @@ const SystemTitle = ({ currentId, hidden = false, compact = false, hint = null, 
                             role="option"
                             aria-selected={s.id === current.id}
                             onClick={() => { setOpen(false); navigate(s.to); }}
-                            className="w-full focus-ring"
-                            style={{
-                                display: 'block', textAlign: 'start', cursor: 'pointer',
-                                padding: '10px 12px', borderRadius: 13, border: 'none',
-                                background: s.id === current.id ? 'rgba(255,255,255,0.08)' : 'none',
-                            }}
+                            className="menu-item focus-ring"
+                            style={{ display: 'block', whiteSpace: 'normal' }}
                         >
-                            <span style={{
-                                display: 'block', fontSize: '0.95rem', fontWeight: 700,
-                                color: s.id === current.id ? '#fff' : 'rgba(255,255,255,0.85)',
-                            }}>
+                            <span style={{ display: 'block', fontSize: 'var(--fs-base)', fontWeight: 700 }}>
                                 {t(s.nameKey)}
                             </span>
                             {s.blurbKey && (
-                                <span style={{ display: 'block', marginTop: 2, fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>
+                                <span style={{ display: 'block', marginTop: 2, fontSize: 'var(--fs-xs)', fontWeight: 500, color: 'var(--text-tertiary)' }}>
                                     {t(s.blurbKey)}
                                 </span>
                             )}

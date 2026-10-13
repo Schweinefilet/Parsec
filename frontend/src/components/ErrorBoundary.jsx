@@ -32,39 +32,30 @@ class ErrorBoundary extends Component {
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 18,
-                    padding: 32,
+                    gap: 'var(--s-4)',
+                    padding: 'var(--s-7)',
                     textAlign: 'center',
                     color: '#fff',
                     background: '#05070a',
                 }}
             >
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>
+                <h1 style={{ fontSize: 'var(--fs-lg)', fontWeight: 700, letterSpacing: 'var(--tr-tight)', margin: 0 }}>
                     {this.props.strings.title}
                 </h1>
-                <p style={{ color: 'rgba(255,255,255,0.62)', maxWidth: 460, lineHeight: 1.6, margin: 0 }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-sm)', maxWidth: 460, lineHeight: 1.6, margin: 0 }}>
                     {this.props.strings.body}
                 </p>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <div className="dialog-actions" style={{ marginTop: 'var(--s-1)' }}>
                     <button
                         onClick={() => window.location.reload()}
-                        style={{
-                            padding: '10px 20px', borderRadius: 12, cursor: 'pointer',
-                            background: 'rgba(255,255,255,0.12)',
-                            border: '1px solid rgba(255,255,255,0.22)',
-                            color: '#fff', fontWeight: 700, fontSize: '0.85rem',
-                        }}
+                        className="action-btn focus-ring"
                     >
                         {this.props.strings.reload}
                     </button>
                     <button
                         onClick={() => { window.location.href = '/'; }}
-                        style={{
-                            padding: '10px 20px', borderRadius: 12, cursor: 'pointer',
-                            background: 'transparent',
-                            border: '1px solid rgba(255,255,255,0.18)',
-                            color: 'rgba(255,255,255,0.75)', fontWeight: 700, fontSize: '0.85rem',
-                        }}
+                        className="action-btn focus-ring"
+                        data-variant="quiet"
                     >
                         {this.props.strings.backHome}
                     </button>

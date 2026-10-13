@@ -39,6 +39,7 @@ import {
 } from '../utils/trackerEntry';
 import { getRate, setRate, setOffsetDays } from '../utils/simTime';
 import { useI18n } from '../i18n';
+import SceneBack from '../components/SceneBack';
 
 // The arrows point from the first letter of the alphabet to the last, so in a
 // right-to-left interface they point the other way — and the alphabet named is
@@ -633,18 +634,14 @@ const CategoryBrowser = () => {
                         stay folded behind one button up the start edge above the
                         time control, and the pill sits alongside it. */}
                     {(() => {
-                        const pill = (active) => ({
-                            pointerEvents: id || pageScrolled ? 'none' : 'auto',
-                            opacity: id || pageScrolled ? 0 : 1,
-                            background: active ? 'rgba(255,209,102,0.16)' : 'rgba(0,0,0,0.42)',
-                            border: `1px solid ${active ? 'rgba(255,209,102,0.34)' : 'rgba(255,255,255,0.16)'}`,
-                            backdropFilter: 'blur(14px)',
-                            WebkitBackdropFilter: 'blur(14px)',
-                            color: active ? '#ffd166' : 'rgba(255,255,255,0.78)',
-                            padding: '7px 15px', fontSize: 10, fontWeight: 700,
-                            letterSpacing: '0.1em', textTransform: 'uppercase',
-                            cursor: 'pointer', whiteSpace: 'nowrap',
-                        });
+                        // .chip, lit amber when on — the same capsule as the
+                        // explore pill beside them. Only the hide-on-focus /
+                        // hide-on-scroll fade is per instance.
+                        const hidden = !!id || pageScrolled;
+                        const pill = {
+                            pointerEvents: hidden ? 'none' : 'auto',
+                            opacity: hidden ? 0 : 1,
+                        };
                         const driftBtn = (
                             <button
                                 key="drift"
@@ -653,12 +650,13 @@ const CategoryBrowser = () => {
                                 aria-label={t(autoRotate ? 'scene.driftingAria' : 'scene.heldStillAria')}
                                 title={t(autoRotate ? 'scene.driftingTitle' : 'scene.heldStillTitle')}
                                 inert={(!!id || pageScrolled) || undefined}
-                                className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
-                                style={pill(!autoRotate)}
+                                data-on={!autoRotate}
+                                className="chip focus-ring"
+                                style={pill}
                             >
                                 {autoRotate
-                                    ? <Orbit style={{ width: 13, height: 13 }} />
-                                    : <Pause style={{ width: 13, height: 13 }} />}
+                                    ? <Orbit style={{ width: 13, height: 13 }} aria-hidden="true" />
+                                    : <Pause style={{ width: 13, height: 13 }} aria-hidden="true" />}
                                 {t(autoRotate ? 'scene.drifting' : 'scene.heldStill')}
                             </button>
                         );
@@ -678,10 +676,11 @@ const CategoryBrowser = () => {
                                 aria-label={t('scene.scaleAria', { state: t(scaleLabel) })}
                                 title={t('scene.scaleAria', { state: t(scaleLabel) })}
                                 inert={(!!id || pageScrolled) || undefined}
-                                className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
-                                style={pill(scaleStage !== SCALE_COMPRESSED)}
+                                data-on={scaleStage !== SCALE_COMPRESSED}
+                                className="chip focus-ring"
+                                style={pill}
                             >
-                                <Ruler style={{ width: 13, height: 13 }} />
+                                <Ruler style={{ width: 13, height: 13 }} aria-hidden="true" />
                                 {/* Every value names a layout, so the three read as
                                     one setting with three settings rather than as a
                                     verb one way and a noun the other. "To scale"
@@ -703,10 +702,11 @@ const CategoryBrowser = () => {
                                 aria-label={t('scene.gravityAria', { state: t(gravState) })}
                                 title={t('scene.gravityAria', { state: t(gravState) })}
                                 inert={(!!id || pageScrolled) || undefined}
-                                className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
-                                style={pill(vizMode !== VIZ_OFF)}
+                                data-on={vizMode !== VIZ_OFF}
+                                className="chip focus-ring"
+                                style={pill}
                             >
-                                <Waves style={{ width: 13, height: 13 }} />
+                                <Waves style={{ width: 13, height: 13 }} aria-hidden="true" />
                                 {vizMode === VIZ_OFF
                                     ? t('scene.gravity')
                                     : `${t('scene.gravity')} · ${t(gravState)}`}
@@ -720,10 +720,11 @@ const CategoryBrowser = () => {
                                 aria-label={t(trailsOn ? 'scene.trailsOnAria' : 'scene.trailsOffAria')}
                                 title={t(trailsOn ? 'scene.trailsOnAria' : 'scene.trailsOffAria')}
                                 inert={(!!id || pageScrolled) || undefined}
-                                className="flex items-center gap-1.5 rounded-full transition-opacity duration-700 focus-ring"
-                                style={pill(trailsOn)}
+                                data-on={trailsOn}
+                                className="chip focus-ring"
+                                style={pill}
                             >
-                                <Waypoints style={{ width: 13, height: 13 }} />
+                                <Waypoints style={{ width: 13, height: 13 }} aria-hidden="true" />
                                 {t('scene.trails')}
                             </button>
                         );
@@ -733,11 +734,8 @@ const CategoryBrowser = () => {
                                 aria-label={t('scene.scrollToCatalog')}
                                 data-coach="explore"
                                 inert={(!!id || pageScrolled) || undefined}
-                                className="chip explore-chip transition-opacity duration-700 focus-ring"
-                                style={{
-                                    pointerEvents: id || pageScrolled ? 'none' : 'auto',
-                                    opacity: id || pageScrolled ? 0 : 1,
-                                }}
+                                className="chip explore-chip focus-ring"
+                                style={pill}
                             >
                                 {t('scene.exploreCatalog')}
                                 {/* Nudges down on hover, in the direction it
@@ -789,6 +787,8 @@ const CategoryBrowser = () => {
                         return (
                             <div
                                 style={{
+                                    // The transport's own 12px phone gutter, so the column
+                                    // stacks start-aligned directly above it.
                                     position: 'absolute', insetInlineStart: 12, bottom: 62, zIndex: 4,
                                     display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
                                     gap: 8, pointerEvents: 'none',
@@ -811,20 +811,11 @@ const CategoryBrowser = () => {
                                     aria-label={t(sceneOptsOpen ? 'scene.viewOptionsClose' : 'scene.viewOptions')}
                                     inert={(!!id || pageScrolled) || undefined}
                                     data-coach="tab"
-                                    className="flex items-center justify-center rounded-full transition-opacity duration-700 focus-ring"
-                                    style={{
-                                        pointerEvents: id || pageScrolled ? 'none' : 'auto',
-                                        opacity: id || pageScrolled ? 0 : 1,
-                                        width: 34, height: 34,
-                                        background: (sceneOptsOpen || anyActive) ? 'rgba(255,209,102,0.16)' : 'rgba(0,0,0,0.42)',
-                                        border: `1px solid ${(sceneOptsOpen || anyActive) ? 'rgba(255,209,102,0.34)' : 'rgba(255,255,255,0.16)'}`,
-                                        backdropFilter: 'blur(14px)',
-                                        WebkitBackdropFilter: 'blur(14px)',
-                                        color: (sceneOptsOpen || anyActive) ? '#ffd166' : 'rgba(255,255,255,0.78)',
-                                        cursor: 'pointer',
-                                    }}
+                                    data-on={sceneOptsOpen || anyActive}
+                                    className="chip chip-icon focus-ring"
+                                    style={pill}
                                 >
-                                    <SlidersHorizontal style={{ width: 15, height: 15 }} />
+                                    <SlidersHorizontal aria-hidden="true" />
                                 </button>
                                 {exploreBtn}
                             </div>
@@ -860,41 +851,24 @@ const CategoryBrowser = () => {
 
                     {/* Back to solar system */}
                     {id && (
-                        <button
+                        <SceneBack
                             onClick={() => navigate('/')}
                             title={t('scene.backTitle')}
-                            // .page-back, the same control the tracker and
-                            // compare pages use, rather than the circular
-                            // icon button this was: a named link reads as a
-                            // way out where a lone chevron over a planet
-                            // reads as scene furniture. No aria-label — the
-                            // visible text is the accessible name now, and
-                            // one that didn't contain the other would be the
-                            // WCAG "label in name" trap; the fuller wording
-                            // stays as the tooltip.
+                            // The shared way out of a full-bleed page — the
+                            // night sky and Gargantua put the same control in
+                            // the same place. The fuller wording stays as the
+                            // tooltip.
                             //
                             // The fade-in animation is `both`-filled, so it
                             // pins opacity at 1 and an inline opacity can't
                             // fade this out — the class has to come off.
-                            className={`page-back absolute focus-ring${skyDiving ? '' : ' animate-fade-in'}`}
+                            className={skyDiving ? '' : 'animate-fade-in'}
                             style={{
-                                // On the spine, under the wordmark. .page-back's
-                                // own -8px start margin is what makes the
-                                // chevron optically flush with it, rather than
-                                // the glyph's side bearing sitting a few pixels
-                                // proud. Dropped a little further on mobile,
-                                // where the wordmark sits at the same size
-                                // against a much narrower gutter and the two
-                                // read as crowded at the 68px desktop spacing.
-                                top: isMobile ? 84 : 68, insetInlineStart: 'var(--scene-inset)', zIndex: 20,
                                 opacity: skyDiving ? 0 : 1,
                                 transition: 'opacity var(--t-slower) var(--ease-out)',
                                 pointerEvents: skyDiving ? 'none' : 'auto',
                             }}
-                        >
-                            <ChevronLeft className="flip-rtl" style={{ width: 15, height: 15 }} aria-hidden="true" />
-                            <span>{t('nav.back')}</span>
-                        </button>
+                        />
                     )}
 
                     {/* Desktop annotations flanking the body */}
@@ -1088,16 +1062,16 @@ const CategoryBrowser = () => {
                                         desktop annotations show flanking the body */}
                                     {compactFocus && (
                                         <div className="glass p-4">
-                                            <h1 style={{ color: '#fff', fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>
+                                            <h1 style={{ color: 'var(--text-primary)', fontSize: 'var(--fs-lg)', fontWeight: 800, letterSpacing: 'var(--tr-tight)', margin: 0 }}>
                                                 {object.shortName ?? object.name}
                                             </h1>
-                                            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '3px 0 10px' }}>
+                                            <p className="label" style={{ margin: '3px 0 var(--s-3)' }}>
                                                 {object.type}
                                             </p>
-                                            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                                            <div style={{ display: 'flex', gap: 'var(--s-5)', flexWrap: 'wrap' }}>
                                                 <div>
-                                                    <p style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>{object.keyStatValue}</p>
-                                                    <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>{object.keyStatLabel}</p>
+                                                    <p className="figure num-run" style={{ fontSize: 'var(--fs-base)', margin: 0 }}>{object.keyStatValue}</p>
+                                                    <p className="label" style={{ margin: 0 }}>{object.keyStatLabel}</p>
                                                 </div>
                                                 {/* Spacecraft get a full stats card of their own directly
                                                     below — operator, launch year, altitude — so a second
@@ -1107,8 +1081,8 @@ const CategoryBrowser = () => {
                                                 {physicalRows[0] && !isSpacecraft
                                                     && physicalRows[0].label !== object.keyStatLabel && (
                                                     <div>
-                                                        <p style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>{physicalRows[0].value}</p>
-                                                        <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>{physicalRows[0].label}</p>
+                                                        <p className="figure num-run" style={{ fontSize: 'var(--fs-base)', margin: 0 }}>{physicalRows[0].value}</p>
+                                                        <p className="label" style={{ margin: 0 }}>{physicalRows[0].label}</p>
                                                     </div>
                                                 )}
                                             </div>

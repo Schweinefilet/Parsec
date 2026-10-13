@@ -23,8 +23,8 @@ const LiveFeed = ({ satellite }) => {
     // people reasonably wonder whether they are missing a button.
     if (!live) {
         return (
-            <div className="glass" style={{ marginTop: 16, padding: '14px 20px' }}>
-                <p className="flex items-center gap-2" style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
+            <div className="glass" style={{ marginTop: 'var(--s-4)', padding: 'var(--s-4) var(--s-6)' }}>
+                <p className="flex items-center gap-2" style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--text-tertiary)' }}>
                     <VideoOff style={{ width: 14, height: 14, flexShrink: 0 }} aria-hidden="true" />
                     {t('feed.none', {
                         name: bodyName(satellite?.shortName ?? satellite?.name ?? ''),
@@ -40,13 +40,13 @@ const LiveFeed = ({ satellite }) => {
         + '?autoplay=1&rel=0&modestbranding=1';
 
     return (
-        <div className="glass" style={{ marginTop: 16, padding: 20 }}>
-            <div className="flex flex-wrap items-baseline justify-between gap-3" style={{ marginBottom: 12 }}>
+        <div className="glass" style={{ marginTop: 'var(--s-4)', padding: 'var(--s-6)' }}>
+            <div className="flex flex-wrap items-baseline justify-between gap-3" style={{ marginBottom: 'var(--s-3)' }}>
                 <div style={{ minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
+                    <p className="label" style={{ margin: 0 }}>
                         {t('feed.title')}
                     </p>
-                    <p style={{ margin: '3px 0 0', fontSize: '0.95rem', fontWeight: 700, color: '#fff' }}>
+                    <p style={{ margin: '3px 0 0', fontSize: 'var(--fs-base)', fontWeight: 700, color: 'var(--text-primary)' }}>
                         {live.titleKey ? t(live.titleKey) : live.title}
                     </p>
                 </div>
@@ -55,7 +55,7 @@ const LiveFeed = ({ satellite }) => {
                     target="_blank"
                     rel="noreferrer noopener"
                     className="flex items-center gap-1.5 focus-ring rounded-lg"
-                    style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', padding: '2px 4px' }}
+                    style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-tertiary)', padding: '2px 4px' }}
                 >
                     {t('feed.onYouTube', { source: live.source })}
                     <ArrowUpRight className="flip-rtl" style={{ width: 12, height: 12 }} aria-hidden="true" />
@@ -64,8 +64,8 @@ const LiveFeed = ({ satellite }) => {
 
             <div style={{
                 position: 'relative', width: '100%', aspectRatio: '16 / 9',
-                borderRadius: 14, overflow: 'hidden', background: '#000',
-                border: '1px solid rgba(255,255,255,0.10)',
+                borderRadius: 'var(--r-md)', overflow: 'hidden', background: '#000',
+                border: '1px solid var(--hairline)',
             }}>
                 {playing ? (
                     <iframe
@@ -83,7 +83,7 @@ const LiveFeed = ({ satellite }) => {
                         style={{
                             position: 'absolute', inset: 0, width: '100%', height: '100%',
                             background: 'radial-gradient(circle at 50% 45%, rgba(40,52,74,0.55), rgba(0,0,0,0.9) 70%)',
-                            border: 'none', cursor: 'pointer', gap: 12,
+                            border: 'none', cursor: 'pointer', gap: 'var(--s-3)',
                         }}
                     >
                         <span
@@ -92,22 +92,22 @@ const LiveFeed = ({ satellite }) => {
                                 width: 56, height: 56, borderRadius: 999,
                                 background: 'rgba(255,255,255,0.10)',
                                 border: '1px solid rgba(255,255,255,0.30)',
-                                backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+                                backdropFilter: 'var(--blur-chrome)', WebkitBackdropFilter: 'var(--blur-chrome)',
                             }}
                         >
                             <Play style={{ width: 22, height: 22, color: '#fff', marginLeft: 3 }} aria-hidden="true" />
                         </span>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>
+                        <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>
                             {t('feed.play')}
                         </span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', maxWidth: 300, textAlign: 'center' }}>
+                        <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-tertiary)', maxWidth: 300, textAlign: 'center' }}>
                             {t('feed.lazy')}
                         </span>
                     </button>
                 )}
             </div>
 
-            <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--text-tertiary)' }}>
+            <p style={{ margin: 'var(--s-3) 0 0', fontSize: 'var(--fs-tiny)', color: 'var(--text-tertiary)' }}>
                 {live.captionKey ? t(live.captionKey) : null}
             </p>
         </div>

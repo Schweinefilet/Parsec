@@ -509,7 +509,7 @@ const LoadingScreen = () => {
                     shown={settledText}
                     frames={frames}
                     reveal={settledReveal}
-                    iconColor="#ffd166"
+                    iconColor="var(--accent-warm)"
                     textColor="#fff"
                     style={{
                         position: 'absolute', inset: 0,

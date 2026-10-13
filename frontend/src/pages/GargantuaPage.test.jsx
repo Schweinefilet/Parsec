@@ -27,7 +27,7 @@ describe('GargantuaPage', () => {
             expect(screen.getByRole('button', { name })).toBeInTheDocument();
         }
         expect(screen.getByRole('button', { name: 'Ultra' })).toHaveAttribute('aria-pressed', 'true');
-        expect(screen.getByRole('checkbox', { name: /Doppler/ })).toBeChecked();
+        expect(screen.getByRole('button', { name: /Doppler/ })).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('warns a phone first, and lets it carry on', () => {

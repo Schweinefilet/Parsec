@@ -75,6 +75,9 @@ frontend/src/
     TimeControl.jsx      scrub the whole system through time
     ScenePanel.jsx       the left-edge drawer of scene toggles (distances,
                          gravity, drift) + DriftSliders
+    EdgeTab / SceneDialog / SceneBack   the shared pieces of a full-bleed
+                         page: a drawer's chevron tab, the centred ask/notice
+                         card, the "Go back" link (see "One interface")
     ObjectCard.jsx       catalog card, with generated art when no photo exists
     ObjectDetailBody.jsx description + stats + distance chart, shared by
                          the desktop panel and the mobile sheet
@@ -756,6 +759,33 @@ it hides the shadow. The "As physics has it" shot puts them back.
   GPU drops the context, the page offers to come back one level lower.
 - `?shot=physical|above|dive|film`, `?quality=…` and `?planet=1` open the page
   on that view.
+
+### One interface
+
+`index.css` opens with the design system: one scale per dimension (space,
+radius, type, motion), two surface families (`chrome` over the scene, `panel`
+on the page) and one accent — amber means *this control is on* or *this is the
+thing to do next*; green and red (`--positive`, `--negative`) are status, never
+state. Below the tokens are the shapes the interface repeats, and every page is
+built from them rather than from inline copies:
+
+| Shape | Class / component | Where |
+| --- | --- | --- |
+| icon button over the scene | `.chrome-btn` | header, Gargantua's settings, the AR toggle |
+| uppercase capsule toggle | `.chip` (`.chip-icon`) | scene toggles on a phone, explore, tracker follow |
+| reported status | `.status-pill[data-tone]` | the tracker's Live / Offline |
+| the thing to do | `.action-btn` (`data-variant="quiet"`) | every dialog, the tracker's location row |
+| settings panel | `.drawer` + `.opt-row` / `.opt-grid` + `EdgeTab` | solar-system view options, sky settings, Gargantua |
+| list of places or choices | `.menu` + `.menu-item` | burger menu, language, system picker, search results |
+| ask / notice | `SceneDialog` | location, AR permission, Gargantua's phone and GPU notices |
+| way out | `SceneBack` / `PageHeader` | every non-home page, on the same line |
+| caption + number | `.label` + `.figure` | stats, annotations, HUDs |
+
+`--float-bg` is the one near-opaque pane for anything that opens *over* the
+scene (drawers, menus, the category bar): `.glass` washes out with the Sun
+behind it. Sliders share one thumb and track (`.plain-slider`, `.drift-slider`,
+`.time-scrub` differ only in the track's paint). Before adding a raw px value,
+a duration or a fresh `rgba()` to a component, look for it here.
 
 ### Internationalisation
 

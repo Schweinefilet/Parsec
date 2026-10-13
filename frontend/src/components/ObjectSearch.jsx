@@ -184,28 +184,16 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                 <div
                     id="object-search-list"
                     role="listbox"
-                    className="absolute z-50 top-full mt-2 w-full overflow-hidden"
-                    style={{
-                        background: 'rgba(8,10,14,0.97)',
-                        border: '1px solid rgba(255,255,255,0.16)',
-                        borderRadius: 14,
-                        backdropFilter: 'blur(20px)',
-                        WebkitBackdropFilter: 'blur(20px)',
-                        boxShadow: '0 18px 50px rgba(0,0,0,0.6)',
-                    }}
+                    className="menu absolute top-full mt-2 w-full overflow-hidden"
                 >
                     {!query.trim() && showList && (
-                        <p style={{
-                            margin: 0, padding: '8px 14px 4px',
-                            fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
-                            textTransform: 'uppercase', color: 'rgba(255,255,255,0.32)',
-                        }}>
+                        <p className="label menu-caption">
                             {t('search.popular')}
                         </p>
                     )}
 
                     {noMatches ? (
-                        <p style={{ margin: 0, padding: '14px', fontSize: '0.82rem', color: 'var(--text-tertiary)' }}>
+                        <p style={{ margin: 0, padding: 'var(--s-3)', fontSize: 'var(--fs-sm)', color: 'var(--text-tertiary)' }}>
                             {t('search.noMatches', { query: query.trim() })}
                         </p>
                     ) : results.map((obj, i) => (
@@ -215,12 +203,8 @@ const ObjectSearch = ({ onClose, autoFocus }) => {
                             aria-selected={i === activeIndex}
                             onMouseDown={(e) => { e.preventDefault(); go(obj); }}
                             onMouseEnter={() => setActiveIndex(i)}
-                            className="w-full flex items-center justify-between gap-2 px-4 py-2"
-                            style={{
-                                textAlign: 'start',
-                                background: i === activeIndex ? 'rgba(255,255,255,0.09)' : 'transparent',
-                                cursor: 'pointer',
-                            }}
+                            className="menu-item"
+                            style={{ justifyContent: 'space-between', gap: 'var(--s-2)' }}
                         >
                             {/* One line, truncated — a long name like "James Webb
                                 Space Telescope" was wrapping around the badge into

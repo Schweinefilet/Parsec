@@ -26,7 +26,7 @@ import { coachMaxWidth, placeCoach } from '../utils/coachPlacement';
 const NUB = 9;          // the pointer's square, before it is turned 45°
 const BORDER = 1;
 const SURFACE = 'rgb(17 19 26 / 0.96)';
-const EDGE = 'rgba(255, 209, 102, 0.46)';
+const EDGE = 'rgba(var(--accent-warm-rgb), 0.46)';
 const HALF = -(NUB / 2) - BORDER;   // puts the square's centre on the callout's outer edge
 
 const edge = `${BORDER}px solid ${EDGE}`;
@@ -86,11 +86,11 @@ const CoachMark = ({ text, target, side = 'below', avoid = [], maxWidth = 232, o
                 // page so Arabic wraps and punctuates right-to-left.
                 direction: dir,
                 padding: '9px 13px', margin: 0,
-                borderRadius: 14,
+                borderRadius: 'var(--r-md)',
                 background: SURFACE, border: edge,
-                boxShadow: '0 6px 22px rgba(0, 0, 0, 0.55)',
+                boxShadow: 'var(--sh-3)',
                 color: 'rgba(255, 255, 255, 0.96)',
-                fontSize: 13, fontWeight: 600, lineHeight: 1.35,
+                fontSize: 'var(--fs-sm)', fontWeight: 600, lineHeight: 1.35,
                 textAlign: 'center', textWrap: 'balance',
                 cursor: 'pointer',
                 // Fade in (opacity only, so it never fights the nudge's transform),

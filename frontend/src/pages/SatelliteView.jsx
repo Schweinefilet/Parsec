@@ -85,10 +85,10 @@ const SatelliteChip = ({ def, fix, selected, onSelect }) => {
             style={{
                 paddingBlock: 7, paddingInlineStart: 11, paddingInlineEnd: 14,
                 background: selected ? `rgba(${hexToRgb(def.color)},0.16)` : 'rgba(255,255,255,0.05)',
-                border: `1px solid ${selected ? `rgba(${hexToRgb(def.color)},0.42)` : 'rgba(255,255,255,0.12)'}`,
+                border: `1px solid ${selected ? `rgba(${hexToRgb(def.color)},0.42)` : 'var(--hairline-hi)'}`,
                 cursor: 'pointer',
                 opacity: live ? 1 : 0.45,
-                transition: 'background 200ms ease, border-color 200ms ease, opacity 200ms ease',
+                transition: 'background var(--t-base) var(--ease-out), border-color var(--t-base) var(--ease-out), opacity var(--t-base) var(--ease-out)',
             }}
         >
             <span style={{
@@ -97,12 +97,12 @@ const SatelliteChip = ({ def, fix, selected, onSelect }) => {
                 boxShadow: selected ? `0 0 8px ${def.color}` : 'none',
             }} />
             <span style={{
-                fontSize: '0.8rem', fontWeight: 700,
-                color: selected ? '#fff' : 'rgba(255,255,255,0.72)',
+                fontSize: 'var(--fs-sm)', fontWeight: 700,
+                color: selected ? 'var(--text-primary)' : 'rgba(255,255,255,0.72)',
             }}>
                 {bodyName(def.shortName)}
             </span>
-            <span className="num-run" style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
+            <span className="num-run" style={{ fontSize: 'var(--fs-tiny)', color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
                 {live ? t('tracker.km', { km: num(Math.round(fix.altitude)) }) : '—'}
             </span>
         </button>
@@ -326,23 +326,9 @@ const SatelliteView = () => {
                         subtitle={t('tracker.subtitle', { name: bodyName(def.shortName), norad: def.norad })}
                         trailing={(
                             <span
-                                className="flex items-center gap-1.5"
-                                style={{
-                                    fontSize: 'var(--fs-label)', fontWeight: 700,
-                                    letterSpacing: 'var(--tr-label)',
-                                    textTransform: 'uppercase', padding: '6px var(--s-3)',
-                                    borderRadius: 'var(--r-full)',
-                                    background: status === 'error' ? 'rgba(255,90,80,0.14)'
-                                        : statusOk ? 'rgba(80,220,140,0.14)' : 'rgba(255,200,60,0.14)',
-                                    border: `1px solid ${status === 'error' ? 'rgba(255,90,80,0.30)'
-                                        : statusOk ? 'rgba(80,220,140,0.30)' : 'rgba(255,200,60,0.30)'}`,
-                                    color: status === 'error' ? '#ff8a80' : statusOk ? '#6ee7a0' : '#ffd166',
-                                }}
+                                className="status-pill"
+                                data-tone={status === 'error' ? 'negative' : statusOk ? 'positive' : undefined}
                             >
-                                <span style={{
-                                    width: 6, height: 6, borderRadius: 999, background: 'currentColor',
-                                    animation: statusOk ? 'issPulse 2s ease-in-out infinite' : 'none',
-                                }} />
                                 {statusLabel}
                             </span>
                         )}
@@ -423,7 +409,7 @@ const SatelliteView = () => {
                             <div style={{
                                 position: 'absolute', inset: 0, display: 'flex',
                                 alignItems: 'center', justifyContent: 'center',
-                                color: 'var(--text-tertiary)', fontSize: '0.85rem', pointerEvents: 'none',
+                                color: 'var(--text-tertiary)', fontSize: 'var(--fs-sm)', pointerEvents: 'none',
                             }}>
                                 {t(status === 'error' ? 'tracker.unreachable' : 'tracker.fetching')}
                             </div>
@@ -439,19 +425,10 @@ const SatelliteView = () => {
                             <button
                                 onClick={() => setFollow(f => !f)}
                                 aria-pressed={follow}
-                                className="flex items-center gap-1.5 rounded-full focus-ring"
-                                style={{
-                                    padding: '6px 12px', fontSize: 10, fontWeight: 700,
-                                    letterSpacing: '0.08em', textTransform: 'uppercase',
-                                    background: follow ? 'rgba(80,220,140,0.16)' : 'rgba(0,0,0,0.45)',
-                                    border: `1px solid ${follow ? 'rgba(80,220,140,0.32)' : 'rgba(255,255,255,0.16)'}`,
-                                    color: follow ? '#6ee7a0' : 'rgba(255,255,255,0.75)',
-                                    backdropFilter: 'blur(12px)',
-                                    WebkitBackdropFilter: 'blur(12px)',
-                                    cursor: 'pointer',
-                                }}
+                                data-on={follow}
+                                className="chip focus-ring"
                             >
-                                <Crosshair style={{ width: 12, height: 12 }} />
+                                <Crosshair style={{ width: 12, height: 12 }} aria-hidden="true" />
                                 {follow
                                     ? t('tracker.following', { name: bodyName(def.shortName) })
                                     : t('tracker.freeLook')}
@@ -460,7 +437,7 @@ const SatelliteView = () => {
 
                         <p style={{
                             position: 'absolute', bottom: 10, insetInlineStart: 14, margin: 0,
-                            fontSize: 10, color: 'rgba(255,255,255,0.35)', pointerEvents: 'none',
+                            fontSize: 'var(--fs-label)', color: 'var(--text-tertiary)', pointerEvents: 'none',
                             opacity: arriving ? 0 : 1,
                             transition: `opacity ${settleMs}ms ease`,
                         }}>
@@ -490,7 +467,7 @@ const SatelliteView = () => {
                                 : overhead ? t('tracker.overhead')
                                 : t('tracker.kmAway', { km: num(Math.round(nearest.km)) })
                             }
-                            accent={overhead ? '#6ee7a0' : undefined}
+                            accent={overhead ? 'var(--positive)' : undefined}
                         />
                         <Stat
                             label={t('tracker.altitude')}
@@ -516,7 +493,7 @@ const SatelliteView = () => {
                                         : t(selected.sunlit ? 'tracker.daylight' : 'tracker.eclipsed')}
                                 </span>
                             }
-                            accent={selected?.sunlit ? '#ffd166' : '#9db4ff'}
+                            accent={selected?.sunlit ? 'var(--accent-warm)' : 'var(--accent-cool)'}
                         />
                         <Stat
                             label={t('tracker.period')}
@@ -536,19 +513,19 @@ const SatelliteView = () => {
                     <LiveFeed satellite={def} />
 
                     {/* ── Observer ── */}
-                    <div className="glass" style={{ marginTop: 16, padding: 20 }}>
+                    <div className="glass" style={{ marginTop: 'var(--s-4)', padding: 'var(--s-6)' }}>
                         <div className="flex flex-wrap items-center justify-between gap-4">
                             <div style={{ minWidth: 0 }}>
-                                <p style={{ margin: 0, fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
+                                <p className="label" style={{ margin: 0 }}>
                                     {t('tracker.distanceFromYou')}
                                 </p>
                                 {observer ? (
                                     <>
-                                        <p className="num-run" style={{ margin: '3px 0 0', fontSize: '1.35rem', fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+                                        <p className="num-run" style={{ margin: '3px 0 0', fontSize: 'var(--fs-lg)', fontWeight: 700, letterSpacing: 'var(--tr-tight)', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
                                             {distanceKm != null
                                                 ? t('tracker.km', { km: num(Math.round(distanceKm)) }) : '—'}
                                         </p>
-                                        <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-tertiary)' }}>
+                                        <p style={{ margin: '2px 0 0', fontSize: 'var(--fs-tiny)', color: 'var(--text-tertiary)' }}>
                                             {t('tracker.groundDistance', {
                                                 name: bodyName(def.shortName),
                                                 lat: fmtCoord(observer.lat, N, S),
@@ -558,7 +535,7 @@ const SatelliteView = () => {
                                         </p>
                                     </>
                                 ) : (
-                                    <p style={{ margin: '3px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                    <p style={{ margin: '3px 0 0', fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>
                                         {geoError ?? t('tracker.shareLocation', { name: bodyName(def.shortName) })}
                                     </p>
                                 )}
@@ -566,35 +543,24 @@ const SatelliteView = () => {
                             <div className="flex items-center gap-2 flex-wrap">
                                 <button
                                     onClick={() => navigate(`/object/${def.catalogId}`)}
-                                    className="flex items-center gap-1.5 rounded-xl font-bold focus-ring"
-                                    style={{
-                                        padding: '10px 14px', fontSize: '0.8rem',
-                                        background: 'rgba(255,255,255,0.06)',
-                                        border: '1px solid rgba(255,255,255,0.14)',
-                                        color: 'rgba(255,255,255,0.85)', cursor: 'pointer',
-                                    }}
+                                    className="action-btn focus-ring"
+                                    data-variant="quiet"
                                 >
                                     {t('tracker.about', { name: bodyName(def.shortName) })}
-                                    <ArrowUpRight className="flip-rtl" style={{ width: 14, height: 14 }} />
+                                    <ArrowUpRight className="flip-rtl" aria-hidden="true" />
                                 </button>
                                 <button
                                     onClick={locate}
-                                    className="flex items-center gap-2 rounded-xl font-bold focus-ring"
-                                    style={{
-                                        padding: '10px 16px', fontSize: '0.8rem',
-                                        background: 'rgba(255,209,102,0.14)',
-                                        border: '1px solid rgba(255,209,102,0.28)',
-                                        color: '#ffd166', cursor: 'pointer', flexShrink: 0,
-                                    }}
+                                    className="action-btn focus-ring"
                                 >
-                                    <MapPin style={{ width: 15, height: 15 }} />
+                                    <MapPin aria-hidden="true" />
                                     {t(observer ? 'tracker.updateLocation' : 'tracker.useLocation')}
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <p style={{ marginTop: 14, fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                    <p style={{ marginTop: 'var(--s-4)', fontSize: 'var(--fs-tiny)', color: 'var(--text-tertiary)', textAlign: 'center' }}>
                         {t('tracker.footnote')}
                     </p>
                 </div>

@@ -167,11 +167,11 @@ const DistanceChart = ({ data, color = '#ffffff', unit = 'AU', ariaLabel }) => {
                 aria-live="polite"
                 style={{
                     position: 'absolute', top: 0, insetInlineEnd: 0,
-                    padding: '2px 8px', borderRadius: 8,
-                    background: 'rgba(0,0,0,0.55)',
-                    border: '1px solid rgba(255,255,255,0.12)',
+                    padding: '2px 8px', borderRadius: 'var(--r-xs)',
+                    background: 'var(--chrome-bg)',
+                    border: '1px solid var(--chrome-border)',
                     opacity: hover ? 1 : 0,
-                    transition: 'opacity 0.15s ease',
+                    transition: 'opacity var(--t-fast) var(--ease-out)',
                     pointerEvents: 'none',
                     whiteSpace: 'nowrap',
                 }}

@@ -12,6 +12,12 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.14',
+        changes: [
+            'Every page now speaks the same visual language: the settings on the night sky and on Gargantua match the solar system’s, menus and pop-ups share one look, and “Go back” sits in the same place everywhere.',
+        ],
+    },
+    {
         version: '5.13',
         changes: [
             'Gargantua’s settings panel now starts closed, so the black hole has the whole screen; the button at the top right opens it.',

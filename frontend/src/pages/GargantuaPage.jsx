@@ -1,7 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, SlidersHorizontal, X, Monitor, Cpu } from 'lucide-react';
+import { SlidersHorizontal, X, Monitor, Cpu, Waves, Clapperboard } from 'lucide-react';
 import Gargantua3D from '../components/Gargantua3D';
+import SceneBack from '../components/SceneBack';
+import SceneDialog from '../components/SceneDialog';
 import { useIsMobile, useIsTouch } from '../hooks/useMediaQuery';
 import { MAX_SPIN } from '../utils/kerr';
 import {
@@ -32,51 +34,22 @@ const QUALITY_KEYS = {
     ultra: 'gargantua.qualityUltra', absurd: 'gargantua.qualityAbsurd',
 };
 
-const chip = (active) => ({
-    padding: '8px 10px', borderRadius: 10, cursor: 'pointer', textAlign: 'start',
-    fontSize: 12, fontWeight: 600, lineHeight: 1.25,
-    background: active ? 'rgba(255,190,110,0.16)' : 'rgba(255,255,255,0.05)',
-    border: `1px solid ${active ? 'rgba(255,190,110,0.4)' : 'rgba(255,255,255,0.12)'}`,
-    color: active ? '#ffcf8a' : 'rgba(255,255,255,0.85)',
-});
-const label = {
-    margin: '0 0 7px', fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
-    textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)',
-};
-
-function Toggle({ on, onChange, children, note }) {
-    return (
-        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', padding: '5px 0' }}>
-            <input
-                type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)}
-                style={{ marginTop: 3, accentColor: '#ffb86b' }}
-            />
-            <span>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }}>{children}</span>
-                {note && (
-                    <span style={{ display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
-                        {note}
-                    </span>
-                )}
-            </span>
-        </label>
-    );
-}
-
+// A slider in the settings drawer: the caption and its live value on one
+// line, the shared .plain-slider track under it.
 function Slider({ name, value, display, min, max, step, onChange }) {
     return (
-        <div style={{ padding: '6px 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>
+        <label style={{ display: 'block' }}>
+            <span className="drawer-field drawer-field-row">
                 <span>{name}</span>
-                <span style={{ fontVariantNumeric: 'tabular-nums', color: '#ffcf8a' }}>{display}</span>
-            </div>
+                <span className="drawer-field-value">{display}</span>
+            </span>
             <input
-                type="range" min={min} max={max} step={step} value={value}
+                type="range" className="plain-slider" dir="ltr"
+                min={min} max={max} step={step} value={value}
                 onChange={(e) => onChange(Number(e.target.value))}
                 aria-label={name}
-                style={{ width: '100%', accentColor: '#ffb86b' }}
             />
-        </div>
+        </label>
     );
 }
 
@@ -131,51 +104,23 @@ const GargantuaPage = () => {
         return t(`time.${h.unit}`, { count: h.value });
     }, [hud, t]);
 
-    const backButton = (
-        <button
-            onClick={() => navigate('/')}
-            className="page-back absolute focus-ring"
-            style={{ top: 68, insetInlineStart: 'var(--scene-inset)', zIndex: 20 }}
-        >
-            <ChevronLeft className="flip-rtl" style={{ width: 15, height: 15 }} aria-hidden="true" />
-            <span>{t('nav.back')}</span>
-        </button>
-    );
+    const backButton = <SceneBack onClick={() => navigate('/')} />;
 
-    const card = (icon, title, body, actions) => (
-        <div style={{
-            position: 'absolute', inset: 0, zIndex: 30, display: 'flex',
-            alignItems: 'center', justifyContent: 'center', padding: 20,
-        }}>
-            <div className="glass" style={{ padding: 28, textAlign: 'center', maxWidth: 420 }}>
-                {icon}
-                <p style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#fff' }}>{title}</p>
-                <p style={{ margin: '8px auto 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{body}</p>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
-                    {actions}
-                </div>
-            </div>
-        </div>
-    );
-    const actionBtn = { ...chip(true), padding: '10px 16px', fontWeight: 700 };
 
     if (gated) {
         return (
             <div style={FULL_BLEED}>
                 {backButton}
-                {card(
-                    <Monitor style={{ width: 26, height: 26, color: '#ffcf8a', margin: '0 auto 10px' }} aria-hidden="true" />,
-                    t('gargantua.desktopTitle'),
-                    t('gargantua.desktopBody'),
-                    <>
-                        <button className="focus-ring" style={actionBtn} onClick={() => setAcceptedPhone(true)}>
+                <SceneDialog icon={Monitor} title={t('gargantua.desktopTitle')} body={t('gargantua.desktopBody')}>
+                    <div className="dialog-actions">
+                        <button className="action-btn focus-ring" onClick={() => setAcceptedPhone(true)}>
                             {t('gargantua.runAnyway')}
                         </button>
-                        <button className="focus-ring" style={chip(false)} onClick={() => navigate('/')}>
+                        <button className="action-btn focus-ring" data-variant="quiet" onClick={() => navigate('/')}>
                             {t('nav.back')}
                         </button>
-                    </>,
-                )}
+                    </div>
+                </SceneDialog>
             </div>
         );
     }
@@ -197,17 +142,22 @@ const GargantuaPage = () => {
             {backButton}
 
             <div style={{
-                position: 'absolute', top: 104, insetInlineStart: 'var(--scene-inset)', zIndex: 10,
+                // Under the back link — which drops to 84px on a phone (.scene-back).
+                position: 'absolute', top: isMobile ? 124 : 104, insetInlineStart: 'var(--scene-inset)', zIndex: 10,
                 pointerEvents: 'none', maxWidth: 'min(420px, 70vw)',
             }}>
+                {/* The film's own title treatment — thin, wide-tracked capitals —
+                    kept on purpose: it is the one page that is a homage. Its
+                    size and the tagline under it are the site's. */}
                 <h1 style={{
-                    margin: 0, fontSize: isMobile ? 26 : 34, fontWeight: 300, letterSpacing: '0.32em',
-                    textTransform: 'uppercase', color: '#fff', textShadow: '0 2px 16px rgba(0,0,0,0.8)',
+                    margin: 0, fontSize: isMobile ? 'var(--fs-xl)' : 'var(--fs-2xl)', fontWeight: 300,
+                    letterSpacing: '0.32em', textTransform: 'uppercase', color: 'var(--text-primary)',
+                    textShadow: '0 2px 16px rgba(0,0,0,0.8)',
                 }}>
                     {t('gargantua.title')}
                 </h1>
                 <p style={{
-                    margin: '6px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.62)',
+                    margin: 'var(--s-2) 0 0', fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)',
                     textShadow: '0 1px 8px rgba(0,0,0,0.9)',
                 }}>
                     {t('gargantua.tagline')}
@@ -218,28 +168,30 @@ const GargantuaPage = () => {
                 <dl
                     style={{
                         position: 'absolute', bottom: 34, insetInlineStart: 'var(--scene-inset)', zIndex: 10,
-                        margin: 0, display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 14, rowGap: 4,
-                        fontSize: 12, color: 'rgba(255,255,255,0.82)', pointerEvents: 'none',
-                        textShadow: '0 1px 6px rgba(0,0,0,0.9)', fontVariantNumeric: 'tabular-nums',
+                        margin: 0, display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 'var(--s-4)',
+                        rowGap: 'var(--s-1)', alignItems: 'baseline',
+                        fontSize: 'var(--fs-xs)', fontWeight: 600, color: 'rgba(255,255,255,0.88)',
+                        pointerEvents: 'none', textShadow: '0 1px 6px rgba(0,0,0,0.9)',
+                        fontVariantNumeric: 'tabular-nums',
                     }}
                 >
-                    <dt style={{ color: 'rgba(255,255,255,0.5)' }}>{t('gargantua.distance')}</dt>
+                    <dt className="label">{t('gargantua.distance')}</dt>
                     <dd style={{ margin: 0 }}>
                         {t('gargantua.distanceValue', {
                             r: num(hud.dist, { maximumFractionDigits: 1 }),
                             au: num(auDist, { maximumFractionDigits: 1 }),
                         })}
                     </dd>
-                    <dt style={{ color: 'rgba(255,255,255,0.5)' }}>{t('gargantua.hourHere')}</dt>
+                    <dt className="label">{t('gargantua.hourHere')}</dt>
                     <dd style={{ margin: 0 }}>{t('gargantua.hourThere', { amount: hourText })}</dd>
-                    <dt style={{ color: 'rgba(255,255,255,0.5)' }}>{t('gargantua.spin')}</dt>
+                    <dt className="label">{t('gargantua.spin')}</dt>
                     <dd style={{ margin: 0 }}>
                         {t('gargantua.spinValue', {
                             a: num(hud.spin, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
                             isco: num(hud.isco, { maximumFractionDigits: 2 }),
                         })}
                     </dd>
-                    <dt style={{ color: 'rgba(255,255,255,0.5)' }}><Cpu style={{ width: 12, height: 12, display: 'inline' }} aria-hidden="true" /></dt>
+                    <dt className="label"><Cpu style={{ width: 11, height: 11, display: 'inline' }} aria-hidden="true" /></dt>
                     <dd style={{ margin: 0 }}>
                         {t('gargantua.perf', {
                             fps: num(Math.round(hud.fps)),
@@ -264,98 +216,103 @@ const GargantuaPage = () => {
 
             {panelOpen && (
                 <aside
-                    className="glass animate-fade-in"
+                    className="drawer animate-fade-in"
                     aria-label={t('gargantua.settings')}
                     style={{
                         position: 'absolute', top: 112, insetInlineEnd: 'var(--scene-inset)', zIndex: 20,
-                        width: 'min(300px, calc(100vw - 32px))', maxHeight: 'calc(var(--app-vh, 100vh) - 160px)',
-                        overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 14,
+                        width: 'min(280px, calc(100vw - 32px))', maxHeight: 'calc(var(--app-vh, 100vh) - 160px)',
                     }}
                 >
-                    <section>
-                        <p style={label}>{t('gargantua.shots')}</p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                            {SHOT_ORDER.map((id) => (
-                                <button
-                                    key={id}
-                                    className="focus-ring"
-                                    style={chip(shot.id === id && (id !== 'dive' || hud?.diving))}
-                                    onClick={() => pickShot(id)}
-                                >
-                                    {t(SHOT_KEYS[id])}
-                                </button>
-                            ))}
-                        </div>
-                    </section>
+                    <p className="label drawer-title">{t('gargantua.shots')}</p>
+                    <div className="opt-grid">
+                        {SHOT_ORDER.map((id) => (
+                            <button
+                                key={id}
+                                className="opt-row focus-ring"
+                                data-on={shot.id === id && (id !== 'dive' || !!hud?.diving)}
+                                onClick={() => pickShot(id)}
+                            >
+                                {t(SHOT_KEYS[id])}
+                            </button>
+                        ))}
+                    </div>
 
-                    <section>
-                        <Toggle
-                            on={settings.doppler}
-                            onChange={(v) => set({ doppler: v })}
-                            note={t('gargantua.dopplerNote')}
-                        >
-                            {t('gargantua.doppler')}
-                        </Toggle>
-                        <Toggle on={settings.cinematic} onChange={(v) => set({ cinematic: v })}>
-                            {t('gargantua.cinematic')}
-                        </Toggle>
-                    </section>
+                    <hr className="drawer-rule" />
 
-                    <section>
+                    <button
+                        className="opt-row focus-ring"
+                        aria-pressed={settings.doppler}
+                        onClick={() => set({ doppler: !settings.doppler })}
+                    >
+                        <Waves aria-hidden="true" />
+                        {t('gargantua.doppler')}
+                    </button>
+                    <p className="drawer-note" style={{ marginBottom: 'var(--s-2)' }}>{t('gargantua.dopplerNote')}</p>
+                    <button
+                        className="opt-row focus-ring"
+                        aria-pressed={settings.cinematic}
+                        onClick={() => set({ cinematic: !settings.cinematic })}
+                    >
+                        <Clapperboard aria-hidden="true" />
+                        {t('gargantua.cinematic')}
+                    </button>
+
+                    <hr className="drawer-rule" />
+
+                    <div className="drawer-section">
                         <Slider
                             name={t('gargantua.spin')}
                             value={settings.spin} min={0} max={MAX_SPIN} step={0.001}
                             display={num(settings.spin, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
                             onChange={(v) => set({ spin: v })}
                         />
+                    </div>
+                    <div className="drawer-section">
                         <Slider
                             name={t('gargantua.temp')}
                             value={settings.temp} min={2000} max={20000} step={100}
                             display={t('gargantua.kelvin', { k: num(settings.temp) })}
                             onChange={(v) => set({ temp: v })}
                         />
-                    </section>
+                    </div>
 
-                    <section>
-                        <p style={label}>{t('gargantua.quality')}</p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                            {QUALITY_ORDER.map((q) => (
-                                <button
-                                    key={q}
-                                    className="focus-ring"
-                                    aria-pressed={settings.quality === q}
-                                    style={chip(settings.quality === q)}
-                                    onClick={() => set({ quality: q })}
-                                >
-                                    {t(QUALITY_KEYS[q])}
-                                </button>
-                            ))}
-                        </div>
-                        <p style={{ margin: '8px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
-                            {t('gargantua.qualityNote')}
-                        </p>
-                    </section>
+                    <hr className="drawer-rule" />
 
-                    <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{t('gargantua.hint')}</p>
+                    <p className="label drawer-subtitle">
+                        {t('gargantua.quality')}
+                    </p>
+                    <div className="opt-grid">
+                        {QUALITY_ORDER.map((q) => (
+                            <button
+                                key={q}
+                                className="opt-row focus-ring"
+                                aria-pressed={settings.quality === q}
+                                onClick={() => set({ quality: q })}
+                            >
+                                {t(QUALITY_KEYS[q])}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="drawer-note">{t('gargantua.qualityNote')}</p>
+                    <p className="drawer-note" style={{ marginTop: 'var(--s-3)' }}>{t('gargantua.hint')}</p>
                 </aside>
             )}
 
-            {failure && card(
-                <Cpu style={{ width: 26, height: 26, color: '#ffcf8a', margin: '0 auto 10px' }} aria-hidden="true" />,
-                t(failure === 'nowebgl' ? 'gargantua.noWebglTitle' : 'gargantua.lostTitle'),
-                t(failure === 'nowebgl' ? 'gargantua.noWebglBody' : 'gargantua.lostBody'),
-                failure === 'nowebgl'
-                    ? <button className="focus-ring" style={actionBtn} onClick={() => navigate('/')}>{t('nav.back')}</button>
-                    : <button className="focus-ring" style={actionBtn} onClick={retryLower}>{t('gargantua.retryLower')}</button>,
+            {failure && (
+                <SceneDialog
+                    icon={Cpu}
+                    title={t(failure === 'nowebgl' ? 'gargantua.noWebglTitle' : 'gargantua.lostTitle')}
+                    body={t(failure === 'nowebgl' ? 'gargantua.noWebglBody' : 'gargantua.lostBody')}
+                >
+                    <div className="dialog-actions">
+                        {failure === 'nowebgl'
+                            ? <button className="action-btn focus-ring" onClick={() => navigate('/')}>{t('nav.back')}</button>
+                            : <button className="action-btn focus-ring" onClick={retryLower}>{t('gargantua.retryLower')}</button>}
+                    </div>
+                </SceneDialog>
             )}
 
-            <p style={{
-                position: 'absolute', bottom: 10, insetInline: 0, zIndex: 5, margin: 0, padding: '0 16px',
-                textAlign: 'center', fontSize: 10.5, color: 'rgba(255,255,255,0.38)', pointerEvents: 'none',
-                textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-            }}>
-                {t('gargantua.credit')}
-            </p>
+            <p className="scene-credit">{t('gargantua.credit')}</p>
         </div>
     );
 };

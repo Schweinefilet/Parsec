@@ -3,6 +3,8 @@ import { useI18n } from '../i18n';
 
 /**
  * The header the standalone pages share — the satellite tracker and compare.
+ * Its back link lands on the same line as components/SceneBack's on the
+ * full-bleed pages (.page-header in index.css).
  *
  * The back button used to sit *beside* the title, which pushed the title (and,
  * via a matching 48px indent, the subtitle) in from the page's leading edge
@@ -14,7 +16,7 @@ import { useI18n } from '../i18n';
 const PageHeader = ({ onBack, backLabel, title, subtitle, trailing }) => {
     const { t } = useI18n();
     return (
-        <div style={{ marginBottom: 'var(--s-7)' }}>
+        <div className="page-header" style={{ marginBottom: 'var(--s-7)' }}>
             <button
                 onClick={onBack}
                 aria-label={backLabel ?? t('nav.back')}
@@ -25,7 +27,7 @@ const PageHeader = ({ onBack, backLabel, title, subtitle, trailing }) => {
             </button>
             <div
                 className="flex items-end justify-between"
-                style={{ gap: 'var(--s-4)', marginTop: 'var(--s-3)' }}
+                style={{ gap: 'var(--s-4)', marginTop: 'var(--s-2)' }}
             >
                 <div style={{ minWidth: 0 }}>
                     <h1 style={{

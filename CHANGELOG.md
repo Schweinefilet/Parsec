@@ -16,6 +16,55 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.14.0
+
+**One interface across every page.** A pass through the whole site — the solar
+system, a focused body, the catalog, the tracker, the night sky and Gargantua —
+for the places where a page had drifted from the design system at the top of
+`index.css` and was drawing its own version of a shape the rest of the site
+already had. Each of those now draws the shared one.
+
+- **Settings drawers.** The night sky's drawer was a raw-value copy of the
+  solar system's `ScenePanel` that had drifted (a bigger tab set 10px in, its own
+  header label, a different blur). Both are now built from `.drawer`,
+  `.opt-row` and a new shared `EdgeTab`. Gargantua's settings — which had their
+  own amber (`#ffb86b` / `#ffcf8a`, not the site's `--accent-warm`), native
+  checkboxes and native-styled range inputs — now use the same drawer, rows and
+  sliders, so the three scenes' settings look and behave the same.
+- **Dialogs.** Five hand-written copies of the centred ask/notice card (the
+  sky's location ask, the AR permission card, the AR rotate notice, Gargantua's
+  phone warning and lost-GPU notice) are now one `SceneDialog` with one
+  `.action-btn` pair; the tracker's location row and the error boundary use the
+  same buttons.
+- **Menus.** The burger menu, the language list, the system picker and the
+  search results each had their own surface, radius (10, 13, 14, 16, 18) and row
+  recipe. They share `.menu` / `.menu-item` now, on the same near-opaque
+  `--float-bg` pane the drawers and the category bar use — which also retires
+  the phone-only language-list override.
+- **Toggles and status.** The phone's scene toggles, its options button, the
+  drift button and the tracker's Follow toggle were inline copies of `.chip`;
+  they are `.chip` now, and Follow lights amber like every other "on" control
+  instead of green. Green and red are status only, as `--positive` / `--negative`
+  tokens (previously unused, and the wrong shades); the tracker's Live pill is a
+  `.status-pill`.
+- **The way out.** The focused-body view, the sky and Gargantua share
+  `SceneBack`; the tracker's `PageHeader` lands its back link on the same line.
+  On a phone every one now drops to 84px clear of the wordmark (only the
+  focused view did before), and `--scene-inset` on a phone is the spine's 20px,
+  so that text chrome lines up with the wordmark the way it does on desktop.
+- **Smaller things.** Gargantua's HUD uses the site's uppercase captions; its
+  and the sky's credit lines are one `.scene-credit`; the three slider recipes
+  share one thumb and track; the sky's compass and constellation card are on
+  chrome tokens; the next-pass card, live feed, compact identity card, detail
+  body, version-history panel and coach mark are on the type, space and radius
+  scales. Dead CSS (`.card`, `.btn-primary`, `.text-positive/negative`,
+  `.event-row`, `.lift`, the `--color-*` vars) is gone.
+
+The README has a new "One interface" section listing each shared shape and
+where it is used.
+
+---
+
 ## 5.13.2
 
 **Gargantua's settings panel starts collapsed.** It used to open on a desktop and

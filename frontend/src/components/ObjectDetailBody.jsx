@@ -33,7 +33,7 @@ class ChartBoundary extends Component {
             // arrives as a prop from the caller that can.
             return (
                 <div className="flex items-center justify-center p-6 text-center"
-                    style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+                    style={{ color: 'var(--text-tertiary)', fontSize: 'var(--fs-xs)' }}>
                     {this.props.message}
                 </div>
             );
@@ -111,7 +111,7 @@ const ObjectDetailBody = ({ object: source, showDescription = true, flush = fals
         <Column {...columnProps}>
             {showDescription && (
                 <div className="glass p-5">
-                    <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: '0.9rem', margin: 0 }}>
+                    <p style={{ color: 'var(--text-secondary)', lineHeight: 1.65, fontSize: 'var(--fs-base)', margin: 0 }}>
                         {object.description}
                     </p>
                 </div>
@@ -124,7 +124,7 @@ const ObjectDetailBody = ({ object: source, showDescription = true, flush = fals
             {isSurfacePainted(object.id) && (
                 <p className={flow} style={{
                     margin: 0, padding: '0 4px',
-                    fontSize: '0.66rem', lineHeight: 1.5,
+                    fontSize: 'var(--fs-tiny)', lineHeight: 1.5,
                     color: 'var(--text-tertiary)',
                 }}>
                     {t('stats.painted', { name: object.shortName ?? object.name })}
@@ -135,10 +135,10 @@ const ObjectDetailBody = ({ object: source, showDescription = true, flush = fals
                 <div className={`glass p-5 ${flow}`}>
                     <div className="flex items-start justify-between gap-3 mb-3">
                         <div>
-                            <h3 style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>
+                            <h3 style={{ color: 'var(--text-primary)', fontSize: 'var(--fs-base)', fontWeight: 700, margin: 0 }}>
                                 {chart.title}
                             </h3>
-                            <p style={{ color: 'var(--text-tertiary)', fontSize: '0.68rem', margin: '2px 0 0' }}>
+                            <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--fs-tiny)', margin: '2px 0 0' }}>
                                 {chart.subtitle}
                             </p>
                         </div>
@@ -150,8 +150,8 @@ const ObjectDetailBody = ({ object: source, showDescription = true, flush = fals
                                     aria-pressed={range === r.key}
                                     style={{
                                         padding: '3px 9px',
-                                        borderRadius: 10,
-                                        fontSize: '0.66rem',
+                                        borderRadius: 'var(--r-xs)',
+                                        fontSize: 'var(--fs-tiny)',
                                         fontWeight: 700,
                                         cursor: 'pointer',
                                         background: range === r.key ? 'rgba(255,255,255,0.16)' : 'transparent',

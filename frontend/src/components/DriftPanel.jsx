@@ -40,33 +40,27 @@ const DriftPanel = ({ driftOn, onWake, disabled }) => {
                 aria-label={t('scene.driftAdjust')}
                 title={t('scene.driftAdjust')}
                 inert={disabled || undefined}
-                className="flex items-center justify-center rounded-full transition-opacity duration-700 focus-ring"
+                data-on={open}
+                className="chip chip-icon focus-ring"
                 style={{
-                    width: 30, height: 30,
-                    background: open ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.42)',
-                    border: '1px solid rgba(255,255,255,0.16)',
-                    color: 'rgba(255,255,255,0.78)',
-                    backdropFilter: 'blur(14px)',
-                    WebkitBackdropFilter: 'blur(14px)',
-                    cursor: 'pointer',
                     opacity: disabled ? 0 : 1,
                     pointerEvents: disabled ? 'none' : 'auto',
                 }}
             >
-                <SlidersHorizontal style={{ width: 13, height: 13 }} aria-hidden="true" />
+                <SlidersHorizontal aria-hidden="true" />
             </button>
 
             {open && (
                 <div
                     role="dialog"
                     aria-label={t('scene.cameraDrift')}
-                    className="glass animate-fade-in"
+                    className="drawer animate-fade-in"
                     style={{
                         position: 'absolute',
-                        bottom: 'calc(100% + 8px)',
+                        bottom: 'calc(100% + var(--s-2))',
                         insetInlineStart: 0,
-                        width: 232, maxWidth: 'calc(100vw - 28px)',
-                        padding: '12px 14px', borderRadius: 14, zIndex: 60,
+                        width: 246, maxWidth: 'calc(100vw - 28px)',
+                        zIndex: 60,
                         // The toolbar container is pointer-events:none (so a drag
                         // that misses a pill still orbits the scene); the popover
                         // has to opt back in or its sliders are dead.

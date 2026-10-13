@@ -497,10 +497,10 @@ const AppShell = ({ children }) => {
                     // Not .glass: at 8% white over bright catalog imagery the
                     // labels were barely legible. This needs to be opaque enough
                     // to read against anything scrolling underneath it.
-                    background: 'rgba(6,8,12,0.92)',
-                    backdropFilter: 'blur(22px) saturate(150%)',
-                    WebkitBackdropFilter: 'blur(22px) saturate(150%)',
-                    borderTop: '1px solid var(--hairline-hi)',
+                    background: 'var(--float-bg)',
+                    backdropFilter: 'var(--blur-chrome)',
+                    WebkitBackdropFilter: 'var(--blur-chrome)',
+                    borderTop: '1px solid var(--chrome-border)',
                     boxShadow: '0 -8px 28px rgba(0,0,0,0.45)',
                     height: 68,
                     overflowX: 'auto',

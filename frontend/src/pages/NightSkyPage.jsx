@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, MapPin, Eye, Camera, RotateCw } from 'lucide-react';
+import { MapPin, Eye, Camera, RotateCw } from 'lucide-react';
 import NightSky3D from '../components/NightSky3D';
 import NightSkyPanel from '../components/NightSkyPanel';
 import TimeControl from '../components/TimeControl';
 import CoachMark from '../components/CoachMark';
 import ArPermissionCard from '../components/ArPermissionCard';
+import SceneBack from '../components/SceneBack';
+import SceneDialog from '../components/SceneDialog';
 import { useObserverLocation } from '../hooks/useObserverLocation';
 import { useCameraStream } from '../hooks/useCameraStream';
 import { isArViewerSupported } from '../utils/arSupport';
@@ -175,62 +177,23 @@ const NightSkyPage = () => {
         return () => clearTimeout(timer);
     }, [showCoach, endCoach]);
 
-    // .page-back, the same control the tracker and compare pages use, in
-    // place of the glass icon pill this was. Nothing here needs the pill's
-    // backdrop: the sky behind it is near-black with sparse point stars, so
-    // plain text holds up against it the same way it does on a panel page.
-    const backButton = (
-        <button
-            onClick={() => navigate('/')}
-            className="page-back absolute focus-ring"
-            // --scene-inset, not a bare 20px, so it lands on the same spine
-            // as the wordmark above it and as the focused-body view's copy of
-            // this control. The old glass pill was a 38px icon and sat far
-            // enough off that edge to read as deliberate; as text it just
-            // read as misaligned.
-            style={{ top: 68, insetInlineStart: 'var(--scene-inset)', zIndex: 20 }}
-        >
-            <ChevronLeft className="flip-rtl" style={{ width: 15, height: 15 }} aria-hidden="true" />
-            <span>{t('nav.back')}</span>
-        </button>
-    );
+    // The shared way out of a full-bleed page (components/SceneBack), on the
+    // same spine as the wordmark above it and as the focused-body view's copy.
+    const backButton = <SceneBack onClick={() => navigate('/')} />;
 
     if (!location) {
         return (
             <div style={FULL_BLEED}>
                 {backButton}
-                <div style={{
-                    position: 'absolute', inset: 0, display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', padding: 20,
-                }}>
-                    <div className="glass" style={{ padding: 28, textAlign: 'center', maxWidth: 420 }}>
-                        <Eye style={{ width: 26, height: 26, color: 'var(--accent)', margin: '0 auto 10px' }} />
-                        <p style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#fff' }}>
-                            {t('nightSky.askTitle')}
-                        </p>
-                        <p style={{ margin: '6px auto 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                            {t('nightSky.askBody')}
-                        </p>
-                        {error && (
-                            <p style={{ margin: '10px 0 0', fontSize: '0.8rem', color: '#ff8a80' }}>{error}</p>
-                        )}
-                        <button
-                            onClick={request}
-                            disabled={asking}
-                            className="flex items-center gap-2 rounded-xl font-bold focus-ring"
-                            style={{
-                                margin: '16px auto 0', padding: '11px 18px', fontSize: '0.85rem',
-                                background: 'rgba(255,209,102,0.14)',
-                                border: '1px solid rgba(255,209,102,0.28)',
-                                color: '#ffd166', cursor: asking ? 'default' : 'pointer',
-                                opacity: asking ? 0.6 : 1,
-                            }}
-                        >
-                            <MapPin style={{ width: 15, height: 15 }} />
+                <SceneDialog icon={Eye} title={t('nightSky.askTitle')} body={t('nightSky.askBody')}>
+                    {error && <p className="dialog-error">{error}</p>}
+                    <div className="dialog-actions">
+                        <button onClick={request} disabled={asking} className="action-btn focus-ring">
+                            <MapPin aria-hidden="true" />
                             {t(asking ? 'nightSky.asking' : 'nightSky.useLocation')}
                         </button>
                     </div>
-                </div>
+                </SceneDialog>
             </div>
         );
     }
@@ -245,30 +208,22 @@ const NightSkyPage = () => {
                     aria-label={t(arMode ? 'nightSky.arClose' : 'nightSky.arOpen')}
                     title={t(arMode ? 'nightSky.arClose' : 'nightSky.arOpen')}
                     data-coach="ar-toggle"
-                    className="absolute flex items-center justify-center rounded-xl focus-ring"
-                    style={{
-                        // Stacked below the back button rather than beside it
-                        // on the same row: "Go back" is short in English, but
-                        // long enough in other locales (and even in English,
-                        // it turns out) to run under a same-row button fixed
-                        // at any single offset — it doesn't just get close, it
-                        // sat right on top of the button. Below it needs no
-                        // per-locale width to dodge, since nothing is competing
-                        // for the same horizontal space. The compass HUD
-                        // already owns the mirrored top-right spot
-                        // (NightSky3D.jsx's .sky-compass), so this can't just
-                        // mirror the back button's own position there either.
-                        top: 108, insetInlineStart: 'var(--scene-inset)', zIndex: 20,
-                        width: 38, height: 38,
-                        background: arMode ? 'rgba(255,209,102,0.16)' : 'rgba(0,0,0,0.45)',
-                        border: '1px solid ' + (arMode ? 'rgba(255,209,102,0.34)' : 'rgba(255,255,255,0.16)'),
-                        color: arMode ? '#ffd166' : 'rgba(255,255,255,0.85)',
-                        backdropFilter: 'blur(14px)',
-                        WebkitBackdropFilter: 'blur(14px)',
-                        cursor: 'pointer',
-                    }}
+                    data-on={arMode}
+                    className="chrome-btn scene-under-back focus-ring"
+                    // .scene-under-back:
+                    // Stacked below the back button rather than beside it
+                    // on the same row: "Go back" is short in English, but
+                    // long enough in other locales (and even in English,
+                    // it turns out) to run under a same-row button fixed
+                    // at any single offset — it doesn't just get close, it
+                    // sat right on top of the button. Below it needs no
+                    // per-locale width to dodge, since nothing is competing
+                    // for the same horizontal space. The compass HUD
+                    // already owns the mirrored top-right spot
+                    // (NightSky3D.jsx's .sky-compass), so this can't just
+                    // mirror the back button's own position there either.
                 >
-                    <Camera style={{ width: 18, height: 18 }} />
+                    <Camera className="h-4 w-4" aria-hidden="true" />
                 </button>
             )}
             <NightSky3D
@@ -286,20 +241,11 @@ const NightSkyPage = () => {
                 />
             )}
             {arMode && !arPortrait && (
-                <div
-                    style={{
-                        position: 'absolute', inset: 0, zIndex: 25,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        padding: 20, background: 'rgba(0,0,0,0.7)', pointerEvents: 'none',
-                    }}
-                >
-                    <div className="glass" style={{ padding: 28, textAlign: 'center', maxWidth: 320 }}>
-                        <RotateCw style={{ width: 26, height: 26, color: 'var(--accent)', margin: '0 auto 10px' }} />
-                        <p style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#fff' }}>
-                            {t('nightSky.arRotatePortrait')}
-                        </p>
-                    </div>
-                </div>
+                <SceneDialog
+                    icon={RotateCw}
+                    title={t('nightSky.arRotatePortrait')}
+                    scrim passive maxWidth={320} zIndex={25}
+                />
             )}
             <NightSkyPanel onOpen={onSettingsOpened} arMode={arMode} />
             {/* The same clock TimeControl scrubs on the solar-system page —
@@ -326,16 +272,7 @@ const NightSkyPage = () => {
                     onDismiss={() => endCoach(true)}
                 />
             )}
-            <p
-                style={{
-                    position: 'absolute', bottom: 10, insetInline: 0, zIndex: 5,
-                    margin: 0, textAlign: 'center', fontSize: 10.5,
-                    color: 'rgba(255,255,255,0.4)', pointerEvents: 'none',
-                    textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-                }}
-            >
-                {t('nightSky.credit')}
-            </p>
+            <p className="scene-credit">{t('nightSky.credit')}</p>
         </div>
     );
 };

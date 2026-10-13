@@ -63,16 +63,10 @@ const LanguagePicker = ({ variant = 'icon' }) => {
                     aria-haspopup="listbox"
                     aria-expanded={open}
                     aria-label={t('language.choose')}
-                    className="w-full flex items-center gap-3 focus-ring"
-                    style={{
-                        padding: '10px 12px', borderRadius: 10, border: 'none',
-                        background: open ? 'rgba(255,255,255,0.08)' : 'none',
-                        color: 'rgba(255,255,255,0.9)',
-                        cursor: 'pointer', textAlign: 'start',
-                    }}
+                    className="menu-item focus-ring"
                 >
-                    <Languages style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
-                    <span style={{ fontSize: '0.92rem', fontWeight: 700 }}>{t('language.label')}</span>
+                    <Languages aria-hidden="true" />
+                    {t('language.label')}
                 </button>
             ) : (
                 <button
@@ -92,14 +86,13 @@ const LanguagePicker = ({ variant = 'icon' }) => {
                 <div
                     role="listbox"
                     aria-label={t('language.label')}
-                    className="glass lang-listbox animate-fade-in"
+                    className="menu animate-fade-in"
                     style={{
-                        position: 'absolute', top: 'calc(100% + 8px)',
+                        position: 'absolute', top: 'calc(100% + var(--s-2))',
                         // Logical, so the panel hangs off the same edge of the
                         // button in both directions instead of off the screen.
                         insetInlineEnd: 0,
-                        minWidth: 176, padding: 'var(--s-1)',
-                        borderRadius: 'var(--r-lg)', zIndex: 60,
+                        minWidth: 176,
                     }}
                 >
                     {locales.map(l => {
@@ -112,20 +105,12 @@ const LanguagePicker = ({ variant = 'icon' }) => {
                                 lang={l.code}
                                 dir={l.dir}
                                 onClick={() => { setLocale(l.code); setOpen(false); }}
-                                className="w-full flex items-center justify-between gap-3 focus-ring"
-                                style={{
-                                    padding: '9px var(--s-3)', borderRadius: 'var(--r-md)', border: 'none',
-                                    background: active ? 'rgba(255,255,255,0.09)' : 'none',
-                                    color: active ? '#fff' : 'rgba(255,255,255,0.82)',
-                                    cursor: 'pointer', textAlign: 'start',
-                                    transition: 'background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out)',
-                                }}
+                                className="menu-item focus-ring"
+                                style={{ justifyContent: 'space-between' }}
                             >
-                                <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600 }}>
-                                    {l.endonym}
-                                </span>
+                                <span>{l.endonym}</span>
                                 {active && (
-                                    <Check style={{ width: 14, height: 14, flexShrink: 0 }} aria-hidden="true" />
+                                    <Check aria-hidden="true" />
                                 )}
                             </button>
                         );

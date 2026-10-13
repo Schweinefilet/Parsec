@@ -46,75 +46,68 @@ const WhatsNew = ({ open, onClose, currentVersion }) => {
                 style={{
                     width: 'min(560px, 100%)', maxHeight: '100%',
                     display: 'flex', flexDirection: 'column',
-                    borderRadius: 20, overflow: 'hidden',
+                    overflow: 'hidden',
                 }}
             >
                 <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    gap: 12, padding: '16px 16px 16px 20px',
-                    borderBottom: '1px solid rgba(255,255,255,0.09)',
+                    gap: 'var(--s-3)', padding: 'var(--s-4) var(--s-4) var(--s-4) var(--s-5)',
+                    borderBottom: '1px solid var(--hairline)',
                 }}>
                     <h2 style={{
-                        margin: 0, fontSize: '1.1rem', fontWeight: 800,
-                        color: '#fff', letterSpacing: '-0.01em',
+                        margin: 0, fontSize: 'var(--fs-md)', fontWeight: 700,
+                        color: 'var(--text-primary)', letterSpacing: 'var(--tr-tight)',
                     }}>
                         {t('whatsNew.title')}
                     </h2>
                     <button
                         onClick={onClose}
                         aria-label={t('whatsNew.close')}
-                        className="focus-ring"
-                        style={{
-                            flexShrink: 0, width: 34, height: 34, borderRadius: 10,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            background: 'rgba(255,255,255,0.06)',
-                            border: '1px solid rgba(255,255,255,0.12)',
-                            color: 'rgba(255,255,255,0.82)', cursor: 'pointer',
-                        }}
+                        className="chrome-btn focus-ring"
                     >
                         <X className="h-4 w-4" aria-hidden="true" />
                     </button>
                 </div>
 
-                <div style={{ overflowY: 'auto', overscrollBehavior: 'contain', padding: '2px 20px 20px' }}>
+                <div style={{ overflowY: 'auto', overscrollBehavior: 'contain', padding: '2px var(--s-5) var(--s-5)' }}>
                     {WHATS_NEW.map((rel, ri) => (
                         <section
                             key={rel.version}
                             style={{
                                 padding: '16px 0',
                                 borderBottom: ri < WHATS_NEW.length - 1
-                                    ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                                    ? '1px solid var(--hairline)' : 'none',
                             }}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-2)' }}>
                                 <span
                                     data-latin
                                     style={{
-                                        fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.06em',
+                                        fontSize: 'var(--fs-xs)', fontWeight: 700, letterSpacing: '0.06em',
                                         padding: '2px 8px', borderRadius: 999,
                                         fontVariantNumeric: 'tabular-nums',
                                         background: rel.version === currentVersion
-                                            ? 'rgba(255,209,102,0.16)' : 'rgba(255,255,255,0.07)',
+                                            ? 'rgba(var(--accent-warm-rgb), 0.16)' : 'rgba(255,255,255,0.07)',
                                         color: rel.version === currentVersion
-                                            ? '#ffd166' : 'rgba(255,255,255,0.6)',
+                                            ? 'var(--accent-warm)' : 'rgba(255,255,255,0.6)',
                                     }}
                                 >
                                     {rel.version}
                                 </span>
                                 {rel.version === currentVersion && (
-                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
+                                    <span style={{ fontSize: 'var(--fs-tiny)', color: 'var(--text-tertiary)' }}>
                                         {t('whatsNew.current')}
                                     </span>
                                 )}
                             </div>
                             <ul style={{
                                 margin: 0, paddingInlineStart: 18,
-                                listStyleType: 'disc', color: 'rgba(255,209,102,0.6)',
+                                listStyleType: 'disc', color: 'rgba(var(--accent-warm-rgb), 0.6)',
                             }}>
                                 {rel.changes.map((c, i) => (
                                     <li key={i} style={{
                                         display: 'list-item', margin: i ? '7px 0 0' : 0,
-                                        fontSize: '0.87rem', lineHeight: 1.5,
+                                        fontSize: 'var(--fs-sm)', lineHeight: 1.5,
                                         color: 'var(--text-secondary)',
                                     }}>
                                         {c}

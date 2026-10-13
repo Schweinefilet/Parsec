@@ -23,9 +23,12 @@
   --spine-pad:   32px;
   --spine-inset: max(var(--spine-pad), calc((100vw - var(--spine-max)) / 2 + var(--spine-pad)));
   /* What the chrome floating over the 3D scene actually uses. It is the spine
-     on a desktop window and a plain edge gutter on a phone, where a 3D scene
-     is the whole screen and there is no column to agree with. */
-  --scene-inset: 16px;
+     on a desktop window, and on a phone the spine's own 20px gutter — so the
+     back link, a page title and the compass line up with the wordmark above
+     them, as the tracker's in-flow content already does. (The transport and
+     the chip column above it keep their own tighter 12px edge: they are a
+     toolbar along the bottom, not text in the column.) */
+  --scene-inset: var(--s-5);
   /* One baseline for everything sitting along the bottom of the scene — the
      transport, the catalog pill, the scale footnote. */
   --scene-baseline: 18px;
@@ -101,6 +104,11 @@
   --panel-border:      rgba(255, 255, 255, 0.20);
   --panel-border-hi:   rgba(255, 255, 255, 0.30);
 
+  /* The near-opaque pane for anything that opens over the scene and has to
+     stay legible with the Sun or a bright catalog image right behind it —
+     drawers, menus, the search results, the category bar. */
+  --float-bg:          rgba(8, 10, 15, 0.95);
+
   /* The compact detail sheet's own dark base, so the cards that stack inside
      it can composite their glass over the same colour the sheet ends on. */
   --sheet-base:        #04060a;
@@ -130,9 +138,14 @@
   --accent-warm:     #ffd166;
   --accent-warm-rgb: 255, 209, 102;
   --accent-cool:     #9fc4ff;
-  --positive:        #30D158;
-  --negative:        #FF453A;
-  --warning:         #FFD60A;
+  /* Status, not state: green is "live / healthy / overhead now", red is an
+     error. Each comes as an ink (text and glyphs on the dark interface) and
+     an rgb triple to tint a fill or a border from, the same way
+     --accent-warm-rgb does. "Waiting" is amber, and borrows the accent. */
+  --positive:        #6ee7a0;
+  --positive-rgb:    80, 220, 140;
+  --negative:        #ff8a80;
+  --negative-rgb:    255, 90, 80;
   --text-primary:    #ffffff;
   --text-secondary:  rgba(255, 255, 255, 0.70);
   --text-tertiary:   rgba(255, 255, 255, 0.40);
@@ -496,7 +509,7 @@ body::after {
   from { opacity: 0.35; transform: translateY(2px); }
   to   { opacity: 1; transform: none; }
 }
-.boot-asset-failed { color: #ff8a80; }
+.boot-asset-failed { color: var(--negative); }
 
 /* ── The wordmark's held ciphertext ─────────────────────────────────────────
    The scramble the wordmark runs while the scene is still being built, before
@@ -628,12 +641,12 @@ button:focus-visible {
   inset-inline-start: -9999px;
   top: 0;
   z-index: 100;
-  padding: 10px 16px;
+  padding: 10px var(--s-4);
   background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 0 0 12px 0;
+  border: 1px solid var(--panel-border-hi);
+  border-end-end-radius: var(--r-md);
   color: #fff;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 .skip-link:focus {
@@ -717,7 +730,7 @@ button:focus-visible {
   pointer-events: none;
   text-align: end;
   color: var(--text-quaternary);
-  font-size: 10px;
+  font-size: var(--fs-label);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
@@ -944,25 +957,6 @@ button:focus-visible {
   .cat-tab:not([data-active="true"]):hover { background: rgba(255, 255, 255, 0.05); }
 }
 
-/* ── "What's up tonight" event rows ─────────────────────────── */
-/* The whole row jumps the clock; the corner arrow lifts to say so. */
-.event-row {
-  transition: background 0.18s ease;
-}
-.event-row-arrow {
-  opacity: 0.38;
-  transition: opacity 0.18s ease;
-}
-@media (hover: hover) {
-  .event-row:hover {
-    background: rgba(255, 255, 255, 0.035);
-  }
-}
-.event-row:hover .event-row-arrow,
-.event-row:focus-visible .event-row-arrow {
-  opacity: 0.95;
-}
-
 /* ── Utilities ──────────────────────────────────────────────── */
 .no-scrollbar {
   scrollbar-width: none;
@@ -996,17 +990,6 @@ button:focus-visible {
   .glass-interactive:hover {
     background:   var(--panel-bg-hover) !important;
     border-color: var(--panel-border-hi) !important;
-  }
-}
-
-/* On mobile the language listbox hangs below the burger menu rather than
-   inside it, floating directly over the scene — where the sun can sit right
-   behind it and wash out the standard .glass translucency. Solid enough here
-   to read against it; the icon-variant popover on desktop keeps the shared
-   .glass look since it never has that problem. */
-@media (max-width: 767px) {
-  .lang-listbox {
-    background: rgba(8, 8, 12, 0.94) !important;
   }
 }
 
@@ -1260,14 +1243,15 @@ button:focus-visible {
   color: #fff;
 }
 .chrome-btn[data-tone="positive"] {
-  background: rgba(80, 220, 140, 0.18);
-  border-color: rgba(80, 220, 140, 0.34);
-  color: #6ee7a0;
+  background: rgba(var(--positive-rgb), 0.18);
+  border-color: rgba(var(--positive-rgb), 0.34);
+  color: var(--positive);
 }
 
 /* ── Chip ───────────────────────────────────────────────────────────────────
    The uppercase capsule the scene toggles and status markers use. */
 .chip {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1285,9 +1269,12 @@ button:focus-visible {
   text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
+  /* Opacity at the slow speed: the scene's chips fade out together when a
+     body is focused or the page scrolls past the hero. */
   transition: background var(--t-base) var(--ease-out),
               border-color var(--t-base) var(--ease-out),
               color var(--t-base) var(--ease-out),
+              opacity var(--t-slower) var(--ease-out),
               transform var(--t-fast) var(--ease-out);
 }
 @media (hover: hover) {
@@ -1309,6 +1296,377 @@ button:focus-visible {
     border-color: rgba(var(--accent-warm-rgb), 0.5);
     color: var(--accent-warm);
   }
+}
+/* An icon-only chip — the phone's scene-options button. Same material and
+   the same lit state, just square on the glyph. */
+.chip-icon {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  justify-content: center;
+}
+.chip-icon svg { width: 15px; height: 15px; }
+
+/* ── Status pill ────────────────────────────────────────────────────────────
+   A chip's shape for something that is reported rather than pressed: the
+   tracker's Live / Connecting / Offline. `data-tone` picks the status colour;
+   with none it is the amber of "waiting". The dot pulses while healthy. */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--s-3);
+  border-radius: var(--r-full);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: rgba(var(--accent-warm-rgb), 0.14);
+  border: 1px solid rgba(var(--accent-warm-rgb), 0.30);
+  color: var(--accent-warm);
+}
+.status-pill[data-tone="positive"] {
+  background: rgba(var(--positive-rgb), 0.14);
+  border-color: rgba(var(--positive-rgb), 0.30);
+  color: var(--positive);
+}
+.status-pill[data-tone="negative"] {
+  background: rgba(var(--negative-rgb), 0.14);
+  border-color: rgba(var(--negative-rgb), 0.30);
+  color: var(--negative);
+}
+.status-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: currentColor;
+}
+.status-pill[data-tone="positive"]::before {
+  animation: issPulse 2s ease-in-out infinite;
+}
+
+/* ── Action button ──────────────────────────────────────────────────────────
+   The one thing a card is asking you to do — "Use my location", "Enable AR",
+   "Run it anyway". Amber-tinted, because the accent is reserved for what is
+   on or what is next. `data-variant="quiet"` is its partner (Cancel, Back,
+   a secondary link): the same shape with no accent, so a pair of them reads
+   as one choice with an obvious default. */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  padding: 10px var(--s-4);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  background: rgba(var(--accent-warm-rgb), 0.14);
+  border: 1px solid rgba(var(--accent-warm-rgb), 0.30);
+  color: var(--accent-warm);
+  cursor: pointer;
+  transition: background var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              color var(--t-base) var(--ease-out),
+              opacity var(--t-base) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+.action-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+@media (hover: hover) {
+  .action-btn:hover:not(:disabled) {
+    background: rgba(var(--accent-warm-rgb), 0.22);
+    border-color: rgba(var(--accent-warm-rgb), 0.5);
+  }
+}
+.action-btn:active:not(:disabled) { transform: scale(0.98); }
+.action-btn:disabled { opacity: 0.6; cursor: default; }
+.action-btn[data-variant="quiet"] {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--hairline-hi);
+  color: rgba(255, 255, 255, 0.85);
+}
+@media (hover: hover) {
+  .action-btn[data-variant="quiet"]:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.11);
+    border-color: var(--panel-border-hi);
+    color: #fff;
+  }
+}
+
+/* ── Scene dialog ───────────────────────────────────────────────────────────
+   The centred card a full-bleed page puts up when it needs something before
+   it can go on — a location for the sky, a permission for AR, a desktop GPU
+   for Gargantua — or has to stop and explain. Icon, title, body, actions,
+   always in that order and always at these sizes. `data-scrim` dims the
+   scene behind it when there is a live one worth keeping in view. */
+.scene-dialog {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-5);
+}
+.scene-dialog[data-scrim] { background: rgba(0, 0, 0, 0.55); }
+.dialog-card {
+  width: 100%;
+  max-width: 420px;
+  padding: var(--s-7) var(--s-7) var(--s-6);
+  text-align: center;
+}
+.dialog-icon {
+  display: block;
+  width: 26px;
+  height: 26px;
+  margin: 0 auto var(--s-3);
+  color: var(--text-primary);
+}
+.dialog-title {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: var(--tr-tight);
+  color: var(--text-primary);
+}
+.dialog-body {
+  margin: var(--s-2) auto 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.dialog-note {
+  margin: var(--s-3) auto 0;
+  font-size: var(--fs-xs);
+  color: rgba(var(--accent-warm-rgb), 0.85);
+}
+.dialog-error {
+  margin: var(--s-3) auto 0;
+  font-size: var(--fs-xs);
+  color: var(--negative);
+}
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-2);
+  margin-top: var(--s-5);
+}
+
+/* ── Floating surfaces: drawers and menus ───────────────────────────────────
+   Everything that opens over the scene — a settings drawer, a header menu,
+   the language list, the search results — is the same near-opaque pane. Not
+   .glass: at 8% white the small text washed out over a bright warped grid or
+   with the Sun right behind it, and a body label passing behind has to be
+   fully hidden, not ghosted. */
+.drawer,
+.menu {
+  background: var(--float-bg);
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--r-lg);
+  backdrop-filter: var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
+  box-shadow: var(--sh-3);
+}
+
+/* A drawer holds a scene's settings — the solar system's view options, the
+   night sky's, Gargantua's. `.drawer-edge` squares it off against the window
+   edge it slides out of and rounds it on the side facing the scene. */
+.drawer {
+  padding: 14px var(--s-4);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+.drawer-edge {
+  border-inline-start: none;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+.drawer-title {
+  margin: 0 0 var(--s-3);
+  padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--hairline);
+  color: rgba(255, 255, 255, 0.5);
+}
+/* A caption heading a later group inside the same drawer — the title's
+   voice without its rule, since a .drawer-rule already sits above it. */
+.drawer-subtitle {
+  margin: 0 0 var(--s-2);
+  color: rgba(255, 255, 255, 0.5);
+}
+.drawer-rule {
+  height: 1px;
+  margin: var(--s-3) 0;
+  background: var(--hairline);
+  border: 0;
+}
+.drawer-section + .drawer-section { margin-top: var(--s-3); }
+/* A caption above a group (a slider, a set of options). Sentence case: it
+   names a quantity, where the uppercase micro-label names a section. */
+.drawer-field {
+  display: block;
+  font-size: var(--fs-tiny);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.82);
+}
+.drawer-field-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-2);
+  margin-bottom: 3px;
+}
+.drawer-field-value {
+  color: var(--accent-warm);
+  font-variant-numeric: tabular-nums;
+}
+.drawer-note {
+  margin: 6px 0 0;
+  font-size: var(--fs-tiny);
+  line-height: 1.45;
+  color: var(--text-tertiary);
+}
+
+/* One row in a drawer: an icon and an uppercase label, lit amber when on.
+   `aria-pressed` drives the lit state for a toggle; `data-on` does it for a
+   pick-one option, which announces with aria-checked/aria-pressed of its own. */
+.opt-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  padding: 10px var(--s-3);
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--hairline-hi);
+  color: rgba(255, 255, 255, 0.84);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  line-height: 1.3;
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              color var(--t-base) var(--ease-out);
+}
+.opt-row svg { width: 13px; height: 13px; flex-shrink: 0; }
+.opt-row + .opt-row { margin-top: var(--s-2); }
+@media (hover: hover) {
+  .opt-row:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
+}
+.opt-row[aria-pressed="true"],
+.opt-row[data-on="true"] {
+  background: rgba(var(--accent-warm-rgb), 0.15);
+  border-color: rgba(var(--accent-warm-rgb), 0.36);
+  color: var(--accent-warm);
+}
+/* Options laid out two-up, for a pick-one set of short names. */
+.opt-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.opt-grid > .opt-row { margin-top: 0; justify-content: center; text-align: center; }
+
+/* A menu is a list of places or choices. Its rows are `.menu-item`; the
+   current one carries aria-selected (a listbox) or data-on (a menu). */
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s-1);
+  z-index: 60;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px var(--s-3);
+  border: none;
+  border-radius: var(--r-md);
+  background: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: start;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-out),
+              color var(--t-fast) var(--ease-out);
+}
+.menu-item > svg { width: 15px; height: 15px; flex-shrink: 0; }
+@media (hover: hover) {
+  .menu-item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+}
+.menu-item[aria-selected="true"],
+.menu-item[aria-expanded="true"],
+.menu-item[data-on="true"] {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+}
+/* An uppercase caption over a menu's rows ("Popular"). */
+.menu-caption {
+  margin: 0;
+  padding: var(--s-2) var(--s-3) var(--s-1);
+  color: var(--text-quaternary);
+}
+
+/* ── The way out of a full-bleed page ───────────────────────────────────────
+   .page-back, pinned on the spine under the wordmark — the focused-body view,
+   the night sky and Gargantua all put it in exactly this place. */
+.scene-back {
+  position: absolute;
+  top: 68px;
+  inset-inline-start: var(--scene-inset);
+  z-index: 20;
+}
+/* Dropped further on a phone, where the wordmark sits at the same size
+   against a much narrower gutter and the two read as crowded at 68px. */
+/* The slot directly under it, for a control that stacks below the way out
+   (the night sky's AR toggle). Follows it down on a phone. */
+.scene-under-back {
+  position: absolute;
+  top: 108px;
+  inset-inline-start: var(--scene-inset);
+  z-index: 20;
+}
+@media (max-width: 767px) {
+  .scene-back { top: 84px; }
+  .scene-under-back { top: 124px; }
+}
+/* The standalone pages' in-flow header (components/PageHeader) puts its back
+   link on the same line as .scene-back above, so leaving the tracker and
+   leaving the sky start from the same place on screen. */
+.page-header { padding-top: 4px; }
+@media (max-width: 767px) {
+  .page-header { padding-top: 20px; }
+}
+
+/* ── Credit line ────────────────────────────────────────────────────────────
+   The attribution a full-bleed page runs along its bottom edge. */
+.scene-credit {
+  position: absolute;
+  bottom: 10px;
+  inset-inline: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 0 var(--s-4);
+  text-align: center;
+  font-size: var(--fs-label);
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
 }
 
 /* ── Panel ──────────────────────────────────────────────────────────────────
@@ -1419,22 +1777,6 @@ button:focus-visible {
       #000 calc(100% - var(--fade, 80px)), transparent 100%);
 }
 
-/* ── Lift ───────────────────────────────────────────────────────────────────
-   The one hover gesture for a thing you can open. */
-@media (hover: hover) {
-  .lift {
-    transition: transform var(--t-base) var(--ease-out),
-                box-shadow var(--t-base) var(--ease-out),
-                border-color var(--t-base) var(--ease-out);
-  }
-  .lift:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--sh-3), var(--specular);
-    border-color: var(--panel-border-hi);
-  }
-  .lift:active { transform: translateY(0); }
-}
-
 h1 { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: var(--tr-tighter); color: var(--text-primary); }
 h2 { font-size: var(--fs-xl);  font-weight: 600; letter-spacing: var(--tr-tight);   color: var(--text-primary); }
 h3 { font-size: var(--fs-md);  font-weight: 600; letter-spacing: var(--tr-tight);   color: rgba(255,255,255,0.9); }
@@ -1466,43 +1808,10 @@ h3 { font-size: var(--fs-md);  font-weight: 600; letter-spacing: var(--tr-tight)
   color: #fff;
 }
 
-/* ── Legacy utilities (kept for compatibility) ──────────────── */
 @import "tailwindcss";
 
 :root {
   color-scheme: dark;
-  --color-background: #000000;
-  --color-card:       #1e293b;
-  --color-border:     #334155;
-}
-
-.card {
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-  padding: 1rem;
-}
-
-.btn-primary {
-  background: #ffffff;
-  color: #000000;
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  transition: background-color 0.2s ease;
-}
-
-.btn-primary:hover {
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.text-positive {
-  color: #34d399;
-}
-
-.text-negative {
-  color: #fb7185;
 }
 
 /* ── Viewport height ─────────────────────────────────────────── */
@@ -1525,93 +1834,15 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
-/* ── Time scrubber ───────────────────────────────────────────── */
-/* The default range track is nearly invisible on a dark backdrop. */
-.time-scrub {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 18px;
-  background: transparent;
-  cursor: grab;
-}
-.time-scrub:active { cursor: grabbing; }
-.time-scrub::-webkit-slider-runnable-track {
-  height: 3px;
-  border-radius: 2px;
-  background: linear-gradient(to right,
-    rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.30) 50%, rgba(255,255,255,0.18) 100%);
-}
-.time-scrub::-moz-range-track {
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255,255,255,0.24);
-}
-.time-scrub::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 13px;
-  height: 13px;
-  margin-top: -5px;
-  border-radius: 999px;
-  background: #dce8ff;
-  border: 1px solid rgba(0,0,0,0.4);
-  box-shadow: 0 1px 5px rgba(0,0,0,0.6);
-}
-.time-scrub::-moz-range-thumb {
-  width: 13px;
-  height: 13px;
-  border-radius: 999px;
-  background: #dce8ff;
-  border: 1px solid rgba(0,0,0,0.4);
-}
-
-/* ── Camera-drift sliders ────────────────────────────────────── */
-/* Bipolar: the track is a thin rule with a centre tick at zero. */
-.drift-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 16px;
-  background: transparent;
-  cursor: grab;
-}
-.drift-slider:active { cursor: grabbing; }
-.drift-slider::-webkit-slider-runnable-track {
-  height: 3px;
-  border-radius: 2px;
-  background:
-    linear-gradient(rgba(159,196,255,0.9), rgba(159,196,255,0.9)) 50% / 1px 9px no-repeat,
-    rgba(255,255,255,0.22);
-}
-.drift-slider::-moz-range-track {
-  height: 3px;
-  border-radius: 2px;
-  background:
-    linear-gradient(rgba(159,196,255,0.9), rgba(159,196,255,0.9)) 50% / 1px 9px no-repeat,
-    rgba(255,255,255,0.22);
-}
-.drift-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  margin-top: -4.5px;
-  border-radius: 999px;
-  background: #dce8ff;
-  border: 1px solid rgba(0,0,0,0.4);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.6);
-}
-.drift-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  background: #dce8ff;
-  border: 1px solid rgba(0,0,0,0.4);
-}
-
-/* A plain 0..1 slider — no centre tick (that's .drift-slider's own thing,
-   for a bipolar -1..1 control) and no ends-bright fade (.time-scrub's).
-   NightSkyPanel's star-density control; reusable for the next unipolar one. */
+/* ── Sliders ─────────────────────────────────────────────────────────────────
+   One thumb and one track for every range input on the site. The default
+   track is nearly invisible on a dark backdrop. Three variants differ only in
+   the track's paint:
+     .plain-slider  a plain 0..1 rule (star density, Gargantua's spin/temp)
+     .drift-slider  bipolar −1..1, with a cool centre tick at zero
+     .time-scrub    the transport's scrubber, brighter towards the middle */
+.time-scrub,
+.drift-slider,
 .plain-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -1619,35 +1850,55 @@ body {
   height: 16px;
   background: transparent;
   cursor: grab;
+  --track: rgba(255, 255, 255, 0.22);
 }
+.time-scrub:active,
+.drift-slider:active,
 .plain-slider:active { cursor: grabbing; }
+.time-scrub { height: 18px; width: auto; }
+.drift-slider {
+  --track: linear-gradient(rgba(159, 196, 255, 0.9), rgba(159, 196, 255, 0.9)) 50% / 1px 9px no-repeat,
+           rgba(255, 255, 255, 0.22);
+}
+.time-scrub {
+  --track: linear-gradient(to right,
+      rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.30) 50%, rgba(255, 255, 255, 0.18) 100%);
+}
+.time-scrub::-webkit-slider-runnable-track,
+.drift-slider::-webkit-slider-runnable-track,
 .plain-slider::-webkit-slider-runnable-track {
   height: 3px;
   border-radius: 2px;
-  background: rgba(255,255,255,0.22);
+  background: var(--track);
 }
+.time-scrub::-moz-range-track,
+.drift-slider::-moz-range-track,
 .plain-slider::-moz-range-track {
   height: 3px;
   border-radius: 2px;
-  background: rgba(255,255,255,0.22);
+  background: var(--track);
 }
+.time-scrub::-webkit-slider-thumb,
+.drift-slider::-webkit-slider-thumb,
 .plain-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px;
-  height: 12px;
-  margin-top: -4.5px;
-  border-radius: 999px;
+  width: 13px;
+  height: 13px;
+  margin-top: -5px;
+  border-radius: var(--r-full);
   background: #dce8ff;
-  border: 1px solid rgba(0,0,0,0.4);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.6);
 }
+.time-scrub::-moz-range-thumb,
+.drift-slider::-moz-range-thumb,
 .plain-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
+  width: 13px;
+  height: 13px;
+  border-radius: var(--r-full);
   background: #dce8ff;
-  border: 1px solid rgba(0,0,0,0.4);
+  border: 1px solid rgba(0, 0, 0, 0.4);
 }
 
 /* NightSky3D.jsx's orientation HUD — a small rotating compass ring (rotated
@@ -1658,7 +1909,7 @@ body {
 .sky-compass {
   position: absolute;
   top: 68px;
-  inset-inline-end: 20px;
+  inset-inline-end: var(--scene-inset);
   z-index: 15;
   display: flex;
   flex-direction: column;
@@ -1671,10 +1922,11 @@ body {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: rgba(0,0,0,0.45);
-  border: 1px solid rgba(255,255,255,0.16);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  backdrop-filter: var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
+  box-shadow: var(--sh-1);
 }
 .sky-compass-ring {
   position: absolute;
@@ -1698,7 +1950,7 @@ body {
    .sky-compass-n loses to that rule's color on specificity alone, no matter
    which one is written later in the file, and N quietly rendered the same
    white as the rest of the ring. */
-.sky-compass-ring > span.sky-compass-n { top: 3px; left: 50%; transform: translateX(-50%); color: #ff8a80; }
+.sky-compass-ring > span.sky-compass-n { top: 3px; left: 50%; transform: translateX(-50%); color: var(--negative); }
 .sky-compass-e { top: 50%; right: 4px; transform: translateY(-50%); }
 .sky-compass-s { bottom: 3px; left: 50%; transform: translateX(-50%); }
 .sky-compass-w { top: 50%; left: 4px; transform: translateY(-50%); }
@@ -1729,17 +1981,18 @@ body {
   transform: translateX(-50%);
   border-left: 5px solid transparent;
   border-right: 5px solid transparent;
-  border-top: 8px solid #ffd166;
+  border-top: 8px solid var(--accent-warm);
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55));
 }
 .sky-compass-stats {
-  background: rgba(0,0,0,0.45);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 10px;
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--r-sm);
   padding: 5px 9px;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  font-size: 9.5px;
+  backdrop-filter: var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
+  box-shadow: var(--sh-1);
+  font-size: var(--fs-label);
   line-height: 1.6;
   color: rgba(255,255,255,0.6);
   min-width: 78px;
@@ -1777,13 +2030,13 @@ body {
   width: max-content;
   max-width: 260px;
   text-align: center;
-  background: rgba(10,10,14,0.72);
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 14px;
-  padding: 14px 20px 12px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--r-lg);
+  padding: 14px var(--s-5) var(--s-3);
+  backdrop-filter: var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
+  box-shadow: var(--sh-3);
 }
 .sky-info-close {
   position: absolute;
@@ -1794,8 +2047,8 @@ body {
   border-radius: 50%;
   border: none;
   background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.7);
-  font-size: 14px;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
   line-height: 1;
   cursor: pointer;
   display: flex;
@@ -1803,19 +2056,28 @@ body {
   justify-content: center;
   padding: 0;
 }
-.sky-info-close:hover { background: rgba(255,255,255,0.16); }
-.sky-info-name { font-size: 15px; font-weight: 800; color: #fff; margin-top: 2px; }
-.sky-info-code {
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
-  color: rgba(255,209,102,0.85);
-  text-transform: uppercase;
+@media (hover: hover) {
+  .sky-info-close:hover { background: rgba(255,255,255,0.16); color: #fff; }
+}
+.sky-info-name {
   margin-top: 2px;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  letter-spacing: var(--tr-tight);
+  color: var(--text-primary);
+}
+.sky-info-code {
+  margin-top: 2px;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: rgba(var(--accent-warm-rgb), 0.85);
 }
 .sky-info-stat {
-  font-size: 11px;
-  color: rgba(255,255,255,0.65);
   margin-top: 6px;
+  font-size: var(--fs-tiny);
+  color: var(--text-secondary);
 }
 .sky-info-stat:empty { display: none; }
 

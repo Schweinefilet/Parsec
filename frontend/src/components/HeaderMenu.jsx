@@ -4,13 +4,6 @@ import { Menu, Satellite, Star, Link2, Check, Orbit } from 'lucide-react';
 import LanguagePicker from './LanguagePicker';
 import { useI18n } from '../i18n';
 
-const rowStyle = {
-    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-    padding: '10px 12px', borderRadius: 10, border: 'none', background: 'none',
-    color: 'rgba(255,255,255,0.9)', fontSize: '0.92rem', fontWeight: 700,
-    textAlign: 'start', textDecoration: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-};
-
 /**
  * The mobile header's burger menu — AppShell.jsx's action icons
  * (language, share, tracker, sky) collapsed behind one button below the
@@ -66,16 +59,8 @@ const HeaderMenu = ({ onShare, copied, onSkyClick, onTrackerClick, onOpen }) => 
                 aria-expanded={open}
                 aria-label={open ? t('nav.menuClose') : t('nav.menu')}
                 title={t('nav.menu')}
-                className="flex items-center justify-center rounded-xl transition-all focus-ring"
-                style={{
-                    width: 36, height: 36,
-                    background: open ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.42)',
-                    border: '1px solid rgba(255,255,255,0.16)',
-                    color: 'rgba(255,255,255,0.85)',
-                    backdropFilter: 'blur(14px)',
-                    WebkitBackdropFilter: 'blur(14px)',
-                    cursor: 'pointer',
-                }}
+                data-on={open || undefined}
+                className="chrome-btn focus-ring"
             >
                 <Menu className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -84,35 +69,34 @@ const HeaderMenu = ({ onShare, copied, onSkyClick, onTrackerClick, onOpen }) => 
                 <div
                     role="menu"
                     aria-label={t('nav.menu')}
-                    className="glass animate-fade-in"
+                    className="menu animate-fade-in"
                     style={{
-                        position: 'absolute', top: 'calc(100% + 8px)',
+                        position: 'absolute', top: 'calc(100% + var(--s-2))',
                         insetInlineEnd: 0,
                         // Wide enough for "Copy a link to this view", the
                         // longest row, to stay on one line.
-                        minWidth: 260, padding: 6, borderRadius: 16, zIndex: 60,
-                        display: 'flex', flexDirection: 'column', gap: 2,
+                        minWidth: 260,
                     }}
                 >
-                    <button role="menuitem" onClick={() => { onShare(); close(); }} style={rowStyle}>
+                    <button role="menuitem" onClick={() => { onShare(); close(); }} className="menu-item focus-ring">
                         {copied
-                            ? <Check style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
-                            : <Link2 style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />}
+                            ? <Check aria-hidden="true" />
+                            : <Link2 aria-hidden="true" />}
                         {copied ? t('nav.copied') : t('nav.copyLink')}
                     </button>
 
-                    <Link role="menuitem" to="/satellites" onClick={(e) => { onTrackerClick(e); close(); }} style={rowStyle}>
-                        <Satellite style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
+                    <Link role="menuitem" to="/satellites" onClick={(e) => { onTrackerClick(e); close(); }} className="menu-item focus-ring">
+                        <Satellite aria-hidden="true" />
                         {t('nav.tracker')}
                     </Link>
 
-                    <Link role="menuitem" to="/sky" onClick={(e) => { onSkyClick(e); close(); }} style={rowStyle}>
-                        <Star style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
+                    <Link role="menuitem" to="/sky" onClick={(e) => { onSkyClick(e); close(); }} className="menu-item focus-ring">
+                        <Star aria-hidden="true" />
                         {t('nav.sky')}
                     </Link>
 
-                    <Link role="menuitem" to="/gargantua" onClick={close} style={rowStyle}>
-                        <Orbit style={{ width: 15, height: 15, flexShrink: 0 }} aria-hidden="true" />
+                    <Link role="menuitem" to="/gargantua" onClick={close} className="menu-item focus-ring">
+                        <Orbit aria-hidden="true" />
                         {t('nav.gargantua')}
                     </Link>
 
