@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Languages, Check } from 'lucide-react';
 import { useI18n } from '../i18n';
-import { useDockSuspend } from './FloatingDock';
+import { useDockSuspend } from './dockContext';
 
 /**
  * Choose a language.

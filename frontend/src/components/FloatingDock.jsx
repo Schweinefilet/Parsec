@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { motion as Motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { useReducedMotion } from '../hooks/useMediaQuery';
+import { DockContext } from './dockContext';
 
 /**
  * A row of controls that swell toward the pointer, macOS-dock style — after
@@ -54,7 +55,6 @@ const BASE = 36;      // .chrome-btn's resting size, and the header's row height
 const PEAK = 58;      // the nearest item, at full magnification
 const REACH = 120;    // px from an item's centre at which the swell has faded out
 
-const DockContext = createContext(null);
 
 export const FloatingDock = ({ children, className = '', style }) => {
     const mouseX = useMotionValue(Infinity);
@@ -110,9 +110,6 @@ export const FloatingDock = ({ children, className = '', style }) => {
         </DockContext.Provider>
     );
 };
-
-/** Freeze/unfreeze the dock's swell — see the module comment above. */
-export const useDockSuspend = () => useContext(DockContext)?.setSuspended;
 
 export const DockItem = ({ label, children }) => {
     const ctx = useContext(DockContext);

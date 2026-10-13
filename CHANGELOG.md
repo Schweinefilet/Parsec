@@ -16,6 +16,27 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.14.4
+
+**The night sky's compass no longer lets labels show through it, and lint is
+clean.** The compass dial and its heading/altitude readout used the 55% chrome
+scrim, so on a phone a constellation name drifting behind them (Camelopardalis,
+at the default north view) read straight through the numbers. They are on
+`--float-bg`, the near-opaque pane every other piece of chrome that must stay
+legible over the scene uses.
+
+`FloatingDock.jsx` exported `useDockSuspend` alongside its components, which
+breaks React Fast Refresh for the file and was the codebase's one standing lint
+warning. The context and the hook now live in `components/dockContext.js`;
+`eslint .` reports nothing.
+
+Both found in the last screenshot pass of every dialog and phone state on the
+5.14.3 build: the sky's location ask, Gargantua's WebGL-missing and phone
+dialogs, the error screen, the AR card, version history, phone search, and a
+focused body on a phone.
+
+---
+
 ## 5.14.3
 
 **Compare's table header is the card's own top row.** The sticky header naming

@@ -1941,7 +1941,9 @@ body {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: var(--chrome-bg);
+  /* --float-bg, not the 55% chrome scrim: a constellation name drifting
+     behind the compass read straight through it. */
+  background: var(--float-bg);
   border: 1px solid var(--chrome-border);
   backdrop-filter: var(--blur-chrome);
   -webkit-backdrop-filter: var(--blur-chrome);
@@ -2004,7 +2006,7 @@ body {
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55));
 }
 .sky-compass-stats {
-  background: var(--chrome-bg);
+  background: var(--float-bg);
   border: 1px solid var(--chrome-border);
   border-radius: var(--r-sm);
   padding: 5px 9px;
