@@ -66,8 +66,10 @@ const SIGNED_RATES = [...RATES].reverse().map(r => -r.value).concat(RATES.map(r 
 const btn = (active) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     width: 30, height: 30, borderRadius: 'var(--r-sm)', flexShrink: 0, cursor: 'pointer',
-    background: active ? 'rgba(255,255,255,0.18)' : 'transparent',
-    border: '1px solid ' + (active ? 'rgba(255,255,255,0.28)' : 'transparent'),
+    // Lit the way a .chrome-btn[data-on] is — the transport's buttons are icon
+    // buttons on chrome, and an icon button's on-state is white, not amber.
+    background: active ? 'var(--chrome-bg-active)' : 'transparent',
+    border: '1px solid ' + (active ? 'var(--chrome-border-hi)' : 'transparent'),
     color: active ? 'var(--text-primary)' : 'rgba(255,255,255,0.72)',
 });
 

@@ -16,6 +16,19 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.14.5
+
+**The time bar's lit buttons use the shared chrome tokens.** Pause, and the
+collapsed pill while the clock isn't live, lit up with their own white
+(`0.18` fill / `0.28` edge). They are icon buttons on chrome, so they now light
+exactly as a `.chrome-btn[data-on]` does (`--chrome-bg-active` /
+`--chrome-border-hi`): white, not amber, which stays the colour of a capsule
+toggle or a call to action. That was the last piece of the transport not drawn
+from the design system; its behaviour and its open/close animation are
+unchanged.
+
+---
+
 ## 5.14.4
 
 **The night sky's compass no longer lets labels show through it, and lint is
