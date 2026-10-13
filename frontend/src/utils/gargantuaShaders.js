@@ -10,13 +10,12 @@
 //     of the disk is what draws the arch over the top in the film; the thin
 //     ring just outside the shadow is the same disk seen after a full loop.
 //   - pass through the disk's glow, a thin emitting haze either side of it.
-//   - hit Miller's planet, if it is on.
 //   - fall in (black), or get far enough away that it no longer bends: then
 //     its direction picks a point on the procedural sky.
 //
-// Nothing here is a lensing *effect* painted on a picture. The sky, the disk
-// and the planet are flat, ordinary things; every distortion on screen is the
-// rays themselves bending.
+// Nothing here is a lensing *effect* painted on a picture. The sky and the disk
+// are flat, ordinary things; every distortion on screen is the rays themselves
+// bending.
 //
 // The disk follows DNGR's choices for the film (James et al. 2015): thin,
 // in the equatorial plane, blackbody at a set temperature. What the film left
@@ -141,8 +140,6 @@ uniform vec2 uBlackbodyRange; // log(min K), log(max K)
 uniform mat3 uSkyRot;
 uniform float uStarGain;
 uniform float uMilkyWay;
-
-uniform vec4 uPlanet; // centre, radius (radius <= 0: no planet)
 
 ${SIMPLEX}
 
@@ -328,37 +325,6 @@ vec3 diskHaze(vec3 x0, vec3 x1, vec3 p) {
         * lineInt * radial * uHaze * uDiskGain;
 }
 
-// ── Miller's planet ─────────────────────────────────────────────────────────
-
-// Where segment a→b first meets the sphere, as a fraction of it; -1 if not.
-float hitSphere(vec3 a, vec3 b, vec3 c, float rad) {
-    vec3 d = b - a;
-    vec3 m = a - c;
-    float A = dot(d, d);
-    float B = dot(m, d);
-    float C = dot(m, m) - rad * rad;
-    float disc = B * B - A * C;
-    if (disc < 0.0) return -1.0;
-    float t = (-B - sqrt(disc)) / A;
-    return (t >= 0.0 && t <= 1.0) ? t : -1.0;
-}
-
-vec3 shadePlanet(vec3 hit, vec3 dir) {
-    vec3 n = normalize(hit - uPlanet.xyz);
-    // Lit by the disk: mostly from the bright inner rim towards the hole,
-    // some from the disk's faces above and below.
-    vec3 toHole = normalize(-uPlanet.xyz);
-    float key = max(dot(n, toHole), 0.0);
-    float fill = 0.35 * abs(n.z) + 0.08;
-    vec3 light = blackbody(uDiskTemp * 1.1) * (key * 1.6 + fill) * uDiskGain * 0.55;
-    // An ocean world: dark water, bright where the light glints off it.
-    float waves = snoise(n * 18.0 + uTime * 0.05) * 0.5 + 0.5;
-    vec3 albedo = mix(vec3(0.05, 0.11, 0.16), vec3(0.32, 0.4, 0.46), waves * 0.5);
-    vec3 h = normalize(toHole - dir);
-    float spec = pow(max(dot(n, h), 0.0), 60.0) * 2.5;
-    return albedo * light + spec * light;
-}
-
 // ── the sky ─────────────────────────────────────────────────────────────────
 
 vec3 stars(vec3 d) {
@@ -438,19 +404,6 @@ void main() {
 
         if (uHaze > 0.0) {
             col += trans * diskHaze(x, xn, 0.5 * (p + pn));
-        }
-
-        // The planet, before the disk: whichever the segment meets first
-        // would matter only if both sat in one step, and the planet is clear
-        // of the plane by its own radius at most.
-        if (uPlanet.w > 0.0) {
-            float t = hitSphere(x, xn, uPlanet.xyz, uPlanet.w);
-            if (t >= 0.0) {
-                vec3 hit = mix(x, xn, t);
-                col += trans * shadePlanet(hit, normalize(xn - x));
-                trans = 0.0;
-                break;
-            }
         }
 
         if (x.z * xn.z < 0.0) {

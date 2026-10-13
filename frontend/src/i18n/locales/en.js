@@ -348,8 +348,6 @@ export const en = {
         shotDive: 'Fall in',
         doppler: 'Doppler shift and beaming',
         dopplerNote: 'Left out of the film. The side of the disk turning towards you shines brighter and bluer.',
-        planet: 'Miller’s planet',
-        planetNote: 'The ocean world, drawn far larger than life so you can see it.',
         cinematic: 'Drifting camera',
         spin: 'Spin',
         spinValue: 'a = {a} · disk from {isco} M',

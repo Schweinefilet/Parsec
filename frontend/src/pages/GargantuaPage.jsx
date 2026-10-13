@@ -99,10 +99,9 @@ const GargantuaPage = () => {
     const [settings, setSettings] = useState(() => ({
         quality: initial.q,
         spin: SHOTS[initial.id].spin,
-        doppler: !!SHOTS[initial.id].doppler,
+        doppler: true,
         temp: SHOTS[initial.id].temp,
         cinematic: true,
-        planet: params.get('planet') === '1',
     }));
     const [shot, setShot] = useState({ id: initial.id, nonce: 0 });
     const [panelOpen, setPanelOpen] = useState(!isMobile);
@@ -296,9 +295,6 @@ const GargantuaPage = () => {
                             note={t('gargantua.dopplerNote')}
                         >
                             {t('gargantua.doppler')}
-                        </Toggle>
-                        <Toggle on={settings.planet} onChange={(v) => set({ planet: v })} note={t('gargantua.planetNote')}>
-                            {t('gargantua.planet')}
                         </Toggle>
                         <Toggle on={settings.cinematic} onChange={(v) => set({ cinematic: v })}>
                             {t('gargantua.cinematic')}

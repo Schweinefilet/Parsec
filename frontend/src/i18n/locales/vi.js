@@ -350,8 +350,6 @@ export const vi = {
         shotDive: 'Rơi vào',
         doppler: 'Dịch chuyển Doppler và chiếu tia',
         dopplerNote: 'Bị lược bỏ trong phim. Phía đĩa quay về phía bạn sáng hơn và xanh hơn.',
-        planet: 'Hành tinh của Miller',
-        planetNote: 'Thế giới đại dương, được vẽ to hơn thực tế rất nhiều để bạn nhìn thấy.',
         cinematic: 'Máy quay trôi',
         spin: 'Độ quay',
         spinValue: 'a = {a} · đĩa bắt đầu từ {isco} M',

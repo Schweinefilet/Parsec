@@ -16,6 +16,22 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.13.1
+
+**Gargantua opens with Doppler shift and beaming on, and Miller's planet is
+gone.** The disk's own motion brightening the side that turns towards you is the
+more convincing way to see the hole, so it is now the starting state instead of
+something to find in the settings. Picking the "As in the film" shot still
+switches it off, since the film left it out, and the toggle is there to change
+either way.
+
+The Miller's planet toggle, its `?planet=1` link parameter, its two translation
+strings (all three locales), and the sphere intersection and ocean shading in the
+ray tracer are removed rather than hidden, so the per-step planet test no longer
+runs in the shader. `keplerOmega` stays in `utils/kerr.js` with its tests.
+
+---
+
 ## 5.13.0
 
 **Gargantua, the black hole from *Interstellar*, has its own page at

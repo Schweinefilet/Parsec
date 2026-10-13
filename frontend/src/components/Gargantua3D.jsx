@@ -4,7 +4,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
 import { FULLSCREEN_VERT, TRACE_FRAG, COMPOSITE_FRAG } from '../utils/gargantuaShaders';
 import { blackbodyTable, BLACKBODY_MIN_K, BLACKBODY_MAX_K } from '../utils/blackbody';
-import { horizonRadius, iscoRadius, hoverTimeDilation, keplerOmega, ksGeometry } from '../utils/kerr';
+import { horizonRadius, iscoRadius, hoverTimeDilation, ksGeometry } from '../utils/kerr';
 import {
     QUALITY, SHOTS, divePose, damp, nearestAngle, cameraFrame, clampCamera,
 } from '../utils/gargantuaCamera';
@@ -30,12 +30,6 @@ const DEG = Math.PI / 180;
 const HUD_MS = 250;
 // Disk time, in units of GM/c³, that pass per real second far from the hole.
 const TIME_RATE = 2.2;
-// Miller's planet: orbit radius and inclination, and its own radius (all in
-// gravitational radii — it is drawn several thousand times its true size,
-// or it would be less than a pixel).
-const PLANET_ORBIT = 10.5;
-const PLANET_TILT = 7 * DEG;
-const PLANET_RADIUS = 0.42;
 const DISK_OUTER = 15;
 
 export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost }) {
@@ -114,7 +108,6 @@ export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost 
             uSkyRot: { value: skyRot },
             uStarGain: { value: 0.6 },
             uMilkyWay: { value: 0.03 },
-            uPlanet: { value: new THREE.Vector4(0, 0, 0, 0) },
         };
         const traceMat = new THREE.ShaderMaterial({
             glslVersion: THREE.GLSL3,
@@ -184,7 +177,7 @@ export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost 
         const goal = { dist: film.dist, az: 0.25, el: film.el, roll: 0, fov: film.fov };
         const phys = {
             spin: settingsRef.current.spin, doppler: settingsRef.current.doppler ? 1 : 0,
-            temp: settingsRef.current.temp, planet: settingsRef.current.planet ? 1 : 0,
+            temp: settingsRef.current.temp,
         };
         let fade = 0;
         let diskTime = 0;
@@ -273,7 +266,6 @@ export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost 
             phys.spin = damp(phys.spin, s.spin, 1.6, dt);
             phys.doppler = damp(phys.doppler, s.doppler ? 1 : 0, 2.2, dt);
             phys.temp = damp(phys.temp, s.temp, 2.2, dt);
-            phys.planet = damp(phys.planet, s.planet ? 1 : 0, 3, dt);
             const rh = horizonRadius(phys.spin);
             const isco = iscoRadius(phys.spin);
 
@@ -339,19 +331,6 @@ export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost 
             // A disk with beaming on is far brighter on its near side: hold
             // the overall level about steady as it turns on.
             u.uDiskGain.value = 1.7 / (1 + 1.4 * phys.doppler * phys.spin);
-
-            if (phys.planet > 0.01) {
-                // Orbits the way the disk does (towards −φ; see the shader).
-                const ang = 2.4 - keplerOmega(PLANET_ORBIT, phys.spin) * diskTime;
-                u.uPlanet.value.set(
-                    PLANET_ORBIT * Math.cos(ang),
-                    PLANET_ORBIT * Math.sin(ang) * Math.cos(PLANET_TILT),
-                    PLANET_ORBIT * Math.sin(ang) * Math.sin(PLANET_TILT),
-                    PLANET_RADIUS * phys.planet,
-                );
-            } else {
-                u.uPlanet.value.w = 0;
-            }
 
             renderer.setRenderTarget(target);
             traceQuad.render(renderer);
