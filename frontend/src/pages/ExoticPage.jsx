@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Cpu, Clapperboard, Zap, Grid3x3, Pause, Disc, Orbit, MoveVertical, Sparkles } from 'lucide-react';
+import {
+    Cpu, Clapperboard, Zap, Grid3x3, Pause, Disc, Orbit, MoveVertical, Sparkles, RotateCcw,
+} from 'lucide-react';
 import Exotic3D from '../components/Exotic3D';
 import SceneBack from '../components/SceneBack';
 import SceneDialog from '../components/SceneDialog';
@@ -12,6 +14,7 @@ import { DEFAULT_QUALITY, lowerQuality } from '../utils/gargantuaCamera';
 import { EXOTIC, resolveExotic } from '../utils/exoticScenes';
 import { DEFAULT_RADIUS, MIN_RADIUS, MAX_RADIUS, KM_PER_M } from '../utils/neutronStar';
 import { PLANETS } from '../utils/protoplanetaryDisk';
+import { tidalRadius } from '../utils/tidalDisruption';
 import { useI18n } from '../i18n';
 
 // /exotic/:id: Gargantua and the objects that grew out of it. Gargantua is
@@ -28,7 +31,7 @@ import { useI18n } from '../i18n';
 /** URL id → the key group its strings live under. */
 const KEY = {
     wormhole: 'wormhole', 'neutron-star': 'neutronStar', binary: 'binary', roche: 'roche',
-    'hl-tau': 'hlTau', wr104: 'wr104', ring: 'ring',
+    'hl-tau': 'hlTau', wr104: 'wr104', ring: 'ring', tde: 'tde',
 };
 
 const SHOT_KEY = {
@@ -36,7 +39,7 @@ const SHOT_KEY = {
     earth: 'shotEarth', south: 'shotSouth', close: 'shotClose',
     edge: 'shotEdge', above: 'shotAbove',
     wide: 'shotWide', eclipse: 'shotEclipse', disk: 'shotDisk',
-    alma: 'shotAlma', tilted: 'shotTilted', side: 'shotSide', inside: 'shotInside',
+    alma: 'shotAlma', tilted: 'shotTilted', side: 'shotSide', inside: 'shotInside', follow: 'shotFollow',
 };
 
 const DEFAULTS = {
@@ -47,6 +50,7 @@ const DEFAULTS = {
     'hl-tau': { view: 'mm', planets: true, jet: true },
     wr104: { eta: 0.01 },
     ring: { palette: 'eye', knots: true },
+    tde: { beta: 1.5, replay: 0 },
 };
 
 /** A row of mutually exclusive choices in the drawer, two up. */
@@ -126,6 +130,14 @@ function ExoticView({ id }) {
         } else if (id === 'hl-tau') {
             readouts.push([t(k('distance')), t(k('distanceValue'), { au: num(Math.round(hud.au)) })]);
             readouts.push([t(k('elapsed')), t(k('elapsedValue'), { y: num(Math.round(hud.years)) })]);
+        } else if (id === 'tde' && hud.phase) {
+            const pct = (x) => num(Math.round(x * 100));
+            readouts.push([t(k('phase')), t(k(`phase_${hud.phase}`))]);
+            readouts.push([t(k('clock')), hud.phase === 'approach' ? '—' : t(k('clockValue'), { m: num(hud.minutes, f1) })]);
+            readouts.push([t(k('debris')), t(k('debrisValue'), {
+                bound: pct(hud.bound), leaving: pct(hud.leaving), swallowed: pct(hud.swallowed),
+            })]);
+            readouts.push([t(k('speed')), t(k('speedValue'), { x: num(Math.max(1, Math.round(hud.speed))) })]);
         } else if (id === 'ring') {
             readouts.push([t(k('star')), t('gargantua.kelvin', { k: num(hud.temp) })]);
             readouts.push([t(k('age')), t(k('ageValue'), { y: num(hud.age) })]);
@@ -217,6 +229,26 @@ function ExoticView({ id }) {
                             })}
                         </p>
                         <Toggle on={settings.jet} icon={<MoveVertical aria-hidden="true" />} label={t(k('jet'))} onClick={() => set({ jet: !settings.jet })} />
+                    </>
+                )}
+                {id === 'tde' && (
+                    <>
+                        <div className="drawer-section">
+                            <Slider
+                                name={t(k('beta'))}
+                                value={settings.beta} min={1} max={3.4} step={0.05}
+                                display={t(k('betaValue'), {
+                                    b: num(settings.beta, f2),
+                                    rp: num(Math.max(tidalRadius() / settings.beta, 4.05), f1),
+                                })}
+                                onChange={(v) => set({ beta: v })}
+                            />
+                        </div>
+                        <p className="drawer-note" style={{ marginBottom: 'var(--s-2)' }}>{t(k('betaNote'))}</p>
+                        <button className="opt-row focus-ring" onClick={() => set({ replay: settings.replay + 1 })}>
+                            <RotateCcw aria-hidden="true" />
+                            {t(k('replay'))}
+                        </button>
                     </>
                 )}
                 {id === 'ring' && (

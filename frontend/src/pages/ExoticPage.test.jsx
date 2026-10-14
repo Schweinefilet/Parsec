@@ -27,7 +27,7 @@ describe('ExoticPage', () => {
     it('links to the objects on offer, not the stashed ones, and marks the one on screen', () => {
         at('/exotic/binary');
         const nav = screen.getByRole('navigation', { name: 'Exotic objects' });
-        for (const name of ['Gargantua', 'Wormhole', 'Binary black hole', 'Ring Nebula', 'HL Tau', 'WR 104']) {
+        for (const name of ['Gargantua', 'Wormhole', 'Binary black hole', 'Tidal disruption', 'Ring Nebula', 'HL Tau', 'WR 104']) {
             expect(nav).toHaveTextContent(name);
         }
         for (const name of ['Neutron star', 'Roche lobe overflow']) {
@@ -57,6 +57,7 @@ describe('ExoticPage', () => {
             ['/exotic/hl-tau', ['As ALMA sees it', 'From above', 'Edge on', 'Close in'], ['Forming planets', 'Jet']],
             ['/exotic/wr104', ['As Keck sees it', 'At a slant', 'Edge on', 'Close in'], []],
             ['/exotic/ring', ['As we see it', 'At a slant', 'From the side', 'Inside'], ['Dense knots']],
+            ['/exotic/tde', ['Follow it', 'From above', 'At a slant', 'Close in'], []],
         ];
         for (const [url, shots, toggles] of cases) {
             at(url);
@@ -77,6 +78,16 @@ describe('ExoticPage', () => {
         fireEvent.click(screen.getByRole('button', { name: 'As ALMA sees it' }));
         expect(screen.getByRole('button', { name: 'Millimetre waves' })).toHaveAttribute('aria-pressed', 'true');
         expect(screen.getByText(/Jupiter masses/)).toHaveTextContent('0.5 · 0.31 · 0.05');
+    });
+
+    it('lets the disruption dive deeper, and says how close it comes', () => {
+        at('/exotic/tde');
+        fireEvent.click(screen.getByRole('button', { name: 'Scene settings' }));
+        const slider = screen.getByRole('slider', { name: 'How deep it dives' });
+        expect(slider).toHaveAttribute('aria-valuetext', 'β = 1.50 · closest 10 M');
+        fireEvent.change(slider, { target: { value: '3' } });
+        expect(slider).toHaveAttribute('aria-valuetext', 'β = 3.00 · closest 5 M');
+        expect(screen.getByRole('button', { name: 'Start again' })).toBeInTheDocument();
     });
 
     it('closes its settings on Escape, and says which shot is on', () => {

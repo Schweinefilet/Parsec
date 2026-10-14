@@ -37,9 +37,15 @@ npm run build    # static bundle in frontend/dist
   GPU-heavy; its maths is `utils/kerr.js`, mirrored line for line in
   `utils/gargantuaShaders.js`. The others are each a shader in
   `utils/exoticShaders.js` mirroring its own physics module: a wormhole
-  (`wormhole.js`) and a binary black hole (`binaryHole.js`), with a neutron
-  star (`neutronStar.js`) and a Roche-lobe binary (`roche.js`) built but
-  stashed out of the picker (`STASHED_EXOTIC` in `utils/exoticScenes.js`).
+  (`wormhole.js`), a binary black hole (`binaryHole.js`), a tidal disruption
+  (`tidalDisruption.js` + `debrisRaster.js`), the Ring Nebula
+  (`planetaryNebula.js`), HL Tau (`protoplanetaryDisk.js`) and WR 104
+  (`pinwheel.js`), with a neutron star (`neutronStar.js`) and a Roche-lobe
+  binary (`roche.js`) built but stashed out of the picker (`STASHED_EXOTIC`
+  in `utils/exoticScenes.js`). Gargantua's quasar jets are `jets.js`. In any
+  of these shaders, never call `texture()` inside a long loop or a skippable
+  branch: on Windows (ANGLE → D3D) it unrolls or flattens it; use
+  `textureLod` (README, "Texture lookups and the D3D compiler").
 - `src/data/` — `solarSystemBodies.js` is what the **scene** draws;
   `objectCatalog.js` is the **catalog's** 70 objects and their stats. Two
   different lists for two different jobs.

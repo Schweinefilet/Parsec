@@ -13,6 +13,8 @@
 //   WR 104        utils/pinwheel.js     (flat space, marched)
 //   Ring Nebula   utils/planetaryNebula.js (flat space, marched, lines not
 //                 blackbodies)
+//   disruption    utils/tidalDisruption.js (Kerr at a = 0; the debris a
+//                 raster, utils/debrisRaster.js, read where rays cross it)
 //
 // None of them may call texture() (blackbody, sky) inside a long loop or a
 // branch it can skip: ANGLE's D3D compiler unrolls the loop or flattens the
@@ -1353,6 +1355,175 @@ void main() {
 }
 `;
 
+// ── tidal disruption ────────────────────────────────────────────────────────
+
+export const TDE_FRAG = /* glsl */ `
+${HEADER}
+
+uniform float uSpin;        // 0: the debris stays in one plane only round a Schwarzschild hole
+uniform sampler2D uDebris;  // utils/debrisRaster.js: Σ, ΣT, Σvx, Σvy over ln r × angle
+uniform vec2 uLogR;         // its ln r range
+uniform float uDebrisGain;
+uniform float uKappa;       // opacity per unit Σ
+uniform vec4 uStar;         // the star while it holds together: centre, radius
+uniform vec3 uStarAxis;     // the line to the hole, which the tide stretches it along
+uniform float uStarStretch;
+uniform float uStarFade;    // 1 whole, 0 gone
+uniform float uStarTemp;
+
+${KERR_GLSL}
+
+float stepSize(float r) {
+    float h = uStepScale * max(r - 1.8, 0.06) * clamp(r / 3.0, 1.0, 6.0);
+    return min(h, 0.1 * r + 1.0);
+}
+
+float erfApprox(float x) {
+    float x2 = x * x;
+    const float k = 0.147;
+    float e = sqrt(1.0 - exp(-x2 * (1.2732395 + k * x2) / (1.0 + k * x2)));
+    return x < 0.0 ? -e : e;
+}
+
+// The debris's thickness: the stream is held thin by its own gravity, about
+// the star's size; the hot ring it settles into puffs up.
+float debrisH(float r) {
+    return 0.35 + 0.03 * r;
+}
+
+// The debris's light and how much it blocks, over one step x0 → x1. Its
+// vertical profile is a Gaussian integrated exactly along the step (a coarse
+// step through a thin layer otherwise bands); its surface density,
+// temperature and velocity come from the raster at the step's middle, a few
+// times along a long step.
+vec4 debris(vec3 x0, vec3 x1, vec3 dir) {
+    float H0 = debrisH(length(x0.xy)), H1 = debrisH(length(x1.xy));
+    if ((x0.z > 4.0 * H0 && x1.z > 4.0 * H1) || (x0.z < -4.0 * H0 && x1.z < -4.0 * H1)) return vec4(0.0, 0.0, 0.0, 1.0);
+    float len = length(x1 - x0);
+    float rm = length(0.5 * (x0.xy + x1.xy));
+    int n = int(clamp(ceil(len / (0.04 * rm + 0.25)), 1.0, 6.0));
+    vec3 col = vec3(0.0);
+    float trans = 1.0;
+    for (int k = 0; k < 6; k++) {
+        if (k >= n) break;
+        vec3 a = mix(x0, x1, float(k) / float(n));
+        vec3 b = mix(x0, x1, float(k + 1) / float(n));
+        vec3 m = 0.5 * (a + b);
+        float r = length(m.xy);
+        if (r < 2.0) continue;
+        float H = debrisH(r);
+        float dz = b.z - a.z;
+        float ds = length(b - a);
+        float lineInt = abs(dz) > 1e-3 * H
+            ? ds / abs(dz) * H * 0.8862269 * abs(erfApprox(b.z / H) - erfApprox(a.z / H))
+            : ds * exp(-m.z * m.z / (H * H));
+        if (lineInt < 1e-5) continue;
+        float u = (log(r) - uLogR.x) / (uLogR.y - uLogR.x);
+        if (u <= 0.0 || u >= 1.0) continue;
+        float v = atan(m.y, m.x) / 6.2831853 + 0.5;
+        vec4 tex = textureLod(uDebris, vec2(u, v), 0.0);
+        float sig = tex.r;
+        if (sig < 1e-9) continue;
+        float T = tex.g / sig;
+        vec2 vel = tex.ba / sig;
+        // What fraction of the layer's column this stretch crosses.
+        float col1 = sig * lineInt / (1.7724539 * H);
+        float alpha = 1.0 - exp(-uKappa * col1);
+        // Doppler shift and beaming (utils/tidalDisruption.js gives the
+        // velocity in coordinate time; the frame at rest here runs slow by
+        // √(1 − 2/r)), and the gravitational redshift climbing out.
+        float lapse = sqrt(max(1.0 - 2.0 / r, 1e-3));
+        vec2 beta = vel / lapse;
+        float b2 = min(dot(beta, beta), 0.9);
+        float gam = inversesqrt(1.0 - b2);
+        float g = lapse / (gam * (1.0 - dot(vec3(beta, 0.0), dir)));
+        g = clamp(g, 0.05, 4.0);
+        float g2 = g * g;
+        vec3 S = blackbody(T * g) * pow(T / 10000.0, 0.9) * g2 * g2 * uDebrisGain;
+        col += trans * S * alpha;
+        trans *= 1.0 - alpha;
+    }
+    return vec4(col, trans);
+}
+
+// The star while whole: an ellipsoid stretched along uStarAxis. The step
+// x0 → x1 is a straight segment, so where it enters the ellipsoid is a
+// quadratic in the step's fraction; -1 if it doesn't.
+float hitStar(vec3 x0, vec3 x1) {
+    float R = uStar.w;
+    float along = R * uStarStretch;
+    float across = R / sqrt(uStarStretch);
+    vec3 p0 = x0 - uStar.xyz, d = x1 - x0;
+    // Into the ellipsoid's own coordinates, where it is a unit sphere.
+    vec3 q0 = (p0 - dot(p0, uStarAxis) * uStarAxis) / across + uStarAxis * dot(p0, uStarAxis) / along;
+    vec3 qd = (d - dot(d, uStarAxis) * uStarAxis) / across + uStarAxis * dot(d, uStarAxis) / along;
+    float A = dot(qd, qd), B = dot(q0, qd), C = dot(q0, q0) - 1.0;
+    float disc = B * B - A * C;
+    if (disc < 0.0 || A < 1e-12) return -1.0;
+    float t = (-B - sqrt(disc)) / A;
+    return t >= 0.0 && t <= 1.0 ? t : (C < 0.0 ? 0.0 : -1.0);
+}
+
+void main() {
+    vec3 n = primaryRay();
+    vec3 x = uCamPos;
+    vec3 p = launch(x, n);
+    vec3 col = vec3(0.0);
+    float trans = 1.0;
+    vec3 v = n;
+    bool escaped = false;
+    float glowBest = 1e9;
+
+    for (int i = 0; i < MAX_STEPS; i++) {
+        if (i >= uMaxSteps) { escaped = true; break; }
+        float r = blRadius(x);
+        if (r < 2.02) break;
+        if (r > uEscape && dot(x, p) > 0.0) { escaped = true; break; }
+
+        float h = stepSize(r);
+        vec3 k1x, k1p, k2x, k2p, k3x, k3p, k4x, k4p;
+        rayDeriv(x, p, k1x, k1p);
+        rayDeriv(x + 0.5 * h * k1x, p + 0.5 * h * k1p, k2x, k2p);
+        rayDeriv(x + 0.5 * h * k2x, p + 0.5 * h * k2p, k3x, k3p);
+        rayDeriv(x + h * k3x, p + h * k3p, k4x, k4p);
+        vec3 xn = x + (h / 6.0) * (k1x + 2.0 * k2x + 2.0 * k3x + k4x);
+        vec3 pn = p + (h / 6.0) * (k1p + 2.0 * k2p + 2.0 * k3p + k4p);
+        v = k4x;
+        vec3 dir = -normalize(v);
+
+        vec4 d = debris(x, xn, dir);
+        col += trans * d.rgb;
+        trans *= d.a;
+
+        if (uStarFade > 0.0) {
+            // How close the ray comes to the star: a white dwarf is a few
+            // pixels across here, so it gets a glow to be seen by.
+            vec3 sd = xn - x;
+            float sl = clamp(dot(uStar.xyz - x, sd) / max(dot(sd, sd), 1e-9), 0.0, 1.0);
+            glowBest = min(glowBest, length(x + sl * sd - uStar.xyz));
+            float th = hitStar(x, xn);
+            if (th >= 0.0) {
+                vec3 hp = mix(x, xn, th) - uStar.xyz;
+                float mu = clamp(dot(normalize(hp), dir), 0.0, 1.0);
+                col += trans * uStarFade * blackbody(uStarTemp) * (0.5 + 0.5 * mu) * 6.0;
+                trans *= 1.0 - uStarFade;
+                if (trans < 0.004) break;
+            }
+        }
+        if (trans < 0.004) break;
+        x = xn;
+        p = pn;
+    }
+
+    if (uStarFade > 0.0) {
+        float gR = uStar.w * 5.0;
+        col += uStarFade * blackbody(uStarTemp) * 0.5 * exp(-glowBest * glowBest / (gR * gR));
+    }
+    if (escaped && trans > 0.004) col += trans * sky(normalize(v));
+    outColor = vec4(sane(col), 1.0);
+}
+`;
+
 export const EXOTIC_FRAGS = {
     wormhole: WORMHOLE_FRAG,
     'neutron-star': NEUTRON_FRAG,
@@ -1361,4 +1532,5 @@ export const EXOTIC_FRAGS = {
     'hl-tau': PROTODISK_FRAG,
     wr104: PINWHEEL_FRAG,
     ring: NEBULA_FRAG,
+    tde: TDE_FRAG,
 };

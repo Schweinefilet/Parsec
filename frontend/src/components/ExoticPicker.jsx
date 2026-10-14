@@ -13,6 +13,7 @@ const TITLE_KEY = {
     'hl-tau': 'exotic.hlTau.title',
     wr104: 'exotic.wr104.title',
     ring: 'exotic.ring.title',
+    tde: 'exotic.tde.title',
 };
 
 // The row of objects under an /exotic page's title. Shared by ExoticPage and

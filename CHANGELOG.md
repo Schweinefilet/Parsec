@@ -16,6 +16,41 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.17.4
+
+**A star torn apart by a black hole.** The last item on FUTUREPLAN.md, a new
+exotic object at `/exotic/tde`: a white dwarf strays inside the tidal radius
+of a black hole of ten thousand suns and is spaghettified into a stream, half
+of it flung away for good and half swinging out a few hundred gravitational
+radii before falling back, precessing round the hole, running into itself and
+settling into a glowing ring that drains into the hole. It plays as a
+time-lapse on a loop, minutes of the real event in under a minute, and the
+"Follow it" shot moves the camera with it: in close as the star is torn, out
+with the stream, back in for the ring. "Close in" shows the ring bent up
+over the shadow by the hole's lensing, the way Gargantua's disk is.
+
+This pairing was chosen because it fits on screen at its true size (Rosswog
+et al. 2009 simulated it): a Sun-like star round a supermassive hole is the
+famous kind, but its debris swings out fifty times further and takes weeks to
+return. Every piece of the star follows its own exact orbit in the hole's
+curved spacetime (`utils/tidalDisruption.js`, tested against Schwarzschild's
+closed forms: orbital rates, the precession, capture inside 4 M, and the
+energy spread that makes half of it bound). Where the returning stream runs
+into itself it is modelled rather than simulated, and the credit says so:
+the gas keeps its angular momentum and loses its eccentricity, which puts
+the ring at twice the closest approach, where theory puts it. The stream
+starts at the star's 25,000 K and cools as it stretches, and breaks into
+clumps the way such streams do. A slider sets how deep the star dives; deeper
+dives swing the debris further round on each pass.
+
+The debris reaches the ray tracer as a texture over the hole's equatorial
+plane, redrawn every frame from the particles (`utils/debrisRaster.js`), so
+the stream is lensed like everything else. The exotic renderer learned three
+general things for it: a shot can hand the camera's distance to the scene,
+a scene can fade itself, and it can free what it allocated.
+
+---
+
 ## 5.17.3
 
 **Gargantua as a quasar, with the jets Interstellar left out.** A new shot

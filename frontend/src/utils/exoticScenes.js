@@ -16,7 +16,7 @@ const DEG = Math.PI / 180;
  * What the page's picker offers, in order. Gargantua is its own page
  * (GargantuaPage), shown under the same picker; the rest are entries below.
  */
-export const EXOTIC_ORDER = ['gargantua', 'wormhole', 'binary', 'ring', 'hl-tau', 'wr104'];
+export const EXOTIC_ORDER = ['gargantua', 'wormhole', 'binary', 'tde', 'ring', 'hl-tau', 'wr104'];
 export const DEFAULT_EXOTIC = 'gargantua';
 /**
  * Built, tested, but pulled from the picker while they get a visual rework:
@@ -116,6 +116,21 @@ export const EXOTIC = {
         },
         shotOrder: ['earth', 'tilted', 'side', 'inside'],
         start: { dist: 320, az: -0.6, el: 80 * DEG, fov: 40 * DEG },
+    },
+    tde: {
+        // In M: Kerr at a = 0, as the neutron star.
+        base: { stepScale: 0.04, maxSteps: 800 },
+        minDist: 14, maxDist: 1500,
+        exposure: 0.85,
+        shots: {
+            // Framed by the scene as it goes (exoticSceneSetup.js tdeFrame).
+            follow: { dist: 300, el: 55 * DEG, fov: 50 * DEG, follow: true },
+            above: { dist: 170, el: 72 * DEG, fov: 50 * DEG },
+            tilted: { dist: 120, el: 20 * DEG, fov: 52 * DEG },
+            close: { dist: 44, el: 9 * DEG, fov: 62 * DEG },
+        },
+        shotOrder: ['follow', 'above', 'tilted', 'close'],
+        start: { dist: 420, az: 0.4, el: 60 * DEG, fov: 46 * DEG },
     },
     roche: {
         // In units of the separation; there is no integrator, only marching.

@@ -42,10 +42,13 @@ Effort is a rough guess: **S** is a few sessions, **M** is a proper feature,
   parts are the donor star's teardrop shape and the stream. Looks great
   animated.~~
   Done in 5.15.0: `/exotic/roche` (`utils/roche.js`).
-- [ ] **Tidal disruption event** (M). A star gets spaghettified and smeared
+- [x] ~~**Tidal disruption event** (M). A star gets spaghettified and smeared
   into a stream that wraps the black hole. Same physics playground as
   Gargantua, better story: scripted like "Fall in", with the stream
-  integrated as particles on geodesics.
+  integrated as particles on geodesics.~~
+  Done in 5.17.4: `/exotic/tde` (`utils/tidalDisruption.js`,
+  `utils/debrisRaster.js`). A white dwarf and an intermediate-mass hole, so
+  the whole event fits one frame at its true size.
 
 ## New technique: volumetric raymarching
 

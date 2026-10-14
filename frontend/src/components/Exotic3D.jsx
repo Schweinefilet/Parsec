@@ -74,7 +74,7 @@ export default function Exotic3D({ id, settings, shot, onHud, onShotDone, onLost
         const skyRot = new THREE.Matrix3().setFromMatrix4(skyBase);
 
         // ── passes ───────────────────────────────────────────────────────────
-        const scene = createExoticScene(sceneId);
+        const scene = createExoticScene(sceneId, renderer);
         const traceUniforms = {
             uResolution: { value: new THREE.Vector2(1, 1) },
             uCamPos: { value: new THREE.Vector3() },
@@ -160,11 +160,13 @@ export default function Exotic3D({ id, settings, shot, onHud, onShotDone, onLost
         let fade = 0;
         let appliedShot = null;
         let traverse = null; // { t } while the wormhole's "Go through" runs
+        let following = false; // a shot that lets the scene frame itself
         let lastInput = -1e9;
 
         const applyShot = (shotId) => {
             const s = def.shots[shotId] ?? first;
             traverse = s.scripted ? { t: 0 } : null;
+            following = !!s.follow;
             goal.dist = s.dist;
             goal.el = s.el;
             goal.fov = s.fov;
@@ -191,6 +193,7 @@ export default function Exotic3D({ id, settings, shot, onHud, onShotDone, onLost
         };
         const zoom = (factor) => {
             if (traverse) { traverse = null; goal.dist = cam.dist; }
+            following = false;
             goal.dist *= factor;
             Object.assign(goal, clampExoticCamera(sceneId, goal));
             lastInput = performance.now();
@@ -301,6 +304,10 @@ export default function Exotic3D({ id, settings, shot, onHud, onShotDone, onLost
             u.uPixelAngle.value = (2 * Math.tan(cam.fov / 2)) / u.uResolution.value.y;
 
             const hud = scene.update({ dt, s, u, cam }) ?? {};
+            // The disruption's "Follow" shot: the scene says how far out.
+            if (following && hud.frameDist) {
+                goal.dist = clampExoticCamera(sceneId, { ...goal, dist: hud.frameDist }).dist;
+            }
             // A system that orbits (Roche) turns under a camera that holds
             // still: in its own turning frame the camera goes the other way
             // round and the sky turns with it.
@@ -321,7 +328,8 @@ export default function Exotic3D({ id, settings, shot, onHud, onShotDone, onLost
             bloom.render(renderer, null, target, dt, false);
             renderer.setRenderTarget(null);
             compositeUniforms.tScene.value = target.texture;
-            compositeUniforms.uFade.value = fade;
+            // A scene can fade itself out and in (the disruption between runs).
+            compositeUniforms.uFade.value = fade * (hud.fade ?? 1);
             compositeUniforms.uTime.value = now / 1000;
             compositeQuad.render(renderer);
 
@@ -358,6 +366,7 @@ export default function Exotic3D({ id, settings, shot, onHud, onShotDone, onLost
             target.dispose();
             bloom.dispose();
             bbTex.dispose();
+            scene.dispose?.();
             renderer.dispose();
             renderer.forceContextLoss();
             canvas.remove();

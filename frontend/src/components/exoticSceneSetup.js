@@ -19,6 +19,10 @@ import {
     RING, SHELL, HALO, ARCSEC_KAU, paletteColours,
 } from '../utils/planetaryNebula';
 import { blackbodyRGB } from '../utils/blackbody';
+import {
+    TDE, STAR_RADIUS, M_SECONDS, M_KM, createEvent, stepEvent, debrisBudget, tidalStretch, mostBoundPeriod,
+} from '../utils/tidalDisruption';
+import { RASTER, createRaster, rasterizeDebris } from '../utils/debrisRaster';
 
 // Each /exotic object's own uniforms, and what it does every frame: the
 // physics clock, the moving parts, the readouts. Exotic3D.jsx owns the
@@ -352,8 +356,172 @@ function ringNebula() {
     return { uniforms, update };
 }
 
-export function createExoticScene(id) {
+// How long the whole event runs, in most-bound periods after the star lets
+// go, and the fades either end of it.
+const TDE_PERIODS = 4;
+const TDE_FADE = 1.5;
+
+/**
+ * Coordinate time (M) per real second. Coming in, a fixed fraction of the
+ * star's own orbital time per second, so the plunge always takes a few
+ * seconds; once it lets go, ramping up to a fast time-lapse over several
+ * seconds, since the most bound debris takes thousands of M to come back.
+ */
+export function tdeRate(ev, sinceRelease) {
+    if (ev.released == null) {
+        const r = Math.hypot(ev.cm[0], ev.cm[1]);
+        return Math.min(Math.max(1.3 * Math.pow(r, 1.5), 25), 1200);
+    }
+    const x = Math.min(Math.max((sinceRelease - 1.2) / 5.8, 0), 1);
+    return 30 + 2200 * x * x * (3 - 2 * x);
+}
+
+/**
+ * How far away the "Follow" shot holds the camera: in on the star as it is
+ * torn, out with the stream as it flies off, in again as the debris rains
+ * back and settles round the hole. In units of the most bound debris's
+ * period after the star lets go.
+ */
+export function tdeFrame(ev, period) {
+    if (ev.released == null) {
+        return Math.max(2.5 * Math.hypot(ev.cm[0], ev.cm[1]), 40);
+    }
+    const tau = (ev.time - ev.released) / period;
+    // Half the bound debris (by mass) is inside this radius.
+    const rs = [];
+    let total = 0;
+    for (let k = 0; k < ev.n; k++) {
+        if (ev.alive[k] !== 1 || ev.E[k] >= 1) continue;
+        rs.push([Math.hypot(ev.state[4 * k], ev.state[4 * k + 1]), ev.weight[k]]);
+        total += ev.weight[k];
+    }
+    rs.sort((a, b) => a[0] - b[0]);
+    let acc = 0, r50 = 40;
+    for (const [r, w] of rs) {
+        acc += w;
+        if (acc >= total / 2) { r50 = r; break; }
+    }
+    const out = Math.min(Math.max(2.4 * r50, 40), 1400);
+    const ease = (a, b, x) => {
+        const t = Math.min(Math.max((tau - a) / (b - a), 0), 1);
+        return t * t * (3 - 2 * t) * x;
+    };
+    // out → 260 as the first debris comes back → 110 for the ring.
+    const back = out + ease(0.8, 1.25, 260 - out);
+    return back + ease(1.3, 2.0, 110 - back);
+}
+
+function tde(gl) {
+    const R = createRaster(RASTER);
+    const tex = new THREE.DataTexture(R.data, R.width, R.height, THREE.RGBAFormat, THREE.FloatType);
+    // Float textures filter smoothly only with this extension; most desktop
+    // GPUs have it.
+    const linear = gl?.extensions?.has?.('OES_texture_float_linear');
+    tex.magFilter = linear ? THREE.LinearFilter : THREE.NearestFilter;
+    tex.minFilter = linear ? THREE.LinearFilter : THREE.NearestFilter;
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.needsUpdate = true;
+    const uniforms = {
+        uSpin: { value: 0 },
+        uDebris: { value: tex },
+        uLogR: { value: new THREE.Vector2(R.lnMin, R.lnMax) },
+        uDebrisGain: { value: 0.7 },
+        uKappa: { value: 2e4 },
+        uStar: { value: new THREE.Vector4(0, 0, 0, STAR_RADIUS) },
+        uStarAxis: { value: new THREE.Vector3(1, 0, 0) },
+        uStarStretch: { value: 1 },
+        uStarFade: { value: 1 },
+        uStarTemp: { value: TDE.starTemp },
+    };
+    const period = mostBoundPeriod();
+    let ev = null;
+    let beta = null;
+    let since = 0; // real seconds since the star let go
+    let ending = null; // real seconds into the fade-out
+    let starFade = 1;
+    let rate = 0;
+    const restart = (b) => {
+        beta = b;
+        ev = createEvent(b);
+        since = 0;
+        ending = null;
+        starFade = 1;
+    };
+    const update = ({ dt, s, u, cam }) => {
+        if (s.beta !== beta || s.replay !== update.replay) {
+            update.replay = s.replay;
+            restart(s.beta);
+        }
+        u.uEscape.value = Math.max(Math.abs(cam.dist) * 1.4, 80);
+        rate = tdeRate(ev, since);
+        // In chunks, so no particle's step outruns its own orbit.
+        let left = rate * dt;
+        while (left > 0) {
+            const h = Math.min(left, 40);
+            stepEvent(ev, h);
+            left -= h;
+        }
+        u.uTime.value = ev.time;
+        if (ev.released != null) {
+            since += dt;
+            starFade = Math.max(0, starFade - dt / 0.6);
+        }
+        const budget = debrisBudget(ev);
+        const elapsed = ev.released == null ? 0 : ev.time - ev.released;
+        if (ending == null && (elapsed > TDE_PERIODS * period || (ev.released != null && budget.bound < 0.02 && since > 8))) {
+            ending = 0;
+        }
+        let fade = 1;
+        if (ending != null) {
+            ending += dt;
+            fade = Math.max(0, 1 - ending / TDE_FADE);
+            if (ending > TDE_FADE + 0.3) restart(beta);
+        }
+
+        // The star, while whole.
+        const [x, y] = ev.cm;
+        const r = Math.hypot(x, y);
+        u.uStar.value.set(x, y, 0, STAR_RADIUS);
+        u.uStarAxis.value.set(x / r, y / r, 0);
+        u.uStarStretch.value = tidalStretch(r, ev.rt);
+        u.uStarFade.value = starFade;
+
+        rasterizeDebris(R, ev);
+        tex.needsUpdate = true;
+
+        let phase = 'approach';
+        if (ev.released != null) {
+            phase = 'torn';
+            let back = 0, round = 0;
+            for (let k = 0; k < ev.n; k++) {
+                if (ev.alive[k] !== 1 || !ev.returning[k]) continue;
+                back += ev.weight[k];
+                if (ev.passes[k] > 3) round += ev.weight[k];
+            }
+            if (back > 0.02) phase = 'returning';
+            if (round > 0.1) phase = 'disk';
+        }
+        return {
+            frameDist: tdeFrame(ev, period),
+            phase, beta, rp: ev.rp, rpKm: ev.rp * M_KM,
+            minutes: (elapsed * M_SECONDS) / 60,
+            speed: rate * M_SECONDS,
+            ...budget,
+            fade,
+        };
+    };
+    update.replay = undefined;
+    return {
+        uniforms,
+        update,
+        dispose: () => tex.dispose(),
+    };
+}
+
+export function createExoticScene(id, gl) {
     switch (id) {
+        case 'tde': return tde(gl);
         case 'ring': return ringNebula();
         case 'wr104': return wr104();
         case 'hl-tau': return hlTau();

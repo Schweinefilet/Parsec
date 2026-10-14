@@ -797,8 +797,8 @@ by its own full-screen shader (`utils/exoticShaders.js`) and each backed by a
 physics module that its tests hold to closed-form answers, the way `kerr.js`
 is. They share Gargantua's noise, blackbody lookup, procedural sky, bloom,
 film curve, quality levels, phone warning and drop-a-level-on-context-loss
-behaviour. One page with a picker rather than four routes, so they are one
-lazy chunk with Gargantua (about 29 KB gzipped); switching object remounts
+behaviour. One page with a picker rather than a route each, so they are one
+lazy chunk with Gargantua (about 48 KB gzipped); switching object remounts
 the renderer, not the page. `/exotic` alone opens Gargantua.
 
 The neutron star and the Roche binary are **stashed**: built and tested, but
@@ -933,6 +933,38 @@ built.
   which aliased into moiré. The tests pin the line colours, the star's
   ionising photon rate (Planck's law above 13.6 eV: about 2×10⁴⁶ s⁻¹), the
   Strömgren radius's closed form and the density's shape.
+- **Tidal disruption** (`utils/tidalDisruption.js`, `utils/debrisRaster.js`),
+  at `/exotic/tde`. A 0.6-sun white dwarf and a 10⁴-sun hole, the pairing
+  Rosswog, Ramirez-Ruiz & Hix (2009) simulated, chosen so the whole event
+  fits one frame at its true size: torn apart at r_t = R*(M/M*)^⅓ ≈ 15 M, its
+  most bound debris back within about 14 minutes from a few hundred M out (a
+  Sun-like star round a supermassive hole swings out fifty times further and
+  takes weeks). The star comes in on a parabolic Schwarzschild orbit,
+  stretched by the tide, and lets go at r_t (or at pericentre, if it only
+  grazes it): the frozen-in approximation. From then on it is a 161 × 7
+  lattice of particles, each on its own exact timelike geodesic in the plane
+  (d²x/dτ² = −x/r³ (1 + 3L²/r²), the Schwarzschild radial equation, stepped
+  in coordinate time with RK4 at a step ∝ r^3/2). The tests hold it to the
+  closed forms: circular orbits at Kepler's coordinate rate, 6πM/p periapsis
+  precession, capture of a parabolic orbit at r_p = 4M, E conserved, and the
+  debris spread ±R*/r_t² in energy with half of it bound. The stream hitting
+  itself is modelled, and says so: a returning particle crossing its
+  circularisation radius (the circular orbit with its angular momentum, about
+  2 r_p) loses part of its radial velocity, keeping its angular momentum, so
+  it settles there, as heat; once round it drifts in. Each frame the
+  particles are drawn into a log-polar float texture over the plane
+  (`debrisRaster.js`: Σ, ΣT, Σv per texel, the chains as soft capsules,
+  ring gas as arcs of its own circle; its tests pin mass conservation), which
+  the ray tracer (Kerr at a = 0) reads with `textureLod` wherever a ray
+  crosses the layer, integrated through its Gaussian thickness like
+  Gargantua's haze, opaque, Doppler-beamed and redshifted. The debris
+  starts at the star's 25,000 K, cools as it stretches, and is clumped the
+  way such streams fragment (Coughlin & Nixon 2015), the clumps fixed to
+  the particles. The clock is a time-lapse: the plunge takes a few seconds,
+  then it ramps to ×110 for the long wait for the debris to come back. The
+  default "Follow it" shot lets the scene set the camera's distance
+  (`tdeFrame`): in on the star, out with the stream, in again for the ring.
+  A scene may also return `fade` (it fades between runs) and a `dispose`.
 - **Texture lookups and the D3D compiler.** On Windows, Chrome's WebGL runs
   on ANGLE over Direct3D, whose compiler can't keep a texture lookup with
   implicit derivatives (`texture()`) inside a loop with a dynamic exit or a
