@@ -16,6 +16,41 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.17.0
+
+**HL Tau: a disk where planets are being made.** A new exotic object at
+`/exotic/hl-tau`, and the first of the volumetric ones FUTUREPLAN.md lists:
+the young star whose disk ALMA photographed in 2014, the picture that showed
+planet-forming disks are ringed rather than smooth. The seven dark gaps sit at
+their measured radii, from 13 to 91 AU, with their own widths and depths (D5
+only 15% down, D2 nearly empty), and "As ALMA sees it" frames it at the real
+46.7° tilt. Three planets orbit in the deepest gaps at their Kepler rates, as
+heavy as each gap's width implies by Kanagawa et al.'s fit (half a Jupiter,
+a third, and a twentieth), each trailing a Rafikov spiral wake through the
+gas.
+
+It can be seen two ways. **Millimetre waves** is ALMA's view: the pebbles in
+the disk's middle layer, glowing in the image's false orange, with the
+brightness a thin slab at its own temperature and optical depth gives. The
+**starlight** view marches the flared gas above and below, which scatters
+the star's light forwards and is lit only in a thin skin where the star can
+see it, so edge on the disk turns into the two bright bowls and dark lane of a
+real edge-on disk, with HL Tau's red jet out of the poles. Scattered light is
+shown multiplied by r², as observers show it, or the outer disk would vanish.
+`utils/protoplanetaryDisk.js` holds the physics and its tests; a shot can now
+set settings as well as the camera ("Edge on" switches to starlight).
+
+Two fixes for every exotic object came out of it. The blackbody colour lookup
+now uses `textureLod`: on Windows, Chrome's WebGL runs through Direct3D,
+whose shader compiler won't keep an ordinary texture lookup inside a branch
+it can skip, so it ran both sides. HL Tau's ALMA view was paying for the whole
+starlight march it never showed (14 fps against 127 after the fix, on a laptop
+RTX 3050). And the first frame's clock can come before the renderer's start
+time; a negative step pushed the camera backwards (the readout said
+"−7 years"), so it is clamped at zero.
+
+---
+
 ## 5.16.2
 
 **The exotic objects' controls now work the way the rest of the site's do.**

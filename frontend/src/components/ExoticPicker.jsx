@@ -10,6 +10,7 @@ const TITLE_KEY = {
     'neutron-star': 'exotic.neutronStar.title',
     binary: 'exotic.binary.title',
     roche: 'exotic.roche.title',
+    'hl-tau': 'exotic.hlTau.title',
 };
 
 // The row of objects under an /exotic page's title. Shared by ExoticPage and

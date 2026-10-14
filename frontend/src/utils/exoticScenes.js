@@ -16,7 +16,7 @@ const DEG = Math.PI / 180;
  * What the page's picker offers, in order. Gargantua is its own page
  * (GargantuaPage), shown under the same picker; the rest are entries below.
  */
-export const EXOTIC_ORDER = ['gargantua', 'wormhole', 'binary'];
+export const EXOTIC_ORDER = ['gargantua', 'wormhole', 'binary', 'hl-tau'];
 export const DEFAULT_EXOTIC = 'gargantua';
 /**
  * Built, tested, but pulled from the picker while they get a visual rework:
@@ -67,6 +67,23 @@ export const EXOTIC = {
         },
         shotOrder: ['edge', 'above', 'close'],
         start: { dist: 90, az: -0.4, el: 22 * DEG, fov: 44 * DEG },
+    },
+    'hl-tau': {
+        // In AU. No integrator: light goes straight, and the gas is marched
+        // in `maxSteps` samples.
+        base: { stepScale: 1, maxSteps: 220 },
+        minDist: 40, maxDist: 700,
+        exposure: 1.1,
+        sky: { milkyWay: 0.06 },
+        shots: {
+            // As ALMA saw it: 46.7° from face-on.
+            alma: { dist: 250, el: (90 - 46.72) * DEG, fov: 44 * DEG, set: { view: 'mm' } },
+            above: { dist: 260, el: 85 * DEG, fov: 44 * DEG },
+            edge: { dist: 380, el: 2 * DEG, fov: 40 * DEG, set: { view: 'visible' } },
+            close: { dist: 75, el: 24 * DEG, fov: 58 * DEG },
+        },
+        shotOrder: ['alma', 'above', 'edge', 'close'],
+        start: { dist: 420, az: -0.9, el: 60 * DEG, fov: 40 * DEG },
     },
     roche: {
         // In units of the separation; there is no integrator, only marching.

@@ -62,8 +62,8 @@ frontend/src/
                          loaded (see "The night sky")
     GargantuaPage.jsx    the black hole from Interstellar (/exotic/gargantua),
                          built to be expensive (see "Gargantua")
-    ExoticPage.jsx       Gargantua, a wormhole and merging black holes under
-                         one picker (/exotic/:id) — one lazy chunk for all of
+    ExoticPage.jsx       Gargantua, a wormhole, merging black holes and the
+                         rest under one picker (/exotic/:id) — one lazy chunk for all of
                          them (see "Exotic objects")
   components/
     SolarSystem3D.jsx    the main scene: planets, moons, belts, orbits, camera,
@@ -852,6 +852,35 @@ built.
   (`inDiskShadow`). At L1 the gradient is zero, so the normal there needs a
   fallback: the NaN it used to produce was blurred by the bloom over the
   whole frame. Every /exotic shader's output now goes through `sane()`.
+- **HL Tau** (`utils/protoplanetaryDisk.js`), at `/exotic/hl-tau`. A disk
+  where planets are forming, as ALMA imaged it in 2014 (ALMA Partnership
+  2015): seven dark gaps at their measured radii (13.2 to 91 AU, via Pinte
+  et al. 2016), each a Gaussian notch with its own width and depth, seen
+  46.7° from face-on in the "As ALMA sees it" shot. Light goes straight, so
+  there is no integrator. Two views, cross-faded: **millimetre** is the
+  pebble-sized dust in the midplane, drawn where the ray crosses the plane as
+  a slab of optical depth τ(r) at T ∝ r^−½ (Rayleigh–Jeans, so brightness is
+  T(1 − e^−τ/μ)), in the ALMA image's false orange; **starlight** marches a
+  flaring gas layer (h/r ∝ r^¼, column ∝ 1/r) that scatters the star's light
+  forwards (Henyey–Greenstein, g = 0.55), lit only in a skin four scale
+  heights up where the starlight's optical depth from the star falls below
+  one, and shown r²-scaled the way scattered-light images are. Edge on, that
+  gives the two lit surfaces and the dark lane of a real edge-on disk. The
+  march is sphere-traced through the empty wedge above and below the gas and
+  stepped at a quarter scale height inside it. Three planets sit in the
+  deepest gaps, as heavy as Kanagawa et al. (2016)'s width–mass fit says
+  (0.5, 0.31 and 0.05 Jupiters), orbiting at their Kepler rate, each raising
+  a Rafikov (2002) spiral wake in the gas (Muto et al. 2012's form). The
+  tests pin Kepler, the gap depths, the bright-ring-dark-gap order of the
+  profile, the width–mass round trip and the wake's shape. A shot can set
+  settings too (`set` in `exoticScenes.js`): "Edge on" switches to starlight.
+- **Texture lookups and the D3D compiler.** On Windows, Chrome's WebGL runs
+  on ANGLE over Direct3D, whose compiler can't keep a texture lookup with
+  implicit derivatives (`texture()`) inside a loop with a dynamic exit or a
+  branch it can skip: it unrolls the loop or flattens the branch. HL Tau's
+  millimetre view ran at a seventh of its speed because the skipped starlight
+  march ran anyway. `blackbody()` (`COLOUR_GLSL`) now uses `textureLod`,
+  which every shader here, Gargantua's included, gets for free.
 
 ### One interface
 

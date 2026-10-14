@@ -8,13 +8,22 @@
 //   neutron star  utils/neutronStar.js  (Kerr at a = 0, stopped at the surface)
 //   binary        utils/binaryHole.js   (two superposed Schwarzschild pulls)
 //   Roche         utils/roche.js        (flat space, ray marched)
+//   HL Tau        utils/protoplanetaryDisk.js (flat space: the dust at the
+//                 midplane crossing, the gas marched)
+//
+// None of them may call texture() (blackbody, sky) inside a long loop or a
+// branch it can skip: ANGLE's D3D compiler unrolls the loop or flattens the
+// branch, and the frame costs everything the branch was meant to skip.
 
 import { SIMPLEX, COLOUR_GLSL, SKY_GLSL, KERR_GLSL } from './gargantuaShaders';
+import { GAPS, PLANETS } from './protoplanetaryDisk';
 
 /** Upper bound on every integration loop; `uMaxSteps` picks the real count. */
 export const MAX_STEPS = 3000;
 /** Points on the Roche stream's polyline; utils/roche.js streamPath's `count`. */
 export const STREAM_POINTS = 48;
+const GAP_COUNT = GAPS.length;
+const PLANET_COUNT = PLANETS.length;
 
 const HEADER = /* glsl */ `
 precision highp float;
@@ -761,9 +770,306 @@ void main() {
 }
 `;
 
+// ── protoplanetary disk (HL Tau) ────────────────────────────────────────────
+
+export const PROTODISK_FRAG = /* glsl */ `
+${HEADER}
+
+#define N_GAPS ${GAP_COUNT}
+#define N_PLANETS ${PLANET_COUNT}
+
+uniform vec3 uGaps[N_GAPS];       // radius, Gaussian sigma, depth
+uniform float uOuter;             // where the millimetre dust ends
+uniform vec4 uPlanets[N_PLANETS]; // position, h/r at the planet
+uniform float uPlanetQ[N_PLANETS];
+uniform float uPlanetOn;          // 0..1
+uniform float uView;              // 0 = ALMA's millimetre glow, 1 = starlight
+uniform float uJet;               // 0..1
+uniform float uStarTemp;
+
+// utils/protoplanetaryDisk.js gapFactor(), dustOpticalDepth(), dustTemperature().
+float gapFactor(float r) {
+    float f = 1.0;
+    for (int i = 0; i < N_GAPS; i++) {
+        float d = (r - uGaps[i].x) / uGaps[i].y;
+        f *= 1.0 - (1.0 - uGaps[i].z) * exp(-0.5 * d * d);
+    }
+    return f;
+}
+float dustTau(float r) {
+    float rr = max(r, 0.5);
+    return 2.5 * (20.0 / rr) * exp(-pow(rr / uOuter, 6.0)) * gapFactor(rr);
+}
+float dustTemp(float r) {
+    return 30.0 * pow(max(r, 0.5) / 50.0, -0.5);
+}
+float gasAspect(float r) {
+    return 0.05 * pow(max(r, 0.5) / 10.0, 0.25);
+}
+
+// utils/protoplanetaryDisk.js wakePhase().
+float wakePhase(float r, float rp, float hp) {
+    float x = r / rp;
+    const float c1 = 1.0 / 1.25;
+    const float c2 = 1.0 / (1.0 - 1.5 + 0.25);
+    float f = pow(x, 1.25) * (c1 - c2 * pow(x, -1.5)) - (c1 - c2);
+    return -sign(r - rp) * f / hp;
+}
+
+// How much the planets' spiral wakes pile up the gas at p: a crest a scale
+// height wide along each wake, stronger for a heavier planet, fading away
+// from it.
+float wakes(vec3 p, float r) {
+    if (uPlanetOn <= 0.0) return 1.0;
+    float phi = atan(p.y, p.x);
+    float w = 0.0;
+    for (int i = 0; i < N_PLANETS; i++) {
+        vec3 pp = uPlanets[i].xyz;
+        float rp = length(pp.xy);
+        if (abs(r - rp) > 2.5 * rp) continue;
+        float hp = uPlanets[i].w;
+        float phiP = atan(pp.y, pp.x);
+        float dphi = phi - phiP - wakePhase(r, rp, hp);
+        dphi = mod(dphi + 3.14159265, 6.2831853) - 3.14159265;
+        float across = dphi * r / (hp * r * 1.2);
+        float reach = exp(-abs(r - rp) / (0.9 * rp));
+        w += uPlanetQ[i] * 2500.0 * exp(-across * across) * reach;
+    }
+    return 1.0 + w * uPlanetOn;
+}
+
+// The ALMA image's false colour: dark red through orange to near white.
+vec3 almaColour(float I) {
+    float x = 1.0 - exp(-1.3 * I);
+    vec3 c = mix(vec3(0.1, 0.008, 0.0), vec3(0.95, 0.3, 0.035), smoothstep(0.0, 0.5, x));
+    c = mix(c, vec3(1.0, 0.9, 0.68), smoothstep(0.5, 1.0, x));
+    return c * (0.2 + 1.7 * x);
+}
+
+// Extinction per AU in the midplane at 10 AU. The column (density times
+// thickness) falls as 1/r, so in a flaring disk the midplane density falls
+// as r^−9/4.
+const float GAS_RHO = 3.0;
+float gasMid(float r) {
+    return GAS_RHO * pow(10.0 / max(r, 1.0), 2.25);
+}
+
+// The gas and small dust: a flared layer, thin near the star and thicker
+// relative to its radius further out. Its density, per unit length.
+float gasDensity(vec3 p, float r) {
+    float H = gasAspect(r) * r;
+    float vert = exp(-0.5 * p.z * p.z / (H * H));
+    float taper = exp(-pow(r / (uOuter * 1.35), 4.0)) * smoothstep(0.3, 2.0, r);
+    // Most samples on a slanted ray are well clear of the gas: stop there.
+    // (Not too soon: the lit skin is four scale heights up.)
+    if (vert * taper < 1e-7) return 0.0;
+    // Gas gaps are shallower than the dust's: the planets hold back pebbles
+    // more than they hold back gas.
+    float gaps = pow(gapFactor(r), 0.6);
+    float mott = 0.85 + 0.3 * snoise(vec3(p.xy * 0.06, p.z * 0.1));
+    return gasMid(r) * vert * taper * gaps * mott * wakes(p, r);
+}
+
+// Starlight reaching p, and how much of it the gas between p and the star
+// takes out. Along the straight line out from the star at a fixed angle
+// θ = z/r the density integrates to K(r)·exp(−θ²/2h²), K being gasMid's
+// integral from the inner edge; so the disk is opaque to its star below a
+// surface about four scale heights up, and only the skin above it is lit.
+// Scattered-light images are shown multiplied by r² so the outer disk
+// isn't lost to the inverse square (SPHERE's are); so is this, except near
+// the star. (The colour is the star's, applied once outside the march: a
+// texture lookup inside a long loop makes ANGLE's D3D compiler unroll it.)
+float starlightAt(vec3 p, float r) {
+    float d2 = dot(p, p) + 0.25;
+    float th = p.z / max(r, 0.5);
+    float h = gasAspect(r);
+    float K = GAS_RHO * 8.0 * (pow(20.0, 1.25) - pow(10.0 / max(r, 0.6), 1.25));
+    float tauStar = max(K, 0.0) * exp(-0.5 * th * th / (h * h));
+    return exp(-tauStar) * (1.0 + 40.0 / (d2 + 4.0));
+}
+
+// Henyey–Greenstein phase function: small grains throw most light forwards.
+float phaseHG(float c, float g) {
+    float g2 = g * g;
+    return (1.0 - g2) / (12.566 * pow(1.0 + g2 - 2.0 * g * c, 1.5));
+}
+
+// HL Tau's jet: a narrow outflow along the poles, glowing red in H-α and
+// [S II], knotted where faster gas runs into slower.
+float jetDensity(vec3 p) {
+    float z = abs(p.z);
+    float rad = 0.8 + 0.06 * z;
+    float q = length(p.xy) / rad;
+    float knots = 0.55 + 0.45 * sin(z * 0.11 - uTime * 0.35) + 0.3 * snoise(vec3(p.xy * 0.2, z * 0.05 - uTime * 0.04));
+    return exp(-q * q) * smoothstep(3.0, 12.0, z) * exp(-z / 260.0) * max(knots, 0.05);
+}
+
+void main() {
+    vec3 rd = primaryRay();
+    vec3 ro = uCamPos;
+    float jit = hash3(vec3(gl_FragCoord.xy, floor(fract(uTime * 0.37) * 4096.0))).x;
+
+    // ── millimetre: the dust at the midplane, where the ray crosses it ─────
+    vec3 mm = vec3(0.0);
+    float tCross = -1.0;
+    float muCross = max(abs(rd.z), 0.04);
+    float transMid = 1.0; // what the midplane dust lets through, in starlight
+    if (abs(rd.z) > 1e-6) {
+        float t = -ro.z / rd.z;
+        if (t > 0.0) {
+            vec3 p = ro + t * rd;
+            float r = length(p.xy);
+            if (r < uOuter * 1.4) {
+                tCross = t;
+                float tau = dustTau(r);
+                float I = dustTemp(r) / dustTemp(20.0) * (1.0 - exp(-tau / muCross));
+                // A little of the azimuthal grain the real image has.
+                I *= 0.92 + 0.16 * fbm(vec3(p.xy * 0.15, 3.0), 3);
+                mm = almaColour(I * 1.25);
+                // Big grains are black in visible light: opaque where thick.
+                transMid = exp(-6.0 * tau / muCross);
+            }
+        }
+    }
+    // The planets' own disks are warm, and ALMA has seen one (PDS 70c):
+    // a faint compact source in the gap.
+    vec3 mmPlanets = vec3(0.0);
+    vec3 visPlanets = vec3(0.0);
+    for (int i = 0; i < N_PLANETS; i++) {
+        vec3 c = uPlanets[i].xyz - ro;
+        float tc = dot(c, rd);
+        if (tc <= 0.0) continue;
+        float d2 = dot(c, c) - tc * tc;
+        // Hidden behind the midplane dust, from the far side.
+        float behind = (tCross > 0.0 && tCross < tc) ? transMid : 1.0;
+        mmPlanets += almaColour(0.5) * exp(-d2 / 0.5) * 0.9;
+        visPlanets += behind * (vec3(1.0, 0.55, 0.25) * exp(-d2 / 0.02) * 6.0
+            + vec3(1.0, 0.45, 0.2) * exp(-d2 / 0.6) * 0.25);
+    }
+    mm += mmPlanets * uPlanetOn;
+
+    // ── starlight: scattered by the flared gas, the jet glowing ────────────
+    vec3 vis = vec3(0.0);
+    float trans = 1.0;
+    if (uView > 0.001) {
+        // The box the gas and the jet's base fit in.
+        float zMax = 60.0;
+        float rMax = uOuter * 1.6;
+        float t0 = 0.0, t1 = 1e9;
+        if (abs(rd.z) > 1e-6) {
+            float ta = (-zMax - ro.z) / rd.z, tb = (zMax - ro.z) / rd.z;
+            t0 = max(min(ta, tb), 0.0);
+            t1 = max(ta, tb);
+        } else if (abs(ro.z) > zMax) {
+            t1 = -1.0;
+        }
+        float A = dot(rd.xy, rd.xy), B = dot(ro.xy, rd.xy), C = dot(ro.xy, ro.xy) - rMax * rMax;
+        float disc = B * B - A * C;
+        if (disc > 0.0 && A > 1e-9) {
+            float sq = sqrt(disc);
+            t0 = max(t0, (-B - sq) / A);
+            t1 = min(t1, (-B + sq) / A);
+        } else if (C > 0.0) {
+            t1 = -1.0;
+        }
+
+        float tStar = dot(-ro, rd);
+        float starTrans = tStar > 0.0 ? 1.0 : 0.0;
+        bool crossed = false;
+        // Small grains scatter blue a little better than red.
+        vec3 starCol = blackbody(uStarTemp) * vec3(0.86, 0.95, 1.1);
+        if (t1 > t0) {
+            // Sphere-traced through the empty space above and below the gas
+            // (outside a wedge |z| < 0.42 r, which holds four scale heights
+            // out to the edge), and in steps of a fraction of the local scale
+            // height inside it. uMaxSteps caps the count.
+            float dtMax = (t1 - t0) / 20.0;
+            float t = t0;
+            float dt = 0.0;
+            float firstJit = jit + 0.05;
+            for (int i = 0; i < 1000; i++) {
+                if (i >= uMaxSteps || trans < 0.004 || t >= t1) break;
+                vec3 p = ro + t * rd;
+                float r = length(p.xy);
+                float clear = abs(p.z) - 0.42 * r;
+                if (clear > 0.5) {
+                    dt = clear / (abs(rd.z) + 0.42) + 0.2;
+                    if (tStar > 0.0 && t <= tStar && t + dt > tStar) starTrans = trans;
+                    if (!crossed && tCross > 0.0 && t + dt > tCross) { crossed = true; trans *= transMid; }
+                    t += dt;
+                    continue;
+                }
+                float H = gasAspect(r) * max(r, 1.0);
+                // The first step into the gas is jittered per pixel, against banding.
+                dt = clamp(0.25 * H / max(abs(rd.z), 0.3), 0.1, dtMax) * firstJit;
+                firstJit = 1.0;
+                p = ro + (t + 0.5 * dt) * rd;
+                r = length(p.xy);
+                float rho = gasDensity(p, r);
+                if (rho > 1e-6) {
+                    vec3 light = starCol * (starlightAt(p, r) * phaseHG(dot(normalize(p), -rd), 0.55));
+                    float a = 1.0 - exp(-rho * dt);
+                    vis += trans * light * 3000.0 * a;
+                    trans *= 1.0 - a;
+                }
+                if (!crossed && tCross > 0.0 && t + dt > tCross) {
+                    crossed = true;
+                    trans *= transMid;
+                }
+                if (tStar > 0.0 && t <= tStar && t + dt > tStar) starTrans = trans;
+                t += dt;
+            }
+        }
+        if (!crossed && tCross > 0.0 && tCross < t0) trans *= transMid;
+
+        // The jet: marched on its own along where the ray passes the axis.
+        if (uJet > 0.001) {
+            float Aj = dot(rd.xy, rd.xy), Bj = dot(ro.xy, rd.xy);
+            float Cj = dot(ro.xy, ro.xy) - 24.0 * 24.0;
+            float dj = Bj * Bj - Aj * Cj;
+            float ja = 0.0, jb = -1.0;
+            if (Aj > 1e-9 && dj > 0.0) {
+                float sq = sqrt(dj);
+                ja = max((-Bj - sq) / Aj, 0.0);
+                jb = (-Bj + sq) / Aj;
+            } else if (Cj < 0.0) {
+                ja = 0.0;
+                jb = 900.0;
+            }
+            jb = min(jb, ja + 900.0);
+            if (jb > ja) {
+                const int NJ = 40;
+                float hj = (jb - ja) / float(NJ);
+                float jetAcc = 0.0;
+                for (int k = 0; k < NJ; k++) {
+                    vec3 p = ro + (ja + (float(k) + jit) * hj) * rd;
+                    jetAcc += jetDensity(p);
+                }
+                // Behind the disk from the far side: the midplane takes it.
+                vis += vec3(1.0, 0.22, 0.3) * jetAcc * hj * 0.004 * uJet;
+            }
+        }
+
+        // The star itself, far too small to resolve: a glare, dimmed by
+        // whatever gas lies in front of it.
+        vec3 cs = -ro;
+        float tc = dot(cs, rd);
+        float d2 = dot(cs, cs) - tc * tc;
+        if (tCross > 0.0 && tCross < tc) starTrans *= transMid;
+        vis += starTrans * blackbody(uStarTemp) * (0.0005 / (d2 + 0.0002) + 0.06 * exp(-d2 / 4.0));
+        vis += visPlanets * uPlanetOn;
+        vis += trans * sky(rd);
+    }
+
+    vec3 col = mix(mm, vis, uView);
+    outColor = vec4(sane(col), 1.0);
+}
+`;
+
 export const EXOTIC_FRAGS = {
     wormhole: WORMHOLE_FRAG,
     'neutron-star': NEUTRON_FRAG,
     binary: BINARY_FRAG,
     roche: ROCHE_FRAG,
+    'hl-tau': PROTODISK_FRAG,
 };

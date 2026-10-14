@@ -260,7 +260,8 @@ export default function Exotic3D({ id, settings, shot, onHud, onShotDone, onLost
         const frame = (now) => {
             raf = requestAnimationFrame(frame);
             if (lost) return;
-            const dt = Math.min((now - last) / 1000, 0.25);
+            // The first frame's timestamp can come before `last`: never step back.
+            const dt = Math.min(Math.max((now - last) / 1000, 0), 0.25);
             last = now;
             const s = settingsRef.current;
             resize();

@@ -146,9 +146,12 @@ vec3 launch(vec3 x, vec3 n) {
 // Blackbody lookup and an integer hash, shared with /exotic. Expects
 // `uBlackbody` and `uBlackbodyRange`.
 export const COLOUR_GLSL = /* glsl */ `
+// textureLod, not texture: a lookup with implicit derivatives can't sit in a
+// dynamic branch or loop, so ANGLE's D3D compiler flattens the branch (both
+// sides always run) or unrolls the loop round it.
 vec3 blackbody(float T) {
     float u = clamp((log(T) - uBlackbodyRange.x) / (uBlackbodyRange.y - uBlackbodyRange.x), 0.0, 1.0);
-    return texture(uBlackbody, vec2(u, 0.5)).rgb;
+    return textureLod(uBlackbody, vec2(u, 0.5), 0.0).rgb;
 }
 
 // Integer hash (PCG3D, Jarzynski & Olano 2020).

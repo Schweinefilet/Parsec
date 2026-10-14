@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Cpu, Clapperboard, Zap, Grid3x3, Pause, Disc } from 'lucide-react';
+import { Cpu, Clapperboard, Zap, Grid3x3, Pause, Disc, Orbit, MoveVertical } from 'lucide-react';
 import Exotic3D from '../components/Exotic3D';
 import SceneBack from '../components/SceneBack';
 import SceneDialog from '../components/SceneDialog';
@@ -11,6 +11,7 @@ import GargantuaPage from './GargantuaPage';
 import { DEFAULT_QUALITY, lowerQuality } from '../utils/gargantuaCamera';
 import { EXOTIC, resolveExotic } from '../utils/exoticScenes';
 import { DEFAULT_RADIUS, MIN_RADIUS, MAX_RADIUS, KM_PER_M } from '../utils/neutronStar';
+import { PLANETS } from '../utils/protoplanetaryDisk';
 import { useI18n } from '../i18n';
 
 // /exotic/:id: Gargantua and the objects that grew out of it. Gargantua is
@@ -25,13 +26,17 @@ import { useI18n } from '../i18n';
 // drops a quality level when the GPU gives up.
 
 /** URL id → the key group its strings live under. */
-const KEY = { wormhole: 'wormhole', 'neutron-star': 'neutronStar', binary: 'binary', roche: 'roche' };
+const KEY = {
+    wormhole: 'wormhole', 'neutron-star': 'neutronStar', binary: 'binary', roche: 'roche',
+    'hl-tau': 'hlTau',
+};
 
 const SHOT_KEY = {
     approach: 'shotApproach', through: 'shotThrough', far: 'shotFar',
     earth: 'shotEarth', south: 'shotSouth', close: 'shotClose',
     edge: 'shotEdge', above: 'shotAbove',
     wide: 'shotWide', eclipse: 'shotEclipse', disk: 'shotDisk',
+    alma: 'shotAlma',
 };
 
 const DEFAULTS = {
@@ -39,7 +44,24 @@ const DEFAULTS = {
     'neutron-star': { radius: DEFAULT_RADIUS, pulsar: true, grid: false },
     binary: { hold: false, disk: true },
     roche: { q: 0.4, donorTemp: 4800 },
+    'hl-tau': { view: 'mm', planets: true, jet: true },
 };
+
+/** A row of mutually exclusive choices in the drawer, two up. */
+function Choice({ heading, options, value, label, onChange }) {
+    return (
+        <>
+            <p className="label drawer-subtitle">{heading}</p>
+            <div className="opt-grid">
+                {options.map((o) => (
+                    <button key={o} className="opt-row focus-ring" aria-pressed={value === o} onClick={() => onChange(o)}>
+                        {label(o)}
+                    </button>
+                ))}
+            </div>
+        </>
+    );
+}
 
 function Toggle({ on, icon, label, onClick }) {
     return (
@@ -67,7 +89,12 @@ function ExoticView({ id }) {
     const [generation, setGeneration] = useState(0);
 
     const set = (patch) => setSettings((s) => ({ ...s, ...patch }));
-    const pickShot = (sid) => setShot((cur) => ({ id: sid, nonce: cur.nonce + 1 }));
+    const pickShot = (sid) => {
+        // A shot can also set how the object is shown (HL Tau's "As ALMA
+        // sees it" switches to the millimetre view).
+        if (def.shots[sid].set) set(def.shots[sid].set);
+        setShot((cur) => ({ id: sid, nonce: cur.nonce + 1 }));
+    };
     // The wormhole's "Go through" ends on the far side looking back.
     const onShotDone = useCallback(() => setShot((cur) => ({ id: 'far', nonce: cur.nonce })), []);
     const onLost = useCallback((kind) => setFailure(kind), []);
@@ -94,6 +121,9 @@ function ExoticView({ id }) {
                 : t(k('separationValue'), { a: num(hud.separation, f1) })]);
             readouts.push([t(k('wave')), hud.gw ? t(k('waveValue'), { f: num(hud.gw, f1) }) : '—']);
             readouts.push([t(k('toMerge')), hud.merged ? '—' : t(k('toMergeValue'), { t: num(hud.toMerge, f2) })]);
+        } else if (id === 'hl-tau') {
+            readouts.push([t(k('distance')), t(k('distanceValue'), { au: num(Math.round(hud.au)) })]);
+            readouts.push([t(k('elapsed')), t(k('elapsedValue'), { y: num(Math.round(hud.years)) })]);
         } else if (id === 'roche' && hud.q != null) {
             readouts.push([t(k('lobe')), t(k('lobeValue'), { r: num(hud.lobe, f2) })]);
             readouts.push([t(k('diskSize')), t(k('lobeValue'), { r: num(hud.disk, f2) })]);
@@ -156,6 +186,27 @@ function ExoticView({ id }) {
                         <Toggle on={settings.hold} icon={<Pause aria-hidden="true" />} label={t(k('hold'))} onClick={() => set({ hold: !settings.hold })} />
                         <Toggle on={settings.disk} icon={<Disc aria-hidden="true" />} label={t(k('disk'))} onClick={() => set({ disk: !settings.disk })} />
                         <p className="drawer-note" style={{ marginBottom: 'var(--s-2)' }}>{t(k('massNote'))}</p>
+                    </>
+                )}
+                {id === 'hl-tau' && (
+                    <>
+                        <Choice
+                            heading={t(k('view'))}
+                            options={['mm', 'visible']}
+                            value={settings.view}
+                            label={(o) => t(k(o === 'mm' ? 'viewMm' : 'viewVisible'))}
+                            onChange={(v) => set({ view: v })}
+                        />
+                        <p className="drawer-note" style={{ marginBottom: 'var(--s-2)' }}>
+                            {t(k(settings.view === 'mm' ? 'viewMmNote' : 'viewVisibleNote'))}
+                        </p>
+                        <Toggle on={settings.planets} icon={<Orbit aria-hidden="true" />} label={t(k('planets'))} onClick={() => set({ planets: !settings.planets })} />
+                        <p className="drawer-note" style={{ marginBottom: 'var(--s-2)' }}>
+                            {t(k('planetsNote'), {
+                                masses: PLANETS.map((p) => num(p.jupiters, { maximumFractionDigits: 2 })).join(' · '),
+                            })}
+                        </p>
+                        <Toggle on={settings.jet} icon={<MoveVertical aria-hidden="true" />} label={t(k('jet'))} onClick={() => set({ jet: !settings.jet })} />
                     </>
                 )}
                 {id === 'roche' && (

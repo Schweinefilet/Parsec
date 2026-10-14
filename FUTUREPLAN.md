@@ -54,8 +54,9 @@ Effort is a rough guess: **S** is a few sessions, **M** is a proper feature,
 - [ ] **WR 104** (S). A Wolf–Rayet binary throwing out a rotating pinwheel
   spiral of dust. An Archimedean spiral advected outward, seen nearly
   face-on. Simple maths, hypnotic result.
-- [ ] **Protoplanetary disk like HL Tau** (S). Concentric rings with gaps
-  carved by forming planets. Cheap and pretty; a good first one to build.
+- [x] ~~**Protoplanetary disk like HL Tau** (S). Concentric rings with gaps
+  carved by forming planets. Cheap and pretty; a good first one to build.~~
+  Done in 5.17.0: `/exotic/hl-tau` (`utils/protoplanetaryDisk.js`).
 
 ## Things to sort out before the first one
 

@@ -11,6 +11,7 @@ import {
     diskOuterRadius, eggletonRadius, accretorAzimuth,
 } from '../utils/roche';
 import { STREAM_POINTS } from '../utils/exoticShaders';
+import { HL_TAU, GAPS, PLANETS, planetPosition, gasAspect } from '../utils/protoplanetaryDisk';
 
 // Each /exotic object's own uniforms, and what it does every frame: the
 // physics clock, the moving parts, the readouts. Exotic3D.jsx owns the
@@ -219,8 +220,44 @@ function rocheSystem() {
     return { uniforms, update };
 }
 
+// Years of the disk's life per real second: the inner planet laps the star
+// in about nine seconds.
+const HL_TAU_YEARS_PER_SECOND = 4;
+
+function hlTau() {
+    const FWHM = 2 * Math.sqrt(2 * Math.log(2));
+    const uniforms = {
+        uGaps: { value: GAPS.map((g) => new THREE.Vector3(g.r, g.width / FWHM, g.depth)) },
+        uOuter: { value: HL_TAU.outerRadius },
+        uPlanets: { value: PLANETS.map(() => new THREE.Vector4()) },
+        uPlanetQ: { value: PLANETS.map((p) => p.q) },
+        uPlanetOn: { value: 1 },
+        uView: { value: 0 },
+        uJet: { value: 1 },
+        uStarTemp: { value: HL_TAU.starTemp },
+    };
+    let years = 0;
+    let first = true;
+    const update = ({ dt, s, u, cam }) => {
+        years += dt * HL_TAU_YEARS_PER_SECOND;
+        u.uTime.value = years;
+        const view = s.view === 'visible' ? 1 : 0;
+        u.uView.value = first ? view : damp(u.uView.value, view, 2.5, dt);
+        u.uPlanetOn.value = damp(u.uPlanetOn.value, s.planets ? 1 : 0, 3, dt);
+        u.uJet.value = damp(u.uJet.value, s.jet ? 1 : 0, 3, dt);
+        first = false;
+        PLANETS.forEach((p, i) => {
+            const [x, y, z] = planetPosition(p, years);
+            u.uPlanets.value[i].set(x, y, z, gasAspect(p.r));
+        });
+        return { years, au: Math.abs(cam.dist) };
+    };
+    return { uniforms, update };
+}
+
 export function createExoticScene(id) {
     switch (id) {
+        case 'hl-tau': return hlTau();
         case 'neutron-star': return neutronStar();
         case 'binary': return binary();
         case 'roche': return rocheSystem();

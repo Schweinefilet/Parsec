@@ -27,7 +27,7 @@ describe('ExoticPage', () => {
     it('links to the objects on offer, not the stashed ones, and marks the one on screen', () => {
         at('/exotic/binary');
         const nav = screen.getByRole('navigation', { name: 'Exotic objects' });
-        for (const name of ['Gargantua', 'Wormhole', 'Binary black hole']) {
+        for (const name of ['Gargantua', 'Wormhole', 'Binary black hole', 'HL Tau']) {
             expect(nav).toHaveTextContent(name);
         }
         for (const name of ['Neutron star', 'Roche lobe overflow']) {
@@ -54,6 +54,7 @@ describe('ExoticPage', () => {
         const cases = [
             ['/exotic/wormhole', ['Approach', 'Go through', 'From the other side'], []],
             ['/exotic/binary', ['Edge on', 'From above', 'Close in'], ['Hold the orbit', 'Gas disk round the pair']],
+            ['/exotic/hl-tau', ['As ALMA sees it', 'From above', 'Edge on', 'Close in'], ['Forming planets', 'Jet']],
         ];
         for (const [url, shots, toggles] of cases) {
             at(url);
@@ -63,6 +64,17 @@ describe('ExoticPage', () => {
             expect(screen.getByRole('button', { name: 'High' })).toHaveAttribute('aria-pressed', 'true');
             cleanup();
         }
+    });
+
+    it('lets a shot switch how HL Tau is shown', () => {
+        at('/exotic/hl-tau');
+        fireEvent.click(screen.getByRole('button', { name: 'Scene settings' }));
+        expect(screen.getByRole('button', { name: 'Millimetre waves' })).toHaveAttribute('aria-pressed', 'true');
+        fireEvent.click(screen.getByRole('button', { name: 'Edge on' }));
+        expect(screen.getByRole('button', { name: 'Starlight' })).toHaveAttribute('aria-pressed', 'true');
+        fireEvent.click(screen.getByRole('button', { name: 'As ALMA sees it' }));
+        expect(screen.getByRole('button', { name: 'Millimetre waves' })).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByText(/Jupiter masses/)).toHaveTextContent('0.5 · 0.31 · 0.05');
     });
 
     it('closes its settings on Escape, and says which shot is on', () => {
