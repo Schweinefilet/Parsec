@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { damp } from '../utils/gargantuaCamera';
 import { THROAT } from '../utils/wormhole';
-import { surfaceRedshift, magneticAxis, visibleFraction, KM_PER_M } from '../utils/neutronStar';
+import { surfaceRedshift, visibleFraction, hotRegions, J0030, DEFAULT_RADIUS, KM_PER_M } from '../utils/neutronStar';
 import {
     START_SEPARATION, MERGE_SEPARATION, REMNANT_MASS, petersSeparation, petersMergeTime,
     orbitalOmega, holePositions, gwFrequency, SECONDS_PER_M_SUN,
 } from '../utils/binaryHole';
 import {
     masses, positions, l1Point, rochePotential, rocheGradient, lobeRadius, streamPath,
-    diskOuterRadius, eggletonRadius,
+    diskOuterRadius, eggletonRadius, accretorAzimuth,
 } from '../utils/roche';
 import { STREAM_POINTS } from '../utils/exoticShaders';
 
@@ -21,8 +21,8 @@ import { STREAM_POINTS } from '../utils/exoticShaders';
 // the scene turns its sky (the Roche system orbits; the camera does not).
 
 const GW_SOLAR_MASSES = 65; // a GW150914-sized pair, for the readout
-const PULSAR_PERIOD = 1.337; // PSR B1919+21, the first pulsar found (s)
-const PULSAR_TILT = 38 * Math.PI / 180;
+// J0030 turns 205 times a second; one turn every few seconds shows it.
+const SPIN_SECONDS = 4;
 const ORBIT_SECONDS = 26; // one turn of the Roche binary, real seconds
 const INSPIRAL_SECONDS = 38;
 const MERGED_HOLD = 7;
@@ -47,22 +47,31 @@ function wormhole() {
 }
 
 function neutronStar() {
+    const spots = hotRegions();
     const uniforms = {
         uSpin: { value: 0 },
-        uRadius: { value: 5.8 },
-        uRedshift: { value: 0.8 },
-        uMagAxis: { value: new THREE.Vector3(0, 0, 1) },
+        uRadius: { value: DEFAULT_RADIUS },
+        uRedshift: { value: surfaceRedshift(DEFAULT_RADIUS) },
         uPhase: { value: 0 },
-        // The real surface is about a million kelvin: its visible light is
-        // the blue-white of the blackbody's long tail. The hotspots over the
-        // magnetic poles run a few times hotter still.
-        uSurfTemp: { value: 1e6 },
-        uHotTemp: { value: 3e6 },
+        uSurfTemp: { value: J0030.surfaceTemp },
+        uHotTemp: { value: J0030.spotTemp },
+        uSpotA: { value: new THREE.Vector3(...spots.st) },
+        uSpotB: { value: new THREE.Vector3(...spots.pst) },
+        uSpotBIn: { value: new THREE.Vector3(...spots.pstInner) },
+        uSpotRadii: { value: new THREE.Vector3(J0030.st.radius, J0030.pst.radius, J0030.pst.innerRadius) },
+        uBeamA: { value: new THREE.Vector3() },
+        uBeamB: { value: new THREE.Vector3() },
         uBeams: { value: 1 },
         uGrid: { value: 0 },
     };
+    // Turn a star-frame vector by the spin phase, into the scene's frame.
+    const turn = (v, ph, out) => out.set(
+        Math.cos(ph) * v[0] - Math.sin(ph) * v[1],
+        Math.sin(ph) * v[0] + Math.cos(ph) * v[1],
+        v[2],
+    );
     let t = 0;
-    let radius = 5.8;
+    let radius = DEFAULT_RADIUS;
     let beams = 1;
     let grid = 0;
     let frac = visibleFraction(radius);
@@ -73,16 +82,18 @@ function neutronStar() {
         radius = r;
         beams = damp(beams, s.pulsar ? 1 : 0, 3, dt);
         grid = damp(grid, s.grid ? 1 : 0, 4, dt);
+        const phase = (2 * Math.PI * t) / SPIN_SECONDS;
         u.uRadius.value = radius;
         u.uRedshift.value = surfaceRedshift(radius);
-        u.uMagAxis.value.fromArray(magneticAxis(t, PULSAR_TILT, PULSAR_PERIOD));
-        u.uPhase.value = (2 * Math.PI * t) / PULSAR_PERIOD;
+        u.uPhase.value = phase;
+        turn(spots.st, phase, u.uBeamA.value);
+        turn(spots.pst, phase, u.uBeamB.value);
         u.uBeams.value = beams;
         u.uGrid.value = grid;
         u.uEscape.value = Math.max(cam.dist * 1.4, 60);
         return {
             radius, km: radius * KM_PER_M, visible: frac,
-            redshift: surfaceRedshift(radius), period: PULSAR_PERIOD,
+            redshift: surfaceRedshift(radius),
         };
     };
     return { uniforms, update };
@@ -95,7 +106,7 @@ function binary() {
         uDisk: { value: 1 },
         uDiskIn: { value: 2.1 * START_SEPARATION },
         uDiskOut: { value: 4.4 * START_SEPARATION },
-        uDiskTemp: { value: 6500 },
+        uDiskTemp: { value: 4200 },
     };
     const m1 = 0.5, m2 = 0.5;
     const T = petersMergeTime(START_SEPARATION, m1, m2);
@@ -158,11 +169,16 @@ function rocheSystem() {
         uBound: { value: 0.3 }, uGPole: { value: 1 },
         uDonorTemp: { value: 4800 },
         uStream: { value: Array.from({ length: STREAM_POINTS }, () => new THREE.Vector3()) },
-        uStreamWidth: { value: 0.011 },
-        uDiskIn: { value: 0.018 },
+        uStreamWidth: { value: 0.014 },
+        // Where the disk is cut off: the real inner edge is a hundred
+        // thousand times smaller, and stands in for the point glare.
+        uDiskIn: { value: 0.003 },
         uDiskOut: { value: 0.25 },
-        uDiskTemp: { value: 30000 },
-        uHotSpot: { value: new THREE.Vector3() },
+        // A cool outer disk, T ∝ r^−3/4 inward from here to the white-hot middle.
+        uDiskTemp: { value: 4200 },
+        uDiskHR: { value: 0.07 },
+        uSpotPhi: { value: 1 },
+        uIrrTemp: { value: 5400 },
     };
     let q = null;
     let info = null;
@@ -188,7 +204,8 @@ function rocheSystem() {
         uniforms.uGPole.value = gp;
         uniforms.uDiskOut.value = rd;
         points.forEach((p, i) => uniforms.uStream.value[i].set(p[0], p[1], p[2]));
-        uniforms.uHotSpot.value.set(...points[points.length - 1]);
+        const end = points[points.length - 1];
+        uniforms.uSpotPhi.value = accretorAzimuth(end[0], end[1], q);
         info = { q, l1: lx - xa, lobe: eggletonRadius(q), disk: rd };
     };
     const update = ({ dt, s, u }) => {

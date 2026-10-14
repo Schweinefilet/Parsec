@@ -34,12 +34,14 @@ export const EXOTIC = {
         minDist: 12, maxDist: 160,
         exposure: 0.9,
         shots: {
-            equator: { dist: 34, el: 8 * DEG, fov: 36 * DEG },
-            pole: { dist: 34, el: 64 * DEG, fov: 36 * DEG },
-            close: { dist: 17, el: 18 * DEG, fov: 60 * DEG },
+            // J0030 as NICER sees it: 54° from the north pole. Both hot
+            // regions are in the south, in view only by bending.
+            earth: { dist: 34, el: (90 - 54) * DEG, fov: 36 * DEG },
+            south: { dist: 34, el: -62 * DEG, fov: 36 * DEG },
+            close: { dist: 17, el: -24 * DEG, fov: 60 * DEG },
         },
-        shotOrder: ['equator', 'pole', 'close'],
-        start: { dist: 70, az: 0.4, el: 20 * DEG, fov: 40 * DEG },
+        shotOrder: ['earth', 'south', 'close'],
+        start: { dist: 70, az: 0.4, el: 10 * DEG, fov: 40 * DEG },
     },
     binary: {
         base: { stepScale: 0.05, maxSteps: 900 },

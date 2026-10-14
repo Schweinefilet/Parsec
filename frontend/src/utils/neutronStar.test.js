@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
     apparentRadius, surfaceRedshift, maxBendAngle, visibleFraction, visibleFractionBeloborodov,
-    traceToSurface, magneticAxis, DEFAULT_RADIUS,
+    traceToSurface, DEFAULT_RADIUS, KM_PER_M,
+    J0030, hotRegions, surfaceTemperature, unitVector, opticalBrightness,
 } from './neutronStar';
 
 // A ray fired from far down −x with impact parameter b, travelling +x.
@@ -49,13 +50,57 @@ describe('neutron star', () => {
         expect(psi).toBeCloseTo(maxBendAngle(R), 1);
     });
 
-    it('turns its magnetic axis round the spin axis once a period', () => {
-        const incl = 0.4;
-        const a = magneticAxis(0, incl, 2);
-        const b = magneticAxis(1, incl, 2);
-        expect(Math.hypot(...a)).toBeCloseTo(1, 12);
-        expect(a[2]).toBeCloseTo(Math.cos(incl), 12);
-        expect(b[0]).toBeCloseTo(-a[0], 12);
-        expect(magneticAxis(2, incl, 2)[0]).toBeCloseTo(a[0], 12);
+    describe('PSR J0030+0451’s hot regions (Riley et al. 2019)', () => {
+        // The sphere sampled evenly in cos θ and φ: each sample the same area.
+        const samples = [];
+        for (let i = 0; i < 300; i++) {
+            for (let j = 0; j < 600; j++) {
+                const mu = -1 + (2 * (i + 0.5)) / 300;
+                const ph = (2 * Math.PI * (j + 0.5)) / 600;
+                const s2 = Math.sqrt(1 - mu * mu);
+                samples.push([s2 * Math.cos(ph), s2 * Math.sin(ph), mu]);
+            }
+        }
+        const hot = samples.filter((v) => surfaceTemperature(v) > 1e6);
+
+        it('has the paper’s size and compactness', () => {
+            expect(DEFAULT_RADIUS * KM_PER_M).toBeCloseTo(J0030.radiusKm, 0);
+            expect(1 / DEFAULT_RADIUS).toBeCloseTo(0.156, 2);
+        });
+
+        it('puts both regions in the southern hemisphere, away from Earth', () => {
+            expect(hot.length).toBeGreaterThan(0);
+            expect(hot.every((v) => v[2] < 0)).toBe(true);
+            // Earth is 54° from the north pole: it never sees them straight on.
+            const earth = unitVector(J0030.inclination, 0);
+            expect(Math.max(...hot.map((v) => v[0] * earth[0] + v[1] * earth[1] + v[2] * earth[2]))).toBeLessThan(0);
+        });
+
+        it('makes the second region a thin crescent, not a disk', () => {
+            const { pst, pstInner } = hotRegions();
+            const nearPst = hot.filter((v) => v[0] * pst[0] + v[1] * pst[1] + v[2] * pst[2] > Math.cos(0.6));
+            // A full cap of 0.47 rad covers (1 − cos 0.47)/2 of the sphere;
+            // the crescent is a small part of that.
+            const cap = (1 - Math.cos(J0030.pst.radius)) / 2;
+            const frac = nearPst.length / samples.length;
+            expect(frac).toBeGreaterThan(0.05 * cap);
+            expect(frac).toBeLessThan(0.35 * cap);
+            // The cut-out circle sits just off the outer one's centre.
+            const off = Math.acos(pst[0] * pstInner[0] + pst[1] * pstInner[1] + pst[2] * pstInner[2]);
+            expect(off).toBeCloseTo(J0030.pst.offset, 6);
+        });
+
+        it('makes the round spot a few degrees across', () => {
+            const { st } = hotRegions();
+            const spot = hot.filter((v) => v[0] * st[0] + v[1] * st[1] + v[2] * st[2] > Math.cos(0.2));
+            const expected = (1 - Math.cos(J0030.st.radius)) / 2;
+            expect(spot.length / samples.length).toBeCloseTo(expected, 3);
+        });
+
+        it('shines in visible light in proportion to g·T, the Rayleigh–Jeans tail', () => {
+            expect(opticalBrightness(J0030.spotTemp)).toBeCloseTo(1, 12);
+            expect(opticalBrightness(J0030.surfaceTemp)).toBeCloseTo(J0030.surfaceTemp / J0030.spotTemp, 12);
+            expect(opticalBrightness(1e6, 0.8, 1e6)).toBeCloseTo(0.8, 12);
+        });
     });
 });

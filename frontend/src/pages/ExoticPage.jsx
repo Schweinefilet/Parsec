@@ -29,7 +29,7 @@ const KEY = { wormhole: 'wormhole', 'neutron-star': 'neutronStar', binary: 'bina
 
 const SHOT_KEY = {
     approach: 'shotApproach', through: 'shotThrough', far: 'shotFar',
-    equator: 'shotEquator', pole: 'shotPole', close: 'shotClose',
+    earth: 'shotEarth', south: 'shotSouth', close: 'shotClose',
     edge: 'shotEdge', above: 'shotAbove',
     wide: 'shotWide', eclipse: 'shotEclipse', disk: 'shotDisk',
 };

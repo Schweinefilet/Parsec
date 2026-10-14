@@ -41,7 +41,7 @@ describe('ExoticPage', () => {
     it('gives each object its own shots and settings', () => {
         const cases = [
             ['/exotic/wormhole', ['Approach', 'Go through', 'From the other side'], []],
-            ['/exotic/neutron-star', ['Side on', 'Over a pole', 'Close in'], ['Pulsar beams and hotspots', 'Latitude and longitude']],
+            ['/exotic/neutron-star', ['As Earth sees it', 'Under the south pole', 'Close in'], ['Pulsar beams', 'Latitude and longitude']],
             ['/exotic/binary', ['Edge on', 'From above', 'Close in'], ['Hold the orbit', 'Gas disk round the pair']],
             ['/exotic/roche', ['The system', 'In the orbit’s plane', 'The disk'], []],
         ];

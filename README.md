@@ -795,9 +795,21 @@ the page. `/exotic` alone opens the wormhole.
   `KERR_GLSL` chunk; rays stop at r = R instead of a horizon. The readout's
   visible fraction is the exact bending integral, and the tests check the
   traced grazing ray against it and against Beloborodov's (2002)
-  approximation. The hotspots and beams turn with PSR B1919+21's period; the
-  beams are drawn so the sweep shows (real ones are radio). The grid colours
-  the far hemisphere amber, which is how you see round the back.
+  approximation. The star is PSR J0030+0451, the only neutron star whose
+  surface has been mapped: its two hot regions are NICER's (Riley et al.
+  2019, the ST+PST model's Table 2 medians), a 5° round spot and a thin
+  crescent (a 27° circle with a slightly offset, slightly smaller one cut
+  out), both at 10^6.11 K and both in the southern hemisphere, on a
+  1.5 × 10^5 K surface. Mass and radius are the paper's too (R = 6.4 M).
+  "As Earth sees it" puts the camera at J0030's 54° inclination, in the
+  north, where the southern spots show only because their light bends round.
+  All of it is far down the Rayleigh–Jeans tail in visible light, so the
+  colour is one pale blue-white and the brightness goes as g·T, not T⁴
+  (`opticalBrightness`). A pulsar beam rises from each spot (drawn so the
+  sweep shows; real ones are radio), sub-sampled along the integrator's long
+  outer steps so it doesn't band. The spin is slowed from 205 Hz to a turn
+  every 4 s. The grid colours the far hemisphere amber, which is how you
+  see round the back.
 - **Binary black hole** (`utils/binaryHole.js`). An approximation, and it says
   so: no exact two-hole spacetime exists. Each hole pulls a ray with
   −3m h² x / r⁵, the force under which a ray's path is exactly a
@@ -813,8 +825,24 @@ the page. `/exotic` alone opens the wormhole.
   stream is a parcel integrated from L1 under the Roche potential and the
   Coriolis force (Jacobi constant conserved), and comes as close to the
   accretor as Lubow & Shu (1975) say. It reaches the shader as a 48-point
-  polyline, drawn as a soft tube; the disk is truncated at 0.6 of the
-  accretor's lobe, with a hot spot where the stream lands.
+  polyline, drawn as a tube round the ray's closest approach to the whole
+  line (summing per-segment tubes ribs it at the joins), widening into a
+  cone at L1 and carrying clumps that flow down it.
+  The disk is a volume, truncated at 0.6 of the accretor's lobe: flared
+  (H ∝ r^9/8, `diskScaleHeight`), opaque, ending in a steeper-than-Gaussian
+  photosphere so grazing rays don't pile up haze, and marched in steps sized
+  to the local thickness. T ∝ r^−3/4 from a cool 4200 K rim; two tidal spiral
+  arms stand still in the binary's frame; the stream's impact is a bright
+  spot smeared downstream with a rim bulge trailing it, both prograde from
+  `accretorAzimuth`. The unresolvable inner disk glares as a point that the
+  disk hides when seen edge on. The donor has convection cells (a few huge
+  ones, as on π¹ Gru, with granulation inside), starspots, quadratic limb
+  darkening and gravity darkening, the last two switching from convective
+  (g^0.08) to radiative (g^0.25, no cells) above ~7000 K; its face towards
+  the disk is irradiated except along the equator, which the rim shadows
+  (`inDiskShadow`). At L1 the gradient is zero, so the normal there needs a
+  fallback: the NaN it used to produce was blurred by the bloom over the
+  whole frame. Every /exotic shader's output now goes through `sane()`.
 
 ### One interface
 

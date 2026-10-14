@@ -12,13 +12,46 @@
 
 import { rk4Step, launchRay, ksGeometry, stepSize } from './kerr';
 
-/** A 1.4-solar-mass star of 12 km: R ≈ 5.8 M. */
-export const DEFAULT_RADIUS = 5.8;
+/**
+ * PSR J0030+0451, the one neutron star whose surface has been mapped: NICER's
+ * pulse profiles, fitted by Riley et al. (2019, ApJL 887 L21) with their
+ * preferred ST+PST model (Table 2 medians). Angles in radians, in the star's
+ * own frame with the spin axis on +z; longitudes from the spots' phases.
+ *
+ * Two hot regions, both in the southern hemisphere: a small round spot and a
+ * thin crescent, the edge of a large circle with a slightly offset, slightly
+ * smaller circle taken out of it. Both at 10^6.11 K. Earth sees the star from
+ * 54° off the spin axis on the *northern* side, so every photon NICER counted
+ * from them was bent round the star to reach us.
+ */
+export const J0030 = {
+    massSun: 1.34,
+    radiusKm: 12.71,
+    spinHz: 205.53,
+    inclination: 0.94,
+    spotTemp: 10 ** 6.11,
+    // Not seen by NICER, which only sees the hot regions. An old millisecond
+    // pulsar's whole surface is ~10^5 K: J0437−4715's ultraviolet glow gives
+    // (1–3.5) × 10^5 K (Durant et al. 2012).
+    surfaceTemp: 1.5e5,
+    st: { colat: 2.23, radius: 0.09, lon: 2 * Math.PI * 0.46 },
+    pst: {
+        colat: 2.91, radius: 0.47,
+        // The ceding (masking) circle: radius ψ + ψ⁺, its centre moved a
+        // fraction ϰ of the radius in the direction φ (from local north).
+        innerRadius: 0.47 - 0.01, offset: 0.10 * 0.47, offsetAz: 0.71,
+        // Its phase is quoted from Earth's antipode, half a turn round.
+        lon: 2 * Math.PI * (-0.59 + 0.5),
+    },
+};
+
+/** J0030's compactness: R = 6.4 M (GM/Rc² = 0.156 in the paper). */
+export const DEFAULT_RADIUS = 6.4;
 export const MIN_RADIUS = 3;
 export const MAX_RADIUS = 10;
 
-/** GM/c² for 1.4 suns, in km: what turns the readouts into kilometres. */
-export const KM_PER_M = 1.4766 * 1.4;
+/** GM/c² for J0030's 1.34 suns, in km: what turns the readouts into kilometres. */
+export const KM_PER_M = 1.4766 * J0030.massSun;
 
 /**
  * Impact parameter of light leaving the surface tangentially, b = R/√(1−2/R)
@@ -88,12 +121,55 @@ export function traceToSurface(pos, dir, R, { scale = 0.02, maxSteps = 40000 } =
     return { fate: 'unfinished', state: s, steps: maxSteps };
 }
 
+/** Unit vector at colatitude θ (from +z) and longitude φ. */
+export function unitVector(colat, lon) {
+    const st = Math.sin(colat);
+    return [st * Math.cos(lon), st * Math.sin(lon), Math.cos(colat)];
+}
+
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const angle = (a, b) => Math.acos(Math.min(Math.max(dot(a, b), -1), 1));
+
 /**
- * The magnetic axis at `t` seconds: tilted `incl` from the spin axis (+z)
- * and turning about it once every `period` seconds. The hotspots and the
- * beams sit on it, which is what makes a pulsar pulse.
+ * The centres of J0030's hot regions as unit vectors in the star's frame:
+ * `st` the round spot, `pst` the crescent's outer circle and `pstInner` the
+ * circle cut out of it. The shader gets these three.
  */
-export function magneticAxis(t, incl, period) {
-    const w = (2 * Math.PI * t) / period;
-    return [Math.sin(incl) * Math.cos(w), Math.sin(incl) * Math.sin(w), Math.cos(incl)];
+export function hotRegions(map = J0030) {
+    const st = unitVector(map.st.colat, map.st.lon);
+    const c = unitVector(map.pst.colat, map.pst.lon);
+    // Local east and north at the crescent's centre, then a step of `offset`
+    // along the great circle heading `offsetAz` from north.
+    const east = [-Math.sin(map.pst.lon), Math.cos(map.pst.lon), 0];
+    const north = [
+        c[1] * east[2] - c[2] * east[1],
+        c[2] * east[0] - c[0] * east[2],
+        c[0] * east[1] - c[1] * east[0],
+    ];
+    const az = map.pst.offsetAz, off = map.pst.offset;
+    const dir = north.map((v, i) => Math.cos(az) * v + Math.sin(az) * east[i]);
+    const inner = c.map((v, i) => Math.cos(off) * v + Math.sin(off) * dir[i]);
+    return { st, pst: c, pstInner: inner };
+}
+
+/**
+ * Temperature at the unit surface direction `n` (star's frame), with sharp
+ * edges: the map the shader draws, which softens them by a pixel or so.
+ */
+export function surfaceTemperature(n, map = J0030) {
+    const { st, pst, pstInner } = hotRegions(map);
+    const inSpot = angle(n, st) < map.st.radius;
+    const inCrescent = angle(n, pst) < map.pst.radius && angle(n, pstInner) > map.pst.innerRadius;
+    return inSpot || inCrescent ? map.spotTemp : map.surfaceTemp;
+}
+
+/**
+ * Visible-light surface brightness relative to a star at `T0`, seen with
+ * redshift g. Even 10^5 K puts the whole visible band on the Rayleigh–Jeans
+ * tail, I_ν ∝ ν²T, where the colour no longer changes with temperature (a
+ * pale blue-white) and only the brightness does, in proportion. Redshifted,
+ * I_ν = g³ I'(ν/g) ∝ g T: a factor g, not g⁴.
+ */
+export function opticalBrightness(T, g = 1, T0 = J0030.spotTemp) {
+    return (g * T) / T0;
 }

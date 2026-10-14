@@ -49,6 +49,13 @@ ${COLOUR_GLSL}
 
 ${SKY_GLSL}
 
+// One NaN pixel is enough to black out the whole frame: the bloom blurs it
+// into every pixel round it, and then into the rest. Every shader's output
+// goes through this.
+vec3 sane(vec3 c) {
+    return any(isnan(c)) || any(isinf(c)) ? vec3(0.0) : max(c, vec3(0.0));
+}
+
 vec3 primaryRay() {
     vec2 ndc = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0;
     ndc.x *= uResolution.x / uResolution.y;
@@ -147,7 +154,7 @@ void main() {
     vec3 ep = -sin(s.y) * eOut + cos(s.y) * eT;
     vec3 dir = normalize(cos(psiOut) * side * er + sin(psiOut) * ep);
 
-    outColor = vec4(side > 0.0 ? sky(dir) : otherSky(dir), 1.0);
+    outColor = vec4(sane(side > 0.0 ? sky(dir) : otherSky(dir)), 1.0);
 }
 `;
 
@@ -159,11 +166,17 @@ ${HEADER}
 uniform float uSpin;      // always 0: a Kerr integrator run as Schwarzschild
 uniform float uRadius;    // R in M
 uniform float uRedshift;  // √(1 − 2/R)
-uniform vec3 uMagAxis;    // unit, turning with the star
-uniform float uPhase;     // the star's own rotation angle, for its surface
-uniform float uSurfTemp;
-uniform float uHotTemp;
-uniform float uBeams;     // 0..1: the beams and the hotspots under them
+uniform float uPhase;     // the star's rotation angle about +z
+uniform float uSurfTemp;  // the cool surface
+uniform float uHotTemp;   // the two hot regions
+// utils/neutronStar.js hotRegions(), in the star's own frame.
+uniform vec3 uSpotA;      // the round spot's centre
+uniform vec3 uSpotB;      // the crescent's outer circle
+uniform vec3 uSpotBIn;    // the circle cut out of it
+uniform vec3 uSpotRadii;  // their angular radii
+uniform vec3 uBeamA;      // the spots' centres turned with the star, for the beams
+uniform vec3 uBeamB;
+uniform float uBeams;     // 0..1
 uniform float uGrid;      // 0..1
 
 ${KERR_GLSL}
@@ -173,15 +186,41 @@ float stepSize(float r) {
     return min(min(h, 0.1 * r + 1.0), max(r - uRadius, 0.02) + 0.02);
 }
 
-// Sweeping beams along the magnetic axis, both ways. Real pulsar beams are
-// radio, not light; these are drawn so the sweep can be seen.
+// One beam rising from a spot: a bright core and a fainter hollow cone round
+// it, the shape radio pulse profiles suggest. Real pulsar beams are radio,
+// not light; these are drawn so the sweep can be seen.
+float beamProfile(vec3 xr, float r, vec3 axis) {
+    float c = dot(xr, axis);
+    if (c <= 0.0) return 0.0;
+    float th = sqrt(max(2.0 * (1.0 - c), 0.0));
+    float core = exp(-th * th / 0.0016);
+    float cone = exp(-pow((th - 0.11) / 0.025, 2.0)) * 0.45;
+    return core + cone;
+}
 vec3 beamGlow(vec3 x0, vec3 x1) {
-    vec3 x = 0.5 * (x0 + x1);
-    float r = length(x);
-    float c = abs(dot(x / r, uMagAxis));
-    float cone = exp(-(1.0 - c) / 0.0045);
-    float fall = exp(-r / 70.0) / (1.0 + 0.02 * r);
-    return vec3(0.55, 0.75, 1.0) * cone * fall * length(x1 - x0) * 0.09 * uBeams;
+    // Far out the integrator's steps are long next to a beam's width, so
+    // sample each step several times or the beam breaks into bands.
+    float len = length(x1 - x0);
+    float r0 = length(x0);
+    int n = int(clamp(ceil(len / (0.025 * r0 + 0.05)), 1.0, 12.0));
+    float b = 0.0;
+    for (int k = 0; k < 12; k++) {
+        if (k >= n) break;
+        vec3 x = mix(x0, x1, (float(k) + 0.5) / float(n));
+        float r = length(x);
+        vec3 xr = x / r;
+        float lift = smoothstep(uRadius, uRadius * 1.6, r);
+        float fall = exp(-r / 80.0) / (1.0 + 0.015 * r);
+        b += (beamProfile(xr, r, uBeamA) + beamProfile(xr, r, uBeamB)) * lift * fall;
+    }
+    return vec3(0.55, 0.72, 1.0) * b * (len / float(n)) * 0.08 * uBeams;
+}
+
+// How far inside a circle of angular radius rad round c the direction q
+// is, as a soft 0..1 edge w radians wide.
+float cap(vec3 q, vec3 c, float rad, float w) {
+    float a = acos(clamp(dot(q, c), -1.0, 1.0));
+    return 1.0 - smoothstep(rad - w, rad + w, a);
 }
 
 vec3 surface(vec3 xs, vec3 v) {
@@ -192,13 +231,36 @@ vec3 surface(vec3 xs, vec3 v) {
     float lat = asin(clamp(q.z, -1.0, 1.0));
     float lon = atan(q.y, q.x);
 
-    float hot = uBeams * exp(-(1.0 - abs(dot(nrm, uMagAxis))) / 0.012);
-    float T = uSurfTemp * (1.0 + 0.06 * fbm(q * 6.0, 4));
+    // NICER's two hot regions. The edges are softened by about a pixel at
+    // the default framing, and heat leaking out of them warms a thin halo.
+    const float W = 0.006;
+    float spotA = cap(q, uSpotA, uSpotRadii.x, W);
+    float spotB = cap(q, uSpotB, uSpotRadii.y, W) * (1.0 - cap(q, uSpotBIn, uSpotRadii.z, W));
+    float hot = max(spotA, spotB);
+    float halo = exp(-max(acos(clamp(dot(q, uSpotA), -1.0, 1.0)) - uSpotRadii.x, 0.0) / 0.05)
+        + 0.6 * exp(-max(acos(clamp(dot(q, uSpotB), -1.0, 1.0)) - uSpotRadii.y, 0.0) / 0.05)
+            * (1.0 - cap(q, uSpotBIn, uSpotRadii.z - 0.04, 0.03));
+
+    // The rest of the surface: smooth to a millimetre, but not one
+    // temperature. Heat flows along the crust's magnetic field more easily
+    // than across it, so it is mottled on the scale of the field's patches.
+    float mott = fbm(q * 1.6 + 4.0, 3) * 0.75 + fbm(q * 5.0 - 2.0, 2) * 0.25;
+    float T = uSurfTemp * (1.0 + 0.14 * mott);
+    // Heat from the caps spreads through the crust: the hemisphere holding
+    // them runs warmer than the one facing Earth.
+    T *= 1.0 + 0.45 * smoothstep(0.2, -0.9, q.z);
     T = mix(T, uHotTemp, hot);
-    // Seen from far away the whole surface is redshifted by g.
-    vec3 col = blackbody(T * uRedshift) * (0.9 + 5.0 * hot);
+    T += uSurfTemp * 0.9 * halo * (1.0 - hot);
+
+    // Visible light is far down the Rayleigh–Jeans tail at these
+    // temperatures: the colour is the same pale blue-white everywhere and
+    // only the brightness follows T, in proportion. Seen from far away the
+    // whole surface is redshifted by g, which dims it by g.
+    vec3 col = blackbody(T * uRedshift) * (T / uHotTemp) * uRedshift * 4.4;
+    // A hydrogen atmosphere a few centimetres deep darkens the limb a little
+    // (a bare blackbody would not darken it at all).
     float mu = clamp(dot(nrm, -normalize(v)), 0.0, 1.0);
-    col *= 0.55 + 0.45 * mu;
+    col *= 0.68 + 0.32 * mu;
 
     // Latitude and longitude every 30°, amber on the hemisphere facing away
     // from the camera, so seeing round the back shows as amber at the edge.
@@ -207,7 +269,7 @@ vec3 surface(vec3 xs, vec3 v) {
     float go = abs(fract(lon / step30 + 0.5) - 0.5) * step30 * cos(lat);
     float line = 1.0 - smoothstep(0.012, 0.03, min(gl, go));
     bool back = dot(nrm, normalize(uCamPos)) < 0.0;
-    vec3 ink = back ? vec3(1.0, 0.62, 0.18) * 1.6 : vec3(0.05, 0.08, 0.14);
+    vec3 ink = back ? vec3(1.0, 0.62, 0.18) * 1.6 : vec3(0.02, 0.03, 0.06);
     if (back) col = mix(col, col * vec3(1.25, 0.8, 0.45), 0.6 * uGrid);
     return mix(col, ink, line * uGrid * 0.85);
 }
@@ -250,7 +312,7 @@ void main() {
     }
 
     if (escaped && !hit) col += sky(normalize(v));
-    outColor = vec4(col, 1.0);
+    outColor = vec4(sane(col), 1.0);
 }
 `;
 
@@ -342,7 +404,7 @@ void main() {
     }
 
     if (escaped && trans > 0.004) col += trans * sky(normalize(v));
-    outColor = vec4(col, 1.0);
+    outColor = vec4(sane(col), 1.0);
 }
 `;
 
@@ -366,8 +428,10 @@ uniform vec3 uStream[STREAM_POINTS];
 uniform float uStreamWidth;
 uniform float uDiskIn;
 uniform float uDiskOut;
-uniform float uDiskTemp;
-uniform vec3 uHotSpot;
+uniform float uDiskTemp;  // at the rim
+uniform float uDiskHR;    // H/r at the rim
+uniform float uSpotPhi;   // the stream's impact, as an azimuth round the accretor
+uniform float uIrrTemp;   // irradiation temperature reaching L1's distance
 
 // utils/roche.js rochePotential(), on the GPU.
 float roche(vec3 x) {
@@ -412,76 +476,201 @@ float hitDonor(vec3 ro, vec3 rd) {
     return -1.0;
 }
 
-vec3 shadeDonor(vec3 p, vec3 rd) {
-    vec3 g = rocheGrad(p);
-    vec3 nrm = normalize(g);
-    // Gravity darkening (von Zeipel, with the convective exponent): the
-    // stretched tip towards L1, where gravity all but cancels, is cooler.
-    float T = uDonorTemp * pow(max(length(g) / uGPole, 1e-4), 0.08);
-    // The side facing the accretor is lit and heated by the disk.
-    vec3 toAcc = normalize(vec3(uXa, 0.0, 0.0) - p);
-    T *= 1.0 + 0.22 * max(dot(nrm, toAcc), 0.0);
-    T *= 1.0 + 0.03 * fbm(nrm * 14.0 + uTime * 0.02, 4);
-    float mu = max(dot(nrm, -rd), 0.0);
-    float b = pow(T / uDonorTemp, 4.0);
-    return blackbody(T) * b * (0.3 + 0.7 * mu) * 0.42;
+// Cellular noise: distances to the nearest and second-nearest feature points.
+vec2 worley(vec3 p) {
+    vec3 c = floor(p);
+    float f1 = 9.0, f2 = 9.0;
+    for (int i = -1; i <= 1; i++)
+    for (int j = -1; j <= 1; j++)
+    for (int k = -1; k <= 1; k++) {
+        vec3 cell = c + vec3(float(i), float(j), float(k));
+        vec3 d = cell + hash3(cell) - p;
+        float dd = dot(d, d);
+        if (dd < f1) { f2 = f1; f1 = dd; } else if (dd < f2) { f2 = dd; }
+    }
+    return sqrt(vec2(f1, f2));
 }
 
-// The disk round the accretor, in the orbital plane.
-vec4 shadeDisk(vec3 p) {
+// utils/roche.js inDiskShadow(), softened: 1 in full view of the inner disk.
+float diskShadow(vec3 p) {
+    float elev = abs(p.z) / max(length(p.xy - vec2(uXa, 0.0)), 1e-4);
+    return smoothstep(uDiskHR * 0.5, uDiskHR * 1.8, elev);
+}
+
+vec3 shadeDonor(vec3 p, vec3 rd) {
+    vec3 g = rocheGrad(p);
+    float gl = length(g);
+    // At the L1 point itself gravity vanishes and so does the normal: this
+    // is the pixel whose NaN used to black out the whole frame.
+    vec3 nrm = gl > 1e-6 ? g / gl : vec3(-1.0, 0.0, 0.0);
+    // The star turns with the orbit, so its surface is fixed in this frame.
+    vec3 sd = normalize(p - vec3(uXd, 0.0, 0.0));
+
+    // Below about 7000 K a star's outer layers churn (convective); above it
+    // they are still (radiative). That decides most of what follows.
+    float conv = 1.0 - smoothstep(6500.0, 8500.0, uDonorTemp);
+
+    // Gravity darkening: the stretched tip towards L1, where gravity all
+    // but cancels, is cooler. T goes as g^0.25 for a radiative star (von
+    // Zeipel 1924), only g^0.08 for a convective one (Lucy 1967).
+    float T = uDonorTemp * pow(max(gl / uGPole, 0.03), mix(0.25, 0.08, conv));
+
+    // Convection, on a cool donor. A star this swollen has low gravity and
+    // so a few huge cells (on the red giant pi1 Gruis each spans a quarter
+    // of the star: Paladini et al. 2018), with finer granulation inside
+    // them. Bright rising centres, dark sinking lanes; they churn slowly.
+    float tt = uTime * 0.02;
+    // Warped, so the cells come out irregular rather than a tiled pattern.
+    vec3 warp = vec3(fbm(sd * 2.5 + 1.0, 3), fbm(sd * 2.5 + 7.0, 3), fbm(sd * 2.5 - 5.0, 3));
+    vec2 w1 = worley(sd * 3.6 + 0.55 * warp + vec3(0.0, 0.0, tt));
+    vec2 w2 = worley(sd * 14.0 + 0.8 * warp + vec3(tt * 2.1, 5.3, -tt));
+    float big = smoothstep(0.0, 0.6, w1.y - w1.x);
+    float fine = smoothstep(0.0, 0.4, w2.y - w2.x);
+    T *= 1.0 + conv * (0.06 * big + 0.03 * fine - 0.07) + 0.01 * snoise(sd * 40.0);
+
+    // Starspots, on a cool donor with a deep convective envelope; the tidal
+    // lock spins it fast enough for a strong dynamo.
+    float spotty = 1.0 - smoothstep(5000.0, 6800.0, uDonorTemp);
+    float spots = smoothstep(0.42, 0.62, fbm(sd * 2.0 + 9.0, 4));
+    T *= 1.0 - 0.16 * spots * spotty;
+
+    // Irradiation: the inner disk's glare heats the face turned to it,
+    // except along the equator, which the disk's own rim shades.
+    vec3 toA = vec3(uXa, 0.0, 0.0) - p;
+    float dA = length(toA);
+    float cosI = max(dot(nrm, toA / dA), 0.0);
+    float irr = cosI * diskShadow(p) * pow((uXL1 - uXa) / dA, 2.0);
+    T = pow(pow(T, 4.0) + pow(uIrrTemp, 4.0) * irr, 0.25);
+
+    // Limb darkening (quadratic law): strong for a cool star, milder hot.
+    float mu = clamp(dot(nrm, -rd), 0.0, 1.0);
+    float u1 = mix(0.74, 0.38, clamp((uDonorTemp - 3500.0) / 8500.0, 0.0, 1.0));
+    float limb = 1.0 - u1 * (1.0 - mu) - 0.16 * (1.0 - mu) * (1.0 - mu);
+    // Visible-band brightness rises faster than T, slower than T^4.
+    float b = pow(T / uDonorTemp, 2.5);
+    return blackbody(T) * b * max(limb, 0.0) * 0.62;
+}
+
+// ── the disk, as a volume ───────────────────────────────────────────────────
+
+// utils/roche.js diskScaleHeight(), with the azimuth past the impact.
+float diskH(float r, float dphi) {
+    float h = uDiskHR * uDiskOut * pow(r / uDiskOut, 1.125);
+    float rim = smoothstep(0.55 * uDiskOut, 0.95 * uDiskOut, r);
+    // Rising over a short arc before the impact, trailing off long after.
+    float sgn = dphi > 3.14159265 ? dphi - 6.2831853 : dphi;
+    float bulge = sgn < 0.0 ? exp(-sgn * sgn / 0.09) : exp(-sgn / 1.2);
+    return h * (1.0 + 0.6 * bulge * rim);
+}
+
+// Emitted colour (rgb) and extinction (a), per unit length at p.
+vec4 diskSample(vec3 p) {
     vec2 d = p.xy - vec2(uXa, 0.0);
     float r = length(d);
-    if (r < uDiskIn || r > uDiskOut) return vec4(0.0);
-    float edge = smoothstep(uDiskIn, uDiskIn * 1.4, r) * (1.0 - smoothstep(uDiskOut * 0.8, uDiskOut, r));
+    if (r > uDiskOut * 1.1 || r < uDiskIn) return vec4(0.0);
+    float phi = atan(d.y, d.x);
+    float dphi = mod(phi - uSpotPhi + 6.2831853, 6.2831853);
+    float H = diskH(r, dphi);
+    // Steeper than a Gaussian: an opaque disk ends in a fairly sharp
+    // photosphere, not a haze that grazing rays pile up through.
+    float zz = p.z * p.z / (H * H);
+    float vert = exp(-0.5 * zz * (1.0 + 0.25 * zz));
+    if (vert < 1e-3) return vec4(0.0);
+    float x = r / uDiskOut;
+    float zh = p.z / H;
+
+    // Turbulence sheared by the Keplerian flow: two copies of the texture
+    // half a cycle apart, as on /gargantua, so it never winds to stripes.
     float omega = sqrt(uMa / (r * r * r)) * 0.25;
     const float P = 60.0;
     float t1 = mod(uTime, P), t2 = mod(uTime + 0.5 * P, P);
     float w1 = 1.0 - abs(2.0 * t1 / P - 1.0);
-    float ang = atan(d.y, d.x);
-    float a1 = ang - omega * t1, a2 = ang - omega * t2;
-    float n1 = fbm(vec3(cos(a1) * 2.4, sin(a1) * 2.4, r * 40.0), 5);
-    float n2 = fbm(vec3(cos(a2) * 2.4, sin(a2) * 2.4, r * 40.0 + 17.0), 5);
-    float n = mix(n2, n1, w1);
-    float dens = smoothstep(-0.45, 0.6, n) * (0.88 + 0.12 * sin(r * 90.0 + 3.0 * n));
-    float T = uDiskTemp * pow(r / uDiskIn, -0.75);
-    // The hot spot, where the stream slams into the rim.
-    float spot = exp(-dot(p - uHotSpot, p - uHotSpot) / 0.0009);
-    T = mix(T, 14000.0, spot);
-    vec3 col = blackbody(T) * (0.3 + 1.6 * pow(uDiskIn / r, 0.9) + 2.5 * spot);
-    return vec4(col * (0.45 + 0.55 * dens), clamp((0.3 + 0.7 * dens) * edge + spot, 0.0, 0.97));
+    float a1 = phi - omega * t1, a2 = phi - omega * t2;
+    float lr = log(r);
+    float n1 = fbm(vec3(cos(a1) * 3.0, sin(a1) * 3.0, lr * 3.5 + zh * 0.35), 4);
+    float n2 = fbm(vec3(cos(a2) * 3.0, sin(a2) * 3.0, lr * 3.5 + 17.0 + zh * 0.35), 4);
+    float turb = smoothstep(-0.55, 0.65, mix(n2, n1, w1));
+
+    // Two tidal spiral arms: the donor's pull raises them in the outer disk,
+    // and they stand still in the binary's frame (Steeghs et al. 1997).
+    float arm = 0.5 + 0.5 * cos(2.0 * (phi - log(x) / tan(0.38)) + 0.6);
+    float spiral = pow(arm, 4.0) * smoothstep(0.35, 0.75, x) * (1.0 - smoothstep(0.92, 1.08, x));
+
+    // Column optical depth rises inward (surface density ~ r^-3/4), spread
+    // over the local thickness so a thin inner disk is as opaque as a thick
+    // rim.
+    float edge = 1.0 - smoothstep(0.88, 1.1, x);
+    float tauV = 3.0 * pow(x, -0.75) * (0.3 + 0.7 * turb) * (1.0 + 1.4 * spiral) * edge;
+    float ext = tauV * vert / (2.5066 * H);
+
+    // Viscous heating, T ~ r^-3/4, plus the spirals' shocks.
+    float T = uDiskTemp * pow(x, -0.75) * (1.0 + 0.3 * spiral);
+
+    // The bright spot: the stream slamming into the rim, the hot gas smeared
+    // downstream along it, puffed up above the plane with the bulge.
+    float sd = mod(phi - uSpotPhi + 3.14159265, 6.2831853) - 3.14159265;
+    float along = sd > 0.0 ? sd / 0.6 : -sd / 0.2;
+    float spot = exp(-along * along) * exp(-pow((x - 0.95) / 0.06, 2.0));
+    T = mix(T, 15000.0, spot);
+    ext *= 1.0 + 2.0 * spot;
+
+    // Brightness grows with T, steeply enough that the inner disk glares.
+    // The disk is opaque, so what shows is its photosphere's temperature:
+    // the turbulence and the arms have to come through as brightness.
+    float bright = pow(T / uDiskTemp, 1.3) * 0.2 * (1.0 + 2.0 * spot)
+        * (0.7 + 0.6 * turb) * (1.0 + 0.9 * spiral);
+    vec3 S = blackbody(min(T, 99000.0)) * min(bright, 12.0);
+    return vec4(S, ext);
 }
 
-// The stream's glow along this ray: a soft tube round each segment of the
-// path, front to back, hidden behind the donor and dimmed behind the disk.
-vec3 streamGlow(vec3 ro, vec3 rd, float tDonor, float tDisk, float diskAlpha) {
-    vec3 col = vec3(0.0);
+// The stream along this ray: a soft tube round the path, its density set by
+// the ray's closest approach to the whole polyline (so the joins are
+// seamless), hidden behind the donor. The rgb is its light; the alpha is how
+// much of what lies behind it the gas blocks.
+vec4 streamGlow(vec3 ro, vec3 rd, float tDonor) {
+    float best = 1e9, bestF = 0.0, bestDen = 1.0, bestT = -1.0;
+    vec3 bestC = vec3(0.0), bestU = vec3(1.0, 0.0, 0.0);
     for (int i = 0; i < STREAM_POINTS - 1; i++) {
         vec3 a = uStream[i];
-        vec3 b = uStream[i + 1];
-        vec3 u = b - a;
+        vec3 u = uStream[i + 1] - a;
         float segLen = length(u);
         if (segLen < 1e-6) continue;
         u /= segLen;
-        // Closest approach between the ray and the segment's line.
+        // Closest approach between the ray and the segment.
         vec3 w0 = ro - a;
         float bb = dot(rd, u);
         float dd = dot(rd, w0), ee = dot(u, w0);
-        float den = 1.0 - bb * bb;
-        if (den < 1e-5) continue;
-        float s = (ee - bb * dd) / den;   // along the segment
-        float t = (bb * ee - dd) / den;   // along the ray
-        if (s < 0.0 || s >= segLen || t < 0.0) continue;
-        float f = float(i) / float(STREAM_POINTS - 1);
-        float wdt = uStreamWidth * mix(1.0, 0.45, f);
-        vec3 c = (ro + t * rd) - (a + s * u);
-        float g = exp(-dot(c, c) / (wdt * wdt));
-        if (g < 1e-3) continue;
-        if (tDonor > 0.0 && t > tDonor) continue;
-        float through = wdt * 1.77 / sqrt(max(den, 0.04));
-        float vis = (tDisk > 0.0 && t > tDisk) ? 1.0 - diskAlpha : 1.0;
-        col += blackbody(mix(uDonorTemp * 0.95, 12000.0, f * f)) * g * through * vis * mix(5.0, 14.0, f);
+        float den = max(1.0 - bb * bb, 1e-5);
+        float s = clamp((ee - bb * dd) / den, 0.0, segLen);
+        vec3 q = a + s * u;
+        float t = max(dot(q - ro, rd), 0.0);
+        vec3 c = (ro + t * rd) - q;
+        float d2 = dot(c, c);
+        if (d2 < best) {
+            best = d2;
+            bestF = (float(i) + s / segLen) / float(STREAM_POINTS - 1);
+            bestDen = den;
+            bestT = t;
+            bestC = c;
+            bestU = u;
+        }
     }
-    return col;
+    if (bestT <= 0.0 || (tDonor > 0.0 && bestT > tDonor)) return vec4(0.0);
+    float f = bestF;
+    // Wide where it leaves L1 (a cone of the sound speed over the orbital
+    // rate), then narrowing as it falls and speeds up.
+    float wdt = uStreamWidth * mix(2.4, 0.7, pow(f, 0.45));
+    float g = exp(-best / (wdt * wdt));
+    if (g < 1e-3) return vec4(0.0);
+    // Clumps that flow down the stream towards the disk.
+    vec3 side = normalize(cross(bestU, vec3(0.0, 0.0, 1.0)));
+    float clump = 0.75 + 0.35 * snoise(vec3(f * 9.0 - uTime * 0.5, dot(bestC, side) / wdt * 0.5, bestC.z / wdt * 0.5));
+    float through = wdt * 1.77 / sqrt(max(bestDen, 0.04));
+    float dens = g * through * max(clump, 0.05) / uStreamWidth;
+    // Cool gas from the shaded L1, heated as it falls and lit by the disk.
+    float T = mix(uDonorTemp * 0.9, 9500.0, f * f);
+    vec3 col = blackbody(T) * dens * mix(0.3, 1.4, f * f) * 0.3;
+    return vec4(col, 1.0 - exp(-dens * 0.6));
 }
 
 void main() {
@@ -489,28 +678,86 @@ void main() {
     vec3 ro = uCamPos;
 
     float tDonor = hitDonor(ro, rd);
-    float tDisk = -1.0;
-    vec4 disk = vec4(0.0);
-    if (abs(rd.z) > 1e-5) {
-        float t = -ro.z / rd.z;
-        if (t > 0.0) {
-            disk = shadeDisk(ro + t * rd);
-            if (disk.a > 0.0) tDisk = t;
+    float tEnd = tDonor > 0.0 ? tDonor : 1e9;
+
+    // Where the ray is within reach of the disk's gas: a slab round the
+    // orbital plane ...
+    float zMax = 5.0 * uDiskHR * uDiskOut;
+    float t0 = 0.0, t1 = -1.0;
+    if (abs(rd.z) > 1e-6) {
+        float ta = (-zMax - ro.z) / rd.z, tb = (zMax - ro.z) / rd.z;
+        t0 = max(min(ta, tb), 0.0);
+        t1 = max(ta, tb);
+    } else if (abs(ro.z) < zMax) {
+        t1 = 1e9;
+    }
+    // ... cut by a cylinder round the accretor.
+    vec2 oc = ro.xy - vec2(uXa, 0.0);
+    float A = dot(rd.xy, rd.xy);
+    float B = dot(oc, rd.xy);
+    float C = dot(oc, oc) - pow(uDiskOut * 1.1, 2.0);
+    float disc = B * B - A * C;
+    if (disc > 0.0 && A > 1e-9) {
+        float sq = sqrt(disc);
+        t0 = max(t0, (-B - sq) / A);
+        t1 = min(t1, (-B + sq) / A);
+    } else if (C > 0.0) {
+        t1 = -1.0;
+    }
+    t1 = min(t1, tEnd);
+
+    // The innermost disk, far too small and hot to resolve at this scale,
+    // glares as a point; how much of it the disk itself hides is read off
+    // the march as it passes.
+    float tc = max(-dot(ro - vec3(uXa, 0.0, 0.0), rd), 0.0);
+    vec3 cp = ro + tc * rd - vec3(uXa, 0.0, 0.0);
+    float glare = tc > tEnd ? 0.0 : -1.0;
+
+    vec3 col = vec3(0.0);
+    float trans = 1.0;
+    if (t1 > t0) {
+        // Steps sized to the local thickness, so the thin inner disk is not
+        // stepped over; jittered per pixel against banding.
+        // A fresh offset every pixel and every frame: what is left of the
+        // steps is fine noise that the film grain swallows.
+        float jit = hash3(vec3(gl_FragCoord.xy, floor(fract(uTime * 0.37) * 4096.0))).x;
+        float t = t0;
+        for (int i = 0; i < 360; i++) {
+            if (t >= t1 || trans < 0.01) break;
+            vec3 p = ro + t * rd;
+            vec2 dp = p.xy - vec2(uXa, 0.0);
+            float r = max(length(dp), uDiskIn);
+            float H = diskH(r, mod(atan(dp.y, dp.x) - uSpotPhi + 6.2831853, 6.2831853));
+            float above = abs(p.z) - 3.5 * H;
+            float dt = above > 0.0
+                ? max(above / max(abs(rd.z), 0.05), 0.4 * H)
+                : 0.45 * H / max(abs(rd.z), 0.12);
+            float h = min(clamp(dt, 0.0004, 0.006), t1 - t);
+            vec4 smp = diskSample(ro + (t + jit * h) * rd);
+            if (glare < 0.0 && t + h > tc) glare = trans;
+            if (smp.a > 0.0) {
+                float a = 1.0 - exp(-smp.a * h);
+                col += trans * smp.rgb * a;
+                trans *= 1.0 - a;
+            }
+            t += h;
         }
     }
+    if (glare < 0.0) glare = trans;
+    float d2 = dot(cp, cp);
+    col += glare * vec3(0.85, 0.92, 1.0) * 0.00002 / (d2 + 0.000004);
 
-    vec3 col = streamGlow(ro, rd, tDonor, tDisk, disk.a);
-    float trans = 1.0;
-    if (tDisk > 0.0 && (tDonor < 0.0 || tDisk < tDonor)) {
-        col += disk.rgb * disk.a;
-        trans = 1.0 - disk.a;
-    }
+    // The stream lies outside the disk; only its end overlaps the rim.
+    vec4 stream = streamGlow(ro, rd, tDonor);
+    col = stream.rgb + (1.0 - stream.a) * col;
+    trans *= 1.0 - stream.a;
+
     if (tDonor > 0.0) {
         col += trans * shadeDonor(ro + tDonor * rd, rd);
     } else {
         col += trans * sky(rd);
     }
-    outColor = vec4(col, 1.0);
+    outColor = vec4(sane(col), 1.0);
 }
 `;
 

@@ -181,3 +181,37 @@ export function lubowShuMin(q) {
 export function diskOuterRadius(q) {
     return 0.6 * eggletonRadius(1 / q);
 }
+
+/**
+ * The disk's half-thickness: a flared disk, H ∝ r^{9/8} (Shakura & Sunyaev's
+ * outer-disk scaling), `hr` the ratio H/r at the rim `rd`. Observed rims run
+ * H/r ≈ 0.1–0.15 (GS 1826−238: 0.145). Where the stream strikes, the rim
+ * swells into a bulge that trails downstream, prograde round the accretor:
+ * `dphi` is the angle past the impact, in [0, 2π).
+ */
+export function diskScaleHeight(r, rd, hr, dphi = Math.PI) {
+    const h = hr * rd * Math.pow(r / rd, 9 / 8);
+    const rim = Math.min(Math.max((r - 0.55 * rd) / (0.4 * rd), 0), 1);
+    // It rises over a short arc before the impact and trails off long after.
+    const sgn = dphi > Math.PI ? dphi - 2 * Math.PI : dphi;
+    const shape = sgn < 0 ? Math.exp(-(sgn * sgn) / 0.09) : Math.exp(-sgn / 1.2);
+    const bulge = shape * rim * rim * (3 - 2 * rim);
+    return h * (1 + 0.6 * bulge);
+}
+
+/** Azimuth about the accretor of the point (x, y), the way the shader measures it. */
+export function accretorAzimuth(x, y, q) {
+    const { xa } = positions(q);
+    return Math.atan2(y, x - xa);
+}
+
+/**
+ * Whether the disk's rim hides the accretor's inner disk from the point
+ * (x, y, z) on the donor: true when the point sits lower above the orbital
+ * plane, as seen from the accretor, than the rim's own H/r. The shader's
+ * irradiation shadow, edge for edge (it softens the edge).
+ */
+export function inDiskShadow(x, y, z, q, hr) {
+    const { xa } = positions(q);
+    return Math.abs(z) / Math.hypot(x - xa, y) < hr;
+}

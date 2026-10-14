@@ -12,6 +12,13 @@
 
 export const WHATS_NEW = [
     {
+        version: '5.16',
+        changes: [
+            'The star overflowing onto a black hole shows up again: it had been rendering as a black screen. It has also been rebuilt: the disk is now a glowing whirlpool with spiral arms and a bright spot where the stream hits it, and the star has a churning, spotted surface that darkens towards its edge.',
+            'The neutron star is now a real one, PSR J0030+0451, with the small round hot spot and thin crescent NASA’s NICER telescope found on it, both near its south pole. Choose “As Earth sees it” to see how the star’s gravity bends their light round to us in the north.',
+        ],
+    },
+    {
         version: '5.15',
         changes: [
             'A new page of exotic objects, behind the atom icon in the header: a wormhole you can fly through into another universe, a neutron star so dense you can see round the back of it, two black holes spiralling together until they merge, and a star stretched into a teardrop and pouring itself onto a black hole. Like Gargantua, every pixel follows its own ray of light, and like Gargantua it is built for a computer with a good graphics card.',

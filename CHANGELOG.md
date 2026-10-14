@@ -16,6 +16,81 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.16.0
+
+**The neutron star becomes PSR J0030+0451 as NICER mapped it, and the Roche
+binary is rebuilt, starting with the fact that it rendered nothing at all.**
+Both objects from 5.15.0 were researched against what these things actually
+look like and redone.
+
+*The Roche scene was black.* At the L1 point the Roche potential's gradient
+vanishes, and the donor's normal was `normalize()` of it: a NaN on the pixel
+or two at the teardrop's tip. The bloom pass blurs every pixel into its
+neighbours, so one NaN spread through the whole frame, stars and all. The
+normal now falls back to the line between the stars there, and every /exotic
+shader's output goes through a `sane()` that zeroes a NaN or infinity rather
+than let one pixel take out the frame again.
+
+*The neutron star* was a featureless lavender ball under a hotspot of
+arbitrary size. It is now the one neutron star whose surface has been
+mapped: PSR J0030+0451, from NASA's NICER pulse profiles (Riley et al. 2019,
+ApJL 887 L21, the ST+PST model's Table 2 medians). A small round spot (5°
+radius, colatitude 128°) and a thin crescent (a 27° circle round colatitude
+167° with a 26° circle cut out of it, offset 0.05 rad), both at 10^6.11 K and
+both in the *southern* hemisphere, on a 1.5 × 10^5 K surface (old millisecond
+pulsars glow at (1–3.5) × 10^5 K in the ultraviolet). The mass and radius are
+the paper's too: 1.34 suns and 12.7 km, R = 6.4 M. A new "As Earth sees it"
+shot puts the camera at J0030's measured 54° inclination, in the north,
+where the spots NICER saw are in view only because the star bends their
+light round; "Under the south pole" shows the crescent and spot as the
+paper's figure does. In visible light everything at these temperatures is
+far down the Rayleigh–Jeans tail, so the colour is the same pale blue-white
+everywhere and only the brightness changes, in proportion to g·T: the spots
+are about eight times brighter than the surface, not a different hue. Heat
+spreading from the caps warms the southern half; a hydrogen atmosphere
+darkens the limb a little. Each pulsar beam rises from its own spot, as a
+core with a fainter hollow cone round it, and is now sampled several times
+along each of the integrator's long outer steps, which had broken it into
+bands. The spin is 205 Hz slowed to one turn every 4 s; the old PSR B1919+21
+period and the unused `magneticAxis` are gone.
+
+*The Roche binary's disk* was a flat textured ring with a hole in it and a
+moiré of fine rings. It is now a volume: flared (H ∝ r^9/8, H/r = 0.07 at the
+rim), opaque, ending in a steeper-than-Gaussian photosphere so grazing rays
+don't pile up haze, and marched in steps sized to the local thickness with a
+per-pixel, per-frame jitter that the film grain absorbs. It runs from a cool
+4200 K rim to a white-hot middle (T ∝ r^−3/4), its turbulence sheared by
+Keplerian rotation; two tidal spiral arms, the kind Doppler tomography found
+in IP Peg (Steeghs et al. 1997), stand still in the binary's frame; the
+stream's impact is a bright spot smeared downstream along the rim with a
+bulge trailing it, rising smoothly before the impact rather than as a cliff.
+The innermost disk, far too small to resolve, glares as a point that the
+disk hides when you look along the orbit's plane, as it does in real
+high-inclination systems.
+
+*The stream* was ribbed where per-segment tubes overlapped. It is now drawn
+from the ray's closest approach to the whole polyline, so the joins are
+seamless; it leaves L1 as a wide cone and narrows as it falls, and clumps
+flow down it.
+
+*The donor star* was flat beige. It now has convection: a few huge,
+irregular cells with granulation inside them, as giant stars do (on π¹ Gruis
+each spans a quarter of the star: Paladini et al. 2018), starspots on a cool
+donor, quadratic limb darkening, and gravity darkening that, like the cells,
+depends on the star: convective (T ∝ g^0.08, Lucy) below about 7000 K,
+radiative (T ∝ g^0.25, von Zeipel, no cells) above. The face turned to the
+disk is heated by it, except along the equator, which the disk's rim shades.
+
+`roche.js` gains the CPU twins the tests hold the shader's new geometry to:
+`diskScaleHeight` (flaring, and a bulge downstream only), `accretorAzimuth`
+(the impact lands prograde of the line between the stars) and `inDiskShadow`
+(L1 and the equator shaded, the poles not). `neutronStar.js` gains `J0030`,
+`hotRegions`, `surfaceTemperature` and `opticalBrightness`, tested for both
+regions lying south and out of Earth's direct view, the crescent being a
+crescent, the spot's area and the paper's compactness.
+
+---
+
 ## 5.15.0
 
 **Four exotic objects, ray traced like Gargantua.** A new page, `/exotic`,
