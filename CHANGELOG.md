@@ -16,6 +16,34 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.17.2
+
+**The Ring Nebula: a dying star's last breath, in its true colours.** A new
+exotic object at `/exotic/ring`, and the one FUTUREPLAN.md called a new skill:
+a volume that glows in emission lines instead of blackbody light. A Sun-like
+star threw off its outer layers about four thousand years ago; the white dwarf
+left behind is 135,000 K, and its ultraviolet makes the gas shine in the sharp
+colours of single elements. They sort themselves by distance from the star,
+because the hardest ultraviolet is used up first: blue helium deep inside,
+teal oxygen through the middle, red hydrogen and nitrogen at the edge. Each
+line's colour is its wavelength through the eye's colour-matching curves, so
+the balance between them is the one the eye would see; "Hubble palette" swaps
+them for the sulphur-hydrogen-oxygen colours of Hubble's famous picture.
+
+The shape is the real one: not a ring but a barrel, triaxial, its long axis
+pointing almost straight at us (O'Dell et al. 2013). "As we see it" shows the
+ring; "From the side" shows the barrel; "Inside" floats in its hollow. JWST's
+2023 details are in (Wesson et al. 2024): the star sitting 2" off centre, the
+dense knots in the ring with tails pointing away from the star and dust that
+blocks the glow behind them (a toggle), the faint concentric arcs in the
+halo, and the red dwarf companion 15,000 AU out. `utils/planetaryNebula.js`
+has the physics and its tests, including the star's ionising photon rate from
+Planck's law and the Strömgren radius it could keep lit. The halo's arcs are
+finer than the march steps there, so each step averages them exactly over its
+own length; sampled, they turned into moiré.
+
+---
+
 ## 5.17.1
 
 **WR 104: a pinwheel of hot dust.** A new exotic object at `/exotic/wr104`,

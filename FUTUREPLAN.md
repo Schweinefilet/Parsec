@@ -48,9 +48,10 @@ Effort is a rough guess: **S** is a few sessions, **M** is a proper feature,
 
 ## New technique: volumetric raymarching
 
-- [ ] **Planetary nebula** (M, new skill). Cat's Eye or Ring Nebula.
+- [x] ~~**Planetary nebula** (M, new skill). Cat's Eye or Ring Nebula.
   Volumetric raymarching with emission-line colours (H-α red, [O III] teal,
-  [N II]) instead of blackbody. Totally different skill from lensing.
+  [N II]) instead of blackbody. Totally different skill from lensing.~~
+  Done in 5.17.2: the Ring, `/exotic/ring` (`utils/planetaryNebula.js`).
 - [x] ~~**WR 104** (S). A Wolf–Rayet binary throwing out a rotating pinwheel
   spiral of dust. An Archimedean spiral advected outward, seen nearly
   face-on. Simple maths, hypnotic result.~~

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Cpu, Clapperboard, Zap, Grid3x3, Pause, Disc, Orbit, MoveVertical } from 'lucide-react';
+import { Cpu, Clapperboard, Zap, Grid3x3, Pause, Disc, Orbit, MoveVertical, Sparkles } from 'lucide-react';
 import Exotic3D from '../components/Exotic3D';
 import SceneBack from '../components/SceneBack';
 import SceneDialog from '../components/SceneDialog';
@@ -28,7 +28,7 @@ import { useI18n } from '../i18n';
 /** URL id → the key group its strings live under. */
 const KEY = {
     wormhole: 'wormhole', 'neutron-star': 'neutronStar', binary: 'binary', roche: 'roche',
-    'hl-tau': 'hlTau', wr104: 'wr104',
+    'hl-tau': 'hlTau', wr104: 'wr104', ring: 'ring',
 };
 
 const SHOT_KEY = {
@@ -36,7 +36,7 @@ const SHOT_KEY = {
     earth: 'shotEarth', south: 'shotSouth', close: 'shotClose',
     edge: 'shotEdge', above: 'shotAbove',
     wide: 'shotWide', eclipse: 'shotEclipse', disk: 'shotDisk',
-    alma: 'shotAlma', tilted: 'shotTilted',
+    alma: 'shotAlma', tilted: 'shotTilted', side: 'shotSide', inside: 'shotInside',
 };
 
 const DEFAULTS = {
@@ -46,6 +46,7 @@ const DEFAULTS = {
     roche: { q: 0.4, donorTemp: 4800 },
     'hl-tau': { view: 'mm', planets: true, jet: true },
     wr104: { eta: 0.01 },
+    ring: { palette: 'eye', knots: true },
 };
 
 /** A row of mutually exclusive choices in the drawer, two up. */
@@ -125,6 +126,10 @@ function ExoticView({ id }) {
         } else if (id === 'hl-tau') {
             readouts.push([t(k('distance')), t(k('distanceValue'), { au: num(Math.round(hud.au)) })]);
             readouts.push([t(k('elapsed')), t(k('elapsedValue'), { y: num(Math.round(hud.years)) })]);
+        } else if (id === 'ring') {
+            readouts.push([t(k('star')), t('gargantua.kelvin', { k: num(hud.temp) })]);
+            readouts.push([t(k('age')), t(k('ageValue'), { y: num(hud.age) })]);
+            readouts.push([t(k('distance')), t(k('distanceValue'), { ly: num(hud.kau * 1000 / 63241, f1) })]);
         } else if (id === 'wr104') {
             readouts.push([t(k('spacing')), t(k('spacingValue'), { au: num(Math.round(hud.spacing)) })]);
             readouts.push([t(k('cone')), t(k('coneValue'), { deg: num(Math.round(hud.cone)) })]);
@@ -212,6 +217,22 @@ function ExoticView({ id }) {
                             })}
                         </p>
                         <Toggle on={settings.jet} icon={<MoveVertical aria-hidden="true" />} label={t(k('jet'))} onClick={() => set({ jet: !settings.jet })} />
+                    </>
+                )}
+                {id === 'ring' && (
+                    <>
+                        <Choice
+                            heading={t(k('palette'))}
+                            options={['eye', 'hubble']}
+                            value={settings.palette}
+                            label={(o) => t(k(o === 'eye' ? 'paletteEye' : 'paletteHubble'))}
+                            onChange={(v) => set({ palette: v })}
+                        />
+                        <p className="drawer-note" style={{ marginBottom: 'var(--s-2)' }}>
+                            {t(k(settings.palette === 'eye' ? 'paletteEyeNote' : 'paletteHubbleNote'))}
+                        </p>
+                        <Toggle on={settings.knots} icon={<Sparkles aria-hidden="true" />} label={t(k('knots'))} onClick={() => set({ knots: !settings.knots })} />
+                        <p className="drawer-note" style={{ marginBottom: 'var(--s-2)' }}>{t(k('knotsNote'))}</p>
                     </>
                 )}
                 {id === 'wr104' && (

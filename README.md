@@ -892,6 +892,29 @@ built.
   wind speed, the spacing, the cone fit, the dust's position against
   `spiralCrossings` and the pattern's rotation once per orbit. The stars'
   masses are assumed (10 and 20 suns); only the separation they imply shows.
+- **Ring Nebula** (`utils/planetaryNebula.js`), at `/exotic/ring`. The
+  first object that glows in emission lines rather than as a blackbody.
+  The shell is a triaxial ellipsoid (O'Dell et al. 2013) with its long axis
+  close to our line of sight, which is why we see a ring: we look down a
+  barrel. Its density is a shell thick round the waist and thinner over the
+  poles, a tenuous fill inside and a faint halo outside, all squared for the
+  emission (recombination and collisional lines both go as n²). Each line
+  shines in its own layer, hardest ultraviolet nearest the star
+  (`zoneWeights`): He II innermost, [O III] through the cavity, hydrogen
+  wherever the gas is ionised, [N II] and [S II] piled up at the ionisation
+  front. The colours are each line's wavelength through the CIE 1931 curves
+  (`lineRGB`, so a watt of teal [O III] looks brighter than a watt of
+  deep-red H-α), times the line's strength against H-β; "Hubble palette"
+  swaps them for the SHO mapping. Both are just six colour uniforms the CPU
+  eases between. From JWST (Wesson et al. 2024): the 135,000 K star 2" off
+  centre, the cool companion 15,000 AU out, the dense globules (cells on a
+  sphere stretched along the radius, so each is a head with a tail pointing
+  away from the star, dusty enough to block what is behind) and the halo's
+  faint arcs. The arcs are finer than a halo step, so each step averages
+  cos(2πr/λ) over its own length exactly (a sinc) instead of sampling it,
+  which aliased into moiré. The tests pin the line colours, the star's
+  ionising photon rate (Planck's law above 13.6 eV: about 2×10⁴⁶ s⁻¹), the
+  Strömgren radius's closed form and the density's shape.
 - **Texture lookups and the D3D compiler.** On Windows, Chrome's WebGL runs
   on ANGLE over Direct3D, whose compiler can't keep a texture lookup with
   implicit derivatives (`texture()`) inside a loop with a dynamic exit or a

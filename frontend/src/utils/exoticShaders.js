@@ -11,6 +11,8 @@
 //   HL Tau        utils/protoplanetaryDisk.js (flat space: the dust at the
 //                 midplane crossing, the gas marched)
 //   WR 104        utils/pinwheel.js     (flat space, marched)
+//   Ring Nebula   utils/planetaryNebula.js (flat space, marched, lines not
+//                 blackbodies)
 //
 // None of them may call texture() (blackbody, sky) inside a long loop or a
 // branch it can skip: ANGLE's D3D compiler unrolls the loop or flattens the
@@ -1192,6 +1194,165 @@ void main() {
 }
 `;
 
+// ── planetary nebula (the Ring) ─────────────────────────────────────────────
+
+export const NEBULA_FRAG = /* glsl */ `
+${HEADER}
+
+uniform vec3 uAxes;      // the shell's semi-axes, kAU
+uniform float uThick;    // its thickness, in ellipsoidal radius
+uniform vec2 uHaloR;     // the halo's inner and outer ellipsoidal radius
+uniform float uHaloDens;
+uniform float uArc;      // spacing of the halo's arcs, kAU
+uniform vec3 uColHe2;    // each line's colour times its strength
+uniform vec3 uColHb;
+uniform vec3 uColO3;
+uniform vec3 uColHa;
+uniform vec3 uColN2;
+uniform vec3 uColS2;
+uniform vec3 uStar;      // the white dwarf, a little off centre
+uniform vec3 uStarCol;
+uniform vec3 uCompanion;
+uniform float uKnots;    // 0..1, the globules
+uniform float uGain;
+
+// utils/planetaryNebula.js nebulaDensity(), roughened: radial spokes, the
+// way the JWST image is streaked, and mottling everywhere.
+// \`arcs\` is the halo's arc pattern averaged over the step (see main).
+float density(vec3 p, float s, float r, vec3 n, float arcs) {
+    float pole = p.z / (uAxes.z * max(s, 1e-6));
+    float waist = 0.25 + 0.75 * exp(-pole * pole / 0.5);
+    float d = (s - 1.0) / uThick;
+    float shell = exp(-d * d) * waist;
+    float inside = 0.08 * (1.0 - smoothstep(0.85, 1.0, s));
+    float halo = uHaloDens * smoothstep(uHaloR.x - 0.1, uHaloR.x + 0.1, s)
+        * (1.0 - smoothstep(uHaloR.y - 0.3, uHaloR.y, s));
+    halo *= 0.6 + 0.4 * arcs;
+    // Spokes: noise that changes with direction but hardly with radius.
+    float spokes = snoise(n * 5.0 + vec3(0.0, 0.0, s * 0.4));
+    float mott = snoise(p * 0.07);
+    return (shell * (0.75 + 0.25 * spokes + 0.25 * mott) + inside * (0.8 + 0.3 * mott) + halo * (0.6 + 0.6 * spokes))
+        * step(0.0, s);
+}
+
+// utils/planetaryNebula.js zoneWeights(): which lines shine at s.
+// Past the shell, the halo: older, thinner gas, still lit, glowing mostly
+// in hydrogen and nitrogen.
+void zones(float s, out float he2, out float o3, out float h, out float n2) {
+    float front = exp(-pow((s - 1.02) / 0.08, 2.0));
+    float halo = smoothstep(uHaloR.x - 0.12, uHaloR.x, s);
+    he2 = 1.0 - smoothstep(0.55, 0.8, s);
+    o3 = 1.0 - smoothstep(0.88, 1.02, s) + 0.25 * halo;
+    h = max(1.0 - smoothstep(1.04, 1.14, s), halo);
+    n2 = 0.15 * h + front + 0.5 * halo;
+}
+
+// The globules: dense knots of gas and dust in the ring, each with a tail
+// pointing away from the star, shaded from the ultraviolet behind its head.
+// Cells on a sphere stretched three times along the radius: the cometary
+// shape. Returns the knot density at p.
+float knots(vec3 n, float s) {
+    // In the ring, round the shell's waist, not over its thin poles.
+    if (s < 0.9 || s > 1.2 || abs(n.z) > 0.6) return 0.0;
+    float f = 34.0 + 15.0 * (s - 1.0);
+    vec3 c = n * f;
+    vec3 cell = floor(c);
+    float best = 0.0;
+    for (int i = 0; i < 8; i++) {
+        vec3 o = vec3(float(i & 1), float((i >> 1) & 1), float((i >> 2) & 1));
+        vec3 id = cell + o - step(fract(c), vec3(0.5));
+        vec3 h = hash3(id + 71.0);
+        if (h.x > 0.4) continue;
+        vec3 q = c - (id + 0.15 + 0.7 * h);
+        float dr = dot(q, n);
+        vec3 perp = q - dr * n;
+        // Head towards the star, tail away.
+        float along = dr > 0.0 ? dr / 2.2 : dr * 1.4;
+        float d2 = dot(perp, perp) + along * along;
+        best = max(best, exp(-d2 / 0.008));
+    }
+    return best;
+}
+
+void main() {
+    vec3 rd = primaryRay();
+    vec3 ro = uCamPos;
+    float jit = hash3(vec3(gl_FragCoord.xy, floor(fract(uTime * 0.37) * 4096.0))).x;
+
+    vec3 col = vec3(0.0);
+    float trans = 1.0;
+    // The nebula's bounding ellipsoid, as a sphere through its long axis.
+    float R = uAxes.z * uHaloR.y;
+    float bq = dot(ro, rd);
+    float cq = dot(ro, ro) - R * R;
+    float disc = bq * bq - cq;
+    float tStar = dot(uStar - ro, rd);
+    float starTrans = 1.0;
+    if (disc > 0.0) {
+        float sq = sqrt(disc);
+        float t0 = max(-bq - sq, 0.0), t1 = -bq + sq;
+        float t = t0;
+        float first = jit;
+        for (int i = 0; i < MAX_STEPS; i++) {
+            if (i >= uMaxSteps || t >= t1 || trans < 0.01) break;
+            vec3 p = ro + t * rd;
+            float s = length(p / uAxes);
+            // Fine through the shell and its knots, coarser elsewhere.
+            float dt = s > 0.82 && s < 1.25 ? 0.6 : (s < 0.82 ? 3.0 : 3.0);
+            dt *= uStepScale * first;
+            first = 1.0;
+            vec3 pm = ro + (t + 0.5 * dt) * rd;
+            float r = length(pm);
+            vec3 n = pm / max(r, 1e-3);
+            float sm = length(pm / uAxes);
+            // The arcs are finer than a halo step: average cos(2πr/λ) over
+            // the step exactly rather than sample it, or it aliases.
+            float ra = length(p), rb = length(ro + (t + dt) * rd);
+            float k = 6.2831853 / uArc;
+            float arcs = abs(rb - ra) * k > 1e-3
+                ? (sin(k * rb) - sin(k * ra)) / (k * (rb - ra))
+                : cos(k * r);
+            float rho = density(pm, sm, r, n, arcs);
+            float he2, o3, h, n2;
+            zones(sm, he2, o3, h, n2);
+            // Recombination and collisionally excited lines both go as
+            // density squared.
+            float e = rho * rho;
+            vec3 em = e * (uColHe2 * he2 + uColO3 * o3 + (uColHa + uColHb) * h + (uColN2 + uColS2) * n2);
+            float ext = 0.0;
+            if (uKnots > 0.0) {
+                float k = knots(n, sm) * uKnots;
+                // Their sunward faces are lit up in hydrogen and nitrogen as
+                // the ultraviolet boils them; their dust blocks what's behind.
+                em += k * (uColHa + uColN2 * 1.4) * 0.5 * smoothstep(0.92, 1.0, sm);
+                ext = k * 1.3;
+            }
+            col += trans * em * uGain * dt;
+            trans *= exp(-ext * dt);
+            if (tStar > t && tStar <= t + dt) starTrans = trans;
+            t += dt;
+        }
+    }
+
+    // The white dwarf, and its distant red companion.
+    vec3 cs = uStar - ro;
+    float tc = dot(cs, rd);
+    if (tc > 0.0) {
+        float d2 = (dot(cs, cs) - tc * tc) / (tc * tc);
+        float px = uPixelAngle * uPixelAngle;
+        col += starTrans * uStarCol * (2.5 * exp(-d2 / (px * 2.0)) + 0.06 * exp(-d2 / (px * 40.0)));
+    }
+    vec3 cc = uCompanion - ro;
+    float tcc = dot(cc, rd);
+    if (tcc > 0.0) {
+        float d2 = (dot(cc, cc) - tcc * tcc) / (tcc * tcc);
+        col += vec3(1.0, 0.45, 0.25) * 0.5 * exp(-d2 / (uPixelAngle * uPixelAngle * 1.5));
+    }
+    col += trans * sky(rd);
+    outColor = vec4(sane(col), 1.0);
+}
+`;
+
 export const EXOTIC_FRAGS = {
     wormhole: WORMHOLE_FRAG,
     'neutron-star': NEUTRON_FRAG,
@@ -1199,4 +1360,5 @@ export const EXOTIC_FRAGS = {
     roche: ROCHE_FRAG,
     'hl-tau': PROTODISK_FRAG,
     wr104: PINWHEEL_FRAG,
+    ring: NEBULA_FRAG,
 };

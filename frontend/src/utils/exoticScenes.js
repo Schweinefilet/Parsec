@@ -16,7 +16,7 @@ const DEG = Math.PI / 180;
  * What the page's picker offers, in order. Gargantua is its own page
  * (GargantuaPage), shown under the same picker; the rest are entries below.
  */
-export const EXOTIC_ORDER = ['gargantua', 'wormhole', 'binary', 'hl-tau', 'wr104'];
+export const EXOTIC_ORDER = ['gargantua', 'wormhole', 'binary', 'ring', 'hl-tau', 'wr104'];
 export const DEFAULT_EXOTIC = 'gargantua';
 /**
  * Built, tested, but pulled from the picker while they get a visual rework:
@@ -100,6 +100,22 @@ export const EXOTIC = {
         },
         shotOrder: ['earth', 'tilted', 'edge', 'close'],
         start: { dist: 2600, az: 0.5, el: 70 * DEG, fov: 40 * DEG },
+    },
+    ring: {
+        // In thousands of AU. Marched; `stepScale` scales its steps.
+        base: { stepScale: 1, maxSteps: 520 },
+        minDist: 25, maxDist: 600,
+        exposure: 1.0,
+        sky: { milkyWay: 0.08 },
+        shots: {
+            // From Earth we look down the long axis, within a few degrees.
+            earth: { dist: 175, el: 86 * DEG, fov: 44 * DEG },
+            side: { dist: 190, el: 3 * DEG, fov: 48 * DEG },
+            tilted: { dist: 180, el: 38 * DEG, fov: 46 * DEG },
+            inside: { dist: 34, el: 70 * DEG, fov: 75 * DEG },
+        },
+        shotOrder: ['earth', 'tilted', 'side', 'inside'],
+        start: { dist: 320, az: -0.6, el: 80 * DEG, fov: 40 * DEG },
     },
     roche: {
         // In units of the separation; there is no integrator, only marching.

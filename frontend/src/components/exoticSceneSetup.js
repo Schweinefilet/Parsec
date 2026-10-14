@@ -15,6 +15,10 @@ import { HL_TAU, GAPS, PLANETS, planetPosition, gasAspect } from '../utils/proto
 import {
     WR104, outflowAuPerDay, armSpacing, dustOnset, shockHalfAngle, coneTrail, starPositions,
 } from '../utils/pinwheel';
+import {
+    RING, SHELL, HALO, ARCSEC_KAU, paletteColours,
+} from '../utils/planetaryNebula';
+import { blackbodyRGB } from '../utils/blackbody';
 
 // Each /exotic object's own uniforms, and what it does every frame: the
 // physics clock, the moving parts, the readouts. Exotic3D.jsx owns the
@@ -298,8 +302,59 @@ function wr104() {
     return { uniforms, update };
 }
 
+// The Ring's halo arcs: one per companion orbit (~280 yr) at the halo's
+// ~30 km/s, in kAU.
+const RING_ARC_KAU = (280 * 30 * 3.15576e7) / 1.495978707e11;
+
+function ringNebula() {
+    const cols = {};
+    const colour = (palette) => paletteColours(palette);
+    const start = colour('eye');
+    for (const id of Object.keys(start)) cols[id] = new THREE.Vector3(...start[id]);
+    // The star is 2" from the shell's centre, in the plane of the sky.
+    const off = RING.starOffsetArcsec * ARCSEC_KAU;
+    const uniforms = {
+        uAxes: { value: new THREE.Vector3(SHELL.a, SHELL.b, SHELL.c) },
+        uThick: { value: SHELL.thickness },
+        uHaloR: { value: new THREE.Vector2(HALO.inner, HALO.outer) },
+        uHaloDens: { value: HALO.density },
+        uArc: { value: RING_ARC_KAU },
+        uColHe2: { value: cols.he2 },
+        uColHb: { value: cols.hb },
+        uColO3: { value: cols.o3 },
+        uColHa: { value: cols.ha },
+        uColN2: { value: cols.n2 },
+        uColS2: { value: cols.s2 },
+        uStar: { value: new THREE.Vector3(off * 0.8, -off * 0.6, 0) },
+        uStarCol: { value: new THREE.Vector3(...blackbodyRGB(RING.starTemp)) },
+        uCompanion: { value: new THREE.Vector3(RING.companionAu / 1000 * 0.7, RING.companionAu / 1000 * 0.7, 2) },
+        uKnots: { value: 1 },
+        uGain: { value: 0.05 },
+    };
+    const info = { temp: RING.starTemp, age: RING.ageYears };
+    let palette = 'eye';
+    let target = start;
+    const update = ({ dt, s, u, cam }) => {
+        u.uTime.value += dt;
+        if (s.palette !== palette) {
+            palette = s.palette;
+            target = colour(palette);
+        }
+        // Ease each line's colour to the palette's.
+        for (const id of Object.keys(cols)) {
+            const c = cols[id];
+            const g = target[id];
+            c.set(damp(c.x, g[0], 3, dt), damp(c.y, g[1], 3, dt), damp(c.z, g[2], 3, dt));
+        }
+        u.uKnots.value = damp(u.uKnots.value, s.knots ? 1 : 0, 3, dt);
+        return { ...info, kau: Math.abs(cam.dist) };
+    };
+    return { uniforms, update };
+}
+
 export function createExoticScene(id) {
     switch (id) {
+        case 'ring': return ringNebula();
         case 'wr104': return wr104();
         case 'hl-tau': return hlTau();
         case 'neutron-star': return neutronStar();
