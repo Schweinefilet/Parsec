@@ -16,6 +16,8 @@ export const WHATS_NEW = [
         changes: [
             'Gargantua now lives with the other exotic objects, behind the atom icon in the header, and is the first thing it shows. Old links to it still work.',
             'The neutron star and the star pouring itself onto a black hole are off the page for now, while they are reworked.',
+            'On the exotic objects page, the settings now open from the arrow at the edge of the screen, the same as on the solar system and the night sky. Escape closes them.',
+            'On a phone, the exotic objects only warn you once, you can pinch to move in or out, and the readings at the bottom no longer run into the credit line.',
         ],
     },
     {

@@ -65,7 +65,20 @@ describe('ExoticPage', () => {
         }
     });
 
-    it('warns a phone first, and lets it carry on', () => {
+    it('closes its settings on Escape, and says which shot is on', () => {
+        at('/exotic/wormhole');
+        const tab = screen.getByRole('button', { name: 'Scene settings' });
+        fireEvent.click(tab);
+        expect(tab).toHaveAttribute('aria-expanded', 'true');
+        expect(screen.getByRole('button', { name: 'Approach' })).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByRole('button', { name: 'From the other side' })).toHaveAttribute('aria-pressed', 'false');
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(screen.getByRole('button', { name: 'Scene settings' })).toHaveAttribute('aria-expanded', 'false');
+        expect(screen.queryByRole('button', { name: 'Approach' })).not.toBeInTheDocument();
+    });
+
+    // Last: "Run it anyway" holds for the rest of the visit, by design.
+    it('warns a phone once, not again at every object', () => {
         vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
             matches: query.includes('max-width') || query.includes('coarse'),
             media: query, onchange: null,
@@ -75,6 +88,9 @@ describe('ExoticPage', () => {
         at();
         expect(screen.getByText('Built for a computer')).toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Run it anyway' }));
+        expect(screen.queryByText('Built for a computer')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('link', { name: 'Gargantua' }));
+        expect(screen.getByRole('heading', { name: 'Gargantua' })).toBeInTheDocument();
         expect(screen.queryByText('Built for a computer')).not.toBeInTheDocument();
     });
 });

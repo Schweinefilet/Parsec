@@ -362,6 +362,7 @@ export const vi = {
         qualityAbsurd: 'Quá đà',
         qualityNote: 'Mức cao hơn dò nhiều bước hơn cho mỗi điểm ảnh, với nhiều điểm ảnh hơn. Rất cao và Quá đà dành cho card đồ họa mạnh.',
         hint: 'Kéo để quay quanh. Cuộn để tiến vào hoặc lùi ra.',
+        hintTouch: 'Kéo để quay quanh. Chụm hai ngón để tiến vào hoặc lùi ra.',
         distance: 'Khoảng cách',
         distanceValue: '{r} M · {au} AU',
         hourHere: 'Một giờ ở đây',
@@ -382,6 +383,7 @@ export const vi = {
         objects: 'Vật thể kỳ lạ',
         settings: 'Cài đặt cảnh',
         settingsClose: 'Đóng cài đặt cảnh',
+        hintSettings: 'Góc quay, cài đặt và chất lượng hiển thị',
         desktopBody: 'Mỗi điểm ảnh ở đây đi theo một tia sáng riêng, hàng trăm bước mỗi tia, nhiều lần mỗi giây. Điện thoại sẽ nóng và chậm.',
         wormhole: {
             title: 'Lỗ sâu',

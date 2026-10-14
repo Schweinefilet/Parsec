@@ -201,15 +201,36 @@ export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost 
         };
 
         // ── input ────────────────────────────────────────────────────────────
+        // One pointer orbits; two pinch, the touch twin of the wheel.
         let drag = null;
+        const pointers = new Map();
+        let pinch = 0;
+        const spread = () => {
+            const [a, b] = [...pointers.values()];
+            return Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        };
+        const zoom = (factor) => {
+            if (dive) dive = null;
+            goal.dist *= factor;
+            Object.assign(goal, clampCamera(goal));
+            lastInput = performance.now();
+        };
         const onDown = (e) => {
             canvas.setPointerCapture?.(e.pointerId);
-            drag = { x: e.clientX, y: e.clientY };
+            pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (pointers.size === 2) { pinch = spread(); drag = null; } else drag = { x: e.clientX, y: e.clientY };
             canvas.style.cursor = 'grabbing';
             lastInput = performance.now();
             if (dive) { dive = null; fade = Math.max(fade, 0.001); }
         };
         const onMove = (e) => {
+            if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (pinch && pointers.size >= 2) {
+                const d = spread();
+                zoom(pinch / d);
+                pinch = d;
+                return;
+            }
             if (!drag) return;
             const dx = e.clientX - drag.x;
             const dy = e.clientY - drag.y;
@@ -219,13 +240,18 @@ export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost 
             Object.assign(goal, clampCamera(goal));
             lastInput = performance.now();
         };
-        const onUp = () => { drag = null; canvas.style.cursor = 'grab'; };
+        const onUp = (e) => {
+            pointers.delete(e.pointerId);
+            if (pointers.size < 2) pinch = 0;
+            // The finger left behind after a pinch carries on orbiting from
+            // where it is, not from where the first one went down.
+            const rest = [...pointers.values()][0];
+            drag = pointers.size === 1 ? { ...rest } : null;
+            if (!pointers.size) canvas.style.cursor = 'grab';
+        };
         const onWheel = (e) => {
             e.preventDefault();
-            if (dive) dive = null;
-            goal.dist *= Math.exp(e.deltaY * 0.0012);
-            Object.assign(goal, clampCamera(goal));
-            lastInput = performance.now();
+            zoom(Math.exp(e.deltaY * 0.0012));
         };
         canvas.addEventListener('pointerdown', onDown);
         canvas.addEventListener('pointermove', onMove);

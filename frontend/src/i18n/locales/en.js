@@ -360,6 +360,7 @@ export const en = {
         qualityAbsurd: 'Absurd',
         qualityNote: 'Higher settings trace more steps per pixel at more pixels. Ultra and Absurd are for a strong graphics card.',
         hint: 'Drag to orbit. Scroll to move in or out.',
+        hintTouch: 'Drag to orbit. Pinch to move in or out.',
         distance: 'Distance',
         distanceValue: '{r} M · {au} AU',
         hourHere: 'One hour here',
@@ -382,6 +383,7 @@ export const en = {
         objects: 'Exotic objects',
         settings: 'Scene settings',
         settingsClose: 'Close scene settings',
+        hintSettings: 'Shots, settings and render quality',
         desktopBody: 'Every pixel here follows its own ray of light, hundreds of steps each, many times a second. A phone will run hot and slow.',
         wormhole: {
             title: 'Wormhole',

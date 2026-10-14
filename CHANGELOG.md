@@ -16,6 +16,41 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.16.2
+
+**The exotic objects' controls now work the way the rest of the site's do.**
+A pass over `/exotic` for anything that didn't match the solar system or was a
+pain to use. The settings moved out of a slider button in the top-right
+corner, where they sat under the header dock and looked like neither the main
+page's nor the night sky's, into the same chevron drawer against the leading
+edge that `ScenePanel` and `NightSkyPanel` use (`EdgeTab`). Like those, Escape
+closes it, a first-visit tip points at it (its own `p4rsec.coachExotic`
+flag), and its heading names the drawer, with "Shots" now a subheading under
+it. Shot buttons say which one is on with `aria-pressed`, the way the quality
+buttons already did, rather than only lighting up.
+
+The object picker's pills were out of line: `.opt-row + .opt-row` (a drawer's
+stacking margin) pushed every pill after the first down 8px and stretched the
+first. On a phone the picker is now one row that scrolls sideways, rather
+than two rows that pushed the picture down. The readouts and the credit are
+now one column stacked from the bottom edge, so a credit that wraps (every
+phone, and narrower windows) pushes the readouts up rather than running
+underneath them. The wormhole's and the binary's title block no longer
+swallows a drag that starts on it; Gargantua's already let it through.
+
+On a phone, "Run it anyway" now holds for the visit. Gargantua's page and the
+others each had their own warning, so it came back at every pick in the
+picker. The pages also respond to a pinch now. Before, only a mouse wheel
+could move the camera in or out, which left a phone stuck at the starting
+distance. The drawer's hint says "pinch" on a touch screen.
+
+The chrome the two pages had each copied (frame, title and picker, drawer,
+shot and quality pickers, slider, readouts and credit, phone warning) now
+lives in one place, `components/ExoticChrome.jsx`, so the two can't drift
+apart again.
+
+---
+
 ## 5.16.1
 
 **Gargantua joins the exotic objects, and the neutron star and Roche binary
