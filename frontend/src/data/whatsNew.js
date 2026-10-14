@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.17',
         changes: [
+            'A new exotic object: WR 104, two stars throwing out a spiral of glowing dust that makes one turn every 241 days. Tilt it to see that the spiral is really a cone wound round on itself.',
             'A new exotic object: HL Tau, a star less than a million years old in a disk of dust ringed by the planets forming in it. See it as the ALMA telescope did, in millimetre waves, or in starlight, where edge on it becomes two glowing bowls either side of a dark lane.',
         ],
     },

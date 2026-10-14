@@ -27,7 +27,7 @@ describe('ExoticPage', () => {
     it('links to the objects on offer, not the stashed ones, and marks the one on screen', () => {
         at('/exotic/binary');
         const nav = screen.getByRole('navigation', { name: 'Exotic objects' });
-        for (const name of ['Gargantua', 'Wormhole', 'Binary black hole', 'HL Tau']) {
+        for (const name of ['Gargantua', 'Wormhole', 'Binary black hole', 'HL Tau', 'WR 104']) {
             expect(nav).toHaveTextContent(name);
         }
         for (const name of ['Neutron star', 'Roche lobe overflow']) {
@@ -55,6 +55,7 @@ describe('ExoticPage', () => {
             ['/exotic/wormhole', ['Approach', 'Go through', 'From the other side'], []],
             ['/exotic/binary', ['Edge on', 'From above', 'Close in'], ['Hold the orbit', 'Gas disk round the pair']],
             ['/exotic/hl-tau', ['As ALMA sees it', 'From above', 'Edge on', 'Close in'], ['Forming planets', 'Jet']],
+            ['/exotic/wr104', ['As Keck sees it', 'At a slant', 'Edge on', 'Close in'], []],
         ];
         for (const [url, shots, toggles] of cases) {
             at(url);

@@ -16,6 +16,30 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.17.1
+
+**WR 104: a pinwheel of hot dust.** A new exotic object at `/exotic/wr104`,
+the second volumetric one. Two hot stars orbit each other every 241.5 days;
+where their winds collide, dust condenses on a hollow cone that turns with
+the orbit, and the dust flies outward at the wind's 1250 km/s. The result is
+an Archimedean spiral that keeps its shape as it grows, one turn per orbit,
+174 AU between turns, which Keck has been filming since 1999. Here it is the
+whole three-dimensional structure, not just its face-on shadow: tilt it and
+the spiral turns out to be nested sheets of a cone, clumped the way JWST's
+images of its cousin WR 140 are, the clumps flying out with the dust.
+
+The numbers are the measured ones (Tuthill et al. 2008: period, expansion
+rate, the empty middle), and the cone's width comes from the wind momentum
+ratio by Eichler & Usov's fit; a slider sets it. The dust glows in the
+infrared at a temperature falling from 1500 K, drawn in the false colour and
+log scale infrared images use, so the outer turns, a hundred times fainter,
+still show. It is analytic, not simulated: every point knows when the dust
+there left and where the cone pointed then (`utils/pinwheel.js`, with tests),
+and the march skips the gaps between turns. The credit mentions the open
+question: spectra put the orbit 30–45° from face-on, the spiral looks face-on.
+
+---
+
 ## 5.17.0
 
 **HL Tau: a disk where planets are being made.** A new exotic object at

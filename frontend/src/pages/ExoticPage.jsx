@@ -28,7 +28,7 @@ import { useI18n } from '../i18n';
 /** URL id → the key group its strings live under. */
 const KEY = {
     wormhole: 'wormhole', 'neutron-star': 'neutronStar', binary: 'binary', roche: 'roche',
-    'hl-tau': 'hlTau',
+    'hl-tau': 'hlTau', wr104: 'wr104',
 };
 
 const SHOT_KEY = {
@@ -36,7 +36,7 @@ const SHOT_KEY = {
     earth: 'shotEarth', south: 'shotSouth', close: 'shotClose',
     edge: 'shotEdge', above: 'shotAbove',
     wide: 'shotWide', eclipse: 'shotEclipse', disk: 'shotDisk',
-    alma: 'shotAlma',
+    alma: 'shotAlma', tilted: 'shotTilted',
 };
 
 const DEFAULTS = {
@@ -45,6 +45,7 @@ const DEFAULTS = {
     binary: { hold: false, disk: true },
     roche: { q: 0.4, donorTemp: 4800 },
     'hl-tau': { view: 'mm', planets: true, jet: true },
+    wr104: { eta: 0.01 },
 };
 
 /** A row of mutually exclusive choices in the drawer, two up. */
@@ -124,6 +125,10 @@ function ExoticView({ id }) {
         } else if (id === 'hl-tau') {
             readouts.push([t(k('distance')), t(k('distanceValue'), { au: num(Math.round(hud.au)) })]);
             readouts.push([t(k('elapsed')), t(k('elapsedValue'), { y: num(Math.round(hud.years)) })]);
+        } else if (id === 'wr104') {
+            readouts.push([t(k('spacing')), t(k('spacingValue'), { au: num(Math.round(hud.spacing)) })]);
+            readouts.push([t(k('cone')), t(k('coneValue'), { deg: num(Math.round(hud.cone)) })]);
+            readouts.push([t(k('day')), t(k('dayValue'), { d: num(Math.floor(hud.day)), p: num(hud.period, f1) })]);
         } else if (id === 'roche' && hud.q != null) {
             readouts.push([t(k('lobe')), t(k('lobeValue'), { r: num(hud.lobe, f2) })]);
             readouts.push([t(k('diskSize')), t(k('lobeValue'), { r: num(hud.disk, f2) })]);
@@ -207,6 +212,19 @@ function ExoticView({ id }) {
                             })}
                         </p>
                         <Toggle on={settings.jet} icon={<MoveVertical aria-hidden="true" />} label={t(k('jet'))} onClick={() => set({ jet: !settings.jet })} />
+                    </>
+                )}
+                {id === 'wr104' && (
+                    <>
+                        <div className="drawer-section">
+                            <Slider
+                                name={t(k('eta'))}
+                                value={settings.eta} min={0.005} max={0.2} step={0.005}
+                                display={num(settings.eta, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
+                                onChange={(v) => set({ eta: v })}
+                            />
+                        </div>
+                        <p className="drawer-note" style={{ marginBottom: 'var(--s-2)' }}>{t(k('etaNote'))}</p>
                     </>
                 )}
                 {id === 'roche' && (

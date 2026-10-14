@@ -51,9 +51,10 @@ Effort is a rough guess: **S** is a few sessions, **M** is a proper feature,
 - [ ] **Planetary nebula** (M, new skill). Cat's Eye or Ring Nebula.
   Volumetric raymarching with emission-line colours (H-α red, [O III] teal,
   [N II]) instead of blackbody. Totally different skill from lensing.
-- [ ] **WR 104** (S). A Wolf–Rayet binary throwing out a rotating pinwheel
+- [x] ~~**WR 104** (S). A Wolf–Rayet binary throwing out a rotating pinwheel
   spiral of dust. An Archimedean spiral advected outward, seen nearly
-  face-on. Simple maths, hypnotic result.
+  face-on. Simple maths, hypnotic result.~~
+  Done in 5.17.1: `/exotic/wr104` (`utils/pinwheel.js`).
 - [x] ~~**Protoplanetary disk like HL Tau** (S). Concentric rings with gaps
   carved by forming planets. Cheap and pretty; a good first one to build.~~
   Done in 5.17.0: `/exotic/hl-tau` (`utils/protoplanetaryDisk.js`).

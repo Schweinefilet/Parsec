@@ -469,6 +469,23 @@ export const en = {
             elapsedValue: '{y} years',
             credit: 'Rings and gaps as ALMA measured them (ALMA Partnership 2015), seen 46.7° from face-on; the star’s mass from Pinte et al. (2016). Planet masses come from the gap widths (Kanagawa et al. 2016) and their wakes follow Rafikov (2002). The jet shows in starlight.',
         },
+        wr104: {
+            title: 'WR 104',
+            tagline: 'Two stars throwing out a pinwheel of hot dust, one turn every 241 days',
+            shotEarth: 'As Keck sees it',
+            shotTilted: 'At a slant',
+            shotEdge: 'Edge on',
+            shotClose: 'Close in',
+            eta: 'Wind momentum ratio',
+            etaNote: 'How hard the companion’s wind pushes back against the Wolf–Rayet star’s. A stronger push opens the cone where they meet, and the dust on it fans out wider.',
+            spacing: 'Between turns',
+            spacingValue: '{au} AU',
+            cone: 'Cone where the winds meet',
+            coneValue: '{deg}° across',
+            day: 'Orbit',
+            dayValue: 'day {d} of {p}',
+            credit: 'Period, expansion and the dust-free middle from Keck (Tuthill et al. 2008), at 2.6 kpc; the cone’s width from Eichler & Usov (1993). Infrared dust glow in false colour, log-scaled. Spectra suggest the orbit is tilted 30–45° (Hill et al. 2024) while the spiral looks face-on: still unexplained.',
+        },
     },
 
     sky: {

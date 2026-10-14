@@ -11,6 +11,7 @@ const TITLE_KEY = {
     binary: 'exotic.binary.title',
     roche: 'exotic.roche.title',
     'hl-tau': 'exotic.hlTau.title',
+    wr104: 'exotic.wr104.title',
 };
 
 // The row of objects under an /exotic page's title. Shared by ExoticPage and

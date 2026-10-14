@@ -12,6 +12,9 @@ import {
 } from '../utils/roche';
 import { STREAM_POINTS } from '../utils/exoticShaders';
 import { HL_TAU, GAPS, PLANETS, planetPosition, gasAspect } from '../utils/protoplanetaryDisk';
+import {
+    WR104, outflowAuPerDay, armSpacing, dustOnset, shockHalfAngle, coneTrail, starPositions,
+} from '../utils/pinwheel';
 
 // Each /exotic object's own uniforms, and what it does every frame: the
 // physics clock, the moving parts, the readouts. Exotic3D.jsx owns the
@@ -255,8 +258,49 @@ function hlTau() {
     return { uniforms, update };
 }
 
+// One orbit of WR 104 every this many real seconds.
+const WR104_ORBIT_SECONDS = 9;
+// The wind momentum ratio the shell's thickness is scaled from.
+const WR104_ETA = 0.01;
+
+function wr104() {
+    const P = WR104.periodDays;
+    const uniforms = {
+        uTheta: { value: shockHalfAngle(WR104_ETA) },
+        uWidth: { value: 0.07 },
+        uV: { value: outflowAuPerDay() },
+        uPeriod: { value: P },
+        uSkew: { value: coneTrail() },
+        uR0: { value: dustOnset() },
+        uRMax: { value: dustOnset() + 5 * armSpacing() },
+        uDays: { value: 0 },
+        uStarA: { value: new THREE.Vector3() },
+        uStarB: { value: new THREE.Vector3() },
+        uGain: { value: 1e8 },
+    };
+    let days = 0;
+    let theta = uniforms.uTheta.value;
+    const update = ({ dt, s, u }) => {
+        days = (days + (dt * P) / WR104_ORBIT_SECONDS) % P;
+        // The pattern repeats every orbit, so the clock wraps: small numbers
+        // for the GPU's floats. (uDays − r/v going negative is fine.)
+        u.uTime.value += dt;
+        u.uDays.value = days;
+        theta = damp(theta, shockHalfAngle(s.eta), 3, dt);
+        u.uTheta.value = theta;
+        // A wider cone, a proportionally thicker shell.
+        u.uWidth.value = 0.07 * Math.max(theta / shockHalfAngle(WR104_ETA), 0.5);
+        const [a, b] = starPositions(days);
+        u.uStarA.value.set(...a);
+        u.uStarB.value.set(...b);
+        return { spacing: armSpacing(), cone: (2 * theta * 180) / Math.PI, day: days, period: P };
+    };
+    return { uniforms, update };
+}
+
 export function createExoticScene(id) {
     switch (id) {
+        case 'wr104': return wr104();
         case 'hl-tau': return hlTau();
         case 'neutron-star': return neutronStar();
         case 'binary': return binary();

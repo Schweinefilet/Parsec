@@ -10,6 +10,7 @@
 //   Roche         utils/roche.js        (flat space, ray marched)
 //   HL Tau        utils/protoplanetaryDisk.js (flat space: the dust at the
 //                 midplane crossing, the gas marched)
+//   WR 104        utils/pinwheel.js     (flat space, marched)
 //
 // None of them may call texture() (blackbody, sky) inside a long loop or a
 // branch it can skip: ANGLE's D3D compiler unrolls the loop or flattens the
@@ -1066,10 +1067,136 @@ void main() {
 }
 `;
 
+// ── WR 104's pinwheel ───────────────────────────────────────────────────────
+
+export const PINWHEEL_FRAG = /* glsl */ `
+${HEADER}
+
+uniform float uTheta;   // the cone's half-angle
+uniform float uWidth;   // the dust shell's angular thickness
+uniform float uV;       // AU per day
+uniform float uPeriod;  // days
+uniform float uSkew;    // how far the cone trails the orbit
+uniform float uR0;      // where dust forms
+uniform float uRMax;
+uniform float uDays;    // time, wrapped to a period
+uniform vec3 uStarA;    // the Wolf–Rayet star
+uniform vec3 uStarB;    // the O/B star
+uniform float uGain;
+
+// utils/pinwheel.js coneAxis(): in the orbital plane, trailing the orbit a
+// little because the stars move while the wind crosses the gap.
+vec3 coneAxis(float tau) {
+    float a = 6.2831853 * tau / uPeriod - uSkew;
+    return vec3(cos(a), sin(a), 0.0);
+}
+
+// utils/pinwheel.js dustDensity(), clumped, and how far (in angle) x is
+// from the dust shell, for the sphere tracing.
+float dust(vec3 x, float r, out float gap) {
+    float tau = uDays - r / uV;
+    vec3 ax = coneAxis(tau);
+    float c = clamp(dot(x, ax) / r, -1.0, 1.0);
+    float psi = acos(c);
+    float d = (psi - uTheta) / uWidth;
+    gap = abs(psi - uTheta) - 3.0 * uWidth;
+    if (gap > 0.0 || r < uR0 * 0.9) return 0.0;
+    // Where round the cone this parcel left from: with its departure time,
+    // fixed for the parcel, so the clumps fly out with the dust.
+    vec3 e2 = vec3(-ax.y, ax.x, 0.0);
+    float beta = atan(x.z, dot(x, e2));
+    float clump = fbm(vec3(tau / uPeriod * 11.0, cos(beta) * 2.2, sin(beta) * 2.2), 3);
+    clump = 0.25 + 1.5 * smoothstep(-0.35, 0.55, clump);
+    float onset = smoothstep(uR0 * 0.9, uR0 * 1.5, r);
+    return exp(-d * d) * onset * clump / (r * r);
+}
+
+// The 2.2 µm glow of dust at r: utils/pinwheel.js dustTemperature() into
+// kBandPlanck().
+float kBand(float r) {
+    float T = 1500.0 * pow(max(r, 1.0) / uR0, -0.4);
+    return 1.0 / (exp(6540.0 / T) - 1.0);
+}
+
+// Infrared false colour, as the Keck images are shown: black through red
+// and orange to white.
+vec3 heat(float x) {
+    x = clamp(x, 0.0, 1.2);
+    vec3 c = mix(vec3(0.0), vec3(0.55, 0.05, 0.02), smoothstep(0.0, 0.3, x));
+    c = mix(c, vec3(1.0, 0.42, 0.06), smoothstep(0.25, 0.6, x));
+    c = mix(c, vec3(1.0, 0.86, 0.5), smoothstep(0.55, 0.9, x));
+    return mix(c, vec3(1.0, 0.97, 0.92), smoothstep(0.9, 1.2, x));
+}
+
+void main() {
+    vec3 rd = primaryRay();
+    vec3 ro = uCamPos;
+    float jit = hash3(vec3(gl_FragCoord.xy, floor(fract(uTime * 0.37) * 4096.0))).x;
+
+    float I = 0.0;
+    float bq = dot(ro, rd);
+    float cq = dot(ro, ro) - uRMax * uRMax;
+    float disc = bq * bq - cq;
+    if (disc > 0.0) {
+        float sq = sqrt(disc);
+        float t0 = max(-bq - sq, 0.0), t1 = -bq + sq;
+        // How fast the spiral's angle changes along r: the sphere tracing's
+        // speed limit.
+        float turn = 6.2831853 / (uV * uPeriod);
+        float t = t0;
+        float first = jit;
+        for (int i = 0; i < MAX_STEPS; i++) {
+            if (i >= uMaxSteps || t >= t1) break;
+            vec3 x = ro + t * rd;
+            float r = max(length(x), 1e-3);
+            float gap;
+            float rho = dust(x, r, gap);
+            float dt = clamp(uStepScale * r, 0.25, 30.0);
+            if (gap > 0.0) {
+                dt = max(dt, 0.7 * gap / (turn + 1.0 / r));
+            } else if (r < uR0 * 0.9) {
+                dt = max(dt, uR0 * 0.9 - r);
+            } else {
+                // In the shell: step on, and take the sample half a step on,
+                // jittered the first time.
+                dt *= first;
+                first = 1.0;
+                vec3 xm = ro + (t + 0.5 * dt) * rd;
+                float rm = length(xm);
+                float g2;
+                I += dust(xm, rm, g2) * kBand(rm) * dt;
+            }
+            t += dt;
+        }
+    }
+
+    // A log stretch, as infrared images of it are shown: the dust a turn
+    // out is a hundred times fainter than the dust at the onset.
+    float x = log(1.0 + I * uGain) / log(1.0 + uGain * 6e-5);
+    vec3 col = heat(x) * 1.4;
+
+    // The two stars, far too close together and too small to resolve
+    // except from close in.
+    for (int k = 0; k < 2; k++) {
+        vec3 sp = k == 0 ? uStarA : uStarB;
+        vec3 cs = sp - ro;
+        float tc = dot(cs, rd);
+        if (tc <= 0.0) continue;
+        float d2 = (dot(cs, cs) - tc * tc) / (tc * tc);
+        float px = uPixelAngle * uPixelAngle;
+        vec3 sc = k == 0 ? vec3(0.75, 0.85, 1.0) : vec3(0.85, 0.9, 1.0);
+        col += sc * (1.6 * exp(-d2 / (px * 2.5)) + 0.1 * exp(-d2 / (px * 60.0)));
+    }
+    col += sky(rd) * 0.5;
+    outColor = vec4(sane(col), 1.0);
+}
+`;
+
 export const EXOTIC_FRAGS = {
     wormhole: WORMHOLE_FRAG,
     'neutron-star': NEUTRON_FRAG,
     binary: BINARY_FRAG,
     roche: ROCHE_FRAG,
     'hl-tau': PROTODISK_FRAG,
+    wr104: PINWHEEL_FRAG,
 };

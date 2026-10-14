@@ -469,6 +469,23 @@ export const vi = {
             elapsedValue: '{y} năm',
             credit: 'Các vành và khe theo số đo của ALMA (ALMA Partnership 2015), nhìn lệch 46,7° so với chính diện; khối lượng sao theo Pinte và cộng sự (2016). Khối lượng hành tinh suy từ độ rộng khe (Kanagawa và cộng sự 2016), vệt sóng theo Rafikov (2002). Luồng phụt chỉ hiện trong ánh sao.',
         },
+        wr104: {
+            title: 'WR 104',
+            tagline: 'Hai ngôi sao tung ra một chong chóng bụi nóng, mỗi vòng sau 241 ngày',
+            shotEarth: 'Như Keck thấy',
+            shotTilted: 'Nhìn chéo',
+            shotEdge: 'Nhìn ngang',
+            shotClose: 'Lại gần',
+            eta: 'Tỉ số động lượng gió',
+            etaNote: 'Gió của sao đồng hành đẩy ngược lại gió của sao Wolf–Rayet mạnh đến đâu. Đẩy càng mạnh, hình nón nơi hai luồng gió gặp nhau càng mở rộng, và bụi trên đó càng toả rộng.',
+            spacing: 'Giữa các vòng',
+            spacingValue: '{au} AU',
+            cone: 'Nón nơi các luồng gió gặp nhau',
+            coneValue: 'rộng {deg}°',
+            day: 'Quỹ đạo',
+            dayValue: 'ngày {d} trên {p}',
+            credit: 'Chu kỳ, tốc độ giãn nở và khoảng trống không bụi ở giữa theo Keck (Tuthill và cộng sự 2008), ở khoảng cách 2,6 kpc; độ rộng của nón theo Eichler & Usov (1993). Ánh hồng ngoại của bụi tô màu giả, thang log. Quang phổ cho thấy quỹ đạo nghiêng 30–45° (Hill và cộng sự 2024) trong khi vòng xoắn trông như nhìn chính diện: đến nay vẫn chưa giải thích được.',
+        },
     },
 
     sky: {

@@ -874,6 +874,24 @@ built.
   tests pin Kepler, the gap depths, the bright-ring-dark-gap order of the
   profile, the width–mass round trip and the wake's shape. A shot can set
   settings too (`set` in `exoticScenes.js`): "Edge on" switches to starlight.
+- **WR 104** (`utils/pinwheel.js`), at `/exotic/wr104`. A Wolf–Rayet star
+  and an O/B companion whose colliding winds make dust on a hollow cone
+  round the companion; the cone turns with the 241.5-day orbit and the dust
+  flies straight out, so it is an analytic field, no simulation: a point at
+  r holds dust if, r/v ago, the cone's surface pointed at it (`dustDensity`).
+  Period, the 0.28 mas/day expansion (1250 km/s at 2.58 kpc, so turns 174 AU
+  apart) and the 34 AU dust-free middle are Tuthill et al. (2008)'s; the
+  cone's half-angle is Eichler & Usov (1993)'s fit to the wind momentum
+  ratio η, which the drawer's slider sets; the cone trails the orbit by
+  atan(v_orbit/v_wind), about 5°. The dust cools as r^−0.4 from 1500 K and is
+  drawn as its 2.2 µm glow (Planck at 6540 K / T), log-stretched into the
+  black-red-white false colour infrared images are shown in, clumped by
+  noise fixed to each parcel's departure time and angle round the cone so the
+  clumps fly out with it. Marched, sphere-traced through the gap between turns
+  with the spiral's own winding rate as the speed limit. The tests pin the
+  wind speed, the spacing, the cone fit, the dust's position against
+  `spiralCrossings` and the pattern's rotation once per orbit. The stars'
+  masses are assumed (10 and 20 suns); only the separation they imply shows.
 - **Texture lookups and the D3D compiler.** On Windows, Chrome's WebGL runs
   on ANGLE over Direct3D, whose compiler can't keep a texture lookup with
   implicit derivatives (`texture()`) inside a loop with a dynamic exit or a
