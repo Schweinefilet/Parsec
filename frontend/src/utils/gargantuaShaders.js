@@ -257,6 +257,14 @@ uniform float uHaze;
 uniform float uObsFactor;
 uniform float uTime;
 
+uniform float uJet;          // 0..1, the quasar's jets
+uniform float uJetGain;
+uniform vec3 uJetColour;     // utils/jets.js synchrotronRGB()
+uniform float uJetLen;
+uniform float uJetGamma;     // top Lorentz factor
+uniform float uJetAccel;     // how far out it reaches it
+uniform float uJetAlpha;     // synchrotron spectral index
+
 uniform float uStepScale;
 uniform int uMaxSteps;
 uniform float uEscape;
@@ -388,6 +396,64 @@ vec3 diskHaze(vec3 x0, vec3 x1, vec3 p) {
         * lineInt * radial * uHaze * uDiskGain;
 }
 
+// ── the jets ────────────────────────────────────────────────────────────────
+
+// utils/jets.js jetRadius() and jetLorentz().
+float jetRadius(float z) {
+    return 1.4 + 0.9 * pow(abs(z), 1.0 / 1.73);
+}
+float jetLorentz(float z) {
+    return 1.0 + (uJetGamma - 1.0) * (1.0 - exp(-abs(z) / uJetAccel));
+}
+
+// Synchrotron emissivity at x, in the jet's own frame, times its beaming
+// towards the camera. dir is the way the light leaves x for the camera: the
+// traced ray runs the other way.
+float jetEmission(vec3 x, vec3 dir) {
+    float z = abs(x.z);
+    if (z < 1.6) return 0.0;
+    float R = jetRadius(z);
+    float q = length(x.xy) / R;
+    if (q > 1.6) return 0.0;
+    // Limb-brightened: a sheath brighter than the spine, as radio images of
+    // M87's jet show.
+    float prof = 0.45 * exp(-2.5 * q * q) + exp(-pow((q - 0.72) / 0.2, 2.0));
+    float fall = pow(z / 4.0 + 1.0, -0.9) * smoothstep(1.6, 5.0, z)
+        * (1.0 - smoothstep(uJetLen * 0.55, uJetLen, z));
+    float gam = jetLorentz(z);
+    float beta = sqrt(1.0 - 1.0 / (gam * gam));
+    // Knots that flow out at the jet's own speed.
+    float zk = z - uTime * beta;
+    float ph = atan(x.y, x.x);
+    float n = snoise(vec3(cos(ph) * q * 1.3, sin(ph) * q * 1.3, zk * 0.045));
+    float knots = 0.5 + 1.1 * smoothstep(-0.15, 0.75, n);
+    // utils/jets.js dopplerFactor() and jetBoost(), the jet moving along ±z.
+    float cosT = sign(x.z) * dir.z;
+    float delta = 1.0 / (gam * (1.0 - beta * cosT));
+    float boost = mix(1.0, pow(delta, 2.0 + uJetAlpha), uDoppler);
+    return prof * fall * knots * boost * 4.0 / R;
+}
+
+// The jets' light over one step, x0 → x1, sub-sampled where the step is long
+// next to the jet's width. Most steps are nowhere near the axis.
+vec3 jetGlow(vec3 x0, vec3 x1, vec3 dir) {
+    float zMax = max(abs(x0.z), abs(x1.z));
+    float Rm = 1.6 * jetRadius(zMax);
+    vec2 a = x0.xy, d = x1.xy - x0.xy;
+    float dd = dot(d, d);
+    float s = dd > 1e-9 ? clamp(-dot(a, d) / dd, 0.0, 1.0) : 0.0;
+    if (length(a + s * d) > Rm) return vec3(0.0);
+    float len = length(x1 - x0);
+    float zMin = min(abs(x0.z), abs(x1.z));
+    int n = int(clamp(ceil(len / (0.3 * jetRadius(max(zMin, 1.6)))), 1.0, 10.0));
+    float sum = 0.0;
+    for (int k = 0; k < 10; k++) {
+        if (k >= n) break;
+        sum += jetEmission(mix(x0, x1, (float(k) + 0.5) / float(n)), dir);
+    }
+    return uJetColour * sum * (len / float(n)) * uJetGain * uJet;
+}
+
 // ── the sky ─────────────────────────────────────────────────────────────────
 
 ${SKY_GLSL}
@@ -425,6 +491,9 @@ void main() {
         if (uHaze > 0.0) {
             col += trans * diskHaze(x, xn, 0.5 * (p + pn));
         }
+        if (uJet > 0.0) {
+            col += trans * jetGlow(x, xn, -normalize(k4x));
+        }
 
         if (x.z * xn.z < 0.0) {
             float t = x.z / (x.z - xn.z);
@@ -438,7 +507,40 @@ void main() {
         p = pn;
     }
 
-    if (escaped && trans > 0.004) col += trans * sky(normalize(v));
+    if (escaped && trans > 0.004) {
+        vec3 dir = normalize(v);
+        // Past the escape radius the rays are straight but the jets go on:
+        // march the stretch of the ray inside their cylinder.
+        if (uJet > 0.0) {
+            float Rc = 1.6 * jetRadius(uJetLen);
+            float A = dot(dir.xy, dir.xy), B = dot(x.xy, dir.xy), C = dot(x.xy, x.xy) - Rc * Rc;
+            float disc = B * B - A * C;
+            float ta = 0.0, tb = -1.0;
+            if (A > 1e-9 && disc > 0.0) {
+                float sq = sqrt(disc);
+                ta = max((-B - sq) / A, 0.0);
+                tb = (-B + sq) / A;
+            } else if (C < 0.0) {
+                tb = 2.0 * uJetLen;
+            }
+            // ... and below the jets' far end.
+            if (abs(dir.z) > 1e-6) {
+                float tz = (sign(dir.z) * uJetLen - x.z) / dir.z;
+                tb = min(tb, tz);
+            }
+            if (tb > ta) {
+                const int NJ = 32;
+                float h = (tb - ta) / float(NJ);
+                vec3 acc = vec3(0.0);
+                for (int k = 0; k < NJ; k++) {
+                    vec3 a = x + (ta + float(k) * h) * dir;
+                    acc += jetGlow(a, a + h * dir, -dir);
+                }
+                col += trans * acc;
+            }
+        }
+        col += trans * sky(dir);
+    }
     outColor = vec4(col, 1.0);
 }
 `;

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Cpu, Waves, Clapperboard } from 'lucide-react';
+import { Cpu, Waves, Clapperboard, MoveVertical } from 'lucide-react';
 import Gargantua3D from '../components/Gargantua3D';
 import SceneBack from '../components/SceneBack';
 import SceneDialog from '../components/SceneDialog';
@@ -26,7 +26,7 @@ import { useI18n } from '../i18n';
 
 const SHOT_KEYS = {
     film: 'gargantua.shotFilm', physical: 'gargantua.shotPhysical',
-    above: 'gargantua.shotAbove', dive: 'gargantua.shotDive',
+    above: 'gargantua.shotAbove', dive: 'gargantua.shotDive', quasar: 'gargantua.shotQuasar',
 };
 
 const GargantuaPage = () => {
@@ -46,6 +46,8 @@ const GargantuaPage = () => {
         spin: SHOTS[initial.id].spin,
         doppler: true,
         temp: SHOTS[initial.id].temp,
+        // ?jets=1 turns them on with any shot.
+        jets: !!SHOTS[initial.id].jets || params.get('jets') === '1',
         cinematic: true,
     }));
     const [shot, setShot] = useState({ id: initial.id, nonce: 0 });
@@ -57,7 +59,7 @@ const GargantuaPage = () => {
     const set = (patch) => setSettings((s) => ({ ...s, ...patch }));
     const pickShot = (id) => {
         const s = SHOTS[id];
-        set({ spin: s.spin, doppler: !!s.doppler, temp: s.temp });
+        set({ spin: s.spin, doppler: !!s.doppler, temp: s.temp, jets: !!s.jets });
         setShot((cur) => ({ id, nonce: cur.nonce + 1 }));
     };
     const onShotDone = useCallback(() => setShot((cur) => ({ id: 'film', nonce: cur.nonce })), []);
@@ -85,6 +87,11 @@ const GargantuaPage = () => {
             a: num(hud.spin, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
             isco: num(hud.isco, { maximumFractionDigits: 2 }),
         })],
+        // The ratio is what beaming does, so it is only quoted with it on.
+        ...(hud.jets ? [[t('gargantua.jetsReadout'), t(settings.doppler ? 'gargantua.jetsValue' : 'gargantua.jetsValueFlat', {
+            ratio: num(hud.jetRatio, { maximumSignificantDigits: 2 }),
+            v: num(hud.jetSpeed, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+        })]] : []),
         [
             <Cpu key="cpu" style={{ width: 11, height: 11, display: 'inline' }} aria-hidden="true" />,
             t('gargantua.perf', { fps: num(Math.round(hud.fps)), mp: num(hud.pixels / 1e6, f1) }),
@@ -138,6 +145,15 @@ const GargantuaPage = () => {
                         {t('gargantua.doppler')}
                     </button>
                     <p className="drawer-note" style={{ marginBottom: 'var(--s-2)' }}>{t('gargantua.dopplerNote')}</p>
+                    <button
+                        className="opt-row focus-ring"
+                        aria-pressed={settings.jets}
+                        onClick={() => set({ jets: !settings.jets })}
+                    >
+                        <MoveVertical aria-hidden="true" />
+                        {t('gargantua.jets')}
+                    </button>
+                    <p className="drawer-note" style={{ marginBottom: 'var(--s-2)' }}>{t('gargantua.jetsNote')}</p>
                     <button
                         className="opt-row focus-ring"
                         aria-pressed={settings.cinematic}

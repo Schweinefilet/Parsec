@@ -8,6 +8,9 @@ import { horizonRadius, iscoRadius, hoverTimeDilation, ksGeometry } from '../uti
 import {
     QUALITY, SHOTS, divePose, damp, nearestAngle, cameraFrame, clampCamera,
 } from '../utils/gargantuaCamera';
+import {
+    JET_ALPHA, JET_GAMMA, JET_ACCEL, JET_LENGTH, synchrotronRGB, speedOf, apparentSpeed, jetCounterjetRatio,
+} from '../utils/jets';
 
 // Gargantua: the black hole from Interstellar, ray traced per pixel.
 //
@@ -108,6 +111,13 @@ export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost 
             uSkyRot: { value: skyRot },
             uStarGain: { value: 0.6 },
             uMilkyWay: { value: 0.03 },
+            uJet: { value: settingsRef.current.jets ? 1 : 0 },
+            uJetGain: { value: 0.25 },
+            uJetColour: { value: new THREE.Vector3(...synchrotronRGB(JET_ALPHA)) },
+            uJetLen: { value: JET_LENGTH },
+            uJetGamma: { value: JET_GAMMA },
+            uJetAccel: { value: JET_ACCEL },
+            uJetAlpha: { value: JET_ALPHA },
         };
         const traceMat = new THREE.ShaderMaterial({
             glslVersion: THREE.GLSL3,
@@ -178,6 +188,7 @@ export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost 
         const phys = {
             spin: settingsRef.current.spin, doppler: settingsRef.current.doppler ? 1 : 0,
             temp: settingsRef.current.temp,
+            jets: settingsRef.current.jets ? 1 : 0,
         };
         let fade = 0;
         let diskTime = 0;
@@ -292,6 +303,7 @@ export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost 
             phys.spin = damp(phys.spin, s.spin, 1.6, dt);
             phys.doppler = damp(phys.doppler, s.doppler ? 1 : 0, 2.2, dt);
             phys.temp = damp(phys.temp, s.temp, 2.2, dt);
+            phys.jets = damp(phys.jets, s.jets ? 1 : 0, 2.2, dt);
             const rh = horizonRadius(phys.spin);
             const isco = iscoRadius(phys.spin);
 
@@ -349,6 +361,7 @@ export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost 
             u.uDiskTemp.value = phys.temp;
             u.uDoppler.value = phys.doppler;
             u.uTime.value = diskTime;
+            u.uJet.value = phys.jets;
             u.uStepScale.value = q.stepScale;
             u.uMaxSteps.value = q.maxSteps;
             u.uEscape.value = Math.max(cam.dist * 1.4, 60);
@@ -375,7 +388,15 @@ export default function Gargantua3D({ settings, shot, onHud, onShotDone, onLost 
             }
             if (now - hudAt > HUD_MS) {
                 hudAt = now;
+                // The approaching jet is the one on the camera's side of the
+                // disk; θ is the camera's angle from its axis.
+                const jetTheta = Math.PI / 2 - Math.abs(cam.el);
+                const jetBeta = speedOf(JET_GAMMA);
                 hudRef.current?.({
+                    jets: s.jets,
+                    jetDeg: (jetTheta * 180) / Math.PI,
+                    jetSpeed: apparentSpeed(jetBeta, jetTheta),
+                    jetRatio: jetCounterjetRatio(jetBeta, jetTheta),
                     dist: cam.dist, spin: phys.spin, rh, isco,
                     dilation: hoverTimeDilation(cam.dist),
                     speedup: 1 / dil, fps,

@@ -377,6 +377,12 @@ export const vi = {
         retryLower: 'Thử chất lượng thấp hơn',
         noWebglTitle: 'Cần WebGL 2',
         noWebglBody: 'Trang này cần WebGL 2, và trình duyệt này không hỗ trợ.',
+        shotQuasar: 'Một quasar',
+        jets: 'Luồng phụt tương đối tính',
+        jetsNote: 'Cũng bị phim bỏ qua. Plasma phóng ra dọc trục quay với 98,6% tốc độ ánh sáng: khi bật hiệu ứng chùm Doppler, luồng hướng về phía bạn sáng hơn hẳn luồng đi ra xa.',
+        jetsReadout: 'Luồng phụt',
+        jetsValue: 'luồng gần sáng hơn ×{ratio} · trông như đi với {v} c',
+        jetsValueFlat: 'trông như đi với {v} c',
     },
 
     exotic: {

@@ -31,11 +31,12 @@ Effort is a rough guess: **S** is a few sessions, **M** is a proper feature,
 
 ## Gargantua add-ons and disk-fed systems
 
-- [ ] **Quasar with relativistic jets** (M). Bolt jets onto the Gargantua disk
+- [x] ~~**Quasar with relativistic jets** (M). Bolt jets onto the Gargantua disk
   along the spin axis: volumetric emission, beamed with the existing Doppler
   factor so the approaching jet outshines the receding one. *Interstellar*
   left them out on purpose, so ours becomes the "real" version. Probably a
-  new `?shot=` and a toggle in the settings drawer.
+  new `?shot=` and a toggle in the settings drawer.~~
+  Done in 5.17.3: `?shot=quasar`, `?jets=1` (`utils/jets.js`).
 - [x] ~~**Roche lobe overflow binary** (M). A star's gas pulled in a stream onto
   a white dwarf or black hole, feeding a disk. Reuses the disk shader; the new
   parts are the donor star's teardrop shape and the stream. Looks great

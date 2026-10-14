@@ -47,8 +47,12 @@ export const SHOTS = {
     above: { spin: FILM_SPIN, doppler: 0, temp: 4500, dist: 34, el: 62 * DEG, fov: 52 * DEG },
     // Cooper's fall: in towards the horizon until the view goes dark.
     dive: { spin: FILM_SPIN, doppler: 0, temp: 4500, dist: 30, el: 8 * DEG, fov: 60 * DEG },
+    // A quasar: near-maximal spin, a disk fed hard enough to glow blue-white,
+    // and the jets Interstellar left out, beamed so the near one outshines
+    // the far one (utils/jets.js).
+    quasar: { spin: MAX_SPIN, doppler: 1, temp: 16000, jets: true, dist: 34, el: 10 * DEG, fov: 56 * DEG },
 };
-export const SHOT_ORDER = ['film', 'physical', 'above', 'dive'];
+export const SHOT_ORDER = ['film', 'physical', 'above', 'quasar', 'dive'];
 
 export const MIN_DIST = 3;
 export const MAX_DIST = 120;

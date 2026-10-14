@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.17',
         changes: [
+            'Gargantua can now be a quasar: two jets of plasma shooting out along its spin axis at nearly the speed of light, the one coming towards you far brighter than the other. Try the new “A quasar” shot.',
             'A new exotic object: the Ring Nebula, the glowing shell a dying star threw off, in the colours each element really shines in. Turn it to see that the ring is really a barrel we are looking straight down, and switch to Hubble’s colours.',
             'A new exotic object: WR 104, two stars throwing out a spiral of glowing dust that makes one turn every 241 days. Tilt it to see that the spiral is really a cone wound round on itself.',
             'A new exotic object: HL Tau, a star less than a million years old in a disk of dust ringed by the planets forming in it. See it as the ALMA telescope did, in millimetre waves, or in starlight, where edge on it becomes two glowing bowls either side of a dark lane.',

@@ -16,6 +16,31 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.17.3
+
+**Gargantua as a quasar, with the jets Interstellar left out.** A new shot
+on `/exotic/gargantua`, "A quasar", and a "Relativistic jets" toggle in its
+drawer (`?shot=quasar`, `?jets=1`). Feed a black hole hard enough and two
+beams of plasma shoot out along its spin axis at nearly the speed of light;
+the film's makers left them out on purpose. Here they are traced through the
+same curved spacetime as the disk, so their roots are bent round the shadow
+too. They are shaped like M87's jet, flaring as a parabola and brighter at
+the edges than down the middle, and speed up to 98.6% of light within the
+first sixty gravitational radii, the knots in them streaming out at that
+speed.
+
+With Doppler beaming on, the jet coming towards you outshines the one going
+away. The new readout gives by how much, and how fast its knots seem to
+cross the sky: faster than light from most angles, an illusion of the
+plasma nearly catching its own light. Seen straight down the axis it
+becomes a blazar and the jet outshines everything else. The colour is
+synchrotron light's blue-white, which beaming brightens but cannot shift: a
+power-law spectrum looks the same at any Doppler shift. `utils/jets.js` has
+the physics and its tests; the shader reaches past the escape radius to draw
+the jets out to 420 M.
+
+---
+
 ## 5.17.2
 
 **The Ring Nebula: a dying star's last breath, in its true colours.** A new

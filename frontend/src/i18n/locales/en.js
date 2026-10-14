@@ -375,6 +375,12 @@ export const en = {
         retryLower: 'Try a lower quality',
         noWebglTitle: 'WebGL 2 needed',
         noWebglBody: 'This page needs WebGL 2, and this browser doesn’t offer it.',
+        shotQuasar: 'A quasar',
+        jets: 'Relativistic jets',
+        jetsNote: 'Also left out of the film. Plasma shot out along the spin axis at 98.6% of the speed of light: with Doppler beaming on, the jet coming towards you outshines the one going away.',
+        jetsReadout: 'Jets',
+        jetsValue: 'near one ×{ratio} brighter · appears to move at {v} c',
+        jetsValueFlat: 'appears to move at {v} c',
     },
 
     // The exotic objects page (/exotic/:id): a wormhole, a neutron star, a

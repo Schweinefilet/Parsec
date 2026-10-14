@@ -767,8 +767,26 @@ it hides the shadow. The "As physics has it" shot puts them back.
   default; Absurd traces at twice the screen's resolution with up to 2800
   steps per pixel. There is no adaptive resolution and no frame cap. If the
   GPU drops the context, the page offers to come back one level lower.
-- `?shot=physical|above|dive|film`, `?quality=…` and `?planet=1` open the page
-  on that view.
+- **Jets** (`utils/jets.js`), the "A quasar" shot or the drawer's toggle.
+  Synchrotron emission along the spin axis, added along each traced ray like
+  the disk's haze, so the jets' bases are lensed round the shadow like
+  everything else. The jet is parabolic, z ∝ r^1.73, as M87's is (Asada &
+  Nakamura 2012), and limb-brightened, a sheath brighter than its spine as
+  radio images of M87 show; it accelerates to Γ = 6 over the first ~60 M, and
+  its knots flow out at the local speed. With Doppler on it is beamed by
+  δ^(2+α), α = 0.7, so the near jet outshines the far one by the readout's
+  ratio, and its apparent speed (β sin θ / (1 − β cos θ)) is shown too:
+  superluminal from most angles. Synchrotron light is a power law, which has
+  no scale, so beaming changes its brightness but never its colour (a
+  blue-white, `synchrotronRGB`). Past the escape radius the rays are straight
+  but the jets go on to 420 M: each escaped ray marches the stretch of itself
+  inside the jets' cylinder. Looking straight down a jet from above is a
+  blazar, and the jet swamps everything, as it does in the sky. The tests
+  pin the Doppler factor's limits, the jet/counter-jet ratio against the two
+  boosts, the βΓ peak of the apparent speed (M87's 6c knot needs β > 0.98)
+  and the 1.73 shape.
+- `?shot=physical|above|quasar|dive|film`, `?quality=…`, `?jets=1` and
+  `?planet=1` open the page on that view.
 
 ### Exotic objects
 
