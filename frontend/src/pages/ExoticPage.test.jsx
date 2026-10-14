@@ -18,32 +18,42 @@ const at = (url = '/exotic/wormhole') => render(
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('ExoticPage', () => {
-    it('opens on the wormhole, and explains when WebGL 2 is missing', async () => {
+    it('opens on Gargantua, and explains when WebGL 2 is missing', async () => {
         at('/exotic');
-        expect(screen.getByRole('heading', { name: 'Wormhole' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Gargantua' })).toBeInTheDocument();
         expect(await screen.findByText('WebGL 2 needed')).toBeInTheDocument();
     });
 
-    it('links to all four objects and marks the one on screen', () => {
+    it('links to the objects on offer, not the stashed ones, and marks the one on screen', () => {
         at('/exotic/binary');
         const nav = screen.getByRole('navigation', { name: 'Exotic objects' });
-        for (const name of ['Wormhole', 'Neutron star', 'Binary black hole', 'Roche lobe overflow']) {
+        for (const name of ['Gargantua', 'Wormhole', 'Binary black hole']) {
             expect(nav).toHaveTextContent(name);
+        }
+        for (const name of ['Neutron star', 'Roche lobe overflow']) {
+            expect(nav).not.toHaveTextContent(name);
         }
         expect(screen.getByRole('link', { name: 'Binary black hole' })).toHaveAttribute('aria-current', 'page');
     });
 
-    it('falls back to the wormhole for an unknown object', () => {
-        at('/exotic/quasar');
-        expect(screen.getByRole('heading', { name: 'Wormhole' })).toBeInTheDocument();
+    it('shows the same picker on Gargantua', () => {
+        at('/exotic/gargantua');
+        expect(screen.getByRole('link', { name: 'Gargantua' })).toHaveAttribute('aria-current', 'page');
+        expect(screen.getByRole('link', { name: 'Wormhole' })).toHaveAttribute('href', '/exotic/wormhole');
+    });
+
+    it('falls back to Gargantua for an unknown or stashed object', () => {
+        for (const url of ['/exotic/quasar', '/exotic/roche', '/exotic/neutron-star']) {
+            at(url);
+            expect(screen.getByRole('heading', { name: 'Gargantua' })).toBeInTheDocument();
+            cleanup();
+        }
     });
 
     it('gives each object its own shots and settings', () => {
         const cases = [
             ['/exotic/wormhole', ['Approach', 'Go through', 'From the other side'], []],
-            ['/exotic/neutron-star', ['As Earth sees it', 'Under the south pole', 'Close in'], ['Pulsar beams', 'Latitude and longitude']],
             ['/exotic/binary', ['Edge on', 'From above', 'Close in'], ['Hold the orbit', 'Gas disk round the pair']],
-            ['/exotic/roche', ['The system', 'In the orbit’s plane', 'The disk'], []],
         ];
         for (const [url, shots, toggles] of cases) {
             at(url);
@@ -53,13 +63,6 @@ describe('ExoticPage', () => {
             expect(screen.getByRole('button', { name: 'High' })).toHaveAttribute('aria-pressed', 'true');
             cleanup();
         }
-    });
-
-    it('has the Roche sliders', () => {
-        at('/exotic/roche');
-        fireEvent.click(screen.getByRole('button', { name: 'Scene settings' }));
-        expect(screen.getByRole('slider', { name: 'Mass ratio' })).toHaveValue('0.4');
-        expect(screen.getByRole('slider', { name: 'Star temperature' })).toBeInTheDocument();
     });
 
     it('warns a phone first, and lets it carry on', () => {

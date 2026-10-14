@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
-    EXOTIC, EXOTIC_ORDER, resolveExotic, exoticQuality, clampExoticCamera, turnFrame,
+    EXOTIC, EXOTIC_ORDER, STASHED_EXOTIC, resolveExotic, exoticQuality, clampExoticCamera, turnFrame,
 } from './exoticScenes';
 import { cameraFrame, QUALITY_ORDER } from './gargantuaCamera';
 import { EXOTIC_FRAGS, MAX_STEPS } from './exoticShaders';
 
 describe('exotic scenes', () => {
-    it('has a shader and shots for every object', () => {
-        for (const id of EXOTIC_ORDER) {
+    it('has a shader and shots for every object, stashed ones included', () => {
+        for (const id of Object.keys(EXOTIC)) {
             expect(EXOTIC_FRAGS[id]).toContain('void main()');
             const def = EXOTIC[id];
             expect(def.shotOrder.length).toBeGreaterThan(0);
@@ -16,13 +16,23 @@ describe('exotic scenes', () => {
     });
 
     it('resolves unknown ids to the default', () => {
-        expect(resolveExotic('roche')).toBe('roche');
-        expect(resolveExotic('nope')).toBe('wormhole');
-        expect(resolveExotic(undefined)).toBe('wormhole');
+        expect(resolveExotic('binary')).toBe('binary');
+        expect(resolveExotic('nope')).toBe('gargantua');
+        expect(resolveExotic(undefined)).toBe('gargantua');
+    });
+
+    it('offers Gargantua first, and hides the stashed objects', () => {
+        expect(EXOTIC_ORDER[0]).toBe('gargantua');
+        for (const id of STASHED_EXOTIC) {
+            expect(EXOTIC[id]).toBeDefined();
+            expect(EXOTIC_ORDER).not.toContain(id);
+            expect(resolveExotic(id)).toBe('gargantua');
+        }
+        for (const id of EXOTIC_ORDER.slice(1)) expect(EXOTIC[id]).toBeDefined();
     });
 
     it('gets more expensive at every quality level, within the shader’s loop bound', () => {
-        for (const id of EXOTIC_ORDER) {
+        for (const id of Object.keys(EXOTIC)) {
             const levels = QUALITY_ORDER.map((q) => exoticQuality(id, q));
             for (let i = 1; i < levels.length; i++) {
                 expect(levels[i].stepScale).toBeLessThanOrEqual(levels[i - 1].stepScale);

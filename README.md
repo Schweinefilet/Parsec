@@ -48,8 +48,8 @@ in the telemetry ticker. Without one it falls back to `DEMO_KEY`.
 There is one `<Route path="*">` (`src/App.jsx`) so `AppShell`,
 `CategoryBrowser` and `SolarSystem3D` are never remounted while navigating —
 that is what preserves the Three.js camera state and lets the exit animation
-play. `/satellites`, `/compare`, `/sky`, `/gargantua` and `/exotic/:id` are the
-other five routes.
+play. `/satellites`, `/compare`, `/sky` and `/exotic/:id` are the other four
+routes (`/gargantua` survives only as a redirect to `/exotic/gargantua`).
 
 ```text
 frontend/src/
@@ -60,11 +60,11 @@ frontend/src/
     ComparePage.jsx      two bodies side by side at true relative size (/compare)
     NightSkyPage.jsx     the night sky from your location (/sky) — lazily
                          loaded (see "The night sky")
-    GargantuaPage.jsx    the black hole from Interstellar (/gargantua) — lazily
-                         loaded, and built to be expensive (see "Gargantua")
-    ExoticPage.jsx       a wormhole, a neutron star, merging black holes and a
-                         Roche-lobe binary (/exotic/:id) — one lazy chunk for
-                         all four (see "Exotic objects")
+    GargantuaPage.jsx    the black hole from Interstellar (/exotic/gargantua),
+                         built to be expensive (see "Gargantua")
+    ExoticPage.jsx       Gargantua, a wormhole and merging black holes under
+                         one picker (/exotic/:id) — one lazy chunk for all of
+                         them (see "Exotic objects")
   components/
     SolarSystem3D.jsx    the main scene: planets, moons, belts, orbits, camera,
                          the focus camera, the gravity overlays (~3k lines)
@@ -502,7 +502,7 @@ azimuth, and `skyPositions.js` is arranged around that one call.
 
 It is a real star field with the traditional constellation figures, explored by
 looking around inside it. It's lazily loaded (`React.lazy` in `App.jsx`, as
-`/gargantua` is): a dedicated three.js scene plus a real data catalog is a
+`/exotic` is): a dedicated three.js scene plus a real data catalog is a
 cost only a visitor who actually clicks through should pay.
 
 The location is kept in `localStorage` (`hooks/useObserverLocation.js`),
@@ -712,11 +712,12 @@ comparison.
 
 ### Gargantua
 
-`/gargantua` is the spinning black hole from *Interstellar*, rendered the way
+`/exotic/gargantua` is the spinning black hole from *Interstellar*, the first
+of the exotic objects, rendered the way
 the film's was: by following a ray of light backward from the camera through
 the curved spacetime around a Kerr hole, for every pixel, and seeing what it
-lands on. It is its own lazy chunk (about 13 KB gzipped) and the one page on
-the site that is meant to be expensive. A desktop GPU is the audience. A phone
+lands on. It shares the /exotic lazy chunk, and with the other objects there
+is the one page on the site that is meant to be expensive. A desktop GPU is the audience. A phone
 or tablet is told so before anything starts, and may carry on anyway.
 
 The source is James, von Tunzelmann, Franklin & Thorne, "Gravitational lensing
@@ -771,14 +772,22 @@ it hides the shadow. The "As physics has it" shot puts them back.
 
 ### Exotic objects
 
-`/exotic/:id` grew out of Gargantua: four more objects, each traced per pixel
+`/exotic/:id` is Gargantua and the objects that grew out of it. Gargantua
+keeps its own page (`ExoticPage` hands that id to `GargantuaPage`, which shows
+the same picker, `components/ExoticPicker.jsx`); the rest are each traced per pixel
 by its own full-screen shader (`utils/exoticShaders.js`) and each backed by a
 physics module that its tests hold to closed-form answers, the way `kerr.js`
 is. They share Gargantua's noise, blackbody lookup, procedural sky, bloom,
 film curve, quality levels, phone warning and drop-a-level-on-context-loss
 behaviour. One page with a picker rather than four routes, so they are one
-lazy chunk (about 15 KB gzipped); switching object remounts the renderer, not
-the page. `/exotic` alone opens the wormhole.
+lazy chunk with Gargantua (about 29 KB gzipped); switching object remounts
+the renderer, not the page. `/exotic` alone opens Gargantua.
+
+The neutron star and the Roche binary are **stashed**: built and tested, but
+out of the picker (`STASHED_EXOTIC` in `utils/exoticScenes.js`) while they get
+a visual rework, and their URLs fall back to Gargantua. Moving an id back
+into `EXOTIC_ORDER` brings it back; their sections below describe them as
+built.
 
 - **Wormhole** (`utils/wormhole.js`). The Ellis metric, the massless limit of
   the wormhole James et al. built for *Interstellar* (Am. J. Phys. 83, 2015).

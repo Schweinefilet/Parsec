@@ -16,6 +16,26 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.16.1
+
+**Gargantua joins the exotic objects, and the neutron star and Roche binary
+are stashed.** Gargantua is now the first object in the /exotic picker and
+what `/exotic` opens on, at `/exotic/gargantua`; it keeps its own page,
+controls and readouts, with the picker under its title
+(`components/ExoticPicker.jsx`, shared with the other objects). `/gargantua`
+redirects there with its query string, so linked views (`?shot=…&quality=…`)
+still land where they did. Its own header-dock icon and menu row are gone:
+the atom icon is the one way in, and its tooltip now names Gargantua. Both
+pages now share one lazy chunk.
+
+The neutron star and the Roche binary still don't look right after 5.16.0,
+so they come out of the picker the way ComparePage did: their scenes,
+shaders, physics and tests stay, listed in `STASHED_EXOTIC`, and their URLs
+fall back to Gargantua until they are put back in `EXOTIC_ORDER`. The tests
+check every scene, stashed ones included, still has its shader and shots.
+
+---
+
 ## 5.16.0
 
 **The neutron star becomes PSR J0030+0451 as NICER mapped it, and the Roche

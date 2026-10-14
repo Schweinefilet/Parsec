@@ -1,20 +1,24 @@
 import { useState, useCallback } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { SlidersHorizontal, X, Monitor, Cpu, Clapperboard, Zap, Grid3x3, Pause, Disc } from 'lucide-react';
 import Exotic3D from '../components/Exotic3D';
 import SceneBack from '../components/SceneBack';
 import SceneDialog from '../components/SceneDialog';
+import ExoticPicker from '../components/ExoticPicker';
+import GargantuaPage from './GargantuaPage';
 import { useIsMobile, useIsTouch } from '../hooks/useMediaQuery';
 import { QUALITY_ORDER, DEFAULT_QUALITY, lowerQuality } from '../utils/gargantuaCamera';
-import { EXOTIC, EXOTIC_ORDER, resolveExotic } from '../utils/exoticScenes';
+import { EXOTIC, resolveExotic } from '../utils/exoticScenes';
 import { DEFAULT_RADIUS, MIN_RADIUS, MAX_RADIUS, KM_PER_M } from '../utils/neutronStar';
 import { useI18n } from '../i18n';
 
-// /exotic/:id: the objects that grew out of /gargantua. A wormhole, a
-// neutron star, two black holes merging, and a star overflowing onto a
-// black hole, each ray traced per pixel by its own shader (Exotic3D) and
-// each its own physics module with its own tests. One lazy chunk for all
-// four (App.jsx); switching object remounts the renderer, not the page.
+// /exotic/:id: Gargantua and the objects that grew out of it. Gargantua is
+// its own page (GargantuaPage, shown here under the same picker); the rest
+// — a wormhole and two black holes merging, with a neutron star and a Roche
+// binary stashed for now (exoticScenes.js) — are each ray traced per pixel
+// by their own shader (Exotic3D) on their own physics module with its own
+// tests. One lazy chunk for all of them (App.jsx); switching object
+// remounts the renderer, not the page.
 //
 // Like Gargantua it is built to be expensive, warns a phone first, and
 // drops a quality level when the GPU gives up.
@@ -159,20 +163,7 @@ function ExoticView({ id }) {
                 }}>
                     {t(k('tagline'))}
                 </p>
-                <nav aria-label={t('exotic.objects')} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-1)', marginTop: 'var(--s-3)' }}>
-                    {EXOTIC_ORDER.map((oid) => (
-                        <Link
-                            key={oid}
-                            to={`/exotic/${oid}`}
-                            className="opt-row focus-ring"
-                            aria-current={oid === id ? 'page' : undefined}
-                            data-on={oid === id || undefined}
-                            style={{ width: 'auto', paddingInline: 'var(--s-3)' }}
-                        >
-                            {t(`exotic.${KEY[oid]}.title`)}
-                        </Link>
-                    ))}
-                </nav>
+                <ExoticPicker current={id} />
             </div>
 
             {readouts.length > 0 && (
@@ -332,6 +323,9 @@ const ExoticPage = () => {
     const [acceptedPhone, setAcceptedPhone] = useState(false);
     const gated = (isMobile || isTouch) && !acceptedPhone;
     const backButton = <SceneBack onClick={() => navigate('/')} />;
+
+    // Gargantua keeps its own page, its own phone warning included.
+    if (id === 'gargantua') return <GargantuaPage />;
 
     if (gated) {
         return (

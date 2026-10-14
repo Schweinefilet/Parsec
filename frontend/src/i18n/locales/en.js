@@ -41,10 +41,8 @@ export const en = {
         skyTitle: 'See the real night sky from your location',
         compare: 'Compare two bodies',
         compareTitle: 'Compare two bodies at true relative size',
-        gargantua: 'Gargantua',
-        gargantuaTitle: 'The black hole from Interstellar',
         exotic: 'Exotic objects',
-        exoticTitle: 'A wormhole, a neutron star, merging black holes and more',
+        exoticTitle: 'Gargantua, a wormhole and merging black holes',
         search: 'Search objects',
         searchClose: 'Close search',
         searchShortcut: 'Search (⌘K)',
@@ -337,7 +335,7 @@ export const en = {
         arRotatePortrait: 'Rotate your phone upright to keep using AR',
     },
 
-    // The black hole page (/gargantua).
+    // The black hole page (/exotic/gargantua).
     gargantua: {
         title: 'Gargantua',
         tagline: 'The black hole from Interstellar, every pixel traced through curved spacetime',

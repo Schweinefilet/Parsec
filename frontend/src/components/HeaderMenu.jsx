@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Satellite, Star, Link2, Check, Orbit, Atom } from 'lucide-react';
+import { Menu, Satellite, Star, Link2, Check, Atom } from 'lucide-react';
 import LanguagePicker from './LanguagePicker';
 import { useI18n } from '../i18n';
 
@@ -93,11 +93,6 @@ const HeaderMenu = ({ onShare, copied, onSkyClick, onTrackerClick, onOpen }) => 
                     <Link role="menuitem" to="/sky" onClick={(e) => { onSkyClick(e); close(); }} className="menu-item focus-ring">
                         <Star aria-hidden="true" />
                         {t('nav.sky')}
-                    </Link>
-
-                    <Link role="menuitem" to="/gargantua" onClick={close} className="menu-item focus-ring">
-                        <Orbit aria-hidden="true" />
-                        {t('nav.gargantua')}
                     </Link>
 
                     <Link role="menuitem" to="/exotic" onClick={close} className="menu-item focus-ring">

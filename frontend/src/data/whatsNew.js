@@ -14,8 +14,8 @@ export const WHATS_NEW = [
     {
         version: '5.16',
         changes: [
-            'The star overflowing onto a black hole shows up again: it had been rendering as a black screen. It has also been rebuilt: the disk is now a glowing whirlpool with spiral arms and a bright spot where the stream hits it, and the star has a churning, spotted surface that darkens towards its edge.',
-            'The neutron star is now a real one, PSR J0030+0451, with the small round hot spot and thin crescent NASA’s NICER telescope found on it, both near its south pole. Choose “As Earth sees it” to see how the star’s gravity bends their light round to us in the north.',
+            'Gargantua now lives with the other exotic objects, behind the atom icon in the header, and is the first thing it shows. Old links to it still work.',
+            'The neutron star and the star pouring itself onto a black hole are off the page for now, while they are reworked.',
         ],
     },
     {

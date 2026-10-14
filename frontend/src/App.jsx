@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import ErrorBoundary from './components/ErrorBoundary';
 import SkyEntryCurtain from './components/SkyEntryCurtain';
@@ -17,11 +17,17 @@ import SatelliteView from './pages/SatelliteView';
 // splitting it would just trade a bit of bundle size for a loading flicker on
 // first click.
 const NightSkyPage = lazy(() => import('./pages/NightSkyPage'));
-// Gargantua is split out for the same reason, more so: a ray tracer nobody
-// pays for unless they come to see the black hole.
-const GargantuaPage = lazy(() => import('./pages/GargantuaPage'));
-// The exotic objects that grew out of it share one chunk of their own.
+// Gargantua and the exotic objects that grew out of it are split out for the
+// same reason, more so: ray tracers nobody pays for unless they come to see
+// them. One chunk for all of them; Gargantua is the page's first object.
 const ExoticPage = lazy(() => import('./pages/ExoticPage'));
+
+// Gargantua had its own page before it joined the exotic objects. Old links,
+// shots and quality settings included (?shot=…&quality=…), still land on it.
+function GargantuaRedirect() {
+    const { search } = useLocation();
+    return <Navigate to={`/exotic/gargantua${search}`} replace />;
+}
 
 function App() {
     return (
@@ -44,16 +50,7 @@ function App() {
                             </AppShell>
                         )}
                     />
-                    <Route
-                        path="/gargantua"
-                        element={(
-                            <AppShell>
-                                <Suspense fallback={<NightSkyFallback />}>
-                                    <GargantuaPage />
-                                </Suspense>
-                            </AppShell>
-                        )}
-                    />
+                    <Route path="/gargantua" element={<GargantuaRedirect />} />
                     {['/exotic', '/exotic/:id'].map((path) => (
                         <Route
                             key={path}

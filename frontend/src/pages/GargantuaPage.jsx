@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, X, Monitor, Cpu, Waves, Clapperboard } from 'lucide-react';
 import Gargantua3D from '../components/Gargantua3D';
 import SceneBack from '../components/SceneBack';
+import ExoticPicker from '../components/ExoticPicker';
 import SceneDialog from '../components/SceneDialog';
 import { useIsMobile, useIsTouch } from '../hooks/useMediaQuery';
 import { MAX_SPIN } from '../utils/kerr';
@@ -12,8 +13,10 @@ import {
 } from '../utils/gargantuaCamera';
 import { useI18n } from '../i18n';
 
-// /gargantua — the black hole from Interstellar, as its own page and its own
-// lazy chunk (App.jsx). Nothing of it loads until someone navigates here.
+// /exotic/gargantua — the black hole from Interstellar, the first of the
+// exotic objects (ExoticPage hands this id to this page, which keeps its own
+// controls and readouts under the shared picker). Lazy with the rest of
+// /exotic (App.jsx); /gargantua redirects here.
 //
 // It is the one page on the site built to be expensive: a desktop GPU is the
 // audience, the default quality is already heavy, and the top setting is
@@ -162,6 +165,7 @@ const GargantuaPage = () => {
                 }}>
                     {t('gargantua.tagline')}
                 </p>
+                <ExoticPicker current="gargantua" />
             </div>
 
             {hud && (

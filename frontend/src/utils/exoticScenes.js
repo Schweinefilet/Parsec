@@ -12,8 +12,18 @@ import { QUALITY } from './gargantuaCamera';
 
 const DEG = Math.PI / 180;
 
-export const EXOTIC_ORDER = ['wormhole', 'neutron-star', 'binary', 'roche'];
-export const DEFAULT_EXOTIC = 'wormhole';
+/**
+ * What the page's picker offers, in order. Gargantua is its own page
+ * (GargantuaPage), shown under the same picker; the rest are entries below.
+ */
+export const EXOTIC_ORDER = ['gargantua', 'wormhole', 'binary'];
+export const DEFAULT_EXOTIC = 'gargantua';
+/**
+ * Built, tested, but pulled from the picker while they get a visual rework:
+ * their URLs fall back to the default. Put an id back in EXOTIC_ORDER to
+ * bring it back.
+ */
+export const STASHED_EXOTIC = ['neutron-star', 'roche'];
 
 export const EXOTIC = {
     wormhole: {
@@ -76,9 +86,9 @@ export const EXOTIC = {
 /** How the sky is turned (XYZ Euler) and how bright its Milky Way is, unless an object says otherwise. */
 export const DEFAULT_SKY = { euler: [1.05, 0.35, 0.6], milkyWay: 0.03 };
 
-/** The object for a URL segment, falling back to the default. */
+/** The object for a URL segment, falling back to the default (stashed ones too). */
 export function resolveExotic(id) {
-    return EXOTIC[id] ? id : DEFAULT_EXOTIC;
+    return EXOTIC_ORDER.includes(id) ? id : DEFAULT_EXOTIC;
 }
 
 /**

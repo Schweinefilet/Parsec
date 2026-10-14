@@ -3,7 +3,7 @@ import { Link, useSearchParams, useMatch, useLocation } from 'react-router-dom';
 import {
     Globe, Moon, Star, Eye, Zap, Telescope, CircleDot, Search,
     Crosshair, Sparkles, Satellite, Aperture, Radio, Archive,
-    Link2, Check, Github, Orbit, Atom,
+    Link2, Check, Github, Atom,
 } from 'lucide-react';
 import ObjectSearch from './ObjectSearch';
 import LanguagePicker from './LanguagePicker';
@@ -42,12 +42,12 @@ const TAB_ICONS = {
     historical: Archive,
 };
 
-// /exotic/<id> → that object's title key; /exotic alone is the wormhole.
+// /exotic/<id> → that object's title key; /exotic alone, or an object the
+// page doesn't offer, is Gargantua (utils/exoticScenes.js resolveExotic).
 const EXOTIC_TITLES = {
-    wormhole: 'exotic.wormhole.title', 'neutron-star': 'exotic.neutronStar.title',
-    binary: 'exotic.binary.title', roche: 'exotic.roche.title',
+    gargantua: 'gargantua.title', wormhole: 'exotic.wormhole.title', binary: 'exotic.binary.title',
 };
-const exoticTitleKey = (pathname) => EXOTIC_TITLES[pathname.split('/')[2]] ?? EXOTIC_TITLES.wormhole;
+const exoticTitleKey = (pathname) => EXOTIC_TITLES[pathname.split('/')[2]] ?? EXOTIC_TITLES.gargantua;
 
 const AppShell = ({ children }) => {
     const { t, rtl, category, object: localizeObject } = useI18n();
@@ -59,7 +59,7 @@ const AppShell = ({ children }) => {
     // there — and tapping a tab silently threw you back to the solar system.
     const { pathname } = useLocation();
     const onExotic = pathname === '/exotic' || pathname.startsWith('/exotic/');
-    const onOwnPage = ['/satellites', '/sky', '/gargantua'].includes(pathname) || onExotic;
+    const onOwnPage = ['/satellites', '/sky'].includes(pathname) || onExotic;
     // The tracker and sky icons play their cinematic way in (hooks/useModeEntry.js).
     const { onTrackerClick: handleTrackerClick, onSkyClick: handleSkyClick } = useModeEntry();
     const activeTab = resolveTab(searchParams.get('tab'));
@@ -94,7 +94,6 @@ const AppShell = ({ children }) => {
         } else if (onOwnPage) {
             const key = onExotic ? exoticTitleKey(pathname) : {
                 '/satellites': 'tracker.title', '/sky': 'nightSky.title',
-                '/gargantua': 'gargantua.title',
             }[pathname];
             name = key ? t(key) : null;
             canonicalPath = pathname;
@@ -449,19 +448,6 @@ const AppShell = ({ children }) => {
                                         className="chrome-btn focus-ring"
                                     >
                                         <Star className="h-4 w-4" aria-hidden="true" />
-                                    </Link>
-                                </DockItem>
-                            )}
-                            {!searchOpen && (
-                                <DockItem label={t('nav.gargantua')}>
-                                    <Link
-                                        to="/gargantua"
-                                        title={t('nav.gargantuaTitle')}
-                                        aria-label={t('nav.gargantua')}
-                                        data-on={pathname === '/gargantua' || undefined}
-                                        className="chrome-btn focus-ring"
-                                    >
-                                        <Orbit className="h-4 w-4" aria-hidden="true" />
                                     </Link>
                                 </DockItem>
                             )}
