@@ -16,6 +16,35 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.17.9
+
+**Readouts that stay legible whatever the scene does behind them.** The
+5.17.8 layout check measured the page's elements, never the picture under
+them. This release measured that too. A script hid the readouts' text (but
+not their backdrop) once a second through whole runs of the tidal
+disruption, the binary, Gargantua and WR 104, at four window sizes and in
+every camera shot. It took the brightness behind the text (the 99th
+percentile, so the worst one percent of pixels) and turned it into WCAG
+contrast for the text that sits there.
+
+It found a real problem. On a phone on its side, where 5.17.8 moved the
+readouts to the trailing side, the disruption's glowing disk passes right
+behind them, at a 0.59 grey. The values fell to about 3.3:1, and the 40%
+white labels and credit to 2.5:1. At 1024×700 a debris streak did the same.
+
+- The readouts now carry a feathered dark of their own (a 62% black fill,
+  rounded, with a 28px soft shadow of the same), so the moving picture
+  can't take the light out from under them. Over black it is invisible.
+- The bottom scrim is deeper (72% at the edge, from 55%).
+- The readouts' labels and the credit on this page are 58% white, not
+  `--text-tertiary`'s 40%, which is only 3.7:1 even on pure black.
+
+Worst frames measured after the change: values 5.8:1 (AA), labels 3.5:1,
+up from 2.5:1, and over black the labels now reach 6.9:1. The 165-load
+layout check still flags nothing.
+
+---
+
 ## 5.17.8
 
 **The exotic page's chrome, checked by measurement.** Rather than judging

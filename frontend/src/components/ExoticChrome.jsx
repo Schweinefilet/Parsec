@@ -26,7 +26,12 @@ const FULL_BLEED = {
 // labels off a bright frame, too little to notice over black.
 const SCRIM = { position: 'absolute', insetInline: 0, zIndex: 9, pointerEvents: 'none' };
 const SCRIM_DOWN = 'linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0.28) 55%, transparent)';
-const SCRIM_UP = 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.3) 55%, transparent)';
+const SCRIM_UP = 'linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0.4) 55%, transparent)';
+
+// The readouts' labels and the credit, a step up from --text-tertiary (40%,
+// 3.7:1 even on black): here they sit over a picture that moves, and at
+// 40% the disruption's debris took them under 2.6:1.
+const OVER_SCENE = 'rgba(255,255,255,0.58)';
 
 /** The page's black, edge to edge. */
 export function ExoticFrame({ children }) {
@@ -338,17 +343,24 @@ export function ExoticFoot({ readouts, credit }) {
                         fontSize: 'var(--fs-xs)', fontWeight: 600, color: 'rgba(255,255,255,0.88)',
                         textShadow: '0 1px 6px rgba(0,0,0,0.9)',
                         fontVariantNumeric: 'tabular-nums',
+                        // A feathered dark of their own: the scene moves behind
+                        // them (the disruption's debris and disk cross this
+                        // corner), and the strip's scrim alone left white on
+                        // near-white. Over black it doesn't show.
+                        borderRadius: 16,
+                        background: 'rgba(0,0,0,0.62)',
+                        boxShadow: '0 0 28px 22px rgba(0,0,0,0.62)',
                     }}
                 >
                     {readouts.map(([label, value], i) => (
                         <div key={i} style={{ display: 'contents' }}>
-                            <dt className="label">{label}</dt>
+                            <dt className="label" style={{ color: OVER_SCENE }}>{label}</dt>
                             <dd style={{ margin: 0 }}>{keepUnits(value)}</dd>
                         </div>
                     ))}
                 </dl>
             )}
-            <p className="scene-credit" style={{ position: 'static' }}>{credit}</p>
+            <p className="scene-credit" style={{ position: 'static', color: OVER_SCENE }}>{credit}</p>
         </div>
     );
 }
