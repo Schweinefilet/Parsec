@@ -12,6 +12,12 @@
 
 export const WHATS_NEW = [
     {
+        version: '6.0',
+        changes: [
+            'Version 6: beyond the solar system. The exotic objects page, behind the atom icon in the header, is now a part of the site in its own right: Gargantua, a wormhole, two black holes merging, a star torn apart by a black hole and WR 104’s spiral of dust, each drawn ray by ray from real physics.',
+        ],
+    },
+    {
         version: '5.17',
         changes: [
             'The names and readings on the exotic objects stay easy to read even when something bright passes behind them, and numbers no longer split from their units on a phone.',

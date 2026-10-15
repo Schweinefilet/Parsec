@@ -16,6 +16,23 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 6.0.0
+
+**The exotic objects make this a new major version.** No code changes in
+this release: it is the version number catching up with what 5.15 through
+5.17 added. The site used to be an atlas of the solar system with a night
+sky beside it; it now also has a page of objects no probe will ever visit,
+each ray traced per pixel from its own physics: Gargantua (now with quasar
+jets), a wormhole you can fly through, a binary black hole spiralling to
+merger, a white dwarf torn apart by a black hole, and WR 104's pinwheel of
+dust, with a neutron star, a Roche-lobe binary, the Ring Nebula and HL Tau
+built and stashed. That is a new way of exploring, which is what the top of
+this file says a MAJOR is for.
+
+The `feature/futureplan` branch that carried that work merges to `main`
+with this release.
+---
+
 ## 5.17.10
 
 **The exotic page's small text clears AA everywhere.** An end-to-end pass
