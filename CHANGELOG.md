@@ -16,6 +16,31 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.17.10
+
+**The exotic page's small text clears AA everywhere.** An end-to-end pass
+over the 5.17.9 build (every object, language and viewport, 165 loads, each
+with the drawer shut and then opened) found nothing wrong with layout or the
+drawer. But its contrast sample put the credit line at 4.3:1 on the tidal
+disruption's worst frame, under the 4.5:1 that WCAG AA asks of small text and
+that 5.17.9 had used as its bar.
+
+The readouts' labels and the credit on this page go from 58% to 64% white.
+Against the worst background measured (a 0.28 grey behind the credit), that
+is 4.85:1; over black, 8.3:1.
+
+Measured after: the same 165-load pass flags nothing, with the worst credit
+at 4.9:1 and the worst readout value at 10.6:1. Whole runs of the tidal
+disruption in every camera shot, at four window sizes, put the worst label at
+6.2:1 and the worst credit at 7.1:1.
+
+(An intermediate measurement suggested the readouts' own backdrop needed
+deepening too, but the script had left the settings drawer open over the
+readouts and was reading the drawer's text. Rerun with each step confirmed,
+the backdrop was already enough, and it stays at 62%.)
+
+---
+
 ## 5.17.9
 
 **Readouts that stay legible whatever the scene does behind them.** The

@@ -29,9 +29,10 @@ const SCRIM_DOWN = 'linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0.28)
 const SCRIM_UP = 'linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0.4) 55%, transparent)';
 
 // The readouts' labels and the credit, a step up from --text-tertiary (40%,
-// 3.7:1 even on black): here they sit over a picture that moves, and at
-// 40% the disruption's debris took them under 2.6:1.
-const OVER_SCENE = 'rgba(255,255,255,0.58)';
+// 3.7:1 even on black): here they sit over a picture that moves. At 40% the
+// disruption's debris took them under 2.6:1; 64% keeps the worst frame
+// measured (a 0.28 grey behind the credit) above AA's 4.5:1.
+const OVER_SCENE = 'rgba(255,255,255,0.64)';
 
 /** The page's black, edge to edge. */
 export function ExoticFrame({ children }) {
