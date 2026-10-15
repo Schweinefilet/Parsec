@@ -16,6 +16,31 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.17.7
+
+**Finishing the exotic page's UI pass.** A second sweep took every object
+through a portrait phone, a landscape phone and a desktop, in English,
+Vietnamese and Arabic, with the drawer open and shut.
+
+A number and the word after it no longer part at a line break in the
+readouts: on a phone, Vietnamese broke "1,3 megapixel" as "1,3 /
+megapixel", and English broke "0% swallowed" after the percent sign.
+`ExoticFoot` now joins any script's digits (plus a following `%`, `٪` or
+`°`) to the next word with a no-break space, for every readout on every
+object.
+
+On a phone the picker row now runs to *both* screen edges, fading at
+whichever end has more to scroll to. 5.17.6 bled only the trailing edge, so
+once the row had scrolled to the current object, the first pill was cut off
+hard at the leading gutter ("ARGANTUA").
+
+A soft dark scrim now sits behind the chrome at the top (the way out, the
+picker, the title) and at the bottom (the readouts and the credit). Over
+the binary's disk, which fills the frame, the grey labels and the tagline
+were hard to read. Over black the scrim is invisible.
+
+---
+
 ## 5.17.6
 
 **A UI pass over the exotic page.** Driven in headless Chrome across every

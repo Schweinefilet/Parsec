@@ -22,7 +22,7 @@ const TITLE_KEY = {
 //
 // On a phone it is one row that scrolls sideways rather than wrapping: two
 // rows of pills pushed the picture down under them. The row runs on to the
-// screen's edge and fades there, so a pill cut in half reads as "more this
+// screen's edges and fades there, so a pill cut in half reads as "more this
 // way" rather than as clipped, and it opens scrolled to the object on screen.
 export default function ExoticPicker({ current }) {
     const { t, rtl } = useI18n();
@@ -30,10 +30,14 @@ export default function ExoticPicker({ current }) {
     const navRef = useRef(null);
     // Scrolled all the way along: nothing more to hint at, so no fade over
     // the last pill.
-    const [atEnd, setAtEnd] = useState(false);
+    const [ends, setEnds] = useState({ start: true, end: false });
     const measure = useCallback(() => {
         const nav = navRef.current;
-        if (nav) setAtEnd(Math.abs(nav.scrollLeft) + nav.clientWidth >= nav.scrollWidth - 2);
+        if (!nav) return;
+        const along = Math.abs(nav.scrollLeft);
+        const start = along < 2;
+        const end = along + nav.clientWidth >= nav.scrollWidth - 2;
+        setEnds((e) => (e.start === start && e.end === end ? e : { start, end }));
     }, []);
 
     useEffect(() => {
@@ -45,14 +49,17 @@ export default function ExoticPicker({ current }) {
             // page's own overflow-hidden frame.
             const n = nav.getBoundingClientRect();
             const e = el.getBoundingClientRect();
-            const pad = 24;
+            const pad = 48;
             if (e.right > n.right - pad) nav.scrollLeft += e.right - n.right + pad;
             else if (e.left < n.left + pad) nav.scrollLeft -= n.left + pad - e.left;
         }
         measure();
     }, [current, isMobile, measure]);
 
-    const fade = `linear-gradient(to ${rtl ? 'left' : 'right'}, #000 calc(100% - 48px), transparent)`;
+    // Faded at whichever end has more to scroll to.
+    const fade = `linear-gradient(to ${rtl ? 'left' : 'right'}, `
+        + `${ends.start ? '#000' : 'transparent'}, #000 32px, #000 calc(100% - 48px), `
+        + `${ends.end ? '#000' : 'transparent'})`;
     return (
         <nav
             ref={navRef}
@@ -64,12 +71,13 @@ export default function ExoticPicker({ current }) {
                 pointerEvents: 'auto',
                 ...(isMobile && {
                     overflowX: 'auto', overscrollBehaviorX: 'contain',
-                    // Out to the screen's edge, with room for the focus ring,
-                    // which the scroller would otherwise clip.
-                    marginInlineEnd: 'calc(-1 * var(--scene-inset))',
-                    paddingInlineEnd: 'var(--scene-inset)',
-                    paddingBlock: 3, marginBlock: -3, paddingInlineStart: 3, marginInlineStart: -3,
-                    ...(!atEnd && { maskImage: fade, WebkitMaskImage: fade }),
+                    // Out to both edges of the screen, so pills scroll away
+                    // under them rather than being cut at the gutter, with
+                    // room for the focus ring, which a scroller would clip.
+                    marginInline: 'calc(-1 * var(--scene-inset))',
+                    paddingInline: 'var(--scene-inset)',
+                    paddingBlock: 3, marginBlock: -3,
+                    ...(!(ends.start && ends.end) && { maskImage: fade, WebkitMaskImage: fade }),
                 }),
             }}
         >

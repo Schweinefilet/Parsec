@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.17',
         changes: [
+            'The names and readings on the exotic objects are easier to read over a bright picture, and numbers no longer split from their units on a phone.',
             'On the exotic objects page, the row of objects now sits above the name and no longer jumps about as you switch between them. On a phone it scrolls to the one you are looking at, and a phone held sideways no longer has the readings running into the title.',
             'The Ring Nebula and HL Tau are off the exotic objects page for now, while they are reworked.',
             'A new exotic object: a white dwarf torn apart by a black hole. Watch it stretch into a stream, half of it thrown away and half falling back to wrap round the hole and settle into a glowing ring. The camera follows the whole thing.',

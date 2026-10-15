@@ -22,6 +22,12 @@ const FULL_BLEED = {
     width: '100vw', marginLeft: 'calc(-50vw + 50%)', marginRight: 'calc(-50vw + 50%)',
 };
 
+// Behind the chrome at the top and the bottom: enough to lift small grey
+// labels off a bright frame, too little to notice over black.
+const SCRIM = { position: 'absolute', insetInline: 0, zIndex: 9, pointerEvents: 'none' };
+const SCRIM_DOWN = 'linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0.28) 55%, transparent)';
+const SCRIM_UP = 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.3) 55%, transparent)';
+
 /** The page's black, edge to edge. */
 export function ExoticFrame({ children }) {
     return <div style={FULL_BLEED}>{children}</div>;
@@ -77,30 +83,35 @@ export function ExoticTitle({ current, title, tagline, tracking = '0.18em' }) {
     const short = useIsShortViewport();
     const text = isMobile ? undefined : 'min(560px, 72vw)';
     return (
-        <div style={{
-            // Under the back link — which drops to 84px on a phone (.scene-back).
-            position: 'absolute', top: isMobile ? 120 : 102, insetInlineStart: 'var(--scene-inset)', zIndex: 10,
-            insetInlineEnd: 'var(--scene-inset)',
-            // Not a drag target: the scene runs on underneath it. The picker
-            // takes its own pointer events back.
-            pointerEvents: 'none',
-        }}>
-            <ExoticPicker current={current} />
-            <h1 style={{
-                margin: `var(${short ? '--s-3' : '--s-5'}) 0 0`, maxWidth: text,
-                fontSize: isMobile || short ? 'var(--fs-xl)' : 'var(--fs-2xl)', fontWeight: 300,
-                letterSpacing: tracking, textTransform: 'uppercase', color: 'var(--text-primary)',
-                textShadow: '0 2px 16px rgba(0,0,0,0.8)', textWrap: 'balance',
+        <>
+            {/* A soft dark behind the way out, the picker and the title, so they
+                read over a bright picture (the binary's disk fills the frame). */}
+            <div aria-hidden="true" style={{ ...SCRIM, top: 0, height: short ? 220 : 360, background: SCRIM_DOWN }} />
+            <div style={{
+                // Under the back link — which drops to 84px on a phone (.scene-back).
+                position: 'absolute', top: isMobile ? 120 : 102, insetInlineStart: 'var(--scene-inset)', zIndex: 10,
+                insetInlineEnd: 'var(--scene-inset)',
+                // Not a drag target: the scene runs on underneath it. The picker
+                // takes its own pointer events back.
+                pointerEvents: 'none',
             }}>
-                {title}
-            </h1>
-            {!short && <p style={{
-                margin: 'var(--s-2) 0 0', maxWidth: text, fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)',
-                textShadow: '0 1px 8px rgba(0,0,0,0.9)', textWrap: 'pretty',
-            }}>
-                {tagline}
-            </p>}
-        </div>
+                <ExoticPicker current={current} />
+                <h1 style={{
+                    margin: `var(${short ? '--s-3' : '--s-5'}) 0 0`, maxWidth: text,
+                    fontSize: isMobile || short ? 'var(--fs-xl)' : 'var(--fs-2xl)', fontWeight: 300,
+                    letterSpacing: tracking, textTransform: 'uppercase', color: 'var(--text-primary)',
+                    textShadow: '0 2px 16px rgba(0,0,0,0.8)', textWrap: 'balance',
+                }}>
+                    {title}
+                </h1>
+                {!short && <p style={{
+                    margin: 'var(--s-2) 0 0', maxWidth: text, fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)',
+                    textShadow: '0 1px 8px rgba(0,0,0,0.9)', textWrap: 'pretty',
+                }}>
+                    {tagline}
+                </p>}
+            </div>
+        </>
     );
 }
 
@@ -280,6 +291,16 @@ export function Slider({ name, value, display, min, max, step, onChange }) {
 }
 
 /**
+ * A number and the word after it never part at a line break: on a phone
+ * "1,3 megapixel" broke as "1,3 / megapixel", and "0% swallowed" as
+ * "0% / swallowed". Any script's digits, and a percent or degree sign
+ * after them.
+ */
+const keepUnits = (value) => (
+    typeof value === 'string' ? value.replace(/(\p{Nd}[%٪°]?) (?=\S)/gu, '$1 ') : value
+);
+
+/**
  * The readouts and the credit, stacked from the bottom edge. One column, so a
  * credit that wraps (any phone, a narrow window) pushes the readouts up
  * instead of running underneath them.
@@ -287,9 +308,12 @@ export function Slider({ name, value, display, min, max, step, onChange }) {
 export function ExoticFoot({ readouts, credit }) {
     return (
         <div style={{
-            position: 'absolute', bottom: 10, insetInline: 0, zIndex: 10,
+            position: 'absolute', bottom: 0, insetInline: 0, zIndex: 10,
             display: 'flex', flexDirection: 'column', gap: 'var(--s-3)',
             pointerEvents: 'none',
+            // The same soft dark as behind the title, rising behind the
+            // readouts and the credit.
+            paddingTop: 64, paddingBottom: 10, background: SCRIM_UP,
         }}>
             {readouts?.length > 0 && (
                 <dl
@@ -305,7 +329,7 @@ export function ExoticFoot({ readouts, credit }) {
                     {readouts.map(([label, value], i) => (
                         <div key={i} style={{ display: 'contents' }}>
                             <dt className="label">{label}</dt>
-                            <dd style={{ margin: 0 }}>{value}</dd>
+                            <dd style={{ margin: 0 }}>{keepUnits(value)}</dd>
                         </div>
                     ))}
                 </dl>
