@@ -30,7 +30,7 @@ const SCRIM_UP = 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.3) 55%,
 
 /** The page's black, edge to edge. */
 export function ExoticFrame({ children }) {
-    return <div style={FULL_BLEED}>{children}</div>;
+    return <div className="exotic-frame" style={FULL_BLEED}>{children}</div>;
 }
 
 const QUALITY_KEYS = {
@@ -88,8 +88,9 @@ export function ExoticTitle({ current, title, tagline, tracking = '0.18em' }) {
                 read over a bright picture (the binary's disk fills the frame). */}
             <div aria-hidden="true" style={{ ...SCRIM, top: 0, height: short ? 220 : 360, background: SCRIM_DOWN }} />
             <div style={{
-                // Under the back link — which drops to 84px on a phone (.scene-back).
-                position: 'absolute', top: isMobile ? 120 : 102, insetInlineStart: 'var(--scene-inset)', zIndex: 10,
+                // Under the back link — which drops to 84px on a phone held
+            // upright (.scene-back; not on its side, .exotic-frame).
+                position: 'absolute', top: isMobile && !short ? 126 : 108, insetInlineStart: 'var(--scene-inset)', zIndex: 10,
                 insetInlineEnd: 'var(--scene-inset)',
                 // Not a drag target: the scene runs on underneath it. The picker
                 // takes its own pointer events back.
@@ -97,7 +98,9 @@ export function ExoticTitle({ current, title, tagline, tracking = '0.18em' }) {
             }}>
                 <ExoticPicker current={current} />
                 <h1 style={{
-                    margin: `var(${short ? '--s-3' : '--s-5'}) 0 0`, maxWidth: text,
+                    margin: `var(${short ? '--s-3' : '--s-5'}) 0 0`, maxWidth: text, width: 'fit-content',
+                    // Short: one tight line, clear of the drawer's tab below it.
+                    ...(short && { lineHeight: 1.2 }),
                     fontSize: isMobile || short ? 'var(--fs-xl)' : 'var(--fs-2xl)', fontWeight: 300,
                     letterSpacing: tracking, textTransform: 'uppercase', color: 'var(--text-primary)',
                     textShadow: '0 2px 16px rgba(0,0,0,0.8)', textWrap: 'balance',
@@ -123,7 +126,14 @@ export function ExoticTitle({ current, title, tagline, tracking = '0.18em' }) {
 export function ExoticSettings({ label, closeLabel, children }) {
     const { t, rtl } = useI18n();
     const reduced = useReducedMotion();
+    const isMobile = useIsMobile();
+    const short = useIsShortViewport();
     const [open, setOpen] = useState(false);
+    // The tab is centred on the window, unless that puts it beside the title
+    // block (the window is short, or the title wraps on a small phone): then
+    // it drops to just under it. Only the tab moves; the drawer stays centred.
+    const tabFloor = short ? 210 : isMobile ? 350 : 290;
+    const tabTop = `max(50%, calc(50% + ${tabFloor}px - var(--app-vh, 100vh) / 2))`;
 
     // Its own flag: having found the solar system's drawer or the sky's
     // doesn't mean you know this page has one.
@@ -183,7 +193,7 @@ export function ExoticSettings({ label, closeLabel, children }) {
                         title={open ? closeLabel : label}
                         data-coach="exotic-tab"
                         style={{
-                            position: 'absolute', top: '50%',
+                            position: 'absolute', top: tabTop,
                             insetInlineStart: open ? '100%' : 0,
                             transform: 'translateY(-50%)',
                             transition: tabSlide,
@@ -306,6 +316,9 @@ const keepUnits = (value) => (
  * instead of running underneath them.
  */
 export function ExoticFoot({ readouts, credit }) {
+    // A short window: on the trailing side, out of the way of the drawer's
+    // tab on the leading edge, which sits low enough to meet them.
+    const short = useIsShortViewport();
     return (
         <div style={{
             position: 'absolute', bottom: 0, insetInline: 0, zIndex: 10,
@@ -318,9 +331,10 @@ export function ExoticFoot({ readouts, credit }) {
             {readouts?.length > 0 && (
                 <dl
                     style={{
-                        alignSelf: 'flex-start', marginBlock: 0, marginInline: 'var(--scene-inset)',
+                        alignSelf: short ? 'flex-end' : 'flex-start', marginBlock: 0, marginInline: 'var(--scene-inset)',
                         display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 'var(--s-4)',
-                        rowGap: 'var(--s-1)', alignItems: 'baseline',
+                        // Short: closer rows, so the disruption's five fit under its title.
+                        rowGap: short ? 1 : 'var(--s-1)', alignItems: 'baseline',
                         fontSize: 'var(--fs-xs)', fontWeight: 600, color: 'rgba(255,255,255,0.88)',
                         textShadow: '0 1px 6px rgba(0,0,0,0.9)',
                         fontVariantNumeric: 'tabular-nums',

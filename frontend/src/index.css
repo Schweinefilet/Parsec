@@ -1671,6 +1671,11 @@ button:focus-visible {
   .scene-back { top: 84px; }
   .scene-under-back { top: 124px; }
 }
+/* A phone on its side has no height to spare for that: the exotic page,
+   whose title and picker stack under the way out, keeps the desktop's. */
+@media (max-width: 767px) and (max-height: 520px) {
+  .exotic-frame .scene-back { top: 68px; }
+}
 /* The standalone pages' in-flow header (components/PageHeader) puts its back
    link on the same line as .scene-back above, so leaving the tracker and
    leaving the sky start from the same place on screen. */

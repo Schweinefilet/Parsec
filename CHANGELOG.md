@@ -16,6 +16,34 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.17.8
+
+**The exotic page's chrome, checked by measurement.** Rather than judging
+screenshots, a CDP script read the bounding box of every piece of chrome
+(header, way out, picker, title, tagline, drawer tab, readouts, credit) on
+every object, in all three languages, at eleven viewports from a
+1440×900 desktop down to a 740×360 phone on its side: 165 page loads. It
+flagged any two pieces closer than 6px, anything off screen, a pill whose
+label was clipped, and a number split from its unit. The first run flagged
+55 loads. This release takes it to none.
+
+- **The drawer's tab sat on the title** on a phone held sideways (the boxes
+  overlapped by 6px each way), and beside the tagline on a 360×640 phone
+  whose title wraps. The tab is still centred on the window, but never
+  above a floor under the title block (`max(50%, …)` on the tab alone; the
+  drawer itself stays centred).
+- **The picker crowded the way out**, 4–5px under it (worst with Arabic's
+  taller line). It sits 6px lower.
+- **On a phone on its side** (narrower than 768px *and* 520px tall or
+  less), the way out and the title now keep the desktop's height
+  (`.exotic-frame .scene-back`). The phone's extra 16px was there for an
+  upright phone, and it pushed the title into the readouts. In the short
+  layout the readouts move to the trailing side, away from the tab, with
+  tighter rows, so the tidal disruption's five fit under its title. The
+  title's box is now the width of its text.
+
+---
+
 ## 5.17.7
 
 **Finishing the exotic page's UI pass.** A second sweep took every object
