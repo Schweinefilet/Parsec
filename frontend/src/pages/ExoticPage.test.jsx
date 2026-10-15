@@ -27,10 +27,10 @@ describe('ExoticPage', () => {
     it('links to the objects on offer, not the stashed ones, and marks the one on screen', () => {
         at('/exotic/binary');
         const nav = screen.getByRole('navigation', { name: 'Exotic objects' });
-        for (const name of ['Gargantua', 'Wormhole', 'Binary black hole', 'Tidal disruption', 'Ring Nebula', 'HL Tau', 'WR 104']) {
+        for (const name of ['Gargantua', 'Wormhole', 'Binary black hole', 'Tidal disruption', 'WR 104']) {
             expect(nav).toHaveTextContent(name);
         }
-        for (const name of ['Neutron star', 'Roche lobe overflow']) {
+        for (const name of ['Neutron star', 'Roche lobe overflow', 'Ring Nebula', 'HL Tau']) {
             expect(nav).not.toHaveTextContent(name);
         }
         expect(screen.getByRole('link', { name: 'Binary black hole' })).toHaveAttribute('aria-current', 'page');
@@ -43,7 +43,7 @@ describe('ExoticPage', () => {
     });
 
     it('falls back to Gargantua for an unknown or stashed object', () => {
-        for (const url of ['/exotic/quasar', '/exotic/roche', '/exotic/neutron-star']) {
+        for (const url of ['/exotic/quasar', '/exotic/roche', '/exotic/neutron-star', '/exotic/ring', '/exotic/hl-tau']) {
             at(url);
             expect(screen.getByRole('heading', { name: 'Gargantua' })).toBeInTheDocument();
             cleanup();
@@ -54,9 +54,7 @@ describe('ExoticPage', () => {
         const cases = [
             ['/exotic/wormhole', ['Approach', 'Go through', 'From the other side'], []],
             ['/exotic/binary', ['Edge on', 'From above', 'Close in'], ['Hold the orbit', 'Gas disk round the pair']],
-            ['/exotic/hl-tau', ['As ALMA sees it', 'From above', 'Edge on', 'Close in'], ['Forming planets', 'Jet']],
             ['/exotic/wr104', ['As Keck sees it', 'At a slant', 'Edge on', 'Close in'], []],
-            ['/exotic/ring', ['As we see it', 'At a slant', 'From the side', 'Inside'], ['Dense knots']],
             ['/exotic/tde', ['Follow it', 'From above', 'At a slant', 'Close in'], []],
         ];
         for (const [url, shots, toggles] of cases) {
@@ -67,17 +65,6 @@ describe('ExoticPage', () => {
             expect(screen.getByRole('button', { name: 'High' })).toHaveAttribute('aria-pressed', 'true');
             cleanup();
         }
-    });
-
-    it('lets a shot switch how HL Tau is shown', () => {
-        at('/exotic/hl-tau');
-        fireEvent.click(screen.getByRole('button', { name: 'Scene settings' }));
-        expect(screen.getByRole('button', { name: 'Millimetre waves' })).toHaveAttribute('aria-pressed', 'true');
-        fireEvent.click(screen.getByRole('button', { name: 'Edge on' }));
-        expect(screen.getByRole('button', { name: 'Starlight' })).toHaveAttribute('aria-pressed', 'true');
-        fireEvent.click(screen.getByRole('button', { name: 'As ALMA sees it' }));
-        expect(screen.getByRole('button', { name: 'Millimetre waves' })).toHaveAttribute('aria-pressed', 'true');
-        expect(screen.getByText(/Jupiter masses/)).toHaveTextContent('0.5 · 0.31 · 0.05');
     });
 
     it('lets the disruption dive deeper, and says how close it comes', () => {

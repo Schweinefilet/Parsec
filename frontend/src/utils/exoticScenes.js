@@ -16,14 +16,14 @@ const DEG = Math.PI / 180;
  * What the page's picker offers, in order. Gargantua is its own page
  * (GargantuaPage), shown under the same picker; the rest are entries below.
  */
-export const EXOTIC_ORDER = ['gargantua', 'wormhole', 'binary', 'tde', 'ring', 'hl-tau', 'wr104'];
+export const EXOTIC_ORDER = ['gargantua', 'wormhole', 'binary', 'tde', 'wr104'];
 export const DEFAULT_EXOTIC = 'gargantua';
 /**
  * Built, tested, but pulled from the picker while they get a visual rework:
  * their URLs fall back to the default. Put an id back in EXOTIC_ORDER to
  * bring it back.
  */
-export const STASHED_EXOTIC = ['neutron-star', 'roche'];
+export const STASHED_EXOTIC = ['neutron-star', 'roche', 'ring', 'hl-tau'];
 
 export const EXOTIC = {
     wormhole: {

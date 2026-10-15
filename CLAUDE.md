@@ -38,10 +38,10 @@ npm run build    # static bundle in frontend/dist
   `utils/gargantuaShaders.js`. The others are each a shader in
   `utils/exoticShaders.js` mirroring its own physics module: a wormhole
   (`wormhole.js`), a binary black hole (`binaryHole.js`), a tidal disruption
-  (`tidalDisruption.js` + `debrisRaster.js`), the Ring Nebula
-  (`planetaryNebula.js`), HL Tau (`protoplanetaryDisk.js`) and WR 104
-  (`pinwheel.js`), with a neutron star (`neutronStar.js`) and a Roche-lobe
-  binary (`roche.js`) built but stashed out of the picker (`STASHED_EXOTIC`
+  (`tidalDisruption.js` + `debrisRaster.js`) and WR 104 (`pinwheel.js`),
+  with a neutron star (`neutronStar.js`), a Roche-lobe binary (`roche.js`),
+  the Ring Nebula (`planetaryNebula.js`) and HL Tau
+  (`protoplanetaryDisk.js`) built but stashed out of the picker (`STASHED_EXOTIC`
   in `utils/exoticScenes.js`). Gargantua's quasar jets are `jets.js`. In any
   of these shaders, never call `texture()` inside a long loop or a skippable
   branch: on Windows (ANGLE → D3D) it unrolls or flattens it; use

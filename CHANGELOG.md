@@ -16,6 +16,18 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.17.5
+
+**The Ring Nebula and HL Tau are off the exotic page for now.** Both are
+pulled from the picker into `STASHED_EXOTIC`, alongside the neutron star and
+the Roche-lobe binary, while they get a visual rework. Nothing is deleted:
+their scenes, shaders and physics modules (`planetaryNebula.js`,
+`protoplanetaryDisk.js`) and their tests are untouched, and
+`/exotic/ring` and `/exotic/hl-tau` fall back to Gargantua the way the other
+stashed URLs do. Putting an id back in `EXOTIC_ORDER` brings it back.
+
+---
+
 ## 5.17.4
 
 **A star torn apart by a black hole.** The last item on FUTUREPLAN.md, a new

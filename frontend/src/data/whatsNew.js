@@ -14,6 +14,7 @@ export const WHATS_NEW = [
     {
         version: '5.17',
         changes: [
+            'The Ring Nebula and HL Tau are off the exotic objects page for now, while they are reworked.',
             'A new exotic object: a white dwarf torn apart by a black hole. Watch it stretch into a stream, half of it thrown away and half falling back to wrap round the hole and settle into a glowing ring. The camera follows the whole thing.',
             'Gargantua can now be a quasar: two jets of plasma shooting out along its spin axis at nearly the speed of light, the one coming towards you far brighter than the other. Try the new “A quasar” shot.',
             'A new exotic object: the Ring Nebula, the glowing shell a dying star threw off, in the colours each element really shines in. Turn it to see that the ring is really a barrel we are looking straight down, and switch to Hubble’s colours.',
