@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EXOTIC_ORDER } from '../utils/exoticScenes';
 import { useIsMobile } from '../hooks/useMediaQuery';
@@ -16,22 +17,60 @@ const TITLE_KEY = {
     tde: 'exotic.tde.title',
 };
 
-// The row of objects under an /exotic page's title. Shared by ExoticPage and
+// The row of objects over an /exotic page's title. Shared by ExoticPage and
 // GargantuaPage, which is one of the objects but keeps its own page.
 //
 // On a phone it is one row that scrolls sideways rather than wrapping: two
-// rows of pills pushed the picture down under them.
+// rows of pills pushed the picture down under them. The row runs on to the
+// screen's edge and fades there, so a pill cut in half reads as "more this
+// way" rather than as clipped, and it opens scrolled to the object on screen.
 export default function ExoticPicker({ current }) {
-    const { t } = useI18n();
+    const { t, rtl } = useI18n();
     const isMobile = useIsMobile();
+    const navRef = useRef(null);
+    // Scrolled all the way along: nothing more to hint at, so no fade over
+    // the last pill.
+    const [atEnd, setAtEnd] = useState(false);
+    const measure = useCallback(() => {
+        const nav = navRef.current;
+        if (nav) setAtEnd(Math.abs(nav.scrollLeft) + nav.clientWidth >= nav.scrollWidth - 2);
+    }, []);
+
+    useEffect(() => {
+        const nav = navRef.current;
+        const el = nav?.querySelector('[aria-current]');
+        if (!isMobile || !nav) return;
+        if (el) {
+            // By hand rather than scrollIntoView, which would also scroll the
+            // page's own overflow-hidden frame.
+            const n = nav.getBoundingClientRect();
+            const e = el.getBoundingClientRect();
+            const pad = 24;
+            if (e.right > n.right - pad) nav.scrollLeft += e.right - n.right + pad;
+            else if (e.left < n.left + pad) nav.scrollLeft -= n.left + pad - e.left;
+        }
+        measure();
+    }, [current, isMobile, measure]);
+
+    const fade = `linear-gradient(to ${rtl ? 'left' : 'right'}, #000 calc(100% - 48px), transparent)`;
     return (
         <nav
+            ref={navRef}
             aria-label={t('exotic.objects')}
             className={isMobile ? 'no-scrollbar' : undefined}
+            onScroll={isMobile ? measure : undefined}
             style={{
                 display: 'flex', flexWrap: isMobile ? 'nowrap' : 'wrap', gap: 'var(--s-1)',
-                marginTop: 'var(--s-3)', pointerEvents: 'auto',
-                ...(isMobile && { overflowX: 'auto', overscrollBehaviorX: 'contain' }),
+                pointerEvents: 'auto',
+                ...(isMobile && {
+                    overflowX: 'auto', overscrollBehaviorX: 'contain',
+                    // Out to the screen's edge, with room for the focus ring,
+                    // which the scroller would otherwise clip.
+                    marginInlineEnd: 'calc(-1 * var(--scene-inset))',
+                    paddingInlineEnd: 'var(--scene-inset)',
+                    paddingBlock: 3, marginBlock: -3, paddingInlineStart: 3, marginInlineStart: -3,
+                    ...(!atEnd && { maskImage: fade, WebkitMaskImage: fade }),
+                }),
             }}
         >
             {EXOTIC_ORDER.map((id) => (

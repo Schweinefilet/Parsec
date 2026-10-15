@@ -281,7 +281,9 @@ const AppShell = ({ children }) => {
             className="min-h-screen text-white flex flex-col"
             style={{ paddingBottom: navHidden ? 0 : 68, transition: 'padding-bottom 500ms var(--ease-glide)' }}
         >
-            <a href="#catalog" className="skip-link">{t('app.skipToCatalog')}</a>
+            {/* Only where there is a catalog to skip to: on a page of its own
+                (the sky, the tracker, /exotic) it led nowhere. */}
+            {!onOwnPage && <a href="#catalog" className="skip-link">{t('app.skipToCatalog')}</a>}
 
             {/* ── Floating header ── */}
             {/* Once the page scrolls, the ticker and cards pass beneath this

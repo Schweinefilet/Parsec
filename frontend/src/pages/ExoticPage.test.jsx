@@ -1,13 +1,19 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import ExoticPage from './ExoticPage';
 
 // jsdom has no WebGL, so each renderer fails to start: the page has to say
 // so, and everything around the picture still has to work.
 
+function Where() {
+    const { pathname, search } = useLocation();
+    return <output data-testid="where">{pathname + search}</output>;
+}
+
 const at = (url = '/exotic/wormhole') => render(
     <MemoryRouter initialEntries={[url]}>
+        <Where />
         <Routes>
             <Route path="/exotic" element={<ExoticPage />} />
             <Route path="/exotic/:id" element={<ExoticPage />} />
@@ -46,8 +52,12 @@ describe('ExoticPage', () => {
         for (const url of ['/exotic/quasar', '/exotic/roche', '/exotic/neutron-star', '/exotic/ring', '/exotic/hl-tau']) {
             at(url);
             expect(screen.getByRole('heading', { name: 'Gargantua' })).toBeInTheDocument();
+            expect(screen.getByTestId('where')).toHaveTextContent(/^\/exotic\/gargantua$/);
             cleanup();
         }
+        // A linked shot survives the trip.
+        at('/exotic/roche?shot=physical');
+        expect(screen.getByTestId('where')).toHaveTextContent('/exotic/gargantua?shot=physical');
     });
 
     it('gives each object its own shots and settings', () => {

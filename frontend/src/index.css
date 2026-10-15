@@ -1534,11 +1534,16 @@ button:focus-visible {
 }
 .drawer-field-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: var(--s-2);
+  column-gap: var(--s-2);
   margin-bottom: 3px;
 }
+/* Kept whole: a long value ("β = 1.50 · closest 10 M") drops under its
+   caption, still against the far edge, instead of stranding its unit. */
 .drawer-field-value {
+  margin-inline-start: auto;
+  white-space: nowrap;
   color: var(--accent-warm);
   font-variant-numeric: tabular-nums;
 }
@@ -1594,6 +1599,9 @@ button:focus-visible {
   gap: 6px;
 }
 .opt-grid > .opt-row { margin-top: 0; justify-content: center; text-align: center; }
+/* An odd one out takes the whole last row, rather than leaving a hole beside
+   it and wrapping its label to fit half the width. */
+.opt-grid > .opt-row:last-child:nth-child(odd) { grid-column: 1 / -1; }
 
 /* A menu is a list of places or choices. Its rows are `.menu-item`; the
    current one carries aria-selected (a listbox) or data-on (a menu). */

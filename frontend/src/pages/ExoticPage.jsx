@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
     Cpu, Clapperboard, Zap, Grid3x3, Pause, Disc, Orbit, MoveVertical, Sparkles, RotateCcw,
 } from 'lucide-react';
@@ -152,7 +152,7 @@ function ExoticView({ id }) {
         }
         readouts.push([
             <Cpu key="cpu" style={{ width: 11, height: 11, display: 'inline' }} aria-hidden="true" />,
-            t('gargantua.perf', { fps: num(Math.round(hud.fps)), mp: num(hud.pixels / 1e6, f1) }),
+            t('gargantua.perf', { fps: num(Math.round(hud.fps)), mp: num(hud.pixels / 1e6, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }),
         ]);
     }
 
@@ -331,7 +331,12 @@ const ExoticPage = () => {
     const { t } = useI18n();
     const navigate = useNavigate();
     const params = useParams();
+    const { search } = useLocation();
     const id = resolveExotic(params.id);
+
+    // An unknown or stashed object shows the default under its own address,
+    // so the address says what is on screen (and a link copied from it does).
+    if (params.id && params.id !== id) return <Navigate to={`/exotic/${id}${search}`} replace />;
 
     // Gargantua keeps its own page, its own phone warning included (the
     // two share one "run it anyway", so it is asked once a visit).
@@ -340,8 +345,9 @@ const ExoticPage = () => {
     return (
         <PhoneGate body={t('exotic.desktopBody')}>
             <ExoticFrame>
-                <ExoticView key={id} id={id} />
+                {/* First, so it is first to a keyboard too, as on Gargantua. */}
                 <SceneBack onClick={() => navigate('/')} />
+                <ExoticView key={id} id={id} />
             </ExoticFrame>
         </PhoneGate>
     );

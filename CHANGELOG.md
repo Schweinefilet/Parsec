@@ -16,6 +16,48 @@ Every release is a commit titled with its version. The version in
 
 ---
 
+## 5.17.6
+
+**A UI pass over the exotic page.** Driven in headless Chrome across every
+object, desktop and phone, portrait and landscape, in all three languages,
+and fixed wherever something was off.
+
+The object picker now sits *above* the title instead of under it. Under a
+title and tagline that wrap differently for every object (and every
+language), the pills moved each time you switched: click "Wormhole" and the
+row jumped up 19px; click "Binary black hole", whose name wraps, and it
+dropped 51px. Above them it never moves, and on a desktop it fits one row.
+The title and tagline get a wider 560px column with balanced and pretty
+wrapping, so taglines no longer leave a single word ("merge", "days") on a
+line of its own.
+
+On a phone the picker row now runs on to the screen's edge and fades there,
+so the half-cut pill reads as "scroll for more" rather than as clipped. It
+opens scrolled to the object on screen (WR 104 was off the edge), the fade
+follows the reading direction in Arabic and goes away once the row is
+scrolled to its end, and the scroller no longer clips the focus ring.
+
+A phone on its side or a short window (`useIsShortViewport`, 520px tall or
+less) drops the tagline and sets the title a size smaller: the readouts
+climbing from the bottom were writing over the tagline coming down, and the
+drawer's tab sat on the title.
+
+In the settings drawer, an odd last option (the wormhole's "From the other
+side", Gargantua's "Fall in", the binary's "Close in") now takes the whole
+last row rather than wrapping into half of it next to a hole. A long slider
+value ("β = 1.50 · closest 10 M") drops under its caption whole instead of
+stranding its unit on a line of its own.
+
+Smaller fixes: an unknown or stashed object (`/exotic/roche`) now redirects
+to `/exotic/gargantua`, query string kept, so the address says what is on
+screen; "Go back" comes first in keyboard order on every object, as it
+already did on Gargantua; the frame-rate readout says "1.0 megapixels", not
+"1 megapixels"; and the "Skip to catalog" link no longer appears on pages
+that have no catalog (`/exotic`, `/sky`, `/satellites`), where it led
+nowhere.
+
+---
+
 ## 5.17.5
 
 **The Ring Nebula and HL Tau are off the exotic page for now.** Both are

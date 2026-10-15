@@ -94,7 +94,7 @@ const GargantuaPage = () => {
         })]] : []),
         [
             <Cpu key="cpu" style={{ width: 11, height: 11, display: 'inline' }} aria-hidden="true" />,
-            t('gargantua.perf', { fps: num(Math.round(hud.fps)), mp: num(hud.pixels / 1e6, f1) }),
+            t('gargantua.perf', { fps: num(Math.round(hud.fps)), mp: num(hud.pixels / 1e6, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }),
         ],
     ] : null;
 

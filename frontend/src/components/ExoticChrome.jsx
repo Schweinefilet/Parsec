@@ -6,13 +6,13 @@ import CoachMark from './CoachMark';
 import SceneBack from './SceneBack';
 import SceneDialog from './SceneDialog';
 import ExoticPicker from './ExoticPicker';
-import { useIsMobile, useIsTouch, useReducedMotion } from '../hooks/useMediaQuery';
+import { useIsMobile, useIsShortViewport, useIsTouch, useReducedMotion } from '../hooks/useMediaQuery';
 import { QUALITY_ORDER } from '../utils/gargantuaCamera';
 import { useI18n } from '../i18n';
 
 // The chrome every /exotic object shares — Gargantua's page (GargantuaPage)
-// and the rest (ExoticPage) — so the two can't drift apart: the title with the
-// object picker under it, the settings drawer, the readouts and credit along
+// and the rest (ExoticPage) — so the two can't drift apart: the picker with the
+// title under it, the settings drawer, the readouts and credit along
 // the bottom, and the phone warning.
 
 // Full bleed out of AppShell's centred <main>; see NightSkyPage for why both
@@ -64,32 +64,42 @@ export function PhoneGate({ body, children }) {
     );
 }
 
-/** The object's name, its line, and the picker — under the way out. */
+/**
+ * The picker, then the object's name and its line — under the way out. The
+ * picker comes first so it never moves: under a title and tagline that wrap
+ * differently for every object (and every language), the pill just clicked
+ * jumped out from under the pointer.
+ */
 export function ExoticTitle({ current, title, tagline, tracking = '0.18em' }) {
     const isMobile = useIsMobile();
+    // A phone on its side, or a short window: the readouts climbing from the
+    // bottom met the tagline coming down. The name alone, a size smaller.
+    const short = useIsShortViewport();
+    const text = isMobile ? undefined : 'min(560px, 72vw)';
     return (
         <div style={{
             // Under the back link — which drops to 84px on a phone (.scene-back).
-            position: 'absolute', top: isMobile ? 124 : 104, insetInlineStart: 'var(--scene-inset)', zIndex: 10,
+            position: 'absolute', top: isMobile ? 120 : 102, insetInlineStart: 'var(--scene-inset)', zIndex: 10,
+            insetInlineEnd: 'var(--scene-inset)',
             // Not a drag target: the scene runs on underneath it. The picker
             // takes its own pointer events back.
             pointerEvents: 'none',
-            maxWidth: isMobile ? 'calc(100vw - 2 * var(--scene-inset))' : 'min(440px, 72vw)',
         }}>
+            <ExoticPicker current={current} />
             <h1 style={{
-                margin: 0, fontSize: isMobile ? 'var(--fs-xl)' : 'var(--fs-2xl)', fontWeight: 300,
+                margin: `var(${short ? '--s-3' : '--s-5'}) 0 0`, maxWidth: text,
+                fontSize: isMobile || short ? 'var(--fs-xl)' : 'var(--fs-2xl)', fontWeight: 300,
                 letterSpacing: tracking, textTransform: 'uppercase', color: 'var(--text-primary)',
-                textShadow: '0 2px 16px rgba(0,0,0,0.8)',
+                textShadow: '0 2px 16px rgba(0,0,0,0.8)', textWrap: 'balance',
             }}>
                 {title}
             </h1>
-            <p style={{
-                margin: 'var(--s-2) 0 0', fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)',
-                textShadow: '0 1px 8px rgba(0,0,0,0.9)',
+            {!short && <p style={{
+                margin: 'var(--s-2) 0 0', maxWidth: text, fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)',
+                textShadow: '0 1px 8px rgba(0,0,0,0.9)', textWrap: 'pretty',
             }}>
                 {tagline}
-            </p>
-            <ExoticPicker current={current} />
+            </p>}
         </div>
     );
 }
