@@ -24,8 +24,9 @@ screenshots, a CDP script read the bounding box of every piece of chrome
 every object, in all three languages, at eleven viewports from a
 1440×900 desktop down to a 740×360 phone on its side: 165 page loads. It
 flagged any two pieces closer than 6px, anything off screen, a pill whose
-label was clipped, and a number split from its unit. The first run flagged
-55 loads. This release takes it to none.
+label was clipped, and a number split from its unit. The first run, over
+the first seven of those viewports, flagged 80 of its 105 loads. This
+release takes all 165 to none.
 
 - **The drawer's tab sat on the title** on a phone held sideways (the boxes
   overlapped by 6px each way), and beside the tagline on a 360×640 phone
